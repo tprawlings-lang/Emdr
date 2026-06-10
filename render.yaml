@@ -1,13 +1,18 @@
 # Render.com blueprint: in the Render dashboard choose New > Blueprint,
-# connect this repo, and apply. Free-tier instances have ephemeral disks,
-# which is fine for the demo — the fictional dataset reseeds on every restart.
+# connect this repo, and apply. The starter instance with a persistent disk
+# at /data keeps accounts and member data across deploys and restarts —
+# the fictional demo dataset seeds once, then everything persists.
 services:
   - type: web
     name: steady-emdr-demo
     runtime: docker
-    plan: free
+    plan: starter
     branch: claude/gifted-keller-501y5d
     healthCheckPath: /
+    disk:
+      name: data
+      mountPath: /data
+      sizeGB: 1
     envVars:
       - key: EMDR_DEMO
         value: "1"
