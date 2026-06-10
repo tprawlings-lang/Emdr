@@ -5,6 +5,7 @@ import { getDb } from "@/lib/db";
 import { MODULES } from "@/lib/modules";
 import { audit } from "@/lib/audit";
 import { scoreItq } from "@/lib/instruments";
+import { decryptField } from "@/lib/crypto";
 import TrendChart from "@/components/TrendChart";
 
 export default async function MemberDetailPage({
@@ -51,7 +52,7 @@ export default async function MemberDetailPage({
     .reverse()
     .map((s) => ({
       date: s.created_at.slice(0, 10),
-      ...scoreItq(JSON.parse(s.answers_json)),
+      ...scoreItq(JSON.parse(decryptField(s.answers_json))),
     }));
 
   const checkins = db
@@ -164,7 +165,7 @@ export default async function MemberDetailPage({
               {screenings.map((s, i) => {
                 const flags = JSON.parse(s.risk_flags_json) as string[];
                 const itq =
-                  s.instrument === "itq" ? scoreItq(JSON.parse(s.answers_json)) : null;
+                  s.instrument === "itq" ? scoreItq(JSON.parse(decryptField(s.answers_json))) : null;
                 return (
                   <tr key={i} className="border-t border-ground/10">
                     <td className="px-4 py-2 font-medium">{s.instrument}</td>

@@ -17,7 +17,9 @@ export default async function LoginPage({
       <p className="mt-2 text-sm text-olive">This is your private space. Take your time.</p>
       {error && (
         <p className="mt-4 rounded-2xl border border-support/40 bg-support/10 px-4 py-3 text-sm text-support-deep">
-          That email or password didn&apos;t match. Try again when you&apos;re ready.
+          {error === "locked"
+            ? "Too many attempts \u2014 this account is paused for 15 minutes to protect it. Try again then."
+            : "That email or password didn't match. Try again when you're ready."}
         </p>
       )}
       <form action={login} className="mt-6 space-y-4">

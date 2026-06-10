@@ -1,5 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { getDb, newId } from "./db";
+import { decryptField, encryptField } from "./crypto";
 import {
   CompanionContext,
   CompanionReply,
@@ -142,13 +143,13 @@ function executeTool(
         `UPDATE user_triggers SET trigger_category = ?, intensity_score = COALESCE(?, intensity_score),
          common_responses_json = COALESCE(?, common_responses_json), notes = COALESCE(?, notes),
          active = 1, updated_at = datetime('now') WHERE id = ?`
-      ).run(category, intensity, responses ? JSON.stringify(responses) : null, notes, existing.id);
+      ).run(category, intensity, responses ? JSON.stringify(responses) : null, encryptField(notes), existing.id);
       return `Updated trigger "${triggerName}".`;
     }
     db.prepare(
       `INSERT INTO user_triggers (id, user_id, trigger_name, trigger_category, intensity_score, common_responses_json, notes)
        VALUES (?, ?, ?, ?, ?, ?, ?)`
-    ).run(newId(), userId, triggerName, category, intensity, JSON.stringify(responses ?? []), notes);
+    ).run(newId(), userId, triggerName, category, intensity, JSON.stringify(responses ?? []), encryptField(notes));
     return `Saved new trigger "${triggerName}".`;
   }
   if (name === "remember") {
@@ -350,7 +351,10 @@ function loadHistory(convId: string, userId: string): Anthropic.MessageParam[] {
     .all(convId, userId) as { sender: "member" | "companion"; message_text: string }[];
   return rows
     .reverse()
-    .map((r) => ({ role: r.sender === "member" ? ("user" as const) : ("assistant" as const), content: r.message_text }));
+    .map((r) => ({
+      role: r.sender === "member" ? ("user" as const) : ("assistant" as const),
+      content: decryptField(r.message_text),
+    }));
 }
 
 // Companion-first opening for the post-check-in daily chat. The synthetic

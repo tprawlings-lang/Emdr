@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { getDb, hashPassword, newId, verifyPassword } from "./db";
 import { safetyRefundAndCancel, setCancelAtPeriodEnd, startDemoSubscription, subscriptionActive } from "./billing";
 import { recordFitnessScreening } from "./fitness-screener";
+import { decryptField, encryptField } from "./crypto";
 import { audit } from "./audit";
 import {
   requireUser,
@@ -51,6 +52,21 @@ export async function login(formData: FormData) {
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
   const password = String(formData.get("password") ?? "");
   const db = getDb();
+
+  // Lockout (compliance 1.5): 10 failed attempts in 15 minutes locks the
+  // account for 15 minutes. Counted from the append-only audit trail.
+  const recentFailures = db
+    .prepare(
+      `SELECT COUNT(*) AS n FROM audit_log
+       WHERE event_type = 'login_failed' AND target = ?
+         AND created_at > datetime('now', '-15 minutes')`
+    )
+    .get(email) as { n: number };
+  if (recentFailures.n >= 10) {
+    audit({ family: "identity", type: "login_locked", target: email });
+    redirect("/login?error=locked");
+  }
+
   const user = db
     .prepare("SELECT id, role, password_hash FROM users WHERE email = ? AND status = 'active'")
     .get(email) as { id: string; role: string; password_hash: string } | undefined;
@@ -259,7 +275,7 @@ export async function submitScreening(formData: FormData) {
   db.prepare(
     `INSERT INTO screenings (id, user_id, instrument, instrument_version, total_score, answers_json, risk_flags_json)
      VALUES (?, ?, ?, ?, ?, ?, ?)`
-  ).run(newId(), user.id, instrument.id, instrument.version, total, JSON.stringify(answers), JSON.stringify(riskFlags));
+  ).run(newId(), user.id, instrument.id, instrument.version, total, encryptField(JSON.stringify(answers)), JSON.stringify(riskFlags));
 
   audit({
     actorId: user.id,
@@ -501,9 +517,9 @@ export async function saveSafetyPlan(formData: FormData) {
     JSON.stringify(tools),
     String(formData.get("contact_name") ?? "").slice(0, 100) || null,
     String(formData.get("contact_method") ?? "").slice(0, 100) || null,
-    String(formData.get("reminder") ?? "").slice(0, 300) || null,
-    String(formData.get("stop_signs") ?? "").slice(0, 500) || null,
-    String(formData.get("careful_topics") ?? "").slice(0, 500) || null
+    encryptField(String(formData.get("reminder") ?? "").slice(0, 300) || null),
+    encryptField(String(formData.get("stop_signs") ?? "").slice(0, 500) || null),
+    encryptField(String(formData.get("careful_topics") ?? "").slice(0, 500) || null)
   );
   for (const tool of tools) {
     writeMemory({ userId: user.id, type: "grounding_tool", key: tool, value: "Chosen in safety plan.", source: "onboarding" });
@@ -596,8 +612,8 @@ export async function sendCompanionMessage(
   const insertMsg = db.prepare(
     "INSERT INTO ai_messages (id, conversation_id, user_id, sender, message_text, risk_flag) VALUES (?, ?, ?, ?, ?, ?)"
   );
-  insertMsg.run(newId(), convId, user.id, "member", trimmed, reply.riskFlag ? 1 : 0);
-  insertMsg.run(newId(), convId, user.id, "companion", reply.text, reply.riskFlag ? 1 : 0);
+  insertMsg.run(newId(), convId, user.id, "member", encryptField(trimmed), reply.riskFlag ? 1 : 0);
+  insertMsg.run(newId(), convId, user.id, "companion", encryptField(reply.text), reply.riskFlag ? 1 : 0);
 
   if (reply.riskFlag) {
     db.prepare("UPDATE ai_conversations SET risk_level = 'urgent' WHERE id = ?").run(convId);
@@ -789,7 +805,7 @@ export async function startDailyCompanionChat(): Promise<{
         conversationId: existing.id,
         messages: messages.map((m) => ({
           sender: m.sender,
-          text: m.message_text,
+          text: decryptField(m.message_text),
           riskFlag: m.risk_flag === 1,
         })),
       };
@@ -818,7 +834,7 @@ export async function startDailyCompanionChat(): Promise<{
 
   db.prepare(
     "INSERT INTO ai_messages (id, conversation_id, user_id, sender, message_text, risk_flag) VALUES (?, ?, ?, 'companion', ?, ?)"
-  ).run(newId(), convId, user.id, opening.text, opening.riskFlag ? 1 : 0);
+  ).run(newId(), convId, user.id, encryptField(opening.text), opening.riskFlag ? 1 : 0);
   if (opening.riskFlag) {
     db.prepare("UPDATE ai_conversations SET risk_level = 'urgent' WHERE id = ?").run(convId);
     createAlert({

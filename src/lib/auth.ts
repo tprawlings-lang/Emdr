@@ -24,6 +24,11 @@ export function makeSessionToken(userId: string): string {
   return `${payload}.${sign(payload)}`;
 }
 
+// Session lifetime (compliance 1.3): 7-day idle window via the cookie's
+// maxAge, 30-day absolute cap via the issue timestamp inside the signed token.
+const IDLE_MAX_AGE_SEC = 7 * 24 * 60 * 60;
+const ABSOLUTE_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000;
+
 function parseToken(token: string): string | null {
   const lastDot = token.lastIndexOf(".");
   if (lastDot < 0) return null;
@@ -32,7 +37,11 @@ function parseToken(token: string): string | null {
   const expected = sign(payload);
   if (sig.length !== expected.length) return null;
   if (!crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(expected))) return null;
-  return payload.split(".")[0] ?? null;
+  const [userId, issuedAt] = payload.split(".");
+  if (!userId) return null;
+  const issued = Number(issuedAt);
+  if (!Number.isFinite(issued) || Date.now() - issued > ABSOLUTE_MAX_AGE_MS) return null;
+  return userId;
 }
 
 export async function setSessionCookie(userId: string) {
@@ -40,9 +49,9 @@ export async function setSessionCookie(userId: string) {
   store.set(COOKIE, makeSessionToken(userId), {
     httpOnly: true,
     sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
     path: "/",
-    // 30 min idle target per plan; dev uses a fixed max age for simplicity.
-    maxAge: 60 * 60 * 8,
+    maxAge: IDLE_MAX_AGE_SEC,
   });
 }
 

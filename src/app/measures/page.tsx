@@ -5,6 +5,7 @@ import { subscriptionActive } from "@/lib/billing";
 import { getDb } from "@/lib/db";
 import { hasConsent, screeningComplete } from "@/lib/gating";
 import { getInstrument, scoreItq } from "@/lib/instruments";
+import { decryptField } from "@/lib/crypto";
 
 const TRACKED: { id: "pcl-5" | "itq"; cadenceDays: number }[] = [
   { id: "pcl-5", cadenceDays: 7 },
@@ -60,7 +61,7 @@ export default async function MeasuresPage({
       <div className="mt-6 space-y-4">
         {rows.map((r) => {
           const itq =
-            r.id === "itq" && r.last ? scoreItq(JSON.parse(r.last.answers_json)) : null;
+            r.id === "itq" && r.last ? scoreItq(JSON.parse(decryptField(r.last.answers_json))) : null;
           return (
             <div key={r.id} className="rounded-3xl border border-ground/10 bg-linen p-5 shadow-soft">
               <div className="flex flex-wrap items-center justify-between gap-3">

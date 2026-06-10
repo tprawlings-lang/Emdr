@@ -1,4 +1,5 @@
 import { getDb, newId } from "./db";
+import { decryptField, encryptField } from "./crypto";
 import {
   CompanionPrefs,
   ReadinessAssessment,
@@ -113,21 +114,22 @@ export function writeMemory(args: {
   if (existing) {
     db.prepare(
       "UPDATE ai_memory_items SET memory_value = ?, source_type = ?, source_id = ?, updated_at = datetime('now') WHERE id = ?"
-    ).run(args.value, args.source, args.sourceId ?? null, existing.id);
+    ).run(encryptField(args.value), args.source, args.sourceId ?? null, existing.id);
   } else {
     db.prepare(
       `INSERT INTO ai_memory_items (id, user_id, memory_type, memory_key, memory_value, source_type, source_id)
        VALUES (?, ?, ?, ?, ?, ?, ?)`
-    ).run(newId(), args.userId, args.type, args.key, args.value, args.source, args.sourceId ?? null);
+    ).run(newId(), args.userId, args.type, args.key, encryptField(args.value), args.source, args.sourceId ?? null);
   }
 }
 
 export function getMemoryItems(userId: string): MemoryItem[] {
-  return getDb()
+  const rows = getDb()
     .prepare(
       "SELECT * FROM ai_memory_items WHERE user_id = ? AND active = 1 ORDER BY memory_type, memory_key"
     )
     .all(userId) as MemoryItem[];
+  return rows.map((r) => ({ ...r, memory_value: decryptField(r.memory_value) }));
 }
 
 export function getMemoryItemsByType(userId: string, type: MemoryType): MemoryItem[] {

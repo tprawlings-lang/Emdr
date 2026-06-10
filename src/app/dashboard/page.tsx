@@ -13,6 +13,7 @@ import {
 } from "@/lib/gating";
 import { logout, requestUnlock } from "@/lib/actions";
 import { scoreItq } from "@/lib/instruments";
+import { decryptField } from "@/lib/crypto";
 import {
   TRACK_GUIDANCE,
   TRACK_LABELS,
@@ -67,7 +68,7 @@ export default async function DashboardPage() {
     .all(user.id) as { answers_json: string; created_at: string }[];
   const itqScores = itqRows.map((r) => ({
     date: r.created_at.slice(0, 10),
-    ...scoreItq(JSON.parse(r.answers_json)),
+    ...scoreItq(JSON.parse(decryptField(r.answers_json))),
   }));
 
   const recentMeasures = db

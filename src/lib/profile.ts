@@ -1,4 +1,5 @@
 import { getDb } from "./db";
+import { decryptField } from "./crypto";
 
 // Onboarding profile system: trigger mapping, early warning signs, readiness
 // assessment, and safety planning (feature spec sections 3–6). Catalogs are
@@ -250,11 +251,12 @@ export function profileComplete(userId: string): boolean {
 }
 
 export function getActiveTriggers(userId: string): UserTrigger[] {
-  return getDb()
+  const rows = getDb()
     .prepare(
       "SELECT * FROM user_triggers WHERE user_id = ? AND active = 1 ORDER BY intensity_score DESC, trigger_name"
     )
     .all(userId) as UserTrigger[];
+  return rows.map((r) => ({ ...r, notes: decryptField(r.notes) }));
 }
 
 export function getWarningSigns(userId: string): string[] {
@@ -268,7 +270,13 @@ export function getSafetyPlan(userId: string): SafetyPlan | null {
   const row = getDb()
     .prepare("SELECT * FROM safety_plans WHERE user_id = ?")
     .get(userId) as SafetyPlan | undefined;
-  return row ?? null;
+  if (!row) return null;
+  return {
+    ...row,
+    reminder_phrase: decryptField(row.reminder_phrase),
+    stop_signs: decryptField(row.stop_signs),
+    careful_topics: decryptField(row.careful_topics),
+  };
 }
 
 export function getCompanionPrefs(userId: string): CompanionPrefs | null {

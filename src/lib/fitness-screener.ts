@@ -1,4 +1,5 @@
 import { getDb, newId } from "./db";
+import { encryptField } from "./crypto";
 
 // Onboarding fitness screener (compliance packet 4A): gatekeeping for a
 // self-guided program with no humans on call. Mandatory before baseline
@@ -149,7 +150,7 @@ export function recordFitnessScreening(userId: string, answers: Record<string, b
       FITNESS_SCREENER_ID,
       FITNESS_SCREENER_VERSION,
       flags.length,
-      JSON.stringify(coded),
+      encryptField(JSON.stringify(coded)),
       JSON.stringify(flags)
     );
   return { outcome, flags };
