@@ -9,6 +9,7 @@ const ERROR_COPY: Record<string, string> = {
   invalid: "Please use your name and a valid email address.",
   password: "Choose a password with at least 8 characters.",
   exists: "That email already has a space here. Try signing in instead.",
+  code: "That clinician access code didn't match. Check with whoever sent you the demo link.",
 };
 
 export default async function SignupPage({
@@ -19,6 +20,7 @@ export default async function SignupPage({
   const user = await getCurrentUser();
   if (user) redirect(user.role === "member" ? "/dashboard" : "/clinician");
   const { error } = await searchParams;
+  const demo = process.env.EMDR_DEMO === "1";
 
   return (
     <main className="mx-auto max-w-4xl px-6 py-14">
@@ -106,6 +108,36 @@ export default async function SignupPage({
                 />
                 <span className="mt-1 block text-xs text-olive">At least 8 characters.</span>
               </label>
+              {demo && (
+                <details className="rounded-2xl border border-ground/10 bg-ivory p-4">
+                  <summary className="cursor-pointer text-sm font-medium">
+                    Reviewing Steady as a clinician?
+                  </summary>
+                  <div className="mt-3 space-y-3">
+                    <p className="text-xs text-olive">
+                      Demo only: clinician accounts see the specialist dashboard — the review
+                      queue, every member&apos;s trends, and the audit ledger. You&apos;ll need
+                      the access code from whoever sent you this link.
+                    </p>
+                    <div className="flex gap-2">
+                      <label className="cursor-pointer rounded-full border border-ground/15 bg-linen px-4 py-2 text-sm transition-colors hover:bg-moss has-checked:border-clay has-checked:bg-clay has-checked:font-semibold">
+                        <input type="radio" name="role" value="member" defaultChecked className="sr-only" />
+                        Member
+                      </label>
+                      <label className="cursor-pointer rounded-full border border-ground/15 bg-linen px-4 py-2 text-sm transition-colors hover:bg-moss has-checked:border-clay has-checked:bg-clay has-checked:font-semibold">
+                        <input type="radio" name="role" value="clinician" className="sr-only" />
+                        Clinician
+                      </label>
+                    </div>
+                    <input
+                      name="clinician_code"
+                      type="text"
+                      placeholder="Clinician access code"
+                      className="w-full rounded-2xl border border-ground/15 bg-linen px-4 py-2 text-sm focus:border-sage focus:outline-none"
+                    />
+                  </div>
+                </details>
+              )}
               <button
                 type="submit"
                 className="w-full rounded-full bg-sage px-6 py-3.5 font-medium text-ground transition-colors hover:bg-sage-deep"

@@ -69,17 +69,35 @@ export async function signup(formData: FormData) {
   if (!name || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) redirect("/signup?error=invalid");
   if (password.length < 8) redirect("/signup?error=password");
 
+  // Demo deployments let reviewers create clinician accounts, gated by a
+  // shared access code (EMDR_CLINICIAN_CODE) so the clinician view — which
+  // sees every member — can't be reached by arbitrary visitors. Production
+  // clinician accounts are provisioned, never self-served.
+  const demo = process.env.EMDR_DEMO === "1";
+  const wantsClinician = demo && formData.get("role") === "clinician";
+  if (wantsClinician) {
+    const code = String(formData.get("clinician_code") ?? "").trim();
+    if (!code || code !== (process.env.EMDR_CLINICIAN_CODE ?? "steady-colleague"))
+      redirect("/signup?error=code");
+  }
+
   const db = getDb();
   const existing = db.prepare("SELECT id FROM users WHERE email = ?").get(email);
   if (existing) redirect("/signup?error=exists");
 
   const userId = newId();
   db.prepare(
-    "INSERT INTO users (id, email, name, role, password_hash) VALUES (?, ?, ?, 'member', ?)"
-  ).run(userId, email, name, hashPassword(password));
+    "INSERT INTO users (id, email, name, role, password_hash) VALUES (?, ?, ?, ?, ?)"
+  ).run(userId, email, name, wantsClinician ? "clinician" : "member", hashPassword(password));
   await setSessionCookie(userId);
-  audit({ actorId: userId, actorRole: "member", family: "identity", type: "account_created" });
-  redirect("/subscribe");
+  audit({
+    actorId: userId,
+    actorRole: wantsClinician ? "clinician" : "member",
+    family: "identity",
+    type: "account_created",
+    detail: wantsClinician ? { demoClinicianSignup: true } : {},
+  });
+  redirect(wantsClinician ? "/clinician" : "/subscribe");
 }
 
 // ---------- Membership billing ----------

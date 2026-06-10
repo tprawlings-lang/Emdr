@@ -26,7 +26,8 @@ export default function RootLayout({
           <div className="bg-ground px-4 py-2 text-center text-sm text-ivory/90">
             <strong>Demonstration environment.</strong> All people and data are fictional and
             reset periodically. Member: demo@example.com · Clinician: clinician@example.com ·
-            password demo1234
+            password demo1234 — or{" "}
+            <a href="/signup" className="underline">create your own account</a>
           </div>
         )}
         <div className="flex-1">{children}</div>
