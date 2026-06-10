@@ -4,6 +4,8 @@ import { requireClinician } from "@/lib/auth";
 import { getDb } from "@/lib/db";
 import { MODULES } from "@/lib/modules";
 import { audit } from "@/lib/audit";
+import { scoreItq } from "@/lib/instruments";
+import TrendChart from "@/components/TrendChart";
 
 export default async function MemberDetailPage({
   params,
@@ -30,9 +32,27 @@ export default async function MemberDetailPage({
 
   const screenings = db
     .prepare(
-      "SELECT instrument, total_score, risk_flags_json, created_at FROM screenings WHERE user_id = ? ORDER BY created_at DESC"
+      "SELECT instrument, total_score, answers_json, risk_flags_json, created_at FROM screenings WHERE user_id = ? ORDER BY created_at DESC"
     )
-    .all(id) as { instrument: string; total_score: number; risk_flags_json: string; created_at: string }[];
+    .all(id) as {
+    instrument: string;
+    total_score: number;
+    answers_json: string;
+    risk_flags_json: string;
+    created_at: string;
+  }[];
+
+  const pcl5Series = screenings
+    .filter((s) => s.instrument === "pcl-5")
+    .reverse()
+    .map((s) => ({ date: s.created_at.slice(0, 10), value: s.total_score }));
+  const itqSeries = screenings
+    .filter((s) => s.instrument === "itq")
+    .reverse()
+    .map((s) => ({
+      date: s.created_at.slice(0, 10),
+      ...scoreItq(JSON.parse(s.answers_json)),
+    }));
 
   const checkins = db
     .prepare(
@@ -88,6 +108,46 @@ export default async function MemberDetailPage({
         {member.email} · joined {member.created_at.slice(0, 10)}
       </p>
 
+      {(pcl5Series.length > 0 || itqSeries.length > 0) && (
+        <section className="mt-8">
+          <h2 className="text-lg font-bold">Outcome trends</h2>
+          <div className="mt-2 grid gap-4 md:grid-cols-2">
+            {pcl5Series.length > 0 && (
+              <TrendChart
+                title="PCL-5 total"
+                max={80}
+                series={[{ label: "PCL-5", color: "#1c1917", points: pcl5Series }]}
+              />
+            )}
+            {itqSeries.length > 0 && (
+              <TrendChart
+                title="ITQ symptom sums"
+                max={24}
+                series={[
+                  {
+                    label: "PTSD",
+                    color: "#0e7490",
+                    points: itqSeries.map((s) => ({ date: s.date, value: s.ptsdSum })),
+                  },
+                  {
+                    label: "DSO",
+                    color: "#7c3aed",
+                    points: itqSeries.map((s) => ({ date: s.date, value: s.dsoSum })),
+                  },
+                ]}
+              />
+            )}
+          </div>
+          {itqSeries.length > 0 && (
+            <p className="mt-2 text-sm text-stone-600">
+              Latest ITQ classification:{" "}
+              <span className="font-semibold">{itqSeries[itqSeries.length - 1].label}</span>{" "}
+              (provisional, screen-based — diagnosis remains a clinical decision)
+            </p>
+          )}
+        </section>
+      )}
+
       <section className="mt-8">
         <h2 className="text-lg font-bold">Screenings</h2>
         <div className="mt-2 overflow-x-auto rounded-lg border border-stone-200 bg-white">
@@ -103,10 +163,16 @@ export default async function MemberDetailPage({
             <tbody>
               {screenings.map((s, i) => {
                 const flags = JSON.parse(s.risk_flags_json) as string[];
+                const itq =
+                  s.instrument === "itq" ? scoreItq(JSON.parse(s.answers_json)) : null;
                 return (
                   <tr key={i} className="border-t border-stone-100">
                     <td className="px-4 py-2 font-medium">{s.instrument}</td>
-                    <td className="px-4 py-2">{s.total_score}</td>
+                    <td className="px-4 py-2">
+                      {itq
+                        ? `PTSD ${itq.ptsdSum}/24 · DSO ${itq.dsoSum}/24 — ${itq.label}`
+                        : s.total_score}
+                    </td>
                     <td className="px-4 py-2 text-red-700">{flags.join(", ") || "—"}</td>
                     <td className="px-4 py-2">{s.created_at}</td>
                   </tr>

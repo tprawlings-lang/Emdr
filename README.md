@@ -21,7 +21,10 @@ trauma-processing modules, safety planning, escalation, referral, and discharge.
 | Area | Status |
 |---|---|
 | Informed-consent stepper (versioned consent ledger, FSMB-style disclosures) | ✅ |
-| Baseline screening: PC-PTSD-5, PCL-5, PHQ-9, GAD-7 (public-domain instruments, automatic risk-item routing) | ✅ |
+| Baseline screening: PC-PTSD-5, PCL-5, ITQ, PHQ-9, GAD-7 (public-domain instruments, automatic risk-item routing) | ✅ |
+| ITQ with ICD-11 criteria-based scoring (PTSD / DSO clusters, complex-PTSD classification) | ✅ |
+| Weekly outcome measures (PCL-5 + ITQ, 7-day cadence) with symptom trend charts for member and clinician | ✅ |
+| Automatic clinician alert on sharp week-over-week symptom worsening (PCL-5 ≥ +10, ITQ ≥ +8) | ✅ |
 | Daily check-in gate (<90s): activation, shutdown, safety, dissociation, sleep, substances → recommended action | ✅ |
 | Gated 12-module program — modules 1–6 autonomous, 7–10 specialist-unlocked, 11–12 maintenance | ✅ |
 | Session player: visual + audio bilateral stimulation, SUDS ratings between sets, micro-pauses, automatic hard-stop rules | ✅ |
@@ -74,5 +77,5 @@ No ad-tech, no analytics pixels, no third-party trackers — by design.
 - HIPAA-grade hosting (BAA, KMS envelope encryption, private networking), SIEM feed, encrypted backups.
 - Clinical governance: protocol sign-off by licensed EMDR specialist + psychiatric advisor; claims language review (FDA/FTC); state licensure plan.
 - Crisis operations: on-call clinician queue with SLAs, 988/emergency routing tested, SAFE-T/C-SSRS clinician workflow.
-- ITQ instrument (ICD-11 complex PTSD framing), telehealth video, SMART on FHIR/EHR integration, tokenized payments (PHI-isolated).
+- Telehealth video, SMART on FHIR/EHR integration, tokenized payments (PHI-isolated).
 - WCAG 2.2 audit, penetration test, incident-response and retention policies.

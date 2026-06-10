@@ -70,7 +70,7 @@ export function screeningComplete(userId: string): boolean {
     .prepare("SELECT DISTINCT instrument FROM screenings WHERE user_id = ?")
     .all(userId) as { instrument: string }[];
   const done = new Set(rows.map((r) => r.instrument));
-  return ["pc-ptsd-5", "pcl-5", "phq-9", "gad-7"].every((i) => done.has(i));
+  return ["pc-ptsd-5", "pcl-5", "itq", "phq-9", "gad-7"].every((i) => done.has(i));
 }
 
 export interface UnlockRow {

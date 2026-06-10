@@ -77,19 +77,31 @@ export async function grantConsent() {
 
 // ---------- Screening ----------
 
+// Sharp week-over-week worsening on tracked measures queues clinician review.
+const WORSENING_THRESHOLDS: Record<string, number> = { "pcl-5": 10, itq: 8 };
+
 export async function submitScreening(formData: FormData) {
   const user = await requireMember();
   const instrumentId = String(formData.get("instrument") ?? "");
+  const context = formData.get("context") === "weekly" ? "weekly" : "baseline";
+  const returnPath = context === "weekly" ? "/measures" : "/screening";
   const instrument = getInstrument(instrumentId);
-  if (!instrument) redirect("/screening");
+  if (!instrument) redirect(returnPath);
 
   const answers: number[] = instrument.items.map((_, i) =>
     Number(formData.get(`item-${i}`) ?? -1)
   );
-  if (answers.some((a) => a < 0)) redirect(`/screening?incomplete=${instrumentId}`);
+  if (answers.some((a) => a < 0)) redirect(`${returnPath}?incomplete=${instrumentId}`);
 
   const { total, riskFlags } = scoreInstrument(instrument, answers);
   const db = getDb();
+
+  const previous = db
+    .prepare(
+      "SELECT total_score FROM screenings WHERE user_id = ? AND instrument = ? ORDER BY created_at DESC LIMIT 1"
+    )
+    .get(user.id, instrument.id) as { total_score: number } | undefined;
+
   db.prepare(
     `INSERT INTO screenings (id, user_id, instrument, instrument_version, total_score, answers_json, risk_flags_json)
      VALUES (?, ?, ?, ?, ?, ?, ?)`
@@ -101,8 +113,18 @@ export async function submitScreening(formData: FormData) {
     family: "clinical",
     type: "screening_submitted",
     target: instrument.id,
-    detail: { total, riskFlags, version: instrument.version },
+    detail: { total, riskFlags, version: instrument.version, context },
   });
+
+  const worsenBy = WORSENING_THRESHOLDS[instrument.id];
+  if (previous && worsenBy !== undefined && total - previous.total_score >= worsenBy) {
+    createAlert({
+      userId: user.id,
+      type: "symptom_worsening",
+      severity: "high",
+      detail: `${instrument.id} rose from ${previous.total_score} to ${total} since last measure.`,
+    });
+  }
 
   // Risk items (e.g., PHQ-9 item 9) never get an autonomous assessment —
   // they route to the crisis screen and queue same-day specialist review.
@@ -115,7 +137,7 @@ export async function submitScreening(formData: FormData) {
     });
     redirect("/crisis?from=screening");
   }
-  redirect("/screening");
+  redirect(context === "weekly" ? "/measures?submitted=1" : "/screening");
 }
 
 // ---------- Daily check-in ----------

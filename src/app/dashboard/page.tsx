@@ -11,6 +11,8 @@ import {
   screeningComplete,
 } from "@/lib/gating";
 import { logout, requestUnlock } from "@/lib/actions";
+import { scoreItq } from "@/lib/instruments";
+import TrendChart from "@/components/TrendChart";
 
 function actionLabel(action: string): { label: string; tone: string } {
   switch (action) {
@@ -40,6 +42,25 @@ export default async function DashboardPage() {
       "SELECT total_score, created_at FROM screenings WHERE user_id = ? AND instrument = 'pcl-5' ORDER BY created_at ASC"
     )
     .all(user.id) as { total_score: number; created_at: string }[];
+
+  const itqRows = db
+    .prepare(
+      "SELECT answers_json, created_at FROM screenings WHERE user_id = ? AND instrument = 'itq' ORDER BY created_at ASC"
+    )
+    .all(user.id) as { answers_json: string; created_at: string }[];
+  const itqScores = itqRows.map((r) => ({
+    date: r.created_at.slice(0, 10),
+    ...scoreItq(JSON.parse(r.answers_json)),
+  }));
+
+  const recentMeasures = db
+    .prepare(
+      `SELECT COUNT(*) AS n FROM screenings
+       WHERE user_id = ? AND instrument IN ('pcl-5','itq')
+         AND created_at >= datetime('now', '-7 days')`
+    )
+    .get(user.id) as { n: number };
+  const measureDue = recentMeasures.n === 0;
 
   const lastReview = db
     .prepare(
@@ -109,6 +130,68 @@ export default async function DashboardPage() {
             Today&apos;s check-in: {actionLabel(checkin.recommended_action).label}
           </p>
         </div>
+      )}
+
+      {measureDue && (
+        <div className="mt-4 rounded-lg border border-sky-200 bg-sky-50 p-4">
+          <p className="font-medium text-sky-900">
+            Your weekly measures are due — they take about five minutes and keep your trend
+            honest.
+          </p>
+          <Link
+            href="/measures"
+            className="mt-2 inline-block rounded-lg bg-sky-800 px-4 py-2 text-sm font-medium text-white hover:bg-sky-900"
+          >
+            Take weekly measures
+          </Link>
+        </div>
+      )}
+
+      {(pcl5.length > 0 || itqScores.length > 0) && (
+        <>
+          <div className="mt-10 flex items-baseline justify-between">
+            <h2 className="text-xl font-bold">Your progress</h2>
+            <Link href="/measures" className="text-sm underline">
+              Weekly measures
+            </Link>
+          </div>
+          <div className="mt-4 grid gap-4 md:grid-cols-2">
+            {pcl5.length > 0 && (
+              <TrendChart
+                title="PTSD symptoms (PCL-5)"
+                max={80}
+                series={[
+                  {
+                    label: "PCL-5",
+                    color: "#1c1917",
+                    points: pcl5.map((p) => ({
+                      date: p.created_at.slice(0, 10),
+                      value: p.total_score,
+                    })),
+                  },
+                ]}
+              />
+            )}
+            {itqScores.length > 0 && (
+              <TrendChart
+                title="ICD-11 trauma symptoms (ITQ)"
+                max={24}
+                series={[
+                  {
+                    label: "PTSD",
+                    color: "#0e7490",
+                    points: itqScores.map((s) => ({ date: s.date, value: s.ptsdSum })),
+                  },
+                  {
+                    label: "Self-organization (DSO)",
+                    color: "#7c3aed",
+                    points: itqScores.map((s) => ({ date: s.date, value: s.dsoSum })),
+                  },
+                ]}
+              />
+            )}
+          </div>
+        </>
       )}
 
       <h2 className="mt-10 text-xl font-bold">Your program</h2>
