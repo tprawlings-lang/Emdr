@@ -33,3 +33,22 @@ services:
       # session starts globally without a code deploy.
       - key: EMDR_DISABLE_NEW_SESSIONS
         sync: false
+      # Nightly encrypted off-site backups (docs/backups.md). Set all five in
+      # the dashboard to enable; without them backups stay off (logged at
+      # boot). BACKUP_AGE_RECIPIENT is the age public key — the secret key
+      # must NEVER be set on the server.
+      - key: R2_ACCOUNT_ID
+        sync: false
+      - key: R2_ACCESS_KEY_ID
+        sync: false
+      - key: R2_SECRET_ACCESS_KEY
+        sync: false
+      - key: R2_BUCKET
+        sync: false
+      - key: BACKUP_AGE_RECIPIENT
+        sync: false
+      # Failure alerts: email via Resend (both required to send).
+      - key: RESEND_API_KEY
+        sync: false
+      - key: BACKUP_ALERT_EMAIL
+        sync: false

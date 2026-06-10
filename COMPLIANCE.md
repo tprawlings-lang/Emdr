@@ -23,7 +23,7 @@ dependency, cannot be closed by code in this repo.
 | 2.3 DB not publicly reachable | ✅ | SQLite on the service's private disk; no database port exists at all. Secrets live in Render env vars, not the repo. |
 | 2.4 Data minimization + app-layer encryption of free text | 🟡 | No diagnosis/medication/clinical-history fields collected. All member free text (chat, memory values, trigger notes, safety plan, screener answers) is AES-256-GCM encrypted with EMDR_DATA_KEY. **Open architecture question:** chat transcripts ARE persisted (encrypted) to power conversation continuity — the packet's "no verbatim emotional content" stance needs a founder decision: keep encrypted transcripts, or summarize-and-discard. |
 | 2.5 Log discipline | 🟡 | App logs carry event types/ids only; audit detail_json holds no free text. No CI lint for it yet. |
-| 2.6 Backups | 🔴 | Render disk snapshots are automatic; restore test must be performed and documented before launch. |
+| 2.6 Backups | 🟡 | Nightly automated backups implemented: SQLite Online Backup snapshot, age-encrypted to an offline key, uploaded to Cloudflare R2, 30-day retention with pruning, email alert on failure, /api/backup-status for monitoring, documented restore procedure + `make restore-test` drill (docs/backups.md). Remaining: set the R2/age/Resend env vars in Render, run the first restore drill, and keep the quarterly cadence. |
 | 2.7 No third-party pixels | ✅ | Zero marketing pixels, zero analytics, no ad trackers anywhere (page-by-page audit: there are no third-party scripts at all). Keep it that way for authenticated pages. |
 
 ## Item 3 — Positioning, claims & legal posture

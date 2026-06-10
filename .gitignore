@@ -42,3 +42,9 @@ next-env.d.ts
 
 # local sqlite data
 /.data/
+
+# backup/restore artifacts (encrypted snapshots, restore drills, age keys)
+/.backups/
+/.restore/
+*.age
+age-key*.txt
