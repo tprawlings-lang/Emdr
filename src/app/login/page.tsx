@@ -1,4 +1,5 @@
 import { login } from "@/lib/actions";
+import { SteadyMark, Wordmark } from "@/components/Brand";
 
 export default async function LoginPage({
   searchParams,
@@ -8,10 +9,15 @@ export default async function LoginPage({
   const { error } = await searchParams;
   return (
     <main className="mx-auto max-w-md px-6 py-16">
-      <h1 className="text-2xl font-bold">Sign in</h1>
+      <div className="flex items-center gap-3">
+        <SteadyMark className="h-9 w-9 text-olive" />
+        <Wordmark className="text-4xl" />
+      </div>
+      <h1 className="mt-8 font-serif text-3xl font-medium">Welcome back</h1>
+      <p className="mt-2 text-sm text-olive">This is your private space. Take your time.</p>
       {error && (
-        <p className="mt-4 rounded-lg border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-800">
-          Invalid email or password.
+        <p className="mt-4 rounded-2xl border border-support/40 bg-support/10 px-4 py-3 text-sm text-support-deep">
+          That email or password didn&apos;t match. Try again when you&apos;re ready.
         </p>
       )}
       <form action={login} className="mt-6 space-y-4">
@@ -22,7 +28,7 @@ export default async function LoginPage({
             type="email"
             required
             autoComplete="email"
-            className="mt-1 w-full rounded-lg border border-stone-300 px-3 py-2"
+            className="mt-1 w-full rounded-2xl border border-ground/15 bg-linen px-4 py-2.5 focus:border-sage focus:outline-none"
           />
         </label>
         <label className="block">
@@ -32,18 +38,18 @@ export default async function LoginPage({
             type="password"
             required
             autoComplete="current-password"
-            className="mt-1 w-full rounded-lg border border-stone-300 px-3 py-2"
+            className="mt-1 w-full rounded-2xl border border-ground/15 bg-linen px-4 py-2.5 focus:border-sage focus:outline-none"
           />
         </label>
         <button
           type="submit"
-          className="w-full rounded-lg bg-stone-900 px-4 py-2.5 font-medium text-white hover:bg-stone-700"
+          className="w-full rounded-full bg-sage px-6 py-3 font-medium text-ground transition-colors hover:bg-sage-deep"
         >
-          Sign in
+          Continue
         </button>
       </form>
-      <div className="mt-8 rounded-lg border border-stone-200 bg-white p-4 text-sm text-stone-600">
-        <p className="font-semibold text-stone-800">Demo accounts (development only)</p>
+      <div className="mt-8 rounded-3xl border border-ground/10 bg-linen p-5 text-sm text-olive shadow-soft">
+        <p className="font-semibold text-ground">Demo accounts (development only)</p>
         <p className="mt-1">Member: demo@example.com / demo1234</p>
         <p>Clinician: clinician@example.com / demo1234</p>
         <p className="mt-2 text-xs">

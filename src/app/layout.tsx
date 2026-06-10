@@ -1,10 +1,18 @@
 import type { Metadata } from "next";
+import { Inter, Cormorant_Garamond } from "next/font/google";
 import "./globals.css";
 
+const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
+const cormorant = Cormorant_Garamond({
+  subsets: ["latin"],
+  weight: ["500", "600"],
+  variable: "--font-cormorant",
+});
+
 export const metadata: Metadata = {
-  title: "Steady — Supervised Trauma Care Support",
+  title: "steady — a steadier way through trauma",
   description:
-    "EMDR-informed, clinician-supervised care software for adults with trauma-related symptoms. Not for emergency use.",
+    "A calm, private space for EMDR-informed, specialist-supervised trauma support. Move slowly. Pause anytime. Not for emergency use.",
 };
 
 export default function RootLayout({
@@ -12,19 +20,19 @@ export default function RootLayout({
 }: Readonly<{ children: React.ReactNode }>) {
   const demo = process.env.EMDR_DEMO === "1";
   return (
-    <html lang="en" className="h-full antialiased">
-      <body className="min-h-full flex flex-col bg-stone-50 text-stone-900">
+    <html lang="en" className={`h-full antialiased ${inter.variable} ${cormorant.variable}`}>
+      <body className="min-h-full flex flex-col bg-ivory font-sans text-ground">
         {demo && (
-          <div className="bg-indigo-900 px-4 py-2 text-center text-sm text-indigo-100">
+          <div className="bg-ground px-4 py-2 text-center text-sm text-ivory/90">
             <strong>Demonstration environment.</strong> All people and data are fictional and
             reset periodically. Member: demo@example.com · Clinician: clinician@example.com ·
             password demo1234
           </div>
         )}
         <div className="flex-1">{children}</div>
-        <footer className="mx-auto w-full max-w-3xl px-6 py-8 text-center text-sm text-stone-500">
-          <p className="font-medium text-stone-600">
-            Not for emergency use. In the US, call or text{" "}
+        <footer className="mx-auto w-full max-w-3xl px-6 py-10 text-center text-sm text-olive">
+          <p className="font-medium">
+            Steady is not emergency care. In the US, call or text{" "}
             <a href="tel:988" className="font-semibold underline">988</a> (Suicide &amp; Crisis
             Lifeline) or call 911 if you are in immediate danger.
           </p>

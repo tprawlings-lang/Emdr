@@ -9,7 +9,7 @@ function YesNo({ name }: { name: string }) {
       {["yes", "no"].map((v) => (
         <label
           key={v}
-          className="cursor-pointer rounded-lg border border-stone-300 px-5 py-2 text-sm capitalize hover:bg-stone-100 has-checked:border-stone-900 has-checked:bg-stone-900 has-checked:text-white"
+          className="cursor-pointer rounded-full border border-ground/15 bg-linen px-6 py-2 text-sm capitalize transition-colors hover:bg-moss has-checked:border-clay has-checked:bg-clay has-checked:font-semibold"
         >
           <input type="radio" name={name} value={v} required className="sr-only" />
           {v}
@@ -25,7 +25,7 @@ function Scale({ name }: { name: string }) {
       {Array.from({ length: 11 }, (_, v) => (
         <label
           key={v}
-          className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg border border-stone-300 text-sm hover:bg-stone-100 has-checked:border-stone-900 has-checked:bg-stone-900 has-checked:text-white"
+          className="flex h-10 w-10 cursor-pointer items-center justify-center rounded-full border border-ground/15 bg-linen text-sm transition-colors hover:bg-moss has-checked:border-clay has-checked:bg-clay has-checked:font-semibold"
         >
           <input type="radio" name={name} value={v} required className="sr-only" />
           {v}
@@ -60,20 +60,21 @@ export default async function PostSessionPage({
 
   return (
     <main className="mx-auto max-w-2xl px-6 py-12">
-      <h1 className="text-2xl font-bold">Before you go</h1>
-      <p className="mt-2 text-sm text-stone-600">
-        Two minutes. This is how we make sure today&apos;s session landed safely.
+      <h1 className="font-serif text-4xl font-medium">Before you go</h1>
+      <p className="mt-2 text-sm text-olive">
+        Two minutes. You do not need to solve everything today — this is how we make sure the
+        session landed safely, so your system can settle.
       </p>
 
-      <form action={submitPostSessionCheck} className="mt-8 space-y-7">
+      <form action={submitPostSessionCheck} className="mt-10 space-y-8">
         <input type="hidden" name="sessionId" value={sid} />
 
-        <fieldset className="space-y-2">
+        <fieldset className="space-y-2.5">
           <legend className="font-medium">What is your distress right now? (0–10)</legend>
           <Scale name="distress" />
         </fieldset>
 
-        <fieldset className="space-y-2 rounded-lg border border-stone-200 bg-white p-4">
+        <fieldset className="space-y-2.5 rounded-3xl border border-ground/10 bg-linen p-5 shadow-soft">
           <legend className="px-1 font-medium">
             Quick orientation check: do you know what room you are in, what day it is, and can
             you feel your feet on the floor?
@@ -81,21 +82,21 @@ export default async function PostSessionPage({
           <YesNo name="oriented" />
         </fieldset>
 
-        <fieldset className="space-y-2 rounded-lg border border-stone-200 bg-white p-4">
+        <fieldset className="space-y-2.5 rounded-3xl border border-ground/10 bg-linen p-5 shadow-soft">
           <legend className="px-1 font-medium">Can you stay safe until tomorrow?</legend>
           <YesNo name="safe_tonight" />
         </fieldset>
 
-        <fieldset className="space-y-2">
+        <fieldset className="space-y-2.5">
           <legend className="font-medium">
             How likely are nightmares, urges, or shutdown tonight? (0 = not at all, 10 = certain)
           </legend>
           <Scale name="delayed_risk" />
         </fieldset>
 
-        <fieldset className="rounded-lg border border-stone-200 bg-white p-4">
+        <fieldset className="rounded-3xl border border-ground/10 bg-linen p-5 shadow-soft">
           <legend className="px-1 font-medium">Your recovery plan for the next few hours</legend>
-          <ul className="mt-2 list-disc pl-5 text-sm text-stone-700">
+          <ul className="mt-2 list-disc pl-5 text-sm text-ground/90">
             <li>Drink water and eat something.</li>
             <li>Gentle movement — a short walk counts.</li>
             <li>No alcohol tonight.</li>
@@ -110,10 +111,11 @@ export default async function PostSessionPage({
 
         <button
           type="submit"
-          className="w-full rounded-lg bg-stone-900 px-6 py-3 font-medium text-white hover:bg-stone-700"
+          className="w-full rounded-full bg-sage px-6 py-3.5 font-medium text-ground transition-colors hover:bg-sage-deep"
         >
-          Finish
+          Save reflection
         </button>
+        <p className="text-center text-sm text-olive">Let your system settle.</p>
       </form>
     </main>
   );

@@ -44,10 +44,10 @@ export default function TrendChart({
     first.length > 1 ? first[first.length - 1].value - first[0].value : null;
 
   return (
-    <div className="rounded-lg border border-stone-200 bg-white p-4">
+    <div className="rounded-3xl border border-ground/10 bg-linen p-5 shadow-soft">
       <div className="flex items-baseline justify-between">
-        <h3 className="font-semibold text-stone-800">{title}</h3>
-        <span className="text-sm text-stone-500">
+        <h3 className="font-semibold">{title}</h3>
+        <span className="text-sm text-olive">
           latest {latest.filter((v) => v !== undefined).join(" / ")} of {max}
         </span>
       </div>
@@ -59,8 +59,8 @@ export default function TrendChart({
           .map((s) => `${s.label} ${s.points.map((p) => p.value).join(", ")}`)
           .join("; ")}`}
       >
-        <line x1={PAD} y1={H - PAD} x2={W - PAD} y2={H - PAD} stroke="#e7e5e4" />
-        <line x1={PAD} y1={PAD} x2={W - PAD} y2={PAD} stroke="#f5f5f4" />
+        <line x1={PAD} y1={H - PAD} x2={W - PAD} y2={H - PAD} stroke="#ded1be" />
+        <line x1={PAD} y1={PAD} x2={W - PAD} y2={PAD} stroke="#ece2d2" />
         {series.map((s) => {
           const pts = coords(s.points, 0, max);
           return (
@@ -80,7 +80,7 @@ export default function TrendChart({
           );
         })}
       </svg>
-      <div className="mt-1 flex flex-wrap items-center justify-between gap-2 text-xs text-stone-500">
+      <div className="mt-1 flex flex-wrap items-center justify-between gap-2 text-xs text-olive">
         <span>
           {first[0]?.date}
           {first.length > 1 ? ` → ${first[first.length - 1]?.date}` : ""}
@@ -98,7 +98,7 @@ export default function TrendChart({
         </span>
       </div>
       {delta !== null && (
-        <p className="mt-1 text-xs font-medium text-stone-600">
+        <p className="mt-1 text-xs font-medium text-olive">
           {delta === 0
             ? "No change since baseline."
             : delta < 0

@@ -100,23 +100,23 @@ export default async function MemberDetailPage({
 
   return (
     <main className="mx-auto max-w-5xl px-6 py-10">
-      <Link href="/clinician" className="text-sm underline">
+      <Link href="/clinician" className="text-sm text-olive underline">
         ← Back to queue
       </Link>
-      <h1 className="mt-3 text-2xl font-bold">{member.name}</h1>
-      <p className="text-sm text-stone-600">
+      <h1 className="mt-3 font-serif text-3xl font-medium">{member.name}</h1>
+      <p className="text-sm text-olive">
         {member.email} · joined {member.created_at.slice(0, 10)}
       </p>
 
       {(pcl5Series.length > 0 || itqSeries.length > 0) && (
         <section className="mt-8">
-          <h2 className="text-lg font-bold">Outcome trends</h2>
+          <h2 className="font-serif text-2xl font-medium">Outcome trends</h2>
           <div className="mt-2 grid gap-4 md:grid-cols-2">
             {pcl5Series.length > 0 && (
               <TrendChart
                 title="PCL-5 total"
                 max={80}
-                series={[{ label: "PCL-5", color: "#1c1917", points: pcl5Series }]}
+                series={[{ label: "PCL-5", color: "#2f3a33", points: pcl5Series }]}
               />
             )}
             {itqSeries.length > 0 && (
@@ -126,12 +126,12 @@ export default async function MemberDetailPage({
                 series={[
                   {
                     label: "PTSD",
-                    color: "#0e7490",
+                    color: "#5c7884",
                     points: itqSeries.map((s) => ({ date: s.date, value: s.ptsdSum })),
                   },
                   {
                     label: "DSO",
-                    color: "#7c3aed",
+                    color: "#c9a98f",
                     points: itqSeries.map((s) => ({ date: s.date, value: s.dsoSum })),
                   },
                 ]}
@@ -139,7 +139,7 @@ export default async function MemberDetailPage({
             )}
           </div>
           {itqSeries.length > 0 && (
-            <p className="mt-2 text-sm text-stone-600">
+            <p className="mt-2 text-sm text-olive">
               Latest ITQ classification:{" "}
               <span className="font-semibold">{itqSeries[itqSeries.length - 1].label}</span>{" "}
               (provisional, screen-based — diagnosis remains a clinical decision)
@@ -149,10 +149,10 @@ export default async function MemberDetailPage({
       )}
 
       <section className="mt-8">
-        <h2 className="text-lg font-bold">Screenings</h2>
-        <div className="mt-2 overflow-x-auto rounded-lg border border-stone-200 bg-white">
+        <h2 className="font-serif text-2xl font-medium">Screenings</h2>
+        <div className="mt-2 overflow-x-auto rounded-3xl border border-ground/10 bg-linen shadow-soft">
           <table className="w-full text-sm">
-            <thead className="bg-stone-100 text-left">
+            <thead className="bg-sand/40 text-left">
               <tr>
                 <th className="px-4 py-2">Instrument</th>
                 <th className="px-4 py-2">Score</th>
@@ -166,14 +166,14 @@ export default async function MemberDetailPage({
                 const itq =
                   s.instrument === "itq" ? scoreItq(JSON.parse(s.answers_json)) : null;
                 return (
-                  <tr key={i} className="border-t border-stone-100">
+                  <tr key={i} className="border-t border-ground/10">
                     <td className="px-4 py-2 font-medium">{s.instrument}</td>
                     <td className="px-4 py-2">
                       {itq
                         ? `PTSD ${itq.ptsdSum}/24 · DSO ${itq.dsoSum}/24 — ${itq.label}`
                         : s.total_score}
                     </td>
-                    <td className="px-4 py-2 text-red-700">{flags.join(", ") || "—"}</td>
+                    <td className="px-4 py-2 text-support-deep">{flags.join(", ") || "—"}</td>
                     <td className="px-4 py-2">{s.created_at}</td>
                   </tr>
                 );
@@ -184,10 +184,10 @@ export default async function MemberDetailPage({
       </section>
 
       <section className="mt-8">
-        <h2 className="text-lg font-bold">Check-ins (last 14)</h2>
-        <div className="mt-2 overflow-x-auto rounded-lg border border-stone-200 bg-white">
+        <h2 className="font-serif text-2xl font-medium">Check-ins (last 14)</h2>
+        <div className="mt-2 overflow-x-auto rounded-3xl border border-ground/10 bg-linen shadow-soft">
           <table className="w-full text-sm">
-            <thead className="bg-stone-100 text-left">
+            <thead className="bg-sand/40 text-left">
               <tr>
                 <th className="px-4 py-2">Date</th>
                 <th className="px-4 py-2">Activation</th>
@@ -199,7 +199,7 @@ export default async function MemberDetailPage({
             </thead>
             <tbody>
               {checkins.map((c) => (
-                <tr key={c.checkin_date} className="border-t border-stone-100">
+                <tr key={c.checkin_date} className="border-t border-ground/10">
                   <td className="px-4 py-2">{c.checkin_date}</td>
                   <td className="px-4 py-2">{c.activation}</td>
                   <td className="px-4 py-2">{c.shutdown}</td>
@@ -214,10 +214,10 @@ export default async function MemberDetailPage({
       </section>
 
       <section className="mt-8">
-        <h2 className="text-lg font-bold">Sessions (last 20)</h2>
-        <div className="mt-2 overflow-x-auto rounded-lg border border-stone-200 bg-white">
+        <h2 className="font-serif text-2xl font-medium">Sessions (last 20)</h2>
+        <div className="mt-2 overflow-x-auto rounded-3xl border border-ground/10 bg-linen shadow-soft">
           <table className="w-full text-sm">
-            <thead className="bg-stone-100 text-left">
+            <thead className="bg-sand/40 text-left">
               <tr>
                 <th className="px-4 py-2">Module</th>
                 <th className="px-4 py-2">Status</th>
@@ -228,16 +228,16 @@ export default async function MemberDetailPage({
             </thead>
             <tbody>
               {sessions.map((s) => (
-                <tr key={s.id} className="border-t border-stone-100">
+                <tr key={s.id} className="border-t border-ground/10">
                   <td className="px-4 py-2 font-medium">{moduleName(s.module_id)}</td>
                   <td className="px-4 py-2">
                     <span
                       className={
                         s.status === "hard_stop"
-                          ? "font-semibold text-red-700"
+                          ? "font-semibold text-support-deep"
                           : s.status === "completed"
-                            ? "text-green-700"
-                            : "text-stone-500"
+                            ? "text-safe-deep"
+                            : "text-olive"
                       }
                     >
                       {s.status.replaceAll("_", " ")}
@@ -257,16 +257,16 @@ export default async function MemberDetailPage({
 
       <section className="mt-8 grid gap-6 md:grid-cols-2">
         <div>
-          <h2 className="text-lg font-bold">Unlock history</h2>
+          <h2 className="font-serif text-2xl font-medium">Unlock history</h2>
           <div className="mt-2 space-y-2">
-            {unlocks.length === 0 && <p className="text-sm text-stone-500">None.</p>}
+            {unlocks.length === 0 && <p className="text-sm text-olive">None.</p>}
             {unlocks.map((u, i) => (
-              <div key={i} className="rounded-lg border border-stone-200 bg-white p-3 text-sm">
+              <div key={i} className="rounded-3xl border border-ground/10 bg-linen p-4 text-sm shadow-soft">
                 <p className="font-medium">
                   {moduleName(u.module_id)} — {u.status}
                 </p>
-                {u.decision_reason && <p className="text-stone-600">Reason: {u.decision_reason}</p>}
-                <p className="text-xs text-stone-400">
+                {u.decision_reason && <p className="text-olive">Reason: {u.decision_reason}</p>}
+                <p className="text-xs text-olive/70">
                   requested {u.requested_at}
                   {u.decided_at ? ` · decided ${u.decided_at}` : ""}
                 </p>
@@ -275,14 +275,14 @@ export default async function MemberDetailPage({
           </div>
         </div>
         <div>
-          <h2 className="text-lg font-bold">Consent ledger</h2>
+          <h2 className="font-serif text-2xl font-medium">Consent ledger</h2>
           <div className="mt-2 space-y-2">
             {consents.map((c, i) => (
-              <div key={i} className="rounded-lg border border-stone-200 bg-white p-3 text-sm">
+              <div key={i} className="rounded-3xl border border-ground/10 bg-linen p-4 text-sm shadow-soft">
                 <p className="font-medium">
                   {c.policy_version} · {c.scope}
                 </p>
-                <p className="text-xs text-stone-400">
+                <p className="text-xs text-olive/70">
                   granted {c.granted_at}
                   {c.revoked_at ? ` · revoked ${c.revoked_at}` : " · active"}
                 </p>

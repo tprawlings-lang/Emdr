@@ -18,17 +18,17 @@ export default function InstrumentForm({
         return (
           <div key={i}>
             {section && (
-              <h2 className="mb-3 mt-8 font-semibold text-stone-800">{section.heading}</h2>
+              <h2 className="mb-3 mt-8 font-serif text-xl font-medium">{section.heading}</h2>
             )}
-            <fieldset className="rounded-lg border border-stone-200 bg-white p-4">
-              <legend className="px-1 text-sm font-medium text-stone-800">
+            <fieldset className="rounded-3xl border border-ground/10 bg-linen p-5 shadow-soft">
+              <legend className="px-1 text-sm font-medium">
                 {i + 1}. {item}
               </legend>
               <div className="mt-2 flex flex-wrap gap-2">
                 {instrument.options.map((opt) => (
                   <label
                     key={opt.value}
-                    className="flex cursor-pointer items-center gap-2 rounded-lg border border-stone-300 px-3 py-2 text-sm hover:bg-stone-100 has-checked:border-stone-900 has-checked:bg-stone-900 has-checked:text-white"
+                    className="flex cursor-pointer items-center gap-2 rounded-full border border-ground/15 bg-ivory px-4 py-2 text-sm transition-colors hover:bg-moss has-checked:border-clay has-checked:bg-clay has-checked:font-semibold"
                   >
                     <input
                       type="radio"
@@ -47,9 +47,9 @@ export default function InstrumentForm({
       })}
       <button
         type="submit"
-        className="w-full rounded-lg bg-stone-900 px-6 py-3 font-medium text-white hover:bg-stone-700"
+        className="w-full rounded-full bg-sage px-6 py-3.5 font-medium text-ground transition-colors hover:bg-sage-deep"
       >
-        Submit and continue
+        Save and continue
       </button>
     </form>
   );

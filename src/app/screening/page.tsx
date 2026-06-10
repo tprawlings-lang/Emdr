@@ -26,16 +26,16 @@ export default async function ScreeningPage() {
 
   return (
     <main className="mx-auto max-w-3xl px-6 py-12">
-      <div className="sticky top-0 z-10 -mx-6 mb-6 border-b border-stone-200 bg-stone-50/95 px-6 py-3 text-sm font-medium text-stone-700">
-        Baseline screening · Questionnaire {position} of {INSTRUMENTS.length} ·{" "}
-        <Link href="/crisis" className="font-semibold text-red-700 underline">
+      <div className="sticky top-0 z-10 -mx-6 mb-6 border-b border-ground/10 bg-ivory/95 px-6 py-3 text-sm font-medium text-ground/80">
+        Baseline screening · Current place: questionnaire {position} of {INSTRUMENTS.length} ·{" "}
+        <Link href="/crisis" className="font-semibold text-support underline">
           Need help now?
         </Link>
       </div>
 
-      <h1 className="text-2xl font-bold">{next.title}</h1>
-      <p className="mt-2 text-stone-600">{next.intro}</p>
-      <p className="mt-2 text-sm text-stone-500">
+      <h1 className="font-serif text-3xl font-medium">{next.title}</h1>
+      <p className="mt-2 text-olive">{next.intro}</p>
+      <p className="mt-2 text-sm text-olive">
         These answers go to your care team. There are no wrong answers — honest answers keep the
         program safe for you. {next.cutoffNote}
       </p>

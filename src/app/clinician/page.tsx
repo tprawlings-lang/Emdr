@@ -5,10 +5,10 @@ import { decideUnlock, logout, reviewAlert } from "@/lib/actions";
 import { MODULES } from "@/lib/modules";
 
 const SEVERITY_STYLE: Record<string, string> = {
-  urgent: "bg-red-100 text-red-800 border-red-300",
-  high: "bg-amber-100 text-amber-800 border-amber-300",
-  moderate: "bg-sky-100 text-sky-800 border-sky-300",
-  info: "bg-stone-100 text-stone-700 border-stone-300",
+  urgent: "bg-support/15 text-support-deep border-support/50",
+  high: "bg-pause-soft text-ground border-pause/60",
+  moderate: "bg-mist/25 text-ground border-mist/60",
+  info: "bg-linen text-ground/80 border-ground/15",
 };
 
 export default async function ClinicianDashboard({
@@ -77,21 +77,21 @@ export default async function ClinicianDashboard({
     <main className="mx-auto max-w-5xl px-6 py-10">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold">Specialist dashboard</h1>
-          <p className="text-sm text-stone-600">Signed in as {clinician.name}</p>
+          <h1 className="font-serif text-3xl font-medium">Specialist dashboard</h1>
+          <p className="text-sm text-olive">Signed in as {clinician.name}</p>
         </div>
         <div className="flex items-center gap-4">
-          <Link href="/clinician/audit" className="text-sm underline">
+          <Link href="/clinician/audit" className="text-sm text-olive underline">
             Audit console
           </Link>
           <form action={logout}>
-            <button className="text-sm text-stone-500 underline">Sign out</button>
+            <button className="text-sm text-olive underline">Sign out</button>
           </form>
         </div>
       </div>
 
       {error && (
-        <p className="mt-4 rounded-lg border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-800">
+        <p className="mt-4 rounded-2xl border border-support/40 bg-support/10 px-4 py-3 text-sm text-support-deep">
           {error === "reason_required"
             ? "A documented reason is required for unlock decisions."
             : "A review note is required to close an alert."}
@@ -99,18 +99,18 @@ export default async function ClinicianDashboard({
       )}
 
       <section className="mt-8">
-        <h2 className="text-lg font-bold">
+        <h2 className="font-serif text-2xl font-medium">
           Risk queue{" "}
-          <span className="ml-1 rounded-full bg-stone-900 px-2 py-0.5 text-sm text-white">
+          <span className="ml-1 rounded-full bg-ground px-2.5 py-0.5 text-sm text-ivory">
             {alerts.length}
           </span>
         </h2>
         {alerts.length === 0 ? (
-          <p className="mt-3 text-sm text-stone-500">No open alerts.</p>
+          <p className="mt-3 text-sm text-olive">No open alerts.</p>
         ) : (
           <div className="mt-3 space-y-3">
             {alerts.map((a) => (
-              <div key={a.id} className={`rounded-lg border p-4 ${SEVERITY_STYLE[a.severity]}`}>
+              <div key={a.id} className={`rounded-3xl border p-5 ${SEVERITY_STYLE[a.severity]}`}>
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <p className="font-semibold">
                     {a.severity.toUpperCase()} · {a.alert_type.replaceAll("_", " ")} ·{" "}
@@ -127,9 +127,9 @@ export default async function ClinicianDashboard({
                     name="note"
                     required
                     placeholder="Assessment, action taken, follow-up schedule (required)"
-                    className="min-w-72 flex-1 rounded-lg border border-stone-400 bg-white px-3 py-1.5 text-sm text-stone-900"
+                    className="min-w-72 flex-1 rounded-2xl border border-ground/20 bg-linen px-4 py-2 text-sm text-ground focus:border-sage focus:outline-none"
                   />
-                  <button className="rounded-lg bg-stone-900 px-4 py-1.5 text-sm font-medium text-white hover:bg-stone-700">
+                  <button className="rounded-full bg-ground px-5 py-2 text-sm font-medium text-ivory transition-colors hover:bg-olive">
                     Mark reviewed
                   </button>
                 </form>
@@ -140,19 +140,19 @@ export default async function ClinicianDashboard({
       </section>
 
       <section className="mt-10">
-        <h2 className="text-lg font-bold">
+        <h2 className="font-serif text-2xl font-medium">
           Unlock requests{" "}
-          <span className="ml-1 rounded-full bg-stone-900 px-2 py-0.5 text-sm text-white">
+          <span className="ml-1 rounded-full bg-ground px-2.5 py-0.5 text-sm text-ivory">
             {unlockRequests.length}
           </span>
         </h2>
         {unlockRequests.length === 0 ? (
-          <p className="mt-3 text-sm text-stone-500">No pending requests.</p>
+          <p className="mt-3 text-sm text-olive">No pending requests.</p>
         ) : (
           <div className="mt-3 space-y-3">
             {unlockRequests.map((r) => (
-              <div key={r.id} className="rounded-lg border border-violet-300 bg-violet-50 p-4">
-                <p className="font-semibold text-violet-900">
+              <div key={r.id} className="rounded-3xl border border-clay/50 bg-clay/15 p-5">
+                <p className="font-semibold">
                   {moduleName(r.module_id)} ·{" "}
                   <Link href={`/clinician/member/${r.user_id}`} className="underline">
                     {r.member_name}
@@ -160,9 +160,9 @@ export default async function ClinicianDashboard({
                   <span className="ml-2 text-xs font-normal">requested {r.requested_at}</span>
                 </p>
                 {r.member_note && (
-                  <p className="mt-1 text-sm text-violet-900">Member note: “{r.member_note}”</p>
+                  <p className="mt-1 text-sm text-ground/90">Member note: “{r.member_note}”</p>
                 )}
-                <p className="mt-2 text-xs text-violet-800">
+                <p className="mt-2 text-xs text-olive">
                   Review the member&apos;s trend, trigger inventory, and recent sessions before
                   deciding. Your reason is recorded in the audit ledger.
                 </p>
@@ -172,19 +172,19 @@ export default async function ClinicianDashboard({
                     name="reason"
                     required
                     placeholder="Clinical reason for this decision (required)"
-                    className="min-w-72 flex-1 rounded-lg border border-stone-400 bg-white px-3 py-1.5 text-sm"
+                    className="min-w-72 flex-1 rounded-2xl border border-ground/20 bg-linen px-4 py-2 text-sm focus:border-sage focus:outline-none"
                   />
                   <button
                     name="decision"
                     value="unlocked"
-                    className="rounded-lg bg-green-700 px-4 py-1.5 text-sm font-medium text-white hover:bg-green-800"
+                    className="rounded-full bg-safe-deep px-5 py-2 text-sm font-medium text-white transition-colors hover:bg-safe"
                   >
                     Unlock
                   </button>
                   <button
                     name="decision"
                     value="denied"
-                    className="rounded-lg bg-stone-700 px-4 py-1.5 text-sm font-medium text-white hover:bg-stone-800"
+                    className="rounded-full bg-olive px-5 py-2 text-sm font-medium text-ivory transition-colors hover:bg-ground"
                   >
                     Deny for now
                   </button>
@@ -196,10 +196,10 @@ export default async function ClinicianDashboard({
       </section>
 
       <section className="mt-10">
-        <h2 className="text-lg font-bold">Members</h2>
-        <div className="mt-3 overflow-x-auto rounded-lg border border-stone-200 bg-white">
+        <h2 className="font-serif text-2xl font-medium">Members</h2>
+        <div className="mt-3 overflow-x-auto rounded-3xl border border-ground/10 bg-linen shadow-soft">
           <table className="w-full text-sm">
-            <thead className="bg-stone-100 text-left">
+            <thead className="bg-sand/40 text-left">
               <tr>
                 <th className="px-4 py-2">Member</th>
                 <th className="px-4 py-2">Latest PCL-5</th>
@@ -209,7 +209,7 @@ export default async function ClinicianDashboard({
             </thead>
             <tbody>
               {members.map((m) => (
-                <tr key={m.id} className="border-t border-stone-100">
+                <tr key={m.id} className="border-t border-ground/10">
                   <td className="px-4 py-2">
                     <Link href={`/clinician/member/${m.id}`} className="font-medium underline">
                       {m.name}

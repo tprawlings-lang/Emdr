@@ -17,15 +17,15 @@ import TrendChart from "@/components/TrendChart";
 function actionLabel(action: string): { label: string; tone: string } {
   switch (action) {
     case "processing_ok":
-      return { label: "All cleared modules available today", tone: "text-green-700 bg-green-50 border-green-200" };
+      return { label: "Safe to continue — all cleared modules are open today", tone: "text-ground bg-safe/15 border-safe/40" };
     case "stabilization":
-      return { label: "Lower intensity today — stabilization modules open", tone: "text-amber-800 bg-amber-50 border-amber-200" };
+      return { label: "A gentler day — stabilization modules are open", tone: "text-ground bg-pause-soft border-pause/40" };
     case "grounding_only":
-      return { label: "Grounding only today (Calm Place, Containment)", tone: "text-amber-800 bg-amber-50 border-amber-200" };
+      return { label: "Grounding only today (Calm Place, Containment)", tone: "text-ground bg-pause-soft border-pause/40" };
     case "crisis":
-      return { label: "Sessions paused — your care team has been alerted", tone: "text-red-800 bg-red-50 border-red-200" };
+      return { label: "Sessions paused — your care team has been alerted", tone: "text-support-deep bg-support/10 border-support/40" };
     default:
-      return { label: action, tone: "text-stone-700 bg-stone-50 border-stone-200" };
+      return { label: action, tone: "text-ground bg-linen border-ground/10" };
   }
 }
 
@@ -74,36 +74,39 @@ export default async function DashboardPage() {
     .get(user.id) as { n: number };
 
   return (
-    <main className="mx-auto max-w-4xl px-6 py-10">
+    <main className="mx-auto max-w-4xl px-6 py-12">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Hello, {user.name}</h1>
+        <div>
+          <h1 className="font-serif text-4xl font-medium">Hello, {user.name}</h1>
+          <p className="mt-1 text-sm text-olive">You are here today. That is enough.</p>
+        </div>
         <div className="flex items-center gap-4">
-          <Link href="/crisis" className="text-sm font-semibold text-red-700 underline">
+          <Link href="/crisis" className="text-sm font-semibold text-support underline">
             Need help now?
           </Link>
           <form action={logout}>
-            <button className="text-sm text-stone-500 underline">Sign out</button>
+            <button className="text-sm text-olive underline">Sign out</button>
           </form>
         </div>
       </div>
 
-      <div className="mt-6 grid gap-4 sm:grid-cols-3">
-        <div className="rounded-lg border border-stone-200 bg-white p-4">
-          <p className="text-sm text-stone-500">Check-ins completed</p>
-          <p className="mt-1 text-2xl font-bold">{streak.n}</p>
+      <div className="mt-8 grid gap-4 sm:grid-cols-3">
+        <div className="rounded-3xl border border-ground/10 bg-linen p-5 shadow-soft">
+          <p className="text-sm text-olive">Check-ins so far</p>
+          <p className="mt-1 text-2xl font-semibold">{streak.n}</p>
         </div>
-        <div className="rounded-lg border border-stone-200 bg-white p-4">
-          <p className="text-sm text-stone-500">Last clinician review</p>
+        <div className="rounded-3xl border border-ground/10 bg-linen p-5 shadow-soft">
+          <p className="text-sm text-olive">Last specialist review</p>
           <p className="mt-1 text-lg font-semibold">
             {lastReview?.reviewed_at ? lastReview.reviewed_at.slice(0, 10) : "Pending"}
           </p>
         </div>
-        <div className="rounded-lg border border-stone-200 bg-white p-4">
-          <p className="text-sm text-stone-500">PCL-5 trend</p>
+        <div className="rounded-3xl border border-ground/10 bg-linen p-5 shadow-soft">
+          <p className="text-sm text-olive">PCL-5 trend</p>
           <p className="mt-1 text-lg font-semibold">
             {pcl5.length > 0 ? `${pcl5[pcl5.length - 1].total_score} / 80` : "—"}
             {pcl5.length > 1 && (
-              <span className="ml-2 text-sm font-normal text-stone-500">
+              <span className="ml-2 text-sm font-normal text-olive">
                 (was {pcl5[0].total_score})
               </span>
             )}
@@ -112,20 +115,20 @@ export default async function DashboardPage() {
       </div>
 
       {!checkin ? (
-        <div className="mt-6 rounded-lg border border-stone-900 bg-stone-900 p-6 text-white">
-          <h2 className="text-lg font-semibold">Today&apos;s best next step</h2>
-          <p className="mt-1 text-stone-300">
-            Complete your daily check-in (under 90 seconds). All sessions route through it.
+        <div className="mt-6 rounded-3xl bg-ground p-7 text-ivory shadow-soft">
+          <h2 className="font-serif text-2xl font-medium">Today&apos;s gentle next step</h2>
+          <p className="mt-2 text-ivory/80">
+            A short check-in — under 90 seconds. Every session moves through it first.
           </p>
           <Link
             href="/check-in"
-            className="mt-4 inline-block rounded-lg bg-white px-5 py-2.5 font-medium text-stone-900 hover:bg-stone-200"
+            className="mt-5 inline-block rounded-full bg-sage px-7 py-3 font-medium text-ground transition-colors hover:bg-sage-deep"
           >
-            Start check-in
+            Begin check-in
           </Link>
         </div>
       ) : (
-        <div className={`mt-6 rounded-lg border p-4 ${actionLabel(checkin.recommended_action).tone}`}>
+        <div className={`mt-6 rounded-3xl border p-5 ${actionLabel(checkin.recommended_action).tone}`}>
           <p className="font-medium">
             Today&apos;s check-in: {actionLabel(checkin.recommended_action).label}
           </p>
@@ -133,14 +136,13 @@ export default async function DashboardPage() {
       )}
 
       {measureDue && (
-        <div className="mt-4 rounded-lg border border-sky-200 bg-sky-50 p-4">
-          <p className="font-medium text-sky-900">
-            Your weekly measures are due — they take about five minutes and keep your trend
-            honest.
+        <div className="mt-4 rounded-3xl border border-mist/60 bg-mist/20 p-5">
+          <p className="font-medium">
+            Your weekly measures are due — about five minutes, and they keep your trend honest.
           </p>
           <Link
             href="/measures"
-            className="mt-2 inline-block rounded-lg bg-sky-800 px-4 py-2 text-sm font-medium text-white hover:bg-sky-900"
+            className="mt-3 inline-block rounded-full bg-mist-deep px-5 py-2.5 text-sm font-medium text-ivory transition-colors hover:bg-ground"
           >
             Take weekly measures
           </Link>
@@ -149,9 +151,9 @@ export default async function DashboardPage() {
 
       {(pcl5.length > 0 || itqScores.length > 0) && (
         <>
-          <div className="mt-10 flex items-baseline justify-between">
-            <h2 className="text-xl font-bold">Your progress</h2>
-            <Link href="/measures" className="text-sm underline">
+          <div className="mt-12 flex items-baseline justify-between">
+            <h2 className="font-serif text-2xl font-medium">Your progress</h2>
+            <Link href="/measures" className="text-sm text-olive underline">
               Weekly measures
             </Link>
           </div>
@@ -163,7 +165,7 @@ export default async function DashboardPage() {
                 series={[
                   {
                     label: "PCL-5",
-                    color: "#1c1917",
+                    color: "#2f3a33",
                     points: pcl5.map((p) => ({
                       date: p.created_at.slice(0, 10),
                       value: p.total_score,
@@ -179,12 +181,12 @@ export default async function DashboardPage() {
                 series={[
                   {
                     label: "PTSD",
-                    color: "#0e7490",
+                    color: "#5c7884",
                     points: itqScores.map((s) => ({ date: s.date, value: s.ptsdSum })),
                   },
                   {
                     label: "Self-organization (DSO)",
-                    color: "#7c3aed",
+                    color: "#c9a98f",
                     points: itqScores.map((s) => ({ date: s.date, value: s.dsoSum })),
                   },
                 ]}
@@ -194,9 +196,9 @@ export default async function DashboardPage() {
         </>
       )}
 
-      <h2 className="mt-10 text-xl font-bold">Your program</h2>
-      <p className="mt-1 text-sm text-stone-600">
-        Modules marked “Specialist gated” unlock only after your care team reviews your
+      <h2 className="mt-12 font-serif text-2xl font-medium">Your program</h2>
+      <p className="mt-1 text-sm text-olive">
+        Modules marked “Specialist gated” open only after your care team reviews your
         readiness. That pacing is part of the treatment design, not a paywall.
       </p>
 
@@ -205,41 +207,41 @@ export default async function DashboardPage() {
           const access = checkModuleAccess(user.id, mod);
           const unlock = mod.tier === "gated" ? getUnlock(user.id, mod.id) : null;
           return (
-            <div key={mod.id} className="rounded-lg border border-stone-200 bg-white p-4">
+            <div key={mod.id} className="rounded-3xl border border-ground/10 bg-linen p-6 shadow-soft">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
                   <h3 className="font-semibold">
                     {mod.order}. {mod.name}
                     {mod.tier === "gated" && (
-                      <span className="ml-2 rounded-sm bg-violet-100 px-2 py-0.5 text-xs font-medium text-violet-800">
+                      <span className="ml-2 rounded-full bg-clay/30 px-2.5 py-0.5 text-xs font-medium text-ground">
                         Specialist gated
                       </span>
                     )}
                     {mod.tier === "maintenance" && (
-                      <span className="ml-2 rounded-sm bg-sky-100 px-2 py-0.5 text-xs font-medium text-sky-800">
+                      <span className="ml-2 rounded-full bg-mist/40 px-2.5 py-0.5 text-xs font-medium text-ground">
                         Maintenance
                       </span>
                     )}
                   </h3>
-                  <p className="mt-1 text-sm text-stone-600">
+                  <p className="mt-1 text-sm text-olive">
                     {mod.objective} · {mod.durationLabel}
                   </p>
                 </div>
                 {access.allowed ? (
                   <Link
                     href={`/session/${mod.id}`}
-                    className="rounded-lg bg-stone-900 px-4 py-2 text-sm font-medium text-white hover:bg-stone-700"
+                    className="rounded-full bg-sage px-5 py-2.5 text-sm font-medium text-ground transition-colors hover:bg-sage-deep"
                   >
-                    Start session
+                    Begin session
                   </Link>
                 ) : (
-                  <span className="rounded-lg border border-stone-200 bg-stone-100 px-4 py-2 text-sm text-stone-500">
-                    Locked
+                  <span className="rounded-full border border-ground/10 bg-sand/40 px-5 py-2.5 text-sm text-olive">
+                    Not yet open
                   </span>
                 )}
               </div>
               {!access.allowed && (
-                <p className="mt-2 text-sm text-stone-500">{access.reason}</p>
+                <p className="mt-2 text-sm text-olive">{access.reason}</p>
               )}
               {!access.allowed &&
                 access.action === "unlock" &&
@@ -250,10 +252,10 @@ export default async function DashboardPage() {
                       type="text"
                       name="note"
                       placeholder="Optional note for your specialist"
-                      className="min-w-64 flex-1 rounded-lg border border-stone-300 px-3 py-1.5 text-sm"
+                      className="min-w-64 flex-1 rounded-2xl border border-ground/15 bg-ivory px-4 py-2 text-sm focus:border-sage focus:outline-none"
                     />
-                    <button className="rounded-lg border border-stone-900 px-4 py-1.5 text-sm font-medium hover:bg-stone-100">
-                      Request specialist review
+                    <button className="rounded-full border border-ground px-5 py-2 text-sm font-medium transition-colors hover:bg-ground hover:text-ivory">
+                      Send to specialist
                     </button>
                   </form>
                 )}

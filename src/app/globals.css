@@ -1,6 +1,35 @@
 @import "tailwindcss";
 
+/* Steady brand kit tokens. Palette names follow the brand guide:
+   sage / ivory / sand / ground / mist / clay / moss / linen / olive,
+   plus the three muted alert colors (support, pause, safe). */
+@theme {
+  --color-sage: #a8b8a1;
+  --color-sage-deep: #93a58b;
+  --color-ivory: #f7f1e8;
+  --color-sand: #ded1be;
+  --color-ground: #2f3a33;
+  --color-mist: #a9bdc5;
+  --color-mist-deep: #5c7884;
+  --color-clay: #c9a98f;
+  --color-moss: #dce4d4;
+  --color-linen: #fbf8f2;
+  --color-olive: #697568;
+  --color-amber-soft: #e8c98a;
+  --color-support: #b66a5d;
+  --color-support-deep: #a05648;
+  --color-pause: #d7a85f;
+  --color-pause-soft: #f3e4c8;
+  --color-safe: #7fa37b;
+  --color-safe-deep: #6d9069;
+
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, -apple-system,
+    "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-serif: var(--font-cormorant), "Cormorant Garamond", Georgia, serif;
+
+  --shadow-soft: 0px 12px 40px rgba(47, 58, 51, 0.08);
+}
+
 body {
-  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
-    "Helvetica Neue", Arial, sans-serif;
+  font-family: var(--font-sans);
 }

@@ -40,17 +40,17 @@ export default async function MeasuresPage({
 
   return (
     <main className="mx-auto max-w-2xl px-6 py-12">
-      <Link href="/dashboard" className="text-sm underline">
+      <Link href="/dashboard" className="text-sm text-olive underline">
         ← Back to dashboard
       </Link>
-      <h1 className="mt-3 text-2xl font-bold">Weekly measures</h1>
-      <p className="mt-2 text-sm text-stone-600">
+      <h1 className="mt-3 font-serif text-3xl font-medium">Weekly measures</h1>
+      <p className="mt-2 text-sm text-olive">
         These short questionnaires are how you and your care team see whether the program is
         actually helping. Once a week is enough — more often does not make the signal better.
       </p>
 
       {submitted && (
-        <p className="mt-4 rounded-lg border border-green-300 bg-green-50 px-4 py-3 text-sm text-green-800">
+        <p className="mt-4 rounded-2xl border border-safe/40 bg-safe/15 px-4 py-3 text-sm text-ground">
           Measure recorded. Your care team can see the updated trend.
         </p>
       )}
@@ -60,11 +60,11 @@ export default async function MeasuresPage({
           const itq =
             r.id === "itq" && r.last ? scoreItq(JSON.parse(r.last.answers_json)) : null;
           return (
-            <div key={r.id} className="rounded-lg border border-stone-200 bg-white p-4">
+            <div key={r.id} className="rounded-3xl border border-ground/10 bg-linen p-5 shadow-soft">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
                   <h2 className="font-semibold">{r.instrument.title}</h2>
-                  <p className="mt-1 text-sm text-stone-600">
+                  <p className="mt-1 text-sm text-olive">
                     {r.last ? (
                       <>
                         Last taken {r.age === 0 ? "today" : `${r.age} day${r.age === 1 ? "" : "s"} ago`} ·{" "}
@@ -80,12 +80,12 @@ export default async function MeasuresPage({
                 {r.due ? (
                   <Link
                     href={`/measures/${r.id}`}
-                    className="rounded-lg bg-stone-900 px-4 py-2 text-sm font-medium text-white hover:bg-stone-700"
+                    className="rounded-full bg-sage px-5 py-2.5 text-sm font-medium text-ground transition-colors hover:bg-sage-deep"
                   >
-                    Take now
+                    Begin
                   </Link>
                 ) : (
-                  <span className="rounded-lg border border-stone-200 bg-stone-100 px-4 py-2 text-sm text-stone-500">
+                  <span className="rounded-full border border-ground/10 bg-sand/40 px-5 py-2.5 text-sm text-olive">
                     Due in {r.cadenceDays - r.age} day{r.cadenceDays - r.age === 1 ? "" : "s"}
                   </span>
                 )}

@@ -63,7 +63,7 @@ function BlsVisual({
     const draw = (now: number) => {
       const w = canvas.width;
       const h = canvas.height;
-      ctx.fillStyle = "#1c1917";
+      ctx.fillStyle = "#2f3a33";
       ctx.fillRect(0, 0, w, h);
       if (running) {
         const t = ((now - start) % speedMs) / speedMs; // 0..1 over one full cycle
@@ -75,12 +75,12 @@ function BlsVisual({
         }
         ctx.beginPath();
         ctx.arc(x, h / 2, 22, 0, Math.PI * 2);
-        ctx.fillStyle = "#a8e6cf";
+        ctx.fillStyle = "#a8b8a1";
         ctx.fill();
       } else {
         ctx.beginPath();
         ctx.arc(w / 2, h / 2, 22, 0, Math.PI * 2);
-        ctx.fillStyle = "#57534e";
+        ctx.fillStyle = "#8a9a90";
         ctx.fill();
       }
       raf = requestAnimationFrame(draw);
@@ -94,7 +94,7 @@ function BlsVisual({
       ref={canvasRef}
       width={760}
       height={220}
-      className="w-full rounded-xl"
+      className="w-full rounded-3xl"
       aria-label={
         running
           ? "Bilateral stimulation: follow the moving dot with your eyes"
@@ -227,9 +227,9 @@ export default function SessionPlayer({ module: mod }: Props) {
   if (phase === "intro") {
     return (
       <div className="mx-auto max-w-2xl px-6 py-12">
-        <h1 className="text-2xl font-bold">{mod.name}</h1>
-        <p className="mt-2 text-stone-600">{mod.objective}</p>
-        <div className="mt-6 rounded-lg border border-stone-200 bg-white p-5 text-sm text-stone-700">
+        <h1 className="font-serif text-4xl font-medium">{mod.name}</h1>
+        <p className="mt-2 text-olive">{mod.objective}</p>
+        <div className="mt-6 rounded-3xl border border-ground/10 bg-linen p-6 text-sm text-ground/90 shadow-soft">
           <p>
             About {mod.durationLabel}. You can pause or stop at any time — stopping early is
             always allowed. If distress climbs too high, the session ends itself and offers
@@ -248,7 +248,7 @@ export default function SessionPlayer({ module: mod }: Props) {
             <select
               value={speedMs}
               onChange={(e) => setSpeedMs(Number(e.target.value))}
-              className="ml-2 rounded-sm border border-stone-300 px-2 py-1"
+              className="ml-2 rounded-2xl border border-ground/15 bg-ivory px-3 py-1"
             >
               <option value={3200}>Slow</option>
               <option value={2400}>Medium</option>
@@ -262,9 +262,9 @@ export default function SessionPlayer({ module: mod }: Props) {
             setSessionId(id ?? null);
             setPhase("running");
           }}
-          className="mt-6 w-full rounded-lg bg-stone-900 px-6 py-3 font-medium text-white hover:bg-stone-700"
+          className="mt-6 w-full rounded-full bg-sage px-6 py-3.5 font-medium text-ground transition-colors hover:bg-sage-deep"
         >
-          Begin
+          Begin slowly
         </button>
       </div>
     );
@@ -272,20 +272,20 @@ export default function SessionPlayer({ module: mod }: Props) {
 
   if (phase === "finishing") {
     return (
-      <div className="mx-auto max-w-2xl px-6 py-24 text-center text-stone-600">Saving…</div>
+      <div className="mx-auto max-w-2xl px-6 py-24 text-center text-olive">Saving…</div>
     );
   }
 
   if (phase === "hardstop") {
     return (
       <div className="mx-auto max-w-xl px-6 py-14">
-        <div className="rounded-xl border-2 border-amber-400 bg-amber-50 p-6">
-          <h1 className="text-2xl font-bold text-amber-900">Session paused for your safety</h1>
-          <p className="mt-3 text-amber-900">
+        <div className="rounded-3xl border-2 border-pause/60 bg-pause-soft p-7 shadow-soft">
+          <h1 className="font-serif text-3xl font-medium">Session paused for your safety</h1>
+          <p className="mt-3 text-ground/90">
             {hardStopReason}. That is the system working as designed — not a failure. Your care
             team has been notified and will review this session.
           </p>
-          <div className="mt-5 rounded-lg bg-white p-4 text-stone-800">
+          <div className="mt-5 rounded-3xl bg-linen p-5 text-ground">
             <p className="font-semibold">Ground yourself now</p>
             <ol className="mt-2 list-decimal space-y-1 pl-5 text-sm">
               <li>Feel your feet on the floor. Press them down.</li>
@@ -297,13 +297,13 @@ export default function SessionPlayer({ module: mod }: Props) {
           <div className="mt-5 flex flex-col gap-3">
             <a
               href="/crisis"
-              className="rounded-lg bg-red-700 px-5 py-3 text-center font-semibold text-white hover:bg-red-800"
+              className="rounded-full bg-support px-5 py-3 text-center font-semibold text-white transition-colors hover:bg-support-deep"
             >
               I need help now
             </a>
             <a
               href="/dashboard"
-              className="rounded-lg border border-stone-300 px-5 py-3 text-center text-stone-700 hover:bg-stone-100"
+              className="rounded-full border border-ground/20 px-5 py-3 text-center text-ground/80 transition-colors hover:bg-moss"
             >
               I am settled — back to dashboard
             </a>
@@ -317,16 +317,16 @@ export default function SessionPlayer({ module: mod }: Props) {
   return (
     <div className="mx-auto max-w-3xl px-6 py-8">
       <div className="flex items-center justify-between text-sm">
-        <span className="text-stone-500">
+        <span className="text-olive">
           {mod.name} · step {stepIndex + 1} of {mod.steps.length}
         </span>
         <div className="flex gap-3">
-          <a href="/crisis" className="font-semibold text-red-700 underline">
+          <a href="/crisis" className="font-semibold text-support underline">
             Need help now?
           </a>
           <button
             onClick={() => void endSession("abandoned")}
-            className="text-stone-500 underline"
+            className="text-olive underline"
           >
             Exit session
           </button>
@@ -335,18 +335,18 @@ export default function SessionPlayer({ module: mod }: Props) {
 
       {step?.kind === "instruction" || step?.kind === "grounding" ? (
         <div className="mt-8">
-          <h2 className="text-xl font-bold">{step.title}</h2>
-          <p className="mt-4 text-lg leading-relaxed text-stone-700">{step.text}</p>
+          <h2 className="font-serif text-2xl font-medium">{step.title}</h2>
+          <p className="mt-4 text-lg leading-relaxed text-ground/90">{step.text}</p>
           <button
             onClick={advance}
-            className="mt-8 w-full rounded-lg bg-stone-900 px-6 py-3 font-medium text-white hover:bg-stone-700"
+            className="mt-8 w-full rounded-full bg-sage px-6 py-3.5 font-medium text-ground transition-colors hover:bg-sage-deep"
           >
             Continue
           </button>
         </div>
       ) : step?.kind === "suds" ? (
         <div className="mt-8">
-          <h2 className="text-xl font-bold">{step.title}</h2>
+          <h2 className="font-serif text-2xl font-medium">{step.title}</h2>
           <div className="mt-6">
             <input
               type="range"
@@ -357,22 +357,22 @@ export default function SessionPlayer({ module: mod }: Props) {
               className="w-full"
               aria-label="Distress rating from 0 (none) to 10 (worst possible)"
             />
-            <div className="mt-2 flex justify-between text-sm text-stone-500">
+            <div className="mt-2 flex justify-between text-sm text-olive">
               <span>0 — no distress</span>
-              <span className="text-2xl font-bold text-stone-900">{currentSuds}</span>
+              <span className="text-2xl font-bold text-ground">{currentSuds}</span>
               <span>10 — worst possible</span>
             </div>
           </div>
           <button
             onClick={submitSuds}
-            className="mt-8 w-full rounded-lg bg-stone-900 px-6 py-3 font-medium text-white hover:bg-stone-700"
+            className="mt-8 w-full rounded-full bg-sage px-6 py-3.5 font-medium text-ground transition-colors hover:bg-sage-deep"
           >
             Record {currentSuds} and continue
           </button>
         </div>
       ) : step?.kind === "bls" ? (
         <div className="mt-8">
-          <h2 className="text-xl font-bold">{step.title}</h2>
+          <h2 className="font-serif text-2xl font-medium">{step.title}</h2>
           <div className="mt-5">
             <BlsVisual
               running={blsStarted && !blsState.resting && blsState.secondsLeft > 0}
@@ -383,7 +383,7 @@ export default function SessionPlayer({ module: mod }: Props) {
           {!blsStarted ? (
             <button
               onClick={startBls}
-              className="mt-6 w-full rounded-lg bg-stone-900 px-6 py-3 font-medium text-white hover:bg-stone-700"
+              className="mt-6 w-full rounded-full bg-sage px-6 py-3.5 font-medium text-ground transition-colors hover:bg-sage-deep"
             >
               Start set 1 of {step.sets ?? 1} ({step.durationSec}s each)
             </button>
@@ -399,14 +399,14 @@ export default function SessionPlayer({ module: mod }: Props) {
               )}
             </p>
           )}
-          <p className="mt-3 text-center text-sm text-stone-500">
+          <p className="mt-3 text-center text-sm text-olive">
             Feeling too much? Use “Exit session” above — stopping is always allowed.
           </p>
         </div>
       ) : null}
 
       {preSuds !== null && (
-        <p className="mt-10 text-center text-xs text-stone-400">
+        <p className="mt-10 text-center text-xs text-olive/70">
           Start distress {preSuds} · peak {peakSuds}
         </p>
       )}

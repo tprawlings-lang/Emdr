@@ -22,16 +22,16 @@ export default async function TakeMeasurePage({
 
   return (
     <main className="mx-auto max-w-3xl px-6 py-12">
-      <div className="sticky top-0 z-10 -mx-6 mb-6 border-b border-stone-200 bg-stone-50/95 px-6 py-3 text-sm font-medium text-stone-700">
+      <div className="sticky top-0 z-10 -mx-6 mb-6 border-b border-ground/10 bg-ivory/95 px-6 py-3 text-sm font-medium text-ground/80">
         Weekly measure ·{" "}
-        <Link href="/crisis" className="font-semibold text-red-700 underline">
+        <Link href="/crisis" className="font-semibold text-support underline">
           Need help now?
         </Link>
       </div>
 
-      <h1 className="text-2xl font-bold">{instrument.title}</h1>
-      <p className="mt-2 text-stone-600">{instrument.intro}</p>
-      <p className="mt-2 text-sm text-stone-500">{instrument.cutoffNote}</p>
+      <h1 className="font-serif text-3xl font-medium">{instrument.title}</h1>
+      <p className="mt-2 text-olive">{instrument.intro}</p>
+      <p className="mt-2 text-sm text-olive">{instrument.cutoffNote}</p>
 
       <InstrumentForm instrument={instrument} context="weekly" />
     </main>
