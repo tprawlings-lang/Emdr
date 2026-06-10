@@ -63,8 +63,12 @@ export function getTodayCheckin(userId: string): CheckinRow | null {
 
 export function hasConsent(userId: string): boolean {
   const db = getDb();
+  // Scope-specific: the wellness acknowledgment recorded at signup is a
+  // separate consent and must not satisfy the informed-consent gate.
   const row = db
-    .prepare("SELECT id FROM consents WHERE user_id = ? AND revoked_at IS NULL LIMIT 1")
+    .prepare(
+      "SELECT id FROM consents WHERE user_id = ? AND scope = 'care_program_full' AND revoked_at IS NULL LIMIT 1"
+    )
     .get(userId);
   return !!row;
 }

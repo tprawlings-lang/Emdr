@@ -228,7 +228,9 @@ export async function grantConsent() {
   const user = await requireMember();
   const db = getDb();
   const existing = db
-    .prepare("SELECT id FROM consents WHERE user_id = ? AND revoked_at IS NULL")
+    .prepare(
+      "SELECT id FROM consents WHERE user_id = ? AND scope = 'care_program_full' AND revoked_at IS NULL"
+    )
     .get(user.id);
   if (!existing) {
     db.prepare(
@@ -633,6 +635,50 @@ export async function sendCompanionMessage(
     detail: { mode: reply.mode, riskFlag: reply.riskFlag },
   });
   return { conversationId: convId, reply: reply.text, riskFlag: reply.riskFlag };
+}
+
+// ---------- Account deletion (compliance 6.4) ----------
+
+// Self-serve, no reason required (WA MHMD). Program data is removed
+// immediately; the user row is anonymized in place so financial records
+// (payments, subscription) and the append-only audit/consent ledgers keep
+// their referential integrity. Backups age out within the platform's 30-day
+// backup window.
+export async function deleteAccount(formData: FormData) {
+  const user = await requireUser();
+  if (formData.get("confirm") !== "DELETE") redirect("/settings/account?error=confirm");
+  const db = getDb();
+  db.transaction(() => {
+    const byUser = (table: string, col = "user_id") =>
+      db.prepare(`DELETE FROM ${table} WHERE ${col} = ?`).run(user.id);
+    db.prepare(
+      "DELETE FROM post_session_checks WHERE session_id IN (SELECT id FROM therapy_sessions WHERE user_id = ?)"
+    ).run(user.id);
+    byUser("therapy_sessions");
+    byUser("ai_messages");
+    byUser("ai_conversations");
+    byUser("ai_memory_items");
+    byUser("ai_companion_preferences");
+    byUser("user_triggers");
+    byUser("early_warning_signs");
+    byUser("safety_plans");
+    byUser("user_profiles");
+    byUser("readiness_assessments");
+    byUser("checkins");
+    byUser("screenings");
+    byUser("module_unlocks");
+    byUser("alerts");
+    db.prepare(
+      `UPDATE users SET email = ?, name = 'Deleted member', password_hash = '!', dob = NULL,
+         status = 'deleted' WHERE id = ?`
+    ).run(`deleted-${user.id}@deleted.invalid`, user.id);
+    db.prepare(
+      "UPDATE subscriptions SET status = 'canceled', cancel_at_period_end = 0, updated_at = datetime('now') WHERE user_id = ?"
+    ).run(user.id);
+  })();
+  audit({ actorId: user.id, actorRole: user.role, family: "identity", type: "account_deleted" });
+  await clearSessionCookie();
+  redirect("/?deleted=1");
 }
 
 // ---------- Memory privacy controls (feature spec section 10) ----------
