@@ -8,7 +8,7 @@ import {
   memoryEnabled,
   writeMemory,
 } from "./companion";
-import { TRACK_LABELS } from "./profile";
+import { TRACK_LABELS, getProfile } from "./profile";
 
 // LLM-backed companion. The deterministic safety routing in actions.ts
 // (crisis regex → canned crisis reply + alert) always runs BEFORE this module,
@@ -66,7 +66,7 @@ function tools(memoryOn: boolean): Anthropic.Tool[] {
     list.push({
       name: "remember",
       description:
-        "Store a durable fact about the member so future conversations can build on it. Call this when the member shares something worth carrying forward: a grounding tool that works or doesn't, a preference about how to be spoken to, a pattern you notice across sessions or check-ins, a topic to avoid, or progress worth celebrating later. Do not store crisis content or anything the member asked you to forget.",
+        "Store a durable fact about the member so future conversations can build on it. Call this when the member shares something worth carrying forward: a grounding tool that works or doesn't, a preference about how to be spoken to, a pattern you notice across sessions or check-ins, a topic to avoid, or progress worth celebrating later. Use memory_type 'focus_area' when the member names something they specifically want to work on — those are offered back as focus choices before their therapy sessions. Use 'grounding_tool' with key 'calm place' for their calm-place image. Do not store crisis content or anything the member asked you to forget.",
       input_schema: {
         type: "object",
         properties: {
@@ -81,6 +81,7 @@ function tools(memoryOn: boolean): Anthropic.Tool[] {
               "restricted_topic",
               "session_pattern",
               "progress_pattern",
+              "focus_area",
             ],
           },
           key: {
@@ -183,9 +184,13 @@ function parseJsonArray(json: string | null | undefined): string[] {
   }
 }
 
-function buildSystemPrompt(ctx: CompanionContext): string {
+function buildSystemPrompt(ctx: CompanionContext, contextType: string): string {
   const prefs = ctx.prefs;
   const memories = getMemoryItems(ctx.userId);
+  const profile = getProfile(ctx.userId);
+  const goals = parseJsonArray(profile?.goals_json);
+  const traumaAreas = parseJsonArray(profile?.trauma_areas_json);
+  const restricted = parseJsonArray(profile?.restricted_topics_json);
   const lines: string[] = [];
 
   lines.push(`You are the Steady companion: a supportive, trauma-informed presence inside Steady, an app that helps members do guided EMDR-informed work between therapy sessions.
@@ -211,6 +216,25 @@ STYLE
 - Plain, warm, human language. Short responses — usually 2-5 sentences. No bullet-point lectures, no clinical jargon, no toxic positivity.
 - Respond directly with your final answer only — no meta-commentary or reasoning out loud.`);
 
+  if (contextType === "onboarding") {
+    lines.push(`THIS IS THEIR ONBOARDING INTAKE CONVERSATION
+You are meeting this member for the first time, as the last step of their setup. This is a focused intake interview, the way a trauma-informed companion therapist would take a first history: your goal is to understand the specific trauma-related difficulties they came here with, in their own words, and turn that understanding into concrete targets their sessions can aim at.
+
+How to run the interview:
+- They already checked broad areas during setup${traumaAreas.length > 0 ? ` (${traumaAreas.join(", ")})` : ""}${goals.length > 0 ? ` and goals (${goals.join(", ")})` : ""}. Don't re-ask what they've already told the forms — pick up from it: "You mentioned [area] — can you tell me what that looks like in your life right now?"
+- Go one thread at a time and follow their answers like a clinician would, asking the relevant next question, for example:
+  · how long this has been with them, and whether something specific set it off or changed it recently
+  · how it shows up now — in their body, their sleep, their relationships, what they avoid
+  · a recent, specific moment when it fired: where they were, what set it off, what happened inside
+  · how intense it gets (0-10), and how often
+  · the belief that comes with it ("I'm not safe", "It was my fault", "I'm too much") — and what they would rather believe instead
+  · what they've tried, what helps even a little, and what "better" would actually look like for them
+- Headline level only. You are collecting the map, not walking the territory: short factual statements are perfect, and if they begin reliving an event in detail, gently slow them down — "you don't need to take me through it; a few words for what it was is enough for today."
+- This is a conversation, not a checklist. One question at a time, reflect what you heard first, let them lead the order, and let them pass on anything.
+- Store as you go: each concrete thing they want to work on → remember (memory_type 'focus_area', key = a short label in their words, value = what they said including the negative belief and what they want instead). Each trigger they describe → record_trigger with intensity, body/behavior responses, and notes. Tell them briefly when you save something — it builds trust that they're being heard.
+- After you have 2-4 well-understood focus areas, reflect back the picture you now have and let them know they can press Continue whenever they're ready — there is no need to cover everything today.`);
+  }
+
   if (prefs) {
     const avoid = parseJsonArray(prefs.avoidances_json);
     const modes = parseJsonArray(prefs.support_modes_json);
@@ -220,6 +244,13 @@ STYLE
 - They want help with: ${modes.join("; ") || "(not specified)"}
 - Avoid: ${avoid.join("; ") || "(nothing specified)"}
 - Memory: ${prefs.memory_enabled === "yes" ? "enabled" : "DISABLED — do not store anything and do not reference stored memories"}`);
+  }
+
+  if (goals.length > 0 || traumaAreas.length > 0 || restricted.length > 0) {
+    lines.push(`THEIR BACKGROUND (from setup forms)
+- Areas connected to what they're working through: ${traumaAreas.join("; ") || "(not specified)"}
+- What they hope Steady helps with: ${goals.join("; ") || "(not specified)"}
+- RESTRICTED TOPICS — never raise these unless the member brings them up first: ${restricted.join("; ") || "(none)"}`);
   }
 
   if (ctx.triggers.length > 0) {
@@ -308,7 +339,10 @@ export async function generateAiReply(
 ): Promise<CompanionReply> {
   const client = new Anthropic();
   const memoryOn = memoryEnabled(ctx.userId);
-  const system = buildSystemPrompt(ctx);
+  const conv = getDb()
+    .prepare("SELECT context_type FROM ai_conversations WHERE id = ?")
+    .get(convId) as { context_type: string } | undefined;
+  const system = buildSystemPrompt(ctx, conv?.context_type ?? "general");
   const toolSet = tools(memoryOn);
   const messages: Anthropic.MessageParam[] = [...loadHistory(convId, ctx.userId), { role: "user", content: userText }];
   const state = { riskFlag: false };

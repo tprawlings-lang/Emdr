@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { SessionStep, TherapyModule } from "@/lib/modules";
+import type { SessionFocus } from "@/lib/session-focus";
 import { finishSession, startSession } from "@/lib/actions";
 
 // Hard-stop rules enforced client-side and recorded server-side:
@@ -16,6 +17,10 @@ type Phase = "intro" | "running" | "hardstop" | "finishing";
 
 interface Props {
   module: TherapyModule;
+  /** Pre-session focus options built from the member's stored data. */
+  focus?: SessionFocus | null;
+  /** Saved calm-place word, shown during grounding and hard stops. */
+  calmPlace?: string | null;
 }
 
 function BlsVisual({
@@ -104,10 +109,12 @@ function BlsVisual({
   );
 }
 
-export default function SessionPlayer({ module: mod }: Props) {
+export default function SessionPlayer({ module: mod, focus, calmPlace }: Props) {
   const router = useRouter();
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [phase, setPhase] = useState<Phase>("intro");
+  const [selectedFocusId, setSelectedFocusId] = useState<string | null>(null);
+  const [customFocus, setCustomFocus] = useState("");
   const [stepIndex, setStepIndex] = useState(0);
   const [sudsTrail, setSudsTrail] = useState<number[]>([]);
   const [currentSuds, setCurrentSuds] = useState(5);
@@ -224,11 +231,67 @@ export default function SessionPlayer({ module: mod }: Props) {
     setBlsState({ set: 1, secondsLeft: step?.durationSec ?? 30, resting: false });
   };
 
+  const chosenFocus =
+    customFocus.trim() ||
+    focus?.options.find((o) => o.id === selectedFocusId)?.label ||
+    "";
+
   if (phase === "intro") {
     return (
       <div className="mx-auto max-w-2xl px-6 py-12">
         <h1 className="font-serif text-4xl font-medium">{mod.name}</h1>
         <p className="mt-2 text-olive">{mod.objective}</p>
+
+        {focus && (
+          <div className="mt-6 rounded-3xl border border-ground/10 bg-linen p-6 shadow-soft">
+            <h2 className="font-semibold">{focus.prompt}</h2>
+            {focus.helper && <p className="mt-1 text-sm text-olive">{focus.helper}</p>}
+            {focus.options.length > 0 && (
+              <div className="mt-4 flex flex-col gap-2">
+                {focus.options.map((o) => (
+                  <button
+                    key={o.id}
+                    type="button"
+                    disabled={o.disabled}
+                    onClick={() => {
+                      setSelectedFocusId((cur) => (cur === o.id ? null : o.id));
+                      setCustomFocus("");
+                    }}
+                    className={`rounded-2xl border px-4 py-3 text-left text-sm transition-colors ${
+                      o.disabled
+                        ? "cursor-not-allowed border-ground/10 bg-ivory text-ground/40"
+                        : selectedFocusId === o.id && !customFocus.trim()
+                          ? "border-clay bg-clay font-semibold"
+                          : "border-ground/15 bg-ivory hover:bg-moss"
+                    }`}
+                  >
+                    <span className="block">{o.label}</span>
+                    {(o.disabled ? o.disabledReason : o.detail) && (
+                      <span className="mt-0.5 block text-xs text-olive">
+                        {o.disabled ? o.disabledReason : o.detail}
+                      </span>
+                    )}
+                  </button>
+                ))}
+              </div>
+            )}
+            <input
+              type="text"
+              value={customFocus}
+              onChange={(e) => {
+                setCustomFocus(e.target.value);
+                if (e.target.value.trim()) setSelectedFocusId(null);
+              }}
+              placeholder={focus.customPlaceholder}
+              aria-label="Or describe your own focus"
+              className="mt-3 w-full rounded-2xl border border-ground/15 bg-ivory px-4 py-2.5 text-sm focus:border-sage focus:outline-none"
+            />
+            <p className="mt-2 text-xs text-olive">
+              Choosing a focus is optional — you can also just begin.
+            </p>
+          </div>
+        )}
+
         <div className="mt-6 rounded-3xl border border-ground/10 bg-linen p-6 text-sm text-ground/90 shadow-soft">
           <p>
             About {mod.durationLabel}. You can pause or stop at any time — stopping early is
@@ -258,13 +321,13 @@ export default function SessionPlayer({ module: mod }: Props) {
         </div>
         <button
           onClick={async () => {
-            const id = await startSession(mod.id);
+            const id = await startSession(mod.id, chosenFocus || undefined);
             setSessionId(id ?? null);
             setPhase("running");
           }}
           className="mt-6 w-full rounded-full bg-sage px-6 py-3.5 font-medium text-ground transition-colors hover:bg-sage-deep"
         >
-          Begin slowly
+          {chosenFocus ? `Begin slowly — focus: ${chosenFocus}` : "Begin slowly"}
         </button>
       </div>
     );
@@ -291,7 +354,11 @@ export default function SessionPlayer({ module: mod }: Props) {
               <li>Feel your feet on the floor. Press them down.</li>
               <li>Name five things you can see in the room.</li>
               <li>Breathe out longer than you breathe in, five times.</li>
-              <li>If you saved a calm-place word, say it to yourself now.</li>
+              <li>
+                {calmPlace
+                  ? `Say your calm-place word to yourself now: “${calmPlace}”.`
+                  : "If you saved a calm-place word, say it to yourself now."}
+              </li>
             </ol>
           </div>
           <div className="mt-5 flex flex-col gap-3">
@@ -319,6 +386,11 @@ export default function SessionPlayer({ module: mod }: Props) {
       <div className="flex items-center justify-between text-sm">
         <span className="text-olive">
           {mod.name} · step {stepIndex + 1} of {mod.steps.length}
+          {chosenFocus && (
+            <span className="ml-2 rounded-full bg-clay/60 px-3 py-0.5 text-xs font-medium text-ground">
+              Focus: {chosenFocus}
+            </span>
+          )}
         </span>
         <div className="flex gap-3">
           <a href="/crisis" className="font-semibold text-support underline">

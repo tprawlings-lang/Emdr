@@ -69,7 +69,8 @@ export type MemoryType =
   | "tone_preference"
   | "restricted_topic"
   | "session_pattern"
-  | "progress_pattern";
+  | "progress_pattern"
+  | "focus_area";
 
 export type MemorySource =
   | "onboarding"
@@ -127,6 +128,19 @@ export function getMemoryItems(userId: string): MemoryItem[] {
       "SELECT * FROM ai_memory_items WHERE user_id = ? AND active = 1 ORDER BY memory_type, memory_key"
     )
     .all(userId) as MemoryItem[];
+}
+
+export function getMemoryItemsByType(userId: string, type: MemoryType): MemoryItem[] {
+  return getMemoryItems(userId).filter((m) => m.memory_type === type);
+}
+
+export function hasOnboardingConversation(userId: string): boolean {
+  const row = getDb()
+    .prepare(
+      "SELECT 1 AS one FROM ai_conversations WHERE user_id = ? AND context_type = 'onboarding' LIMIT 1"
+    )
+    .get(userId);
+  return Boolean(row);
 }
 
 // ---------- Safety detection ----------

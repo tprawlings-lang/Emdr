@@ -475,11 +475,15 @@ export async function completeOnboardingProfile() {
 
 export async function sendCompanionMessage(
   conversationId: string | null,
-  text: string
+  text: string,
+  contextType?: string
 ): Promise<{ conversationId: string; reply: string; riskFlag: boolean }> {
   const user = await requireMember();
   const trimmed = text.trim().slice(0, 2000);
   const db = getDb();
+  const context = ["general", "onboarding"].includes(contextType ?? "")
+    ? (contextType as string)
+    : "general";
 
   let convId = conversationId;
   if (convId) {
@@ -490,9 +494,10 @@ export async function sendCompanionMessage(
   }
   if (!convId) {
     convId = newId();
-    db.prepare("INSERT INTO ai_conversations (id, user_id, context_type) VALUES (?, ?, 'general')").run(
+    db.prepare("INSERT INTO ai_conversations (id, user_id, context_type) VALUES (?, ?, ?)").run(
       convId,
-      user.id
+      user.id,
+      context
     );
   }
 
@@ -679,25 +684,51 @@ export async function submitCheckin(formData: FormData) {
 
 // ---------- Session runtime ----------
 
-export async function startSession(moduleId: string) {
+export async function startSession(moduleId: string, focus?: string) {
   const user = await requireMember();
   const mod = getModule(moduleId);
   if (!mod) redirect("/dashboard");
   const access = checkModuleAccess(user.id, mod);
   if (!access.allowed) redirect("/dashboard");
 
+  const chosenFocus = focus?.trim().slice(0, 200) || null;
   const db = getDb();
   const id = newId();
   db.prepare(
-    "INSERT INTO therapy_sessions (id, user_id, module_id) VALUES (?, ?, ?)"
-  ).run(id, user.id, mod.id);
+    "INSERT INTO therapy_sessions (id, user_id, module_id, detail_json) VALUES (?, ?, ?, ?)"
+  ).run(id, user.id, mod.id, JSON.stringify(chosenFocus ? { focus: chosenFocus } : {}));
+
+  if (chosenFocus) {
+    // The chosen focus feeds the companion's memory so chat can pick up
+    // where the session left off. The calm place additionally gets its own
+    // durable slot — it is reused by later sessions and grounding prompts.
+    if (mod.id === "calm-place") {
+      writeMemory({
+        userId: user.id,
+        type: "grounding_tool",
+        key: "calm place",
+        value: chosenFocus,
+        source: "session_reflection",
+        sourceId: id,
+      });
+    }
+    writeMemory({
+      userId: user.id,
+      type: "session_pattern",
+      key: `current focus — ${mod.name}`,
+      value: chosenFocus,
+      source: "session_reflection",
+      sourceId: id,
+    });
+  }
+
   audit({
     actorId: user.id,
     actorRole: "member",
     family: "module_runtime",
     type: "session_started",
     target: mod.id,
-    detail: { sessionId: id },
+    detail: { sessionId: id, focus: chosenFocus },
   });
   return id;
 }
@@ -714,9 +745,20 @@ export async function finishSession(args: {
   const user = await requireMember();
   const db = getDb();
   const session = db
-    .prepare("SELECT id, module_id FROM therapy_sessions WHERE id = ? AND user_id = ?")
-    .get(args.sessionId, user.id) as { id: string; module_id: string } | undefined;
+    .prepare("SELECT id, module_id, detail_json FROM therapy_sessions WHERE id = ? AND user_id = ?")
+    .get(args.sessionId, user.id) as
+    | { id: string; module_id: string; detail_json: string }
+    | undefined;
   if (!session) return;
+
+  // Merge into detail_json so the focus chosen at start survives completion.
+  let detail: Record<string, unknown> = {};
+  try {
+    detail = JSON.parse(session.detail_json) as Record<string, unknown>;
+  } catch {
+    detail = {};
+  }
+  detail.sudsTrail = args.sudsTrail;
 
   db.prepare(
     `UPDATE therapy_sessions SET status = ?, pre_suds = ?, post_suds = ?, peak_suds = ?,
@@ -728,7 +770,7 @@ export async function finishSession(args: {
     args.postSuds,
     args.peakSuds,
     args.hardStopReason ?? null,
-    JSON.stringify({ sudsTrail: args.sudsTrail }),
+    JSON.stringify(detail),
     args.sessionId
   );
 

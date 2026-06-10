@@ -34,6 +34,8 @@ import {
   saveTriggers,
   saveWarningSigns,
 } from "@/lib/actions";
+import { getMemoryItemsByType, hasOnboardingConversation } from "@/lib/companion";
+import CompanionChat from "@/components/CompanionChat";
 
 const STEPS = [
   "welcome",
@@ -45,6 +47,7 @@ const STEPS = [
   "readiness",
   "safety-plan",
   "companion",
+  "focus-chat",
   "summary",
 ] as const;
 type Step = (typeof STEPS)[number];
@@ -131,6 +134,7 @@ export default async function ProfileOnboardingPage({
   const readiness = getLatestReadiness(user.id);
   const plan = getSafetyPlan(user.id);
   const prefs = getCompanionPrefs(user.id);
+  const focusAreas = getMemoryItemsByType(user.id, "focus_area");
 
   // Resume where the member left off unless a step is explicitly requested.
   const inferred: Step = !profile?.therapist_status
@@ -147,7 +151,9 @@ export default async function ProfileOnboardingPage({
               ? "safety-plan"
               : !prefs
                 ? "companion"
-                : "summary";
+                : !hasOnboardingConversation(user.id)
+                  ? "focus-chat"
+                  : "summary";
   const step: Step = STEPS.includes(stepParam as Step) ? (stepParam as Step) : inferred;
   const position = STEPS.indexOf(step) + 1;
 
@@ -564,6 +570,38 @@ export default async function ProfileOnboardingPage({
         </form>
       )}
 
+      {step === "focus-chat" && (
+        <section className="mt-10">
+          <h1 className="font-serif text-3xl font-medium">In your own words</h1>
+          <p className="mt-2 leading-relaxed text-olive">
+            The checkboxes gave Steady the outline — this conversation fills it in. Your
+            companion will ask the kinds of questions a first intake would, so your sessions
+            can aim at the right things. Headlines are enough; nothing here asks you to
+            relive anything, and you can pass on any question.
+          </p>
+          <div className="mt-6 rounded-3xl border border-ground/10 bg-ivory p-5 shadow-soft">
+            <CompanionChat
+              initialMessages={[]}
+              contextType="onboarding"
+              greeting={(() => {
+                const name = prefs?.preferred_user_name ? ` ${prefs.preferred_user_name}` : "";
+                const restricted = new Set(
+                  JSON.parse(profile?.restricted_topics_json ?? "[]") as string[]
+                );
+                const area = (JSON.parse(profile?.trauma_areas_json ?? "[]") as string[]).find(
+                  (a) => a !== "Prefer not to say" && !restricted.has(a)
+                );
+                return area
+                  ? `Hi${name} — I'm your Steady companion. During setup you marked ${area.toLowerCase()} as part of what you're working through. I'd like to understand what that actually looks like in your life right now, so your sessions aim at the right things. Where does it show up most these days?`
+                  : `Hi${name} — I'm your Steady companion. Before you head to your dashboard, I'd like to understand what you're carrying and what you most want to be different — the way you'd describe it, not the way a form would. What brought you here?`;
+              })()}
+              doneHref="/onboarding/profile?step=summary"
+              doneLabel="I've shared enough — continue"
+            />
+          </div>
+        </section>
+      )}
+
       {step === "summary" && (
         <section className="mt-10">
           <h1 className="font-serif text-4xl font-medium">Your starting place</h1>
@@ -577,6 +615,21 @@ export default async function ProfileOnboardingPage({
               <p className="mt-3 text-sm text-ivory/60">
                 Readiness {readiness.calculated_readiness_score}/100 — recalculated gently as you
                 check in each day.
+              </p>
+            </div>
+          )}
+          {focusAreas.length > 0 && (
+            <div className="mt-5 rounded-3xl border border-ground/10 bg-linen p-5 shadow-soft">
+              <h2 className="font-semibold">What you want to work on</h2>
+              <ul className="mt-2 space-y-1 text-sm text-olive">
+                {focusAreas.slice(0, 6).map((f) => (
+                  <li key={f.id}>
+                    <span className="font-medium text-ground">{f.memory_key}</span> — {f.memory_value}
+                  </li>
+                ))}
+              </ul>
+              <p className="mt-2 text-xs text-olive">
+                These come back as focus choices when you start a session.
               </p>
             </div>
           )}

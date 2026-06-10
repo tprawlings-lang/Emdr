@@ -12,9 +12,17 @@ interface Message {
 export default function CompanionChat({
   initialMessages,
   greeting,
+  contextType,
+  doneHref,
+  doneLabel,
 }: {
   initialMessages: Message[];
   greeting: string;
+  /** Conversation purpose, e.g. "onboarding" — shapes how the companion behaves. */
+  contextType?: string;
+  /** When set, shows a button to leave the chat and continue (used in onboarding). */
+  doneHref?: string;
+  doneLabel?: string;
 }) {
   const [messages, setMessages] = useState<Message[]>(
     initialMessages.length > 0 ? initialMessages : [{ sender: "companion", text: greeting }]
@@ -31,7 +39,7 @@ export default function CompanionChat({
     setInput("");
     setMessages((m) => [...m, { sender: "member", text }]);
     startTransition(async () => {
-      const res = await sendCompanionMessage(conversationId, text);
+      const res = await sendCompanionMessage(conversationId, text, contextType);
       setConversationId(res.conversationId);
       setMessages((m) => [...m, { sender: "companion", text: res.reply, riskFlag: res.riskFlag }]);
       if (res.riskFlag) setShowRiskBanner(true);
@@ -105,6 +113,14 @@ export default function CompanionChat({
           Send
         </button>
       </div>
+      {doneHref && (
+        <a
+          href={doneHref}
+          className="mt-4 block rounded-full border border-ground/20 px-6 py-3 text-center text-ground/80 transition-colors hover:bg-moss"
+        >
+          {doneLabel ?? "Continue"}
+        </a>
+      )}
       <p className="mt-3 text-center text-xs text-olive">
         Your companion is supportive software, not a therapist or emergency care. In crisis,
         call or text 988 or call 911.

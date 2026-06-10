@@ -20,6 +20,7 @@ const TYPE_LABELS: Record<string, string> = {
   restricted_topic: "Restricted topics",
   session_pattern: "Session patterns",
   progress_pattern: "Progress patterns",
+  focus_area: "Focus areas",
 };
 
 const SOURCE_LABELS: Record<string, string> = {
