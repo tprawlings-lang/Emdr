@@ -15,6 +15,14 @@ import { getInstrument, scoreInstrument } from "./instruments";
 import { getModule } from "./modules";
 import { checkModuleAccess, evaluateCheckin, todayISO } from "./gating";
 import { CONSENT_VERSION } from "./policy";
+import {
+  ReadinessAnswers,
+  computeReadiness,
+  getActiveTriggers,
+  getLatestReadiness,
+  readinessFromCheckin,
+} from "./profile";
+import { buildCompanionContext, generateReply, writeMemory } from "./companion";
 
 function createAlert(args: {
   userId: string;
@@ -140,6 +148,363 @@ export async function submitScreening(formData: FormData) {
   redirect(context === "weekly" ? "/measures?submitted=1" : "/screening");
 }
 
+// ---------- Onboarding profile (feature spec sections 3–7) ----------
+
+function upsertProfile(userId: string, fields: Record<string, string>) {
+  const db = getDb();
+  db.prepare("INSERT OR IGNORE INTO user_profiles (user_id) VALUES (?)").run(userId);
+  for (const [col, value] of Object.entries(fields)) {
+    // Column names are fixed by the call sites below, never user input.
+    db.prepare(`UPDATE user_profiles SET ${col} = ?, updated_at = datetime('now') WHERE user_id = ?`).run(
+      value,
+      userId
+    );
+  }
+}
+
+export async function saveSupportStatus(formData: FormData) {
+  const user = await requireMember();
+  upsertProfile(user.id, {
+    therapist_status: String(formData.get("therapist_status") ?? "prefer_not_to_say"),
+    emdr_experience: String(formData.get("emdr_experience") ?? "not_sure"),
+    goals_json: JSON.stringify(formData.getAll("goal").map(String).slice(0, 10)),
+  });
+  audit({ actorId: user.id, actorRole: "member", family: "clinical", type: "onboarding_support_status" });
+  redirect("/onboarding/profile?step=background");
+}
+
+export async function saveTraumaContext(formData: FormData) {
+  const user = await requireMember();
+  const restricted =
+    formData.get("restrict") === "yes" ? formData.getAll("restricted_topic").map(String) : [];
+  upsertProfile(user.id, {
+    trauma_areas_json: JSON.stringify(formData.getAll("area").map(String).slice(0, 20)),
+    restricted_topics_json: JSON.stringify(restricted.slice(0, 20)),
+  });
+  for (const topic of restricted) {
+    writeMemory({ userId: user.id, type: "restricted_topic", key: topic, value: "Do not raise unless the member brings it up first.", source: "onboarding" });
+  }
+  audit({ actorId: user.id, actorRole: "member", family: "clinical", type: "onboarding_trauma_context" });
+  redirect("/onboarding/profile?step=triggers");
+}
+
+export async function saveTriggers(formData: FormData) {
+  const user = await requireMember();
+  const db = getDb();
+  const selected = formData.getAll("trigger").map(String);
+  const custom = String(formData.get("custom_triggers") ?? "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .slice(0, 10);
+
+  const insert = db.prepare(
+    `INSERT INTO user_triggers (id, user_id, trigger_name, trigger_category)
+     VALUES (?, ?, ?, ?)
+     ON CONFLICT(user_id, trigger_name) DO UPDATE SET active = 1, updated_at = datetime('now')`
+  );
+  for (const entry of selected.slice(0, 60)) {
+    const [category, name] = entry.split("|");
+    if (category && name) insert.run(newId(), user.id, name.slice(0, 100), category.slice(0, 30));
+  }
+  for (const name of custom) insert.run(newId(), user.id, name.slice(0, 100), "custom");
+
+  audit({
+    actorId: user.id,
+    actorRole: "member",
+    family: "clinical",
+    type: "onboarding_triggers_saved",
+    detail: { count: selected.length + custom.length },
+  });
+  redirect("/onboarding/profile?step=trigger-details");
+}
+
+export async function saveTriggerDetails(formData: FormData) {
+  const user = await requireMember();
+  const db = getDb();
+  for (const t of getActiveTriggers(user.id)) {
+    const intensity = formData.get(`intensity-${t.id}`);
+    const responses = formData.getAll(`resp-${t.id}`).map(String).slice(0, 12);
+    if (intensity === null) continue;
+    db.prepare(
+      `UPDATE user_triggers SET intensity_score = ?, common_responses_json = ?, updated_at = datetime('now')
+       WHERE id = ? AND user_id = ?`
+    ).run(Number(intensity), JSON.stringify(responses), t.id, user.id);
+    writeMemory({
+      userId: user.id,
+      type: "trigger",
+      key: t.trigger_name,
+      value: `Intensity ${intensity}/10. Usual response: ${responses.join(", ") || "not specified"}.`,
+      source: "onboarding",
+      sourceId: t.id,
+    });
+  }
+  audit({ actorId: user.id, actorRole: "member", family: "clinical", type: "onboarding_trigger_details" });
+  redirect("/onboarding/profile?step=warning-signs");
+}
+
+export async function saveWarningSigns(formData: FormData) {
+  const user = await requireMember();
+  const db = getDb();
+  const signs = formData.getAll("sign").map(String).slice(0, 20);
+  const insert = db.prepare(
+    `INSERT INTO early_warning_signs (id, user_id, sign_name) VALUES (?, ?, ?)
+     ON CONFLICT(user_id, sign_name) DO UPDATE SET active = 1`
+  );
+  for (const s of signs) insert.run(newId(), user.id, s.slice(0, 100));
+  if (signs.length > 0) {
+    writeMemory({
+      userId: user.id,
+      type: "safety",
+      key: "early_warning_signs",
+      value: signs.join(", "),
+      source: "onboarding",
+    });
+  }
+  audit({ actorId: user.id, actorRole: "member", family: "clinical", type: "onboarding_warning_signs" });
+  redirect("/onboarding/profile?step=readiness");
+}
+
+export async function saveReadinessAssessment(formData: FormData) {
+  const user = await requireMember();
+  const riskFlag = String(formData.get("risk") ?? "none") as ReadinessAnswers["riskFlag"];
+
+  // "Yes, and I may not be safe" routes straight to crisis support. Onboarding
+  // stays incomplete until safety is confirmed (spec screen 8).
+  if (riskFlag === "not_safe") {
+    createAlert({
+      userId: user.id,
+      type: "onboarding_risk_disclosure",
+      severity: "urgent",
+      detail: "Member reported recent harm thoughts and possible current unsafety during onboarding readiness assessment.",
+    });
+    audit({ actorId: user.id, actorRole: "member", family: "clinical", type: "onboarding_crisis_route" });
+    redirect("/crisis?from=onboarding");
+  }
+
+  const answers: ReadinessAnswers = {
+    stability: Number(formData.get("stability") ?? 0),
+    bodySafety: Number(formData.get("body_safety") ?? 0),
+    presentConnection: Number(formData.get("present_connection") ?? 0),
+    symptomIntensity: Number(formData.get("symptom_intensity") ?? 0),
+    sleepQuality: String(formData.get("sleep") ?? "okay") as ReadinessAnswers["sleepQuality"],
+    supportAvailable: String(formData.get("support") ?? "no") as ReadinessAnswers["supportAvailable"],
+    processingReadiness: String(formData.get("processing") ?? "unsure") as ReadinessAnswers["processingReadiness"],
+    pauseCapacity: String(formData.get("pause") ?? "not_sure") as ReadinessAnswers["pauseCapacity"],
+    riskFlag,
+  };
+  const { score, track } = computeReadiness(answers);
+  const db = getDb();
+  db.prepare(
+    `INSERT INTO readiness_assessments
+       (id, user_id, stability_score, body_safety_score, present_connection_score, symptom_intensity_score,
+        sleep_quality, support_available, processing_readiness, pause_capacity, pace_preference,
+        risk_flag, calculated_readiness_score, recommended_track, source)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'onboarding')`
+  ).run(
+    newId(), user.id, answers.stability, answers.bodySafety, answers.presentConnection,
+    answers.symptomIntensity, answers.sleepQuality, answers.supportAvailable,
+    answers.processingReadiness, answers.pauseCapacity,
+    String(formData.get("pace") ?? "not_sure"), riskFlag, score, track
+  );
+  writeMemory({
+    userId: user.id,
+    type: "readiness",
+    key: "current_track",
+    value: `${track} (score ${score}/100)`,
+    source: "onboarding",
+  });
+  if (riskFlag === "safe_now") {
+    createAlert({
+      userId: user.id,
+      type: "onboarding_risk_disclosure",
+      severity: "high",
+      detail: "Member reported recent harm thoughts during onboarding but feels safe right now. Routed to stabilization track.",
+    });
+  }
+  audit({
+    actorId: user.id,
+    actorRole: "member",
+    family: "clinical",
+    type: "readiness_assessed",
+    detail: { score, track, source: "onboarding" },
+  });
+  redirect("/onboarding/profile?step=safety-plan");
+}
+
+export async function saveSafetyPlan(formData: FormData) {
+  const user = await requireMember();
+  const tools = formData.getAll("tool").map(String).slice(0, 15);
+  const custom = String(formData.get("custom_tool") ?? "").trim();
+  if (custom) tools.push(custom.slice(0, 100));
+  const db = getDb();
+  db.prepare(
+    `INSERT INTO safety_plans
+       (user_id, grounding_tools_json, support_contact_name, support_contact_method, reminder_phrase, stop_signs, careful_topics)
+     VALUES (?, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT(user_id) DO UPDATE SET
+       grounding_tools_json=excluded.grounding_tools_json,
+       support_contact_name=excluded.support_contact_name,
+       support_contact_method=excluded.support_contact_method,
+       reminder_phrase=excluded.reminder_phrase,
+       stop_signs=excluded.stop_signs,
+       careful_topics=excluded.careful_topics,
+       updated_at=datetime('now')`
+  ).run(
+    user.id,
+    JSON.stringify(tools),
+    String(formData.get("contact_name") ?? "").slice(0, 100) || null,
+    String(formData.get("contact_method") ?? "").slice(0, 100) || null,
+    String(formData.get("reminder") ?? "").slice(0, 300) || null,
+    String(formData.get("stop_signs") ?? "").slice(0, 500) || null,
+    String(formData.get("careful_topics") ?? "").slice(0, 500) || null
+  );
+  for (const tool of tools) {
+    writeMemory({ userId: user.id, type: "grounding_tool", key: tool, value: "Chosen in safety plan.", source: "onboarding" });
+  }
+  const reminder = String(formData.get("reminder") ?? "").trim();
+  if (reminder) {
+    writeMemory({ userId: user.id, type: "safety", key: "reminder_phrase", value: reminder.slice(0, 300), source: "onboarding" });
+  }
+  audit({ actorId: user.id, actorRole: "member", family: "clinical", type: "safety_plan_saved" });
+  redirect("/onboarding/profile?step=companion");
+}
+
+export async function saveCompanionPrefs(formData: FormData) {
+  const user = await requireMember();
+  const db = getDb();
+  db.prepare(
+    `INSERT INTO ai_companion_preferences
+       (user_id, preferred_user_name, tone, support_modes_json, avoidances_json, memory_enabled)
+     VALUES (?, ?, ?, ?, ?, ?)
+     ON CONFLICT(user_id) DO UPDATE SET
+       preferred_user_name=excluded.preferred_user_name, tone=excluded.tone,
+       support_modes_json=excluded.support_modes_json, avoidances_json=excluded.avoidances_json,
+       memory_enabled=excluded.memory_enabled, updated_at=datetime('now')`
+  ).run(
+    user.id,
+    String(formData.get("preferred_name") ?? "").slice(0, 60) || null,
+    String(formData.get("tone") ?? "Gentle").slice(0, 30),
+    JSON.stringify(formData.getAll("mode").map(String).slice(0, 10)),
+    JSON.stringify(formData.getAll("avoid").map(String).slice(0, 10)),
+    ["yes", "no", "ask"].includes(String(formData.get("memory"))) ? String(formData.get("memory")) : "yes"
+  );
+  audit({ actorId: user.id, actorRole: "member", family: "clinical", type: "companion_preferences_saved" });
+  redirect("/onboarding/profile?step=summary");
+}
+
+export async function completeOnboardingProfile() {
+  const user = await requireMember();
+  upsertProfile(user.id, { profile_complete: "1" });
+  audit({ actorId: user.id, actorRole: "member", family: "clinical", type: "onboarding_profile_complete" });
+  redirect("/dashboard");
+}
+
+// ---------- AI companion (feature spec sections 8–9, 14–15) ----------
+
+export async function sendCompanionMessage(
+  conversationId: string | null,
+  text: string
+): Promise<{ conversationId: string; reply: string; riskFlag: boolean }> {
+  const user = await requireMember();
+  const trimmed = text.trim().slice(0, 2000);
+  const db = getDb();
+
+  let convId = conversationId;
+  if (convId) {
+    const owned = db
+      .prepare("SELECT id FROM ai_conversations WHERE id = ? AND user_id = ?")
+      .get(convId, user.id);
+    if (!owned) convId = null;
+  }
+  if (!convId) {
+    convId = newId();
+    db.prepare("INSERT INTO ai_conversations (id, user_id, context_type) VALUES (?, ?, 'general')").run(
+      convId,
+      user.id
+    );
+  }
+
+  const ctx = buildCompanionContext(user.id);
+  const reply = generateReply(ctx, trimmed);
+
+  const insertMsg = db.prepare(
+    "INSERT INTO ai_messages (id, conversation_id, user_id, sender, message_text, risk_flag) VALUES (?, ?, ?, ?, ?, ?)"
+  );
+  insertMsg.run(newId(), convId, user.id, "member", trimmed, reply.riskFlag ? 1 : 0);
+  insertMsg.run(newId(), convId, user.id, "companion", reply.text, reply.riskFlag ? 1 : 0);
+
+  if (reply.riskFlag) {
+    db.prepare("UPDATE ai_conversations SET risk_level = 'urgent' WHERE id = ?").run(convId);
+    createAlert({
+      userId: user.id,
+      type: "companion_risk_language",
+      severity: "urgent",
+      detail: "Risk language detected in a companion conversation. Companion routed the member to crisis resources.",
+    });
+  }
+  audit({
+    actorId: user.id,
+    actorRole: "member",
+    family: "clinical",
+    type: "companion_message",
+    target: convId,
+    detail: { mode: reply.mode, riskFlag: reply.riskFlag },
+  });
+  return { conversationId: convId, reply: reply.text, riskFlag: reply.riskFlag };
+}
+
+// ---------- Memory privacy controls (feature spec section 10) ----------
+
+export async function setMemoryEnabled(formData: FormData) {
+  const user = await requireMember();
+  const value = ["yes", "no", "ask"].includes(String(formData.get("memory")))
+    ? String(formData.get("memory"))
+    : "yes";
+  getDb()
+    .prepare(
+      `INSERT INTO ai_companion_preferences (user_id, memory_enabled) VALUES (?, ?)
+       ON CONFLICT(user_id) DO UPDATE SET memory_enabled = excluded.memory_enabled, updated_at = datetime('now')`
+    )
+    .run(user.id, value);
+  audit({ actorId: user.id, actorRole: "member", family: "clinical", type: "companion_memory_setting", detail: { value } });
+  revalidatePath("/settings/memory");
+  redirect("/settings/memory");
+}
+
+export async function deleteMemoryItem(formData: FormData) {
+  const user = await requireMember();
+  const id = String(formData.get("id") ?? "");
+  getDb()
+    .prepare("UPDATE ai_memory_items SET active = 0, updated_at = datetime('now') WHERE id = ? AND user_id = ?")
+    .run(id, user.id);
+  audit({ actorId: user.id, actorRole: "member", family: "clinical", type: "companion_memory_deleted", target: id });
+  revalidatePath("/settings/memory");
+  redirect("/settings/memory");
+}
+
+export async function clearCompanionMemory() {
+  const user = await requireMember();
+  getDb()
+    .prepare("UPDATE ai_memory_items SET active = 0, updated_at = datetime('now') WHERE user_id = ?")
+    .run(user.id);
+  audit({ actorId: user.id, actorRole: "member", family: "clinical", type: "companion_memory_cleared" });
+  revalidatePath("/settings/memory");
+  redirect("/settings/memory");
+}
+
+export async function setTriggerActive(formData: FormData) {
+  const user = await requireMember();
+  const id = String(formData.get("id") ?? "");
+  const active = formData.get("active") === "1" ? 1 : 0;
+  getDb()
+    .prepare("UPDATE user_triggers SET active = ?, updated_at = datetime('now') WHERE id = ? AND user_id = ?")
+    .run(active, id, user.id);
+  audit({ actorId: user.id, actorRole: "member", family: "clinical", type: "trigger_updated", target: id, detail: { active } });
+  revalidatePath("/settings/memory");
+  redirect("/settings/memory");
+}
+
 // ---------- Daily check-in ----------
 
 export async function submitCheckin(formData: FormData) {
@@ -154,16 +519,22 @@ export async function submitCheckin(formData: FormData) {
     substance_flag: formData.get("substance_flag") === "yes",
   };
   const action = evaluateCheckin(values);
+  // Known triggers the member says showed up today (trigger watch).
+  const knownIds = new Set(getActiveTriggers(user.id).map((t) => t.id));
+  const triggersToday = formData
+    .getAll("trigger_today")
+    .map(String)
+    .filter((id) => knownIds.has(id));
   const db = getDb();
   db.prepare(
     `INSERT INTO checkins (id, user_id, checkin_date, activation, shutdown, harm_urge, feels_safe,
-       dissociation, sleep_quality, substance_flag, recommended_action)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+       dissociation, sleep_quality, substance_flag, recommended_action, triggers_json)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT(user_id, checkin_date) DO UPDATE SET
        activation=excluded.activation, shutdown=excluded.shutdown, harm_urge=excluded.harm_urge,
        feels_safe=excluded.feels_safe, dissociation=excluded.dissociation,
        sleep_quality=excluded.sleep_quality, substance_flag=excluded.substance_flag,
-       recommended_action=excluded.recommended_action`
+       recommended_action=excluded.recommended_action, triggers_json=excluded.triggers_json`
   ).run(
     newId(),
     user.id,
@@ -175,8 +546,29 @@ export async function submitCheckin(formData: FormData) {
     values.dissociation,
     values.sleep_quality,
     values.substance_flag ? 1 : 0,
-    action
+    action,
+    JSON.stringify(triggersToday)
   );
+
+  // Readiness recalculates over time: blend today's somatic state with the
+  // slower-moving answers from the latest stored assessment.
+  const base = getLatestReadiness(user.id);
+  if (base) {
+    const recalced = readinessFromCheckin(base, values);
+    const { score, track } = computeReadiness(recalced);
+    db.prepare(
+      `INSERT INTO readiness_assessments
+         (id, user_id, stability_score, body_safety_score, present_connection_score, symptom_intensity_score,
+          sleep_quality, support_available, processing_readiness, pause_capacity, pace_preference,
+          risk_flag, calculated_readiness_score, recommended_track, source)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'checkin')`
+    ).run(
+      newId(), user.id, recalced.stability, recalced.bodySafety, recalced.presentConnection,
+      recalced.symptomIntensity, recalced.sleepQuality, recalced.supportAvailable,
+      recalced.processingReadiness, recalced.pauseCapacity, base.pace_preference,
+      recalced.riskFlag, score, track
+    );
+  }
 
   audit({
     actorId: user.id,

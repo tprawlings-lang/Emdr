@@ -11,7 +11,7 @@ export default async function OnboardingPage() {
   return (
     <main className="mx-auto max-w-3xl px-6 py-12">
       <div className="sticky top-0 z-10 -mx-6 mb-6 border-b border-ground/10 bg-ivory/95 px-6 py-3 text-sm font-medium text-ground/80">
-        Emergency use: <span className="font-bold text-support">No</span> · Step 1 of 2 —
+        Emergency use: <span className="font-bold text-support">No</span> · Step 1 of 3 —
         Informed consent
       </div>
 

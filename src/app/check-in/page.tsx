@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { requireMember } from "@/lib/auth";
 import { hasConsent, screeningComplete } from "@/lib/gating";
+import { getActiveTriggers, profileComplete } from "@/lib/profile";
 import { submitCheckin } from "@/lib/actions";
 
 function ScaleInput({
@@ -54,6 +55,9 @@ export default async function CheckinPage() {
   const user = await requireMember();
   if (!hasConsent(user.id)) redirect("/onboarding");
   if (!screeningComplete(user.id)) redirect("/screening");
+  if (!profileComplete(user.id)) redirect("/onboarding/profile");
+
+  const triggers = getActiveTriggers(user.id);
 
   return (
     <main className="mx-auto max-w-2xl px-6 py-12">
@@ -107,6 +111,25 @@ export default async function CheckinPage() {
           </legend>
           <YesNo name="substance_flag" />
         </fieldset>
+
+        {triggers.length > 0 && (
+          <fieldset className="space-y-2.5 rounded-3xl border border-ground/10 bg-linen p-5 shadow-soft">
+            <legend className="px-1 font-medium">
+              Did any of your known triggers show up today? (optional)
+            </legend>
+            <div className="flex flex-wrap gap-2">
+              {triggers.map((t) => (
+                <label
+                  key={t.id}
+                  className="cursor-pointer rounded-full border border-ground/15 bg-ivory px-4 py-2 text-sm transition-colors hover:bg-moss has-checked:border-clay has-checked:bg-clay has-checked:font-semibold"
+                >
+                  <input type="checkbox" name="trigger_today" value={t.id} className="sr-only" />
+                  {t.trigger_name}
+                </label>
+              ))}
+            </div>
+          </fieldset>
+        )}
 
         <button
           type="submit"

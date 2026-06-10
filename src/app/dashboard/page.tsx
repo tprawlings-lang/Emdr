@@ -12,6 +12,14 @@ import {
 } from "@/lib/gating";
 import { logout, requestUnlock } from "@/lib/actions";
 import { scoreItq } from "@/lib/instruments";
+import {
+  TRACK_GUIDANCE,
+  TRACK_LABELS,
+  getActiveTriggers,
+  getLatestReadiness,
+  getSafetyPlan,
+  profileComplete,
+} from "@/lib/profile";
 import TrendChart from "@/components/TrendChart";
 
 function actionLabel(action: string): { label: string; tone: string } {
@@ -33,9 +41,16 @@ export default async function DashboardPage() {
   const user = await requireMember();
   if (!hasConsent(user.id)) redirect("/onboarding");
   if (!screeningComplete(user.id)) redirect("/screening");
+  if (!profileComplete(user.id)) redirect("/onboarding/profile");
 
   const db = getDb();
   const checkin = getTodayCheckin(user.id);
+  const readiness = getLatestReadiness(user.id);
+  const triggers = getActiveTriggers(user.id);
+  const plan = getSafetyPlan(user.id);
+  const groundingTools: string[] = plan ? JSON.parse(plan.grounding_tools_json) : [];
+  const todayTriggerIds: string[] = checkin?.triggers_json ? JSON.parse(checkin.triggers_json) : [];
+  const todayTriggers = triggers.filter((t) => todayTriggerIds.includes(t.id));
 
   const pcl5 = db
     .prepare(
@@ -83,6 +98,9 @@ export default async function DashboardPage() {
         <div className="flex items-center gap-4">
           <Link href="/crisis" className="text-sm font-semibold text-support underline">
             Need help now?
+          </Link>
+          <Link href="/settings/memory" className="text-sm text-olive underline">
+            Memory
           </Link>
           <form action={logout}>
             <button className="text-sm text-olive underline">Sign out</button>
@@ -134,6 +152,62 @@ export default async function DashboardPage() {
           </p>
         </div>
       )}
+
+      {todayTriggers.length > 0 && (
+        <div className="mt-4 rounded-3xl border border-clay/50 bg-clay/15 p-5">
+          <p className="font-medium">
+            Today connects to {todayTriggers.length === 1 ? "one of your known triggers" : "some of your known triggers"}:{" "}
+            {todayTriggers.map((t) => t.trigger_name.toLowerCase()).join(", ")}.
+          </p>
+          {groundingTools.length > 0 && (
+            <p className="mt-1 text-sm text-olive">
+              Last time, {groundingTools[0].toLowerCase()} helped. Your grounding tools are one
+              tap away.
+            </p>
+          )}
+          <Link href="/ground" className="mt-2 inline-block text-sm font-medium underline">
+            Ground now
+          </Link>
+        </div>
+      )}
+
+      <div className="mt-6 grid gap-4 sm:grid-cols-2">
+        {readiness && (
+          <div className="rounded-3xl border border-ground/10 bg-linen p-5 shadow-soft">
+            <div className="flex items-baseline justify-between">
+              <p className="text-sm text-olive">Current place</p>
+              <p className="text-sm text-olive">{readiness.calculated_readiness_score}/100</p>
+            </div>
+            <p className="mt-1 font-serif text-2xl font-medium">
+              {TRACK_LABELS[readiness.recommended_track]}
+            </p>
+            <p className="mt-2 text-sm leading-relaxed text-olive">
+              {TRACK_GUIDANCE[readiness.recommended_track]}
+            </p>
+          </div>
+        )}
+        <div className="rounded-3xl border border-ground/10 bg-linen p-5 shadow-soft">
+          <p className="text-sm text-olive">Your companion</p>
+          <p className="mt-1 font-serif text-2xl font-medium">Here when you need it</p>
+          <p className="mt-2 text-sm leading-relaxed text-olive">
+            It remembers your triggers, grounding tools, and pace — and you control its memory.
+          </p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <Link
+              href="/companion"
+              className="rounded-full bg-sage px-5 py-2 text-sm font-medium text-ground transition-colors hover:bg-sage-deep"
+            >
+              Check in with it
+            </Link>
+            <Link
+              href="/ground"
+              className="rounded-full border border-ground/20 px-5 py-2 text-sm text-ground/80 transition-colors hover:bg-moss"
+            >
+              Ground now
+            </Link>
+          </div>
+        </div>
+      </div>
 
       {measureDue && (
         <div className="mt-4 rounded-3xl border border-mist/60 bg-mist/20 p-5">

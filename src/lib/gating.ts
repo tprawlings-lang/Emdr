@@ -1,5 +1,6 @@
 import { getDb } from "./db";
 import { MODULES, TherapyModule } from "./modules";
+import { getLatestReadiness, getSafetyPlan, profileComplete } from "./profile";
 
 // Gating rules from the executive plan: every session entry point routes
 // through consent -> screening -> today's check-in -> tier/unlock checks.
@@ -18,6 +19,7 @@ export interface CheckinRow {
   sleep_quality: number;
   substance_flag: number;
   recommended_action: string;
+  triggers_json: string;
   created_at: string;
 }
 
@@ -105,7 +107,11 @@ export function completedModuleIds(userId: string): Set<string> {
 
 export type ModuleAccess =
   | { allowed: true }
-  | { allowed: false; reason: string; action: "consent" | "screening" | "checkin" | "crisis" | "grounding" | "unlock" | "prereq" };
+  | {
+      allowed: false;
+      reason: string;
+      action: "consent" | "screening" | "profile" | "checkin" | "crisis" | "grounding" | "unlock" | "prereq" | "readiness" | "safety_plan";
+    };
 
 const GROUNDING_MODULES = new Set(["calm-place", "containment"]);
 
@@ -114,6 +120,8 @@ export function checkModuleAccess(userId: string, mod: TherapyModule): ModuleAcc
     return { allowed: false, reason: "Please review and complete consent first.", action: "consent" };
   if (!screeningComplete(userId))
     return { allowed: false, reason: "Please complete your baseline screening first.", action: "screening" };
+  if (!profileComplete(userId))
+    return { allowed: false, reason: "Finish getting set up first — triggers, readiness, and your safety plan.", action: "profile" };
 
   const checkin = getTodayCheckin(userId);
   if (!checkin)
@@ -138,6 +146,32 @@ export function checkModuleAccess(userId: string, mod: TherapyModule): ModuleAcc
       allowed: false,
       reason: "Today's check-in suggests keeping intensity lower. Processing modules are unavailable today; stabilization modules are open.",
       action: "grounding",
+    };
+
+  // Readiness track gating (feature spec section 5). The language never
+  // implies failure: today may simply be better for grounding.
+  const readiness = getLatestReadiness(userId);
+  if (readiness) {
+    if (readiness.recommended_track === "stabilization" && !GROUNDING_MODULES.has(mod.id))
+      return {
+        allowed: false,
+        reason: "Your current readiness track is Stabilization — grounding modules, safety planning, and your companion are open. Processing can wait.",
+        action: "readiness",
+      };
+    if (readiness.recommended_track === "preparation" && mod.tier === "gated")
+      return {
+        allowed: false,
+        reason: "Your current readiness track is Preparation. Trigger awareness, grounding, and resourcing come first; processing modules open as readiness grows.",
+        action: "readiness",
+      };
+  }
+
+  // Deeper work requires a completed safety plan (spec section 18).
+  if (mod.tier === "gated" && !getSafetyPlan(userId))
+    return {
+      allowed: false,
+      reason: "Before deeper work, Steady needs your safety plan — grounding tools, a support contact, and your stop signs.",
+      action: "safety_plan",
     };
 
   const completed = completedModuleIds(userId);

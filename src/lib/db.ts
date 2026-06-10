@@ -133,10 +133,133 @@ function migrate(db: Database.Database) {
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
   );
 
+  CREATE TABLE IF NOT EXISTS user_profiles (
+    user_id TEXT PRIMARY KEY REFERENCES users(id),
+    therapist_status TEXT,
+    emdr_experience TEXT,
+    goals_json TEXT NOT NULL DEFAULT '[]',
+    trauma_areas_json TEXT NOT NULL DEFAULT '[]',
+    restricted_topics_json TEXT NOT NULL DEFAULT '[]',
+    profile_complete INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+
+  CREATE TABLE IF NOT EXISTS user_triggers (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL REFERENCES users(id),
+    trigger_name TEXT NOT NULL,
+    trigger_category TEXT NOT NULL,
+    intensity_score INTEGER,
+    common_responses_json TEXT NOT NULL DEFAULT '[]',
+    notes TEXT,
+    active INTEGER NOT NULL DEFAULT 1,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+    UNIQUE (user_id, trigger_name)
+  );
+
+  CREATE TABLE IF NOT EXISTS early_warning_signs (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL REFERENCES users(id),
+    sign_name TEXT NOT NULL,
+    active INTEGER NOT NULL DEFAULT 1,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    UNIQUE (user_id, sign_name)
+  );
+
+  CREATE TABLE IF NOT EXISTS readiness_assessments (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL REFERENCES users(id),
+    stability_score INTEGER NOT NULL,
+    body_safety_score INTEGER NOT NULL,
+    present_connection_score INTEGER NOT NULL,
+    symptom_intensity_score INTEGER NOT NULL,
+    sleep_quality TEXT NOT NULL,
+    support_available TEXT NOT NULL,
+    processing_readiness TEXT NOT NULL,
+    pause_capacity TEXT NOT NULL,
+    pace_preference TEXT,
+    risk_flag TEXT NOT NULL DEFAULT 'none',
+    calculated_readiness_score INTEGER NOT NULL,
+    recommended_track TEXT NOT NULL,
+    source TEXT NOT NULL DEFAULT 'onboarding',
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+
+  CREATE TABLE IF NOT EXISTS safety_plans (
+    user_id TEXT PRIMARY KEY REFERENCES users(id),
+    grounding_tools_json TEXT NOT NULL DEFAULT '[]',
+    support_contact_name TEXT,
+    support_contact_method TEXT,
+    reminder_phrase TEXT,
+    stop_signs TEXT,
+    careful_topics TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+
+  CREATE TABLE IF NOT EXISTS ai_companion_preferences (
+    user_id TEXT PRIMARY KEY REFERENCES users(id),
+    preferred_user_name TEXT,
+    tone TEXT NOT NULL DEFAULT 'gentle',
+    support_modes_json TEXT NOT NULL DEFAULT '[]',
+    avoidances_json TEXT NOT NULL DEFAULT '[]',
+    memory_enabled TEXT NOT NULL DEFAULT 'yes',
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+
+  CREATE TABLE IF NOT EXISTS ai_memory_items (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL REFERENCES users(id),
+    memory_type TEXT NOT NULL,
+    memory_key TEXT NOT NULL,
+    memory_value TEXT NOT NULL,
+    source_type TEXT NOT NULL,
+    source_id TEXT,
+    active INTEGER NOT NULL DEFAULT 1,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+
+  CREATE TABLE IF NOT EXISTS ai_conversations (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL REFERENCES users(id),
+    context_type TEXT NOT NULL DEFAULT 'general',
+    risk_level TEXT NOT NULL DEFAULT 'none',
+    started_at TEXT NOT NULL DEFAULT (datetime('now')),
+    ended_at TEXT
+  );
+
+  CREATE TABLE IF NOT EXISTS ai_messages (
+    id TEXT PRIMARY KEY,
+    conversation_id TEXT NOT NULL REFERENCES ai_conversations(id),
+    user_id TEXT NOT NULL REFERENCES users(id),
+    sender TEXT NOT NULL CHECK (sender IN ('member','companion')),
+    message_text TEXT NOT NULL,
+    risk_flag INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+
   CREATE INDEX IF NOT EXISTS idx_alerts_status ON alerts(status, created_at);
   CREATE INDEX IF NOT EXISTS idx_audit_created ON audit_log(created_at);
   CREATE INDEX IF NOT EXISTS idx_screenings_user ON screenings(user_id, created_at);
+  CREATE INDEX IF NOT EXISTS idx_triggers_user ON user_triggers(user_id, active);
+  CREATE INDEX IF NOT EXISTS idx_readiness_user ON readiness_assessments(user_id, created_at);
+  CREATE INDEX IF NOT EXISTS idx_memory_user ON ai_memory_items(user_id, memory_type, active);
+  CREATE INDEX IF NOT EXISTS idx_ai_messages_conv ON ai_messages(conversation_id, created_at);
   `);
+
+  // Columns added after initial release; SQLite has no ADD COLUMN IF NOT EXISTS.
+  ensureColumn(db, "checkins", "triggers_json", "TEXT NOT NULL DEFAULT '[]'");
+}
+
+function ensureColumn(db: Database.Database, table: string, column: string, ddl: string) {
+  const cols = db.prepare(`PRAGMA table_info(${table})`).all() as { name: string }[];
+  if (!cols.some((c) => c.name === column)) {
+    db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${ddl}`);
+  }
 }
 
 export function hashPassword(password: string): string {

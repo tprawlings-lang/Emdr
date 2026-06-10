@@ -144,6 +144,140 @@ export function seedDemoData(db: Database.Database) {
     "open", null, null, daysAgo(1, 9), null
   );
 
+  // --- Alex: onboarding profile, triggers, safety plan, companion memory ---
+  db.prepare(
+    `INSERT INTO user_profiles (user_id, therapist_status, emdr_experience, goals_json, trauma_areas_json, restricted_topics_json, profile_complete, created_at)
+     VALUES (?, 'previously', 'no', ?, ?, ?, 1, ?)`
+  ).run(
+    alexId,
+    JSON.stringify(["Daily grounding", "Understanding triggers", "Processing trauma safely"]),
+    JSON.stringify(["Childhood", "Relationships", "Emotional abuse"]),
+    JSON.stringify(["Sexual trauma"]),
+    daysAgo(21)
+  );
+
+  const insTrigger = db.prepare(
+    `INSERT INTO user_triggers (id, user_id, trigger_name, trigger_category, intensity_score, common_responses_json, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`
+  );
+  const alexTriggers: [string, string, number, string[]][] = [
+    ["Feeling ignored", "relational", 7, ["Shutdown", "Overthinking"]],
+    ["Someone raising their voice", "relational", 8, ["Anxiety", "Urge to isolate"]],
+    ["Crowds", "environmental", 5, ["Anxiety", "Avoidance"]],
+    ["Anniversaries", "memory", 6, ["Numbness", "Crying"]],
+    ["Feeling like a burden", "internal", 7, ["People-pleasing", "Urge to isolate"]],
+  ];
+  const alexTriggerIds: Record<string, string> = {};
+  for (const [name, cat, intensity, responses] of alexTriggers) {
+    const tid = id();
+    alexTriggerIds[name] = tid;
+    insTrigger.run(tid, alexId, name, cat, intensity, JSON.stringify(responses), daysAgo(21));
+  }
+
+  const insSign = db.prepare(
+    "INSERT INTO early_warning_signs (id, user_id, sign_name, created_at) VALUES (?, ?, ?, ?)"
+  );
+  for (const sign of ["Tight chest", "Racing thoughts", "Sudden tiredness", "Wanting to leave"]) {
+    insSign.run(id(), alexId, sign, daysAgo(21));
+  }
+
+  const insReadiness = db.prepare(
+    `INSERT INTO readiness_assessments
+       (id, user_id, stability_score, body_safety_score, present_connection_score, symptom_intensity_score,
+        sleep_quality, support_available, processing_readiness, pause_capacity, pace_preference,
+        risk_flag, calculated_readiness_score, recommended_track, source, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+  );
+  // Baseline at onboarding (preparation) and a recent recalculation that has
+  // grown into gentle processing as check-ins steadied.
+  insReadiness.run(
+    id(), alexId, 5, 5, 6, 6, "poor", "sometimes", "curious", "think_so", "slow",
+    "none", 54, "preparation", "onboarding", daysAgo(21)
+  );
+  insReadiness.run(
+    id(), alexId, 7, 8, 8, 4, "okay", "sometimes", "curious", "yes", "slow",
+    "none", 68, "gentle_processing", "checkin", daysAgo(0, 8)
+  );
+
+  db.prepare(
+    `INSERT INTO safety_plans (user_id, grounding_tools_json, support_contact_name, support_contact_method,
+       reminder_phrase, stop_signs, careful_topics, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+  ).run(
+    alexId,
+    JSON.stringify(["Walking", "Cold water", "Music"]),
+    "Jamie (sister, fictional)",
+    "Text first, then call",
+    "This feeling is a wave. I am not in that moment anymore.",
+    "Going numb, losing track of the room, wanting to disappear",
+    "Anything about my father",
+    daysAgo(21)
+  );
+
+  db.prepare(
+    `INSERT INTO ai_companion_preferences (user_id, preferred_user_name, tone, support_modes_json, avoidances_json, memory_enabled, created_at)
+     VALUES (?, 'Alex', 'Warm', ?, ?, 'yes', ?)`
+  ).run(
+    alexId,
+    JSON.stringify(["Grounding me when I'm activated", "Helping me decide if I'm ready today", "Reminding me what works"]),
+    JSON.stringify(["Positive clichés"]),
+    daysAgo(21)
+  );
+
+  const insMemory = db.prepare(
+    `INSERT INTO ai_memory_items (id, user_id, memory_type, memory_key, memory_value, source_type, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`
+  );
+  for (const [name, , intensity, responses] of alexTriggers) {
+    insMemory.run(
+      id(), alexId, "trigger", name,
+      `Intensity ${intensity}/10. Usual response: ${responses.join(", ")}.`,
+      "onboarding", daysAgo(21)
+    );
+  }
+  for (const tool of ["Walking", "Cold water", "Music"]) {
+    insMemory.run(id(), alexId, "grounding_tool", tool, "Chosen in safety plan.", "onboarding", daysAgo(21));
+  }
+  insMemory.run(
+    id(), alexId, "safety", "reminder_phrase",
+    "This feeling is a wave. I am not in that moment anymore.", "onboarding", daysAgo(21)
+  );
+  insMemory.run(
+    id(), alexId, "restricted_topic", "Sexual trauma",
+    "Do not raise unless the member brings it up first.", "onboarding", daysAgo(21)
+  );
+  insMemory.run(
+    id(), alexId, "readiness", "current_track", "gentle_processing (score 68/100)", "daily_checkin", daysAgo(0, 8)
+  );
+  insMemory.run(
+    id(), alexId, "progress_pattern", "walking_after_triggers",
+    "Walking has helped settle relational triggers on three recent occasions.", "session_reflection", daysAgo(3)
+  );
+
+  // Log a known trigger on today's check-in so the dashboard trigger watch
+  // has something to show.
+  db.prepare("UPDATE checkins SET triggers_json = ? WHERE user_id = ? AND checkin_date = ?").run(
+    JSON.stringify([alexTriggerIds["Feeling ignored"]]),
+    alexId,
+    dateOnly(0)
+  );
+
+  // A short companion conversation so the chat history isn't empty.
+  const convId = id();
+  db.prepare(
+    "INSERT INTO ai_conversations (id, user_id, context_type, started_at) VALUES (?, ?, 'general', ?)"
+  ).run(convId, alexId, daysAgo(2, 20));
+  const insMsg = db.prepare(
+    `INSERT INTO ai_messages (id, conversation_id, user_id, sender, message_text, risk_flag, created_at)
+     VALUES (?, ?, ?, ?, ?, 0, ?)`
+  );
+  insMsg.run(id(), convId, alexId, "member", "Rough evening. My text got left on read and I spiraled a bit.", daysAgo(2, 20));
+  insMsg.run(
+    id(), convId, alexId, "companion",
+    "Alex, that sounds like it may connect to one of your known triggers: feeling ignored. Naming it is already a steadying step. Last time something like this showed up, walking helped. Would you like to use one of your grounding tools now?",
+    daysAgo(2, 20)
+  );
+
   // --- Sam: brand-new member whose PHQ-9 item 9 tripped the urgent queue ---
   db.prepare(
     "INSERT INTO consents (id, user_id, policy_version, scope, granted_at) VALUES (?, ?, ?, ?, ?)"
