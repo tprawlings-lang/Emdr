@@ -328,7 +328,7 @@ function seed(db: Database.Database) {
     // Dev member gets an active membership so local flows skip checkout.
     db.prepare(
       `INSERT INTO subscriptions (user_id, plan, status, price_cents, currency, provider, current_period_end)
-       VALUES (?, 'monthly', 'active', 1299, 'usd', 'demo', datetime('now', '+1 month'))`
+       VALUES (?, 'monthly', 'active', 2499, 'usd', 'demo', datetime('now', '+1 month'))`
     ).run(memberId);
   })();
 }

@@ -12,9 +12,9 @@ import { audit } from "./audit";
 export const PLAN = {
   id: "monthly",
   label: "Steady membership",
-  priceCents: 1299,
+  priceCents: 2499,
   currency: "usd",
-  priceLabel: "$12.99 / month",
+  priceLabel: "$24.99 / month",
   trialDays: 7,
   includes: [
     "Daily check-ins that pace every session",

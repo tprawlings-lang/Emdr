@@ -77,7 +77,7 @@ const FAQS = [
   },
   {
     q: "What does it cost?",
-    a: "$12.99 a month after a 7-day free trial — a fraction of a single traditional session. If it doesn't feel right within your first week, cancel and pay nothing. Crisis support and grounding tools stay open to everyone, regardless of membership.",
+    a: "$24.99 a month after a 7-day free trial — a fraction of a single traditional session. If it doesn't feel right within your first week, cancel and pay nothing. Crisis support and grounding tools stay open to everyone, regardless of membership.",
   },
 ];
 
@@ -336,7 +336,7 @@ export default async function Home() {
             as long as healing takes.
           </p>
           <p className="mt-8 font-serif text-6xl font-medium">
-            $12.99<span className="text-2xl text-olive">/month</span>
+            $24.99<span className="text-2xl text-olive">/month</span>
           </p>
           <p className="mt-2 text-sm text-olive">First 7 days free</p>
           <ul className="mx-auto mt-6 max-w-md space-y-2 text-left text-sm text-ground/90">

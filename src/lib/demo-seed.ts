@@ -147,7 +147,7 @@ export function seedDemoData(db: Database.Database) {
   // --- Memberships: Alex is paying monthly, Sam is mid-trial ---
   const insSub = db.prepare(
     `INSERT INTO subscriptions (user_id, plan, status, price_cents, currency, provider, current_period_end, created_at)
-     VALUES (?, 'monthly', ?, 1299, 'usd', 'demo', ?, ?)`
+     VALUES (?, 'monthly', ?, 2499, 'usd', 'demo', ?, ?)`
   );
   const inFuture = (d: number) => {
     const t = new Date(Date.now() + d * 86400000);
@@ -157,7 +157,7 @@ export function seedDemoData(db: Database.Database) {
   insSub.run(samId, "trialing", inFuture(5), daysAgo(2));
   const insPayment = db.prepare(
     `INSERT INTO payments (id, user_id, amount_cents, currency, status, description, provider, created_at)
-     VALUES (?, ?, 1299, 'usd', 'succeeded', ?, 'demo', ?)`
+     VALUES (?, ?, 2499, 'usd', 'succeeded', ?, 'demo', ?)`
   );
   insPayment.run(id(), alexId, "First month after free trial (simulated)", daysAgo(15));
   insPayment.run(id(), alexId, "Monthly renewal (simulated)", daysAgo(0, 7));
