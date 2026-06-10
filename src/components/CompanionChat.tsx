@@ -1,7 +1,7 @@
 "use client";
 
-import { useRef, useState, useTransition } from "react";
-import { sendCompanionMessage } from "@/lib/actions";
+import { useEffect, useRef, useState, useTransition } from "react";
+import { sendCompanionMessage, startDailyCompanionChat } from "@/lib/actions";
 
 interface Message {
   sender: "member" | "companion";
@@ -15,6 +15,7 @@ export default function CompanionChat({
   contextType,
   doneHref,
   doneLabel,
+  autoStartDaily,
 }: {
   initialMessages: Message[];
   greeting: string;
@@ -23,15 +24,33 @@ export default function CompanionChat({
   /** When set, shows a button to leave the chat and continue (used in onboarding). */
   doneHref?: string;
   doneLabel?: string;
+  /** Open (or resume) today's post-check-in chat with the companion speaking first. */
+  autoStartDaily?: boolean;
 }) {
   const [messages, setMessages] = useState<Message[]>(
-    initialMessages.length > 0 ? initialMessages : [{ sender: "companion", text: greeting }]
+    initialMessages.length > 0
+      ? initialMessages
+      : autoStartDaily
+        ? []
+        : [{ sender: "companion", text: greeting }]
   );
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [input, setInput] = useState("");
   const [showRiskBanner, setShowRiskBanner] = useState(false);
   const [pending, startTransition] = useTransition();
   const bottomRef = useRef<HTMLDivElement>(null);
+  const autoStarted = useRef(false);
+
+  useEffect(() => {
+    if (!autoStartDaily || autoStarted.current) return;
+    autoStarted.current = true;
+    startTransition(async () => {
+      const res = await startDailyCompanionChat();
+      setConversationId(res.conversationId);
+      setMessages(res.messages.map((m) => ({ sender: m.sender, text: m.text, riskFlag: m.riskFlag })));
+      if (res.messages.some((m) => m.riskFlag)) setShowRiskBanner(true);
+    });
+  }, [autoStartDaily]);
 
   const send = () => {
     const text = input.trim();

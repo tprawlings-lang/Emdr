@@ -228,6 +228,43 @@ function styled(ctx: CompanionContext, sentences: string[], closingQuestion?: st
   return parts.join(" ");
 }
 
+// Companion-initiated opening for the daily chat that follows a check-in.
+// Used when the AI companion is unavailable; the AI path composes its own
+// opening from the same context.
+export function generateCheckinOpening(ctx: CompanionContext): CompanionReply {
+  const c = ctx.checkin;
+  const tools = groundingTools(ctx).slice(0, 1);
+  if (!c) {
+    return {
+      riskFlag: false,
+      mode: "general",
+      text: styled(
+        ctx,
+        ["I'm here.", "Today's check-in is the best first step — it takes under 90 seconds."],
+        "Would you like to do it now?"
+      ),
+    };
+  }
+  const sentences: string[] = ["Thanks for checking in — I've read today's numbers."];
+  if (c.sleep_quality <= 3) sentences.push("Sleep looks rough; that alone makes everything louder.");
+  if (c.activation >= 7) sentences.push("Your activation is high today, so let's not ask too much of your system.");
+  else if (c.shutdown >= 7) sentences.push("Things look heavy and slowed-down today, and that deserves gentleness.");
+  if (c.recommended_action === "processing_ok") {
+    sentences.push("Overall today looks steady, so cleared session modules are open if you want them — no pressure either way.");
+  } else {
+    sentences.push(
+      tools.length > 0
+        ? `Today looks like a day for steadiness first — ${tools[0].toLowerCase()} has helped you before.`
+        : "Today looks like a day for steadiness first."
+    );
+  }
+  return {
+    riskFlag: false,
+    mode: "general",
+    text: styled(ctx, sentences, "How does today actually feel from the inside?"),
+  };
+}
+
 export function generateReply(ctx: CompanionContext, userText: string): CompanionReply {
   // 1. Crisis routing always comes first and ignores tone preferences.
   if (detectRisk(userText)) {

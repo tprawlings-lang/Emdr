@@ -23,8 +23,14 @@ import {
   getLatestReadiness,
   readinessFromCheckin,
 } from "./profile";
-import { buildCompanionContext, detectRisk, generateReply, writeMemory } from "./companion";
-import { aiCompanionEnabled, generateAiReply } from "./companion-ai";
+import {
+  buildCompanionContext,
+  detectRisk,
+  generateCheckinOpening,
+  generateReply,
+  writeMemory,
+} from "./companion";
+import { aiCompanionEnabled, generateAiOpening, generateAiReply } from "./companion-ai";
 
 function createAlert(args: {
   userId: string;
@@ -679,7 +685,92 @@ export async function submitCheckin(formData: FormData) {
     });
     redirect("/crisis?from=checkin");
   }
-  redirect("/dashboard");
+  // The daily chat opens right after check-in: the companion speaks first,
+  // prompted by today's numbers and the member's history.
+  redirect("/companion?from=checkin");
+}
+
+// Opens (or resumes) today's post-check-in conversation, with the companion
+// speaking first based on the fresh check-in and stored history. Idempotent
+// per day: revisiting returns the same conversation instead of generating a
+// new opening.
+export async function startDailyCompanionChat(): Promise<{
+  conversationId: string;
+  messages: { sender: "member" | "companion"; text: string; riskFlag: boolean }[];
+}> {
+  const user = await requireMember();
+  const db = getDb();
+
+  const existing = db
+    .prepare(
+      `SELECT id FROM ai_conversations
+       WHERE user_id = ? AND context_type = 'daily_checkin' AND date(started_at) = date('now')
+       ORDER BY started_at DESC LIMIT 1`
+    )
+    .get(user.id) as { id: string } | undefined;
+  if (existing) {
+    const messages = db
+      .prepare(
+        `SELECT sender, message_text, risk_flag FROM ai_messages
+         WHERE conversation_id = ? ORDER BY created_at, rowid`
+      )
+      .all(existing.id) as { sender: "member" | "companion"; message_text: string; risk_flag: number }[];
+    if (messages.length > 0) {
+      return {
+        conversationId: existing.id,
+        messages: messages.map((m) => ({
+          sender: m.sender,
+          text: m.message_text,
+          riskFlag: m.risk_flag === 1,
+        })),
+      };
+    }
+  }
+
+  const convId = existing?.id ?? newId();
+  if (!existing) {
+    db.prepare(
+      "INSERT INTO ai_conversations (id, user_id, context_type) VALUES (?, ?, 'daily_checkin')"
+    ).run(convId, user.id);
+  }
+
+  const ctx = buildCompanionContext(user.id);
+  let opening;
+  if (!aiCompanionEnabled()) {
+    opening = generateCheckinOpening(ctx);
+  } else {
+    try {
+      opening = await generateAiOpening(ctx, convId);
+    } catch (err) {
+      console.error("Companion AI opening failed; using rules engine fallback:", err);
+      opening = generateCheckinOpening(ctx);
+    }
+  }
+
+  db.prepare(
+    "INSERT INTO ai_messages (id, conversation_id, user_id, sender, message_text, risk_flag) VALUES (?, ?, ?, 'companion', ?, ?)"
+  ).run(newId(), convId, user.id, opening.text, opening.riskFlag ? 1 : 0);
+  if (opening.riskFlag) {
+    db.prepare("UPDATE ai_conversations SET risk_level = 'urgent' WHERE id = ?").run(convId);
+    createAlert({
+      userId: user.id,
+      type: "companion_risk_language",
+      severity: "urgent",
+      detail: "Risk surfaced while opening the post-check-in companion chat.",
+    });
+  }
+  audit({
+    actorId: user.id,
+    actorRole: "member",
+    family: "clinical",
+    type: "companion_daily_chat_opened",
+    target: convId,
+    detail: { mode: opening.mode, riskFlag: opening.riskFlag },
+  });
+  return {
+    conversationId: convId,
+    messages: [{ sender: "companion", text: opening.text, riskFlag: opening.riskFlag }],
+  };
 }
 
 // ---------- Session runtime ----------

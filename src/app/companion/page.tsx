@@ -7,14 +7,22 @@ import { profileComplete, TRACK_LABELS } from "@/lib/profile";
 import { buildCompanionContext } from "@/lib/companion";
 import CompanionChat from "@/components/CompanionChat";
 
-export default async function CompanionPage() {
+export default async function CompanionPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ from?: string }>;
+}) {
   const user = await requireMember();
   if (!subscriptionActive(user.id)) redirect("/subscribe");
   if (!hasConsent(user.id)) redirect("/onboarding");
   if (!screeningComplete(user.id)) redirect("/screening");
   if (!profileComplete(user.id)) redirect("/onboarding/profile");
 
+  const { from } = await searchParams;
   const ctx = buildCompanionContext(user.id);
+  // Arriving fresh from a check-in opens today's daily chat: the companion
+  // speaks first, prompted by the numbers just submitted and stored history.
+  const dailyChat = from === "checkin" && !!ctx.checkin;
   const name = ctx.prefs?.preferred_user_name?.trim();
   const checkinNote = !ctx.checkin
     ? "I notice you haven't checked in yet today — that's always a good first step."
@@ -40,7 +48,7 @@ export default async function CompanionPage() {
       </div>
 
       <div className="mt-8 grid gap-6 md:grid-cols-[1fr_260px]">
-        <CompanionChat initialMessages={[]} greeting={greeting} />
+        <CompanionChat initialMessages={[]} greeting={greeting} autoStartDaily={dailyChat} />
 
         <aside className="space-y-4">
           <div className="rounded-3xl border border-ground/10 bg-linen p-5 shadow-soft">

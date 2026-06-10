@@ -235,6 +235,14 @@ How to run the interview:
 - After you have 2-4 well-understood focus areas, reflect back the picture you now have and let them know they can press Continue whenever they're ready — there is no need to cover everything today.`);
   }
 
+  if (contextType === "daily_checkin") {
+    lines.push(`THIS IS TODAY'S POST-CHECK-IN CHAT
+The member just completed their daily check-in and the app opened this conversation automatically — you speak first, and the conversation continues from whatever they answer.
+- Open short and warm. Respond to TODAY'S CHECK-IN as a whole person would: name one or two things you notice (rough sleep, high activation, a trigger that showed up today, or genuine steadiness) in plain words, never as a clinical readout. If you remember relevant history — a pattern, what helped last time, what they're working toward — weave one piece of it in.
+- Match your offer to their day: if today's recommendation is grounding or stabilization, lead gently toward settling first; if processing is open and they've been building toward something, you can name that door without pushing on it.
+- One short paragraph and one question. Do not recite every number or everything you remember.`);
+  }
+
   if (prefs) {
     const avoid = parseJsonArray(prefs.avoidances_json);
     const modes = parseJsonArray(prefs.support_modes_json);
@@ -286,8 +294,14 @@ How to run the interview:
 
   if (ctx.checkin) {
     const c = ctx.checkin;
+    const todayTriggerIds = new Set(parseJsonArray(c.triggers_json));
+    const todayTriggers = ctx.triggers
+      .filter((t) => todayTriggerIds.has(t.id))
+      .map((t) => t.trigger_name);
     lines.push(`TODAY'S CHECK-IN (0-10 scales)
-activation ${c.activation}, shutdown ${c.shutdown}, dissociation ${c.dissociation}, sleep quality ${c.sleep_quality}, feels safe: ${c.feels_safe ? "yes" : "NO"}, harm urge: ${c.harm_urge ? "YES" : "no"}. Recommended action today: ${c.recommended_action}.`);
+activation ${c.activation}, shutdown ${c.shutdown}, dissociation ${c.dissociation}, sleep quality ${c.sleep_quality}, feels safe: ${c.feels_safe ? "yes" : "NO"}, harm urge: ${c.harm_urge ? "YES" : "no"}. Recommended action today: ${c.recommended_action}.${
+      todayTriggers.length > 0 ? `\nTriggers they said showed up today: ${todayTriggers.join(", ")}.` : ""
+    }`);
   } else {
     lines.push(`TODAY'S CHECK-IN: not done yet. If they're considering a session, gently suggest the 90-second check-in first.`);
   }
@@ -330,6 +344,20 @@ function loadHistory(convId: string, userId: string): Anthropic.MessageParam[] {
   return rows
     .reverse()
     .map((r) => ({ role: r.sender === "member" ? ("user" as const) : ("assistant" as const), content: r.message_text }));
+}
+
+// Companion-first opening for the post-check-in daily chat. The synthetic
+// cue below is never persisted — only the companion's reply is stored, so
+// the visible conversation starts with the companion speaking.
+export async function generateAiOpening(
+  ctx: CompanionContext,
+  convId: string
+): Promise<CompanionReply> {
+  return generateAiReply(
+    ctx,
+    convId,
+    "(The member just finished today's check-in and this chat opened automatically. Greet them first, following your post-check-in instructions.)"
+  );
 }
 
 export async function generateAiReply(
