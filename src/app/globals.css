@@ -33,3 +33,29 @@
 body {
   font-family: var(--font-sans);
 }
+
+/* Landing-page hero: slow, breath-paced motion. Calm by construction —
+   nothing on the page should move faster than a long exhale. */
+@keyframes breathe {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 0.5;
+  }
+  50% {
+    transform: scale(1.1);
+    opacity: 0.9;
+  }
+}
+.animate-breathe {
+  animation: breathe 7s ease-in-out infinite;
+}
+.animate-breathe-slow {
+  animation: breathe 10s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .animate-breathe,
+  .animate-breathe-slow {
+    animation: none;
+  }
+}
