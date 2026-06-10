@@ -37,7 +37,7 @@ exempt us.
   their own consumer-health-data triggers and shorter practical timelines.
 
 ## Contacts
-- Counsel: [ATTORNEY — retain per packet 3.5; insert contact]
+- Counsel: retained (reviewed ToS/Privacy 2026-06-10) — [insert current contact details]
 - Cyber liability insurer / breach hotline: [insert after policy bound — see
   packet 6.3 ACTION]
 - Render support: https://render.com/support

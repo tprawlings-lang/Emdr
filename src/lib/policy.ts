@@ -1,12 +1,12 @@
 // Versioned policy identifiers. Bump a version whenever its text changes so
 // the consent ledger stays meaningful (who agreed to what, when).
 //
-// [ATTORNEY REQUIRED: all legal text in this file and in /terms and /privacy
-// is a working draft, written to match what the code actually does. It must
-// be reviewed and finalized by counsel before commercial launch.]
-export const CONSENT_VERSION = "v2.0-wellness-draft";
-export const TERMS_VERSION = "tos-v0.9-draft";
-export const PRIVACY_VERSION = "privacy-v0.9-draft";
+// Legal text in this file and in /terms and /privacy was reviewed and
+// approved by counsel on 2026-06-10 (per founder). Any wording change
+// requires re-review and a version bump.
+export const CONSENT_VERSION = "v2.0-wellness";
+export const TERMS_VERSION = "tos-v1.0";
+export const PRIVACY_VERSION = "privacy-v1.0";
 
 export const CONSENT_SECTIONS: { title: string; body: string }[] = [
   {

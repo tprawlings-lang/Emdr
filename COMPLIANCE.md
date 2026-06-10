@@ -33,7 +33,7 @@ dependency, cannot be closed by code in this repo.
 | 3.2 Structure/function rule | ✅ | Research section claims the method with citations; product copy describes mechanics only. |
 | 3.3 Testimonials policy | ✅ | Stories are experience-only, labeled illustrative, with the required "individual experiences vary" line. |
 | 3.4 Footer disclaimer all routes; 988 banner on signup/session/companion; logged consent checkbox | ✅ | Footer is in the root layout; checkbox is never pre-checked and logged as wellness-ack-v1 with timestamp. |
-| 3.5 Attorney-finalized ToS/Privacy | 🟡 | Working drafts live at /terms and /privacy, clearly banner-marked as drafts, containing every packet-required clause (not-medical-care, consult-a-professional, assumption-of-risk/release, eligibility/contraindication tied to the screener, AI disclosure) and a privacy policy that describes only implemented behavior. Arbitration + governing law intentionally left as open attorney decisions. Signup logs terms acceptance (terms_acceptance / tos-v0.9-draft). ATTORNEY must finalize before commercial launch. |
+| 3.5 Attorney-finalized ToS/Privacy | ✅ | Final v1.0 live at /terms and /privacy — reviewed and approved by counsel 2026-06-10 (per founder). All packet-required clauses present; privacy policy describes only implemented behavior; disputes section uses a courts-based clause (no arbitration). Signup logs acceptance (terms_acceptance / tos-v1.0). Any wording change requires re-review and a version bump. |
 | 3.6 Clinical advisor (recommended) | 🔴 | Needed to upgrade "modeled on professional practice" copy and sign off screener + crisis scripts. |
 
 ## Item 4 — Crisis safety system (full build)
@@ -66,7 +66,7 @@ dependency, cannot be closed by code in this repo.
 | 6.4 Deletion + retention | ✅/🟡 | Self-serve immediate deletion at /settings/account (no reason required); 24-month retention sweep script (scripts/retention-sweep.ts) — needs a schedule (Render cron) and the 30-day warning email needs the email provider. |
 
 ## Open founder dependencies (cannot be closed from this repo)
-1. Retain a healthcare-adjacent consumer-products **attorney** (3.5) — ToS/Privacy/arbitration.
+1. ~~Retain an attorney (3.5)~~ — ✅ done: counsel reviewed and approved ToS/Privacy 2026-06-10. Keep counsel available for re-review on any wording change.
 2. Retain an **EMDR-trained clinical advisor** (3.6/4A) — screener wording, crisis scripts, session scripts.
 3. **Managed auth provider** account + migration (1.1/1.2/1.6).
 4. **Email provider** (password reset, lockout notices, pre-charge reminders, retention warnings).

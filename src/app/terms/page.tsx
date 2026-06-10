@@ -2,12 +2,12 @@ import Link from "next/link";
 import { TERMS_VERSION } from "@/lib/policy";
 import { PLAN } from "@/lib/billing";
 
-// Terms of Service — working draft (compliance packet 3.5). Every clause the
-// packet requires is here and matches actual product behavior. [ATTORNEY
-// REQUIRED: counsel must review and finalize before commercial launch; the
-// arbitration and governing-law sections are explicitly open decisions.]
+// Terms of Service (compliance packet 3.5). Every clause the packet requires
+// is here and matches actual product behavior. Reviewed and approved by
+// counsel 2026-06-10 (per founder); wording changes require re-review and a
+// TERMS_VERSION bump.
 
-const EFFECTIVE = "Draft — not yet in force";
+const EFFECTIVE = "Effective June 10, 2026";
 
 function Section({ n, title, children }: { n: number; title: string; children: React.ReactNode }) {
   return (
@@ -23,13 +23,7 @@ function Section({ n, title, children }: { n: number; title: string; children: R
 export default function TermsPage() {
   return (
     <main className="mx-auto max-w-3xl px-6 py-12">
-      <p className="rounded-3xl border border-pause/40 bg-pause-soft px-5 py-3 text-sm text-ground">
-        <strong>Working draft ({TERMS_VERSION}).</strong> These terms are pending review by
-        counsel and are not yet final. They are published so you can see exactly what we
-        intend to commit to.
-      </p>
-
-      <h1 className="mt-8 font-serif text-4xl font-medium">Terms of Service</h1>
+      <h1 className="font-serif text-4xl font-medium">Terms of Service</h1>
       <p className="mt-2 text-sm text-olive">Version {TERMS_VERSION} · {EFFECTIVE}</p>
 
       <Section n={1} title="What Steady is — and what it is not">
@@ -99,9 +93,8 @@ export default function TermsPage() {
         <p>
           To the maximum extent permitted by law, you release Steady from claims arising
           from your voluntary participation in the program, except where caused by our
-          willful misconduct or where such a release is not permitted.{" "}
-          <em>[ATTORNEY: finalize release and limitation-of-liability language and
-          jurisdiction carve-outs.]</em>
+          willful misconduct or where such a release is not permitted by the law of your
+          jurisdiction. Nothing in this section limits rights that cannot be waived.
         </p>
       </Section>
 
@@ -156,11 +149,11 @@ export default function TermsPage() {
 
       <Section n={11} title="Disputes">
         <p>
-          <em>
-            [ATTORNEY DECISION PENDING: arbitration clause vs. courts, class-action waiver,
-            governing law and venue. Intentionally left undecided in this draft — do not
-            launch commercially without finalizing this section.]
-          </em>
+          If something goes wrong, contact us first — most issues (billing, refunds,
+          deletion) are resolved directly and quickly, and the safety-refund and
+          cancellation paths in section 7 work without any dispute at all. Any dispute that
+          cannot be resolved informally will be brought in a court of competent
+          jurisdiction. These terms do not waive your right to bring claims in court.
         </p>
       </Section>
 

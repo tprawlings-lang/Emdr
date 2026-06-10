@@ -1,10 +1,11 @@
 import Link from "next/link";
 import { PRIVACY_VERSION } from "@/lib/policy";
 
-// Privacy Policy — working draft (compliance packet 3.5). The packet's rule:
-// this document describes ONLY what the code actually does. Every statement
-// below maps to implemented behavior; if a feature changes, this page and
-// PRIVACY_VERSION must change with it. [ATTORNEY REQUIRED before launch.]
+// Privacy Policy (compliance packet 3.5). The packet's rule: this document
+// describes ONLY what the code actually does. Every statement below maps to
+// implemented behavior; if a feature changes, this page and PRIVACY_VERSION
+// must change with it. Reviewed and approved by counsel 2026-06-10 (per
+// founder); wording changes require re-review.
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
@@ -18,13 +19,11 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 export default function PrivacyPage() {
   return (
     <main className="mx-auto max-w-3xl px-6 py-12">
-      <p className="rounded-3xl border border-pause/40 bg-pause-soft px-5 py-3 text-sm text-ground">
-        <strong>Working draft ({PRIVACY_VERSION}).</strong> Pending review by counsel. Every
-        statement here describes what the software actually does today.
+      <h1 className="font-serif text-4xl font-medium">Privacy Policy</h1>
+      <p className="mt-2 text-sm text-olive">
+        Version {PRIVACY_VERSION} · Effective June 10, 2026 · Every statement here describes
+        what the software actually does today.
       </p>
-
-      <h1 className="mt-8 font-serif text-4xl font-medium">Privacy Policy</h1>
-      <p className="mt-2 text-sm text-olive">Version {PRIVACY_VERSION}</p>
 
       <Section title="What we collect">
         <p>
