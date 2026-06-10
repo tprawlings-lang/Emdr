@@ -3,11 +3,13 @@ import { hasConsent } from "@/lib/gating";
 import { getDb } from "@/lib/db";
 import { INSTRUMENTS } from "@/lib/instruments";
 import { redirect } from "next/navigation";
+import { subscriptionActive } from "@/lib/billing";
 import Link from "next/link";
 import InstrumentForm from "@/components/InstrumentForm";
 
 export default async function ScreeningPage() {
   const user = await requireMember();
+  if (!subscriptionActive(user.id)) redirect("/subscribe");
   if (!hasConsent(user.id)) redirect("/onboarding");
 
   const db = getDb();
@@ -27,7 +29,7 @@ export default async function ScreeningPage() {
   return (
     <main className="mx-auto max-w-3xl px-6 py-12">
       <div className="sticky top-0 z-10 -mx-6 mb-6 border-b border-ground/10 bg-ivory/95 px-6 py-3 text-sm font-medium text-ground/80">
-        Baseline screening · Current place: questionnaire {position} of {INSTRUMENTS.length} ·{" "}
+        Step 3 of 4 — Baseline screening · Current place: questionnaire {position} of {INSTRUMENTS.length} ·{" "}
         <Link href="/crisis" className="font-semibold text-support underline">
           Need help now?
         </Link>

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { requireMember } from "@/lib/auth";
+import { subscriptionActive } from "@/lib/billing";
 import { getDb } from "@/lib/db";
 import { MODULES } from "@/lib/modules";
 import {
@@ -39,6 +40,7 @@ function actionLabel(action: string): { label: string; tone: string } {
 
 export default async function DashboardPage() {
   const user = await requireMember();
+  if (!subscriptionActive(user.id)) redirect("/subscribe");
   if (!hasConsent(user.id)) redirect("/onboarding");
   if (!screeningComplete(user.id)) redirect("/screening");
   if (!profileComplete(user.id)) redirect("/onboarding/profile");
@@ -101,6 +103,9 @@ export default async function DashboardPage() {
           </Link>
           <Link href="/settings/memory" className="text-sm text-olive underline">
             Memory
+          </Link>
+          <Link href="/settings/billing" className="text-sm text-olive underline">
+            Membership
           </Link>
           <form action={logout}>
             <button className="text-sm text-olive underline">Sign out</button>

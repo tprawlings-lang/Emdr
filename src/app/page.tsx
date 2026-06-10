@@ -27,9 +27,9 @@ export default async function Home() {
         grounding tools, and structured reflection. Move slowly. Pause anytime. Stay in control.
       </p>
 
-      <div className="mt-10 flex flex-wrap gap-4">
+      <div className="mt-10 flex flex-wrap items-center gap-4">
         <Link
-          href="/login"
+          href="/signup"
           className="rounded-full bg-sage px-8 py-3.5 font-medium text-ground transition-colors hover:bg-sage-deep"
         >
           Begin when you feel ready
@@ -39,6 +39,9 @@ export default async function Home() {
           className="rounded-full border border-support/50 px-8 py-3.5 font-medium text-support transition-colors hover:bg-support/10"
         >
           I need grounding first
+        </Link>
+        <Link href="/login" className="text-sm text-olive underline">
+          I already have a space here
         </Link>
       </div>
 
@@ -72,6 +75,16 @@ export default async function Home() {
           can work through structured material with remote specialist backup. It is not suitable
           for emergencies, for minors, or for people with active suicidal intent, psychosis, or
           uncontrolled dissociative crises — screening will route to appropriate help instead.
+        </p>
+      </div>
+
+      <div className="mt-6 rounded-3xl border border-ground/10 bg-linen p-7 text-sm leading-relaxed text-olive shadow-soft">
+        <h2 className="font-serif text-xl font-medium text-ground">Membership</h2>
+        <p className="mt-2">
+          Steady is $12.99 per month, with your first 7 days free. Your membership includes
+          daily check-ins, guided trauma-support modules, grounding tools, session reflections,
+          a companion with memory you control, and specialist-informed safety review. Cancel
+          anytime — crisis support and grounding stay open to everyone.
         </p>
       </div>
 

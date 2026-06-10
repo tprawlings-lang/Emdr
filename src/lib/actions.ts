@@ -2,7 +2,8 @@
 
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { getDb, newId, verifyPassword } from "./db";
+import { getDb, hashPassword, newId, verifyPassword } from "./db";
+import { setCancelAtPeriodEnd, startDemoSubscription, subscriptionActive } from "./billing";
 import { audit } from "./audit";
 import {
   requireUser,
@@ -58,6 +59,57 @@ export async function login(formData: FormData) {
 export async function logout() {
   await clearSessionCookie();
   redirect("/");
+}
+
+export async function signup(formData: FormData) {
+  const name = String(formData.get("name") ?? "").trim().slice(0, 80);
+  const email = String(formData.get("email") ?? "").trim().toLowerCase().slice(0, 200);
+  const password = String(formData.get("password") ?? "");
+
+  if (!name || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) redirect("/signup?error=invalid");
+  if (password.length < 8) redirect("/signup?error=password");
+
+  const db = getDb();
+  const existing = db.prepare("SELECT id FROM users WHERE email = ?").get(email);
+  if (existing) redirect("/signup?error=exists");
+
+  const userId = newId();
+  db.prepare(
+    "INSERT INTO users (id, email, name, role, password_hash) VALUES (?, ?, ?, 'member', ?)"
+  ).run(userId, email, name, hashPassword(password));
+  await setSessionCookie(userId);
+  audit({ actorId: userId, actorRole: "member", family: "identity", type: "account_created" });
+  redirect("/subscribe");
+}
+
+// ---------- Membership billing ----------
+
+export async function startSubscription() {
+  const user = await requireMember();
+  // The demo provider simulates checkout; a real provider would redirect to
+  // hosted checkout here and activate via webhook (see lib/billing.ts).
+  startDemoSubscription(user.id);
+  redirect("/onboarding");
+}
+
+export async function cancelSubscription() {
+  const user = await requireMember();
+  setCancelAtPeriodEnd(user.id, true);
+  revalidatePath("/settings/billing");
+  redirect("/settings/billing");
+}
+
+export async function resumeSubscription() {
+  const user = await requireMember();
+  setCancelAtPeriodEnd(user.id, false);
+  revalidatePath("/settings/billing");
+  redirect("/settings/billing");
+}
+
+export async function restartSubscription() {
+  const user = await requireMember();
+  if (!subscriptionActive(user.id)) startDemoSubscription(user.id);
+  redirect("/dashboard");
 }
 
 // ---------- Consent ----------

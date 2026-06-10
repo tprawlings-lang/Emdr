@@ -144,6 +144,24 @@ export function seedDemoData(db: Database.Database) {
     "open", null, null, daysAgo(1, 9), null
   );
 
+  // --- Memberships: Alex is paying monthly, Sam is mid-trial ---
+  const insSub = db.prepare(
+    `INSERT INTO subscriptions (user_id, plan, status, price_cents, currency, provider, current_period_end, created_at)
+     VALUES (?, 'monthly', ?, 1299, 'usd', 'demo', ?, ?)`
+  );
+  const inFuture = (d: number) => {
+    const t = new Date(Date.now() + d * 86400000);
+    return t.toISOString().slice(0, 19).replace("T", " ");
+  };
+  insSub.run(alexId, "active", inFuture(16), daysAgo(22));
+  insSub.run(samId, "trialing", inFuture(5), daysAgo(2));
+  const insPayment = db.prepare(
+    `INSERT INTO payments (id, user_id, amount_cents, currency, status, description, provider, created_at)
+     VALUES (?, ?, 1299, 'usd', 'succeeded', ?, 'demo', ?)`
+  );
+  insPayment.run(id(), alexId, "First month after free trial (simulated)", daysAgo(15));
+  insPayment.run(id(), alexId, "Monthly renewal (simulated)", daysAgo(0, 7));
+
   // --- Alex: onboarding profile, triggers, safety plan, companion memory ---
   db.prepare(
     `INSERT INTO user_profiles (user_id, therapist_status, emdr_experience, goals_json, trauma_areas_json, restricted_topics_json, profile_complete, created_at)

@@ -6,6 +6,7 @@ export type EventFamily =
   | "clinical"
   | "module_runtime"
   | "specialist_action"
+  | "billing"
   | "security";
 
 // Append-only audit trail. Every consent, gating result, session event,

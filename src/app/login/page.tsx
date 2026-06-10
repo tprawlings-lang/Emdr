@@ -48,6 +48,12 @@ export default async function LoginPage({
           Continue
         </button>
       </form>
+      <p className="mt-5 text-center text-sm text-olive">
+        New here?{" "}
+        <a href="/signup" className="font-medium underline">
+          Create your space — first week free
+        </a>
+      </p>
       <div className="mt-8 rounded-3xl border border-ground/10 bg-linen p-5 text-sm text-olive shadow-soft">
         <p className="font-semibold text-ground">Demo accounts (development only)</p>
         <p className="mt-1">Member: demo@example.com / demo1234</p>

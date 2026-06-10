@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { requireMember } from "@/lib/auth";
+import { subscriptionActive } from "@/lib/billing";
 import { getDb } from "@/lib/db";
 import { hasConsent, screeningComplete } from "@/lib/gating";
 import { getInstrument, scoreItq } from "@/lib/instruments";
@@ -16,6 +17,7 @@ export default async function MeasuresPage({
   searchParams: Promise<{ submitted?: string }>;
 }) {
   const user = await requireMember();
+  if (!subscriptionActive(user.id)) redirect("/subscribe");
   if (!hasConsent(user.id)) redirect("/onboarding");
   if (!screeningComplete(user.id)) redirect("/screening");
   const { submitted } = await searchParams;

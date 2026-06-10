@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { requireMember } from "@/lib/auth";
 import { hasConsent, screeningComplete } from "@/lib/gating";
+import { subscriptionActive } from "@/lib/billing";
 import {
   COMPANION_AVOIDANCES,
   COMPANION_SUPPORT_MODES,
@@ -118,6 +119,7 @@ export default async function ProfileOnboardingPage({
   searchParams: Promise<{ step?: string }>;
 }) {
   const user = await requireMember();
+  if (!subscriptionActive(user.id)) redirect("/subscribe");
   if (!hasConsent(user.id)) redirect("/onboarding");
   if (!screeningComplete(user.id)) redirect("/screening");
   if (profileComplete(user.id)) redirect("/dashboard");
@@ -152,7 +154,7 @@ export default async function ProfileOnboardingPage({
   return (
     <main className="mx-auto max-w-2xl px-6 py-12">
       <div className="flex items-center justify-between text-sm text-olive">
-        <span>Getting set up · current place: {position} of {STEPS.length}</span>
+        <span>Step 4 of 4 — Getting set up · current place: {position} of {STEPS.length}</span>
         <Link href="/crisis" className="font-semibold text-support underline">
           Need help now?
         </Link>

@@ -1,6 +1,7 @@
 import { getDb } from "./db";
 import { MODULES, TherapyModule } from "./modules";
 import { getLatestReadiness, getSafetyPlan, profileComplete } from "./profile";
+import { subscriptionActive } from "./billing";
 
 // Gating rules from the executive plan: every session entry point routes
 // through consent -> screening -> today's check-in -> tier/unlock checks.
@@ -110,12 +111,14 @@ export type ModuleAccess =
   | {
       allowed: false;
       reason: string;
-      action: "consent" | "screening" | "profile" | "checkin" | "crisis" | "grounding" | "unlock" | "prereq" | "readiness" | "safety_plan";
+      action: "subscribe" | "consent" | "screening" | "profile" | "checkin" | "crisis" | "grounding" | "unlock" | "prereq" | "readiness" | "safety_plan";
     };
 
 const GROUNDING_MODULES = new Set(["calm-place", "containment"]);
 
 export function checkModuleAccess(userId: string, mod: TherapyModule): ModuleAccess {
+  if (!subscriptionActive(userId))
+    return { allowed: false, reason: "An active membership is needed for sessions.", action: "subscribe" };
   if (!hasConsent(userId))
     return { allowed: false, reason: "Please review and complete consent first.", action: "consent" };
   if (!screeningComplete(userId))

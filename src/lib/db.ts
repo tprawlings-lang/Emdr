@@ -242,6 +242,33 @@ function migrate(db: Database.Database) {
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
   );
 
+  CREATE TABLE IF NOT EXISTS subscriptions (
+    user_id TEXT PRIMARY KEY REFERENCES users(id),
+    plan TEXT NOT NULL DEFAULT 'monthly',
+    status TEXT NOT NULL CHECK (status IN ('trialing','active','past_due','canceled')),
+    price_cents INTEGER NOT NULL,
+    currency TEXT NOT NULL DEFAULT 'usd',
+    provider TEXT NOT NULL DEFAULT 'demo',
+    provider_ref TEXT,
+    cancel_at_period_end INTEGER NOT NULL DEFAULT 0,
+    current_period_end TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+
+  CREATE TABLE IF NOT EXISTS payments (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL REFERENCES users(id),
+    amount_cents INTEGER NOT NULL,
+    currency TEXT NOT NULL DEFAULT 'usd',
+    status TEXT NOT NULL CHECK (status IN ('succeeded','failed','refunded')),
+    description TEXT NOT NULL,
+    provider TEXT NOT NULL DEFAULT 'demo',
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_payments_user ON payments(user_id, created_at);
+
   CREATE INDEX IF NOT EXISTS idx_alerts_status ON alerts(status, created_at);
   CREATE INDEX IF NOT EXISTS idx_audit_created ON audit_log(created_at);
   CREATE INDEX IF NOT EXISTS idx_screenings_user ON screenings(user_id, created_at);
@@ -295,7 +322,13 @@ function seed(db: Database.Database) {
     const insert = db.prepare(
       "INSERT INTO users (id, email, name, role, password_hash) VALUES (?, ?, ?, ?, ?)"
     );
-    insert.run(newId(), "demo@example.com", "Demo Member", "member", hashPassword("demo1234"));
+    const memberId = newId();
+    insert.run(memberId, "demo@example.com", "Demo Member", "member", hashPassword("demo1234"));
     insert.run(newId(), "clinician@example.com", "Dr. Demo Clinician", "clinician", hashPassword("demo1234"));
+    // Dev member gets an active membership so local flows skip checkout.
+    db.prepare(
+      `INSERT INTO subscriptions (user_id, plan, status, price_cents, currency, provider, current_period_end)
+       VALUES (?, 'monthly', 'active', 1299, 'usd', 'demo', datetime('now', '+1 month'))`
+    ).run(memberId);
   })();
 }

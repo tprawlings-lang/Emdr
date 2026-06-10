@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { requireMember } from "@/lib/auth";
+import { subscriptionActive } from "@/lib/billing";
 import { hasConsent, screeningComplete } from "@/lib/gating";
 import { profileComplete, TRACK_LABELS } from "@/lib/profile";
 import { buildCompanionContext } from "@/lib/companion";
@@ -8,6 +9,7 @@ import CompanionChat from "@/components/CompanionChat";
 
 export default async function CompanionPage() {
   const user = await requireMember();
+  if (!subscriptionActive(user.id)) redirect("/subscribe");
   if (!hasConsent(user.id)) redirect("/onboarding");
   if (!screeningComplete(user.id)) redirect("/screening");
   if (!profileComplete(user.id)) redirect("/onboarding/profile");
