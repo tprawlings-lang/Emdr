@@ -172,38 +172,65 @@ export default async function Home() {
         </div>
       </section>
 
-      {/* Research stats band */}
+      {/* Research stats band — RCT/meta-analysis claims only, per research
+          handoff: numbers-first cards, guideline endorsements in the subhead
+          (never "recommended by the APA"), citations on every card. */}
       <section className="mx-auto max-w-5xl px-6 pt-20">
         <h2 className="text-center font-serif text-3xl font-medium sm:text-4xl">
-          Therapy that goes to the root — and the research shows it
+          Backed by randomized trials, not testimonials
         </h2>
+        <p className="mx-auto mt-3 max-w-2xl text-center text-olive">
+          EMDR is recommended as a frontline PTSD treatment in clinical guidelines from the
+          World Health Organization, the UK&apos;s NICE, and the U.S. Department of Veterans
+          Affairs.
+        </p>
         <div className="mt-10 grid gap-5 sm:grid-cols-3">
           {[
             {
-              stat: "84%",
-              text: "of single-trauma participants no longer met PTSD criteria after as few as three EMDR sessions in published clinical studies.",
+              stat: "26 trials",
+              text: "A meta-analysis of 26 randomized controlled trials spanning two decades found EMDR significantly reduced symptoms of PTSD, depression, and anxiety.",
+              source: "Chen et al., PLOS ONE (2014)",
+              href: "https://doi.org/10.1371/journal.pone.0103676",
             },
             {
-              stat: "77%",
-              text: "of combat veterans in one controlled study were free of PTSD after twelve sessions.",
+              stat: "61%",
+              text: "of participants in a randomized controlled trial no longer met PTSD criteria after just two EMDR sessions — versus 10% in the control group.",
+              source: "Yurtsever et al., Frontiers in Psychology (2018)",
+              href: "https://doi.org/10.3389/fpsyg.2018.00493",
             },
             {
-              stat: "30+ yrs",
-              text: "of peer-reviewed research. EMDR is recognized by the World Health Organization, the APA, and the U.S. Department of Veterans Affairs.",
+              stat: "10 hospitals",
+              text: "In a multisite randomized controlled trial across 10 hospitals, fully remote EMDR produced large reductions in PTSD, anxiety, and depression among frontline health workers.",
+              source: "Jarero et al., multisite RCT (2020); see also Bongaerts et al., Eur J Psychotraumatology (2021)",
+              href: "https://doi.org/10.1080/20008198.2020.1860346",
             },
           ].map((s) => (
             <div
               key={s.stat}
-              className="rounded-3xl border border-ground/10 bg-linen p-7 text-center shadow-soft"
+              className="flex flex-col rounded-3xl border border-ground/10 bg-linen p-7 text-center shadow-soft"
             >
-              <p className="font-serif text-5xl font-medium text-ground">{s.stat}</p>
-              <p className="mt-3 text-sm leading-relaxed text-olive">{s.text}</p>
+              <p className="font-serif text-4xl font-medium whitespace-nowrap text-ground sm:text-[2.6rem]">
+                {s.stat}
+              </p>
+              <p className="mt-3 flex-1 text-sm leading-relaxed text-olive">{s.text}</p>
+              <p className="mt-4 text-xs text-olive/80">
+                Source:{" "}
+                <a
+                  href={s.href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="underline hover:text-olive"
+                >
+                  {s.source}
+                </a>
+              </p>
             </div>
           ))}
         </div>
-        <p className="mt-4 text-center text-xs text-olive/80">
-          Findings describe EMDR therapy as a method, from published research — individual
-          results vary, and Steady screens for who it can safely serve.
+        <p className="mx-auto mt-6 max-w-2xl text-center text-sm text-olive">
+          Findings describe EMDR delivered by trained clinicians, in person and remotely.
+          Steady is a self-guided companion, not a replacement for therapy, and screens for
+          who it can safely serve.
         </p>
       </section>
 
