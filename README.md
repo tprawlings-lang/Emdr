@@ -1,20 +1,22 @@
-# Steady — Supervised Trauma Care Support (Phase 1 prototype)
+# Steady — self-guided wellness program built on the EMDR method (prototype)
 
-An EMDR-informed, **clinician-supervised** web platform for adults with trauma-related
-symptoms, built to the architecture in the *Executive Plan for a Supervised Autonomous
-EMDR-Based Web App for Complex PTSD*.
+A calm, private, **self-guided wellness program** for adults: guided EMDR-based sessions,
+daily readiness check-ins, grounding tools, an AI companion with member-controlled memory,
+and engineered safety rails. Launching in the **wellness lane** (see
+[`COMPLIANCE.md`](COMPLIANCE.md)): not therapy, not medical care, no diagnosis or
+treatment claims.
 
-> **This is a development prototype.** It is not a medical device, has not been cleared
-> for clinical use, and must not be offered to real patients without clinical governance
-> sign-off, legal/regulatory review (HIPAA, FTC, FDA claims analysis), and production-grade
-> security. It is **not for emergency use** — US users in crisis should call/text 988 or 911.
+> **This is a development prototype.** It is not a medical device and is **not for
+> emergency use** — US users in crisis should call/text 988 or 911. Remaining launch
+> gates are tracked item-by-item in [`COMPLIANCE.md`](COMPLIANCE.md).
 
-## Product posture (from the executive plan)
+## Product posture
 
-The product thesis is **not** "autonomous therapist." It is a *supervised autonomous care
-workflow*: the software automates screening, preparation, skills practice, measurement,
-and pacing, while a **licensed specialist** owns eligibility, unlocking of
-trauma-processing modules, safety planning, escalation, referral, and discharge.
+The product thesis is **not** "AI therapist." Steady is purpose-built software: it guides,
+paces, measures, and remembers, inside deterministic safety rails — a mandatory program-fit
+screener, daily check-in gating, in-session distress rules with hard stops, scripted
+crisis interrupts, and human review before higher-intensity modules unlock. Pacing always
+belongs to the member; the safest path is the default.
 
 ## What's implemented
 
@@ -85,7 +87,9 @@ fly deploy
 ```
 
 **Render** (`render.yaml` included): create a new Blueprint in the Render dashboard,
-point it at this repo, and apply. The free tier works (ephemeral disk = auto-reseeding demo).
+point it at this repo, and apply. The blueprint provisions a starter instance with a
+persistent disk at `/data`, so accounts and member data survive deploys; set
+`ANTHROPIC_API_KEY` in the dashboard to enable the Claude-backed companion.
 
 **Any Docker host:**
 
@@ -103,11 +107,33 @@ to see the urgent risk queue and the pending unlock request; then as the **membe
 Next.js (App Router, server actions, standalone output) · TypeScript · Tailwind CSS ·
 better-sqlite3. No ad-tech, no analytics pixels, no third-party trackers — by design.
 
-## Known gaps before any real-world use (Phase 1 exit criteria)
+## Known gaps before any real-world use (wellness-lane launch gates)
 
-- Real identity provider with **AAL2 MFA** for all roles; step-up auth for exports and overrides; session idle timeouts.
-- HIPAA-grade hosting (BAA, KMS envelope encryption, private networking), SIEM feed, encrypted backups.
-- Clinical governance: protocol sign-off by licensed EMDR specialist + psychiatric advisor; claims language review (FDA/FTC); state licensure plan.
-- Crisis operations: on-call clinician queue with SLAs, 988/emergency routing tested, SAFE-T/C-SSRS clinician workflow.
-- Telehealth video, SMART on FHIR/EHR integration, tokenized payments (PHI-isolated).
-- WCAG 2.2 audit, penetration test, incident-response and retention policies.
+Steady launches as a self-guided **wellness** product, so the old health-lane checklist
+(HIPAA/BAA hosting, AAL2 identity, telehealth, FHIR/EHR) no longer applies. What does
+apply is tracked in full in [`COMPLIANCE.md`](COMPLIANCE.md); the items still open:
+
+- **EMDR-trained clinical advisor** — the fitness screener (`fit-v1-placeholder`) wording
+  and thresholds, the scripted crisis interrupt, and session scripts need advisor sign-off.
+- **Managed auth provider** (Clerk/Auth0-class) — brings optional TOTP 2FA, admin MFA, a
+  separate admin realm, and idle re-lock on session-history views. Current interim auth:
+  scrypt-hashed passwords, signed cookies, 7-day-idle/30-day-absolute sessions, login
+  lockout.
+- **Email provider** — password reset, lockout notices, pre-charge trial reminders, and
+  retention-deletion warnings all need outbound email.
+- **Real payments** — Stripe hosted checkout (SAQ-A), `STEADY MEMBERSHIP` statement
+  descriptor, pre-charge reminder. The automatic safety-refund path and 2-click cancel
+  already work against the demo billing provider.
+- **Security & accessibility evidence** — one-day red-team pass on the companion, WCAG 2.2
+  self-audit (verify sage-on-cream contrast), ZAP baseline + gitleaks runs, backup-restore
+  test, SSL Labs A screenshot for the records folder.
+- **Cyber liability insurance** quote (the incident-response runbook in
+  [`docs/incident-response.md`](docs/incident-response.md) is what insurers expect).
+- **Founder decision** — keep encrypted companion transcripts (current architecture) or
+  move to summarize-and-discard (compliance packet 2.4).
+
+Already in place: wellness-lane claims discipline with a CI vocabulary gate, counsel-approved
+ToS/Privacy (v1.0), the full crisis-safety system (screener, Ground-me button, SUDs rules,
+session caps, kill switch, CI-blocking `@safety` suite), app-layer AES-256-GCM encryption of
+member free text, zero third-party trackers, self-serve account deletion, and a 24-month
+retention sweep.
