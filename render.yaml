@@ -1,11 +1,13 @@
-# Render.com blueprint: connect the repo in the Render dashboard and it will
-# offer to apply this file. Free-tier instances have ephemeral disks, which is
-# fine for the demo — the fictional dataset reseeds on every restart.
+# Render.com blueprint: in the Render dashboard choose New > Blueprint,
+# connect this repo, and apply. Free-tier instances have ephemeral disks,
+# which is fine for the demo — the fictional dataset reseeds on every restart.
 services:
   - type: web
     name: steady-emdr-demo
     runtime: docker
     plan: free
+    branch: claude/gifted-keller-501y5d
+    healthCheckPath: /
     envVars:
       - key: EMDR_DEMO
         value: "1"
