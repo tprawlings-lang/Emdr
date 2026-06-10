@@ -239,6 +239,11 @@ export default function SessionPlayer({ module: mod, focus, calmPlace }: Props) 
   if (phase === "intro") {
     return (
       <div className="mx-auto max-w-2xl px-6 py-12">
+        <div className="mb-6 rounded-3xl border border-pause/40 bg-pause-soft px-5 py-3 text-sm text-ground">
+          <strong>Not for emergencies.</strong> Sessions are not monitored in real time. If you
+          are in danger, call or text{" "}
+          <a href="tel:988" className="font-semibold underline">988</a> or call 911.
+        </div>
         <h1 className="font-serif text-4xl font-medium">{mod.name}</h1>
         <p className="mt-2 text-olive">{mod.objective}</p>
 

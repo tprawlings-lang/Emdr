@@ -13,7 +13,7 @@ const CONDITIONS = [
   { name: "PTSD & trauma", note: "Single events or long histories" },
   { name: "Anxiety & panic", note: "The alarm that won't switch off" },
   { name: "Grief & loss", note: "When it stays frozen in place" },
-  { name: "Sleep & nightmares", note: "Nights that finally settle" },
+  { name: "Sleep & nightmares", note: "When nights won't settle" },
   { name: "Shame & self-worth", note: "The old beliefs underneath" },
   { name: "Anger & overwhelm", note: "A shorter fuse than you want" },
 ];
@@ -250,7 +250,7 @@ export default async function Home() {
             <p className="mt-4 leading-relaxed text-olive">
               Steady&apos;s companion was custom-built around EMDR&apos;s session structure —
               not adapted from a general-purpose chatbot. It guides, paces, and remembers,
-              inside safety rails modeled on clinical practice.
+              inside safety rails modeled on professional practice.
             </p>
           </div>
           {/* Product glimpse: a real exchange shape, not an AI graphic */}
@@ -432,7 +432,8 @@ export default async function Home() {
         </div>
         <p className="mt-4 text-center text-xs text-olive/80">
           Illustrative member stories — composites that reflect typical experiences, not
-          individual endorsements.
+          individual endorsements. Individual experiences vary; Steady is not therapy or
+          medical treatment.
         </p>
       </section>
 
@@ -444,7 +445,7 @@ export default async function Home() {
           </h2>
           <p className="mx-auto mt-3 max-w-md text-olive">
             In-office EMDR often runs $150–350 an hour. Steady is built to be sustainable for
-            as long as healing takes.
+            as long as the work takes.
           </p>
           <p className="mt-8 font-serif text-6xl font-medium">
             $24.99<span className="text-2xl text-olive">/month</span>

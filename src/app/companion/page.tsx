@@ -47,7 +47,18 @@ export default async function CompanionPage({
         </div>
       </div>
 
-      <div className="mt-8 grid gap-6 md:grid-cols-[1fr_260px]">
+      <details className="mt-4 rounded-3xl border border-pause/40 bg-pause-soft px-5 py-3 text-sm text-ground" open>
+        <summary className="cursor-pointer font-semibold">
+          Not for emergencies — your companion is not monitored in real time
+        </summary>
+        <p className="mt-1">
+          If you are in danger right now, call or text{" "}
+          <a href="tel:988" className="font-semibold underline">988</a> (Suicide &amp; Crisis
+          Lifeline) or call 911. The crisis page walks you through it one step at a time.
+        </p>
+      </details>
+
+      <div className="mt-6 grid gap-6 md:grid-cols-[1fr_260px]">
         <CompanionChat initialMessages={[]} greeting={greeting} autoStartDaily={dailyChat} />
 
         <aside className="space-y-4">

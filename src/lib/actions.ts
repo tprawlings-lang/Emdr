@@ -72,9 +72,23 @@ export async function signup(formData: FormData) {
   const name = String(formData.get("name") ?? "").trim().slice(0, 80);
   const email = String(formData.get("email") ?? "").trim().toLowerCase().slice(0, 200);
   const password = String(formData.get("password") ?? "");
+  const dob = String(formData.get("dob") ?? "");
 
   if (!name || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) redirect("/signup?error=invalid");
   if (password.length < 8) redirect("/signup?error=password");
+
+  // Age gate at account creation (compliance packet 4A.7): minors are out of
+  // scope, full stop. The fitness screener re-checks fit later; age is a
+  // hard requirement before an account exists at all.
+  const birth = new Date(dob);
+  if (!dob || Number.isNaN(birth.getTime())) redirect("/signup?error=dob");
+  const age = (Date.now() - birth.getTime()) / (365.25 * 24 * 3600 * 1000);
+  if (age < 18) redirect("/signup?error=age");
+  if (age > 120) redirect("/signup?error=dob");
+
+  // Wellness-lane acknowledgment: explicit, never pre-checked, logged with a
+  // timestamp and version in the consent ledger (compliance packet 3.4).
+  if (formData.get("wellness_ack") !== "on") redirect("/signup?error=ack");
 
   // Demo deployments let reviewers create clinician accounts, gated by a
   // shared access code (EMDR_CLINICIAN_CODE) so the clinician view — which
@@ -94,15 +108,20 @@ export async function signup(formData: FormData) {
 
   const userId = newId();
   db.prepare(
-    "INSERT INTO users (id, email, name, role, password_hash) VALUES (?, ?, ?, ?, ?)"
-  ).run(userId, email, name, wantsClinician ? "clinician" : "member", hashPassword(password));
+    "INSERT INTO users (id, email, name, role, password_hash, dob) VALUES (?, ?, ?, ?, ?, ?)"
+  ).run(userId, email, name, wantsClinician ? "clinician" : "member", hashPassword(password), dob);
+  db.prepare(
+    "INSERT INTO consents (id, user_id, policy_version, scope) VALUES (?, ?, ?, ?)"
+  ).run(newId(), userId, "wellness-ack-v1", "wellness_acknowledgment");
   await setSessionCookie(userId);
   audit({
     actorId: userId,
     actorRole: wantsClinician ? "clinician" : "member",
     family: "identity",
     type: "account_created",
-    detail: wantsClinician ? { demoClinicianSignup: true } : {},
+    detail: wantsClinician
+      ? { demoClinicianSignup: true, wellnessAck: "wellness-ack-v1" }
+      : { wellnessAck: "wellness-ack-v1" },
   });
   redirect(wantsClinician ? "/clinician" : "/subscribe");
 }

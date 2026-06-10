@@ -280,6 +280,8 @@ function migrate(db: Database.Database) {
 
   // Columns added after initial release; SQLite has no ADD COLUMN IF NOT EXISTS.
   ensureColumn(db, "checkins", "triggers_json", "TEXT NOT NULL DEFAULT '[]'");
+  // Date of birth for the 18+ gate at account creation (compliance 4A.7).
+  ensureColumn(db, "users", "dob", "TEXT");
 }
 
 function ensureColumn(db: Database.Database, table: string, column: string, ddl: string) {

@@ -12,7 +12,7 @@ const cormorant = Cormorant_Garamond({
 export const metadata: Metadata = {
   title: "steady — a steadier way through trauma",
   description:
-    "A calm, private space for EMDR-informed, specialist-supervised trauma support. Move slowly. Pause anytime. Not for emergency use.",
+    "A calm, private, self-guided wellness program built on the EMDR method — guided sessions, grounding tools, and a companion that remembers. Not therapy, and not for emergency use.",
 };
 
 export default function RootLayout({
@@ -36,6 +36,11 @@ export default function RootLayout({
             Steady is not emergency care. In the US, call or text{" "}
             <a href="tel:988" className="font-semibold underline">988</a> (Suicide &amp; Crisis
             Lifeline) or call 911 if you are in immediate danger.
+          </p>
+          <p className="mt-2">
+            Steady is a self-guided wellness program. It is not therapy, medical care, or a
+            substitute for professional treatment, and it does not diagnose or treat any
+            condition.
           </p>
           <p className="mt-2">
             Development prototype — not a medical device and not cleared for clinical use.

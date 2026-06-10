@@ -10,6 +10,9 @@ const ERROR_COPY: Record<string, string> = {
   password: "Choose a password with at least 8 characters.",
   exists: "That email already has a space here. Try signing in instead.",
   code: "That clinician access code didn't match. Check with whoever sent you the demo link.",
+  dob: "Please enter your date of birth.",
+  age: "Steady is for adults 18 and over. We're sorry — this program isn't available to minors.",
+  ack: "Please confirm you understand what Steady is and isn't before continuing.",
 };
 
 export default async function SignupPage({
@@ -107,6 +110,26 @@ export default async function SignupPage({
                   className="mt-1 w-full rounded-2xl border border-ground/15 bg-ivory px-4 py-2.5 focus:border-sage focus:outline-none"
                 />
                 <span className="mt-1 block text-xs text-olive">At least 8 characters.</span>
+              </label>
+              <label className="block">
+                <span className="text-sm font-medium">Date of birth</span>
+                <input
+                  name="dob"
+                  type="date"
+                  required
+                  autoComplete="bday"
+                  className="mt-1 w-full rounded-2xl border border-ground/15 bg-ivory px-4 py-2.5 focus:border-sage focus:outline-none"
+                />
+                <span className="mt-1 block text-xs text-olive">
+                  Steady is for adults 18 and over.
+                </span>
+              </label>
+              <label className="flex items-start gap-3 rounded-2xl border border-ground/10 bg-ivory p-4 text-sm">
+                <input type="checkbox" name="wellness_ack" required className="mt-0.5" />
+                <span>
+                  I understand Steady is not therapy or medical treatment and is not monitored
+                  in real time.
+                </span>
               </label>
               {demo && (
                 <details className="rounded-2xl border border-ground/10 bg-ivory p-4">
