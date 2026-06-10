@@ -45,6 +45,10 @@ export default function RootLayout({
           <p className="mt-2">
             Development prototype — not a medical device and not cleared for clinical use.
           </p>
+          <p className="mt-2">
+            <a href="/terms" className="underline">Terms of Service</a> ·{" "}
+            <a href="/privacy" className="underline">Privacy Policy</a>
+          </p>
         </footer>
       </body>
     </html>

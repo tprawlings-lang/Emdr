@@ -17,7 +17,7 @@ import {
 import { getInstrument, scoreInstrument } from "./instruments";
 import { getModule } from "./modules";
 import { checkModuleAccess, evaluateCheckin, todayISO } from "./gating";
-import { CONSENT_VERSION } from "./policy";
+import { CONSENT_VERSION, TERMS_VERSION } from "./policy";
 import {
   ReadinessAnswers,
   computeReadiness,
@@ -127,9 +127,11 @@ export async function signup(formData: FormData) {
   db.prepare(
     "INSERT INTO users (id, email, name, role, password_hash, dob) VALUES (?, ?, ?, ?, ?, ?)"
   ).run(userId, email, name, wantsClinician ? "clinician" : "member", hashPassword(password), dob);
-  db.prepare(
+  const insertConsent = db.prepare(
     "INSERT INTO consents (id, user_id, policy_version, scope) VALUES (?, ?, ?, ?)"
-  ).run(newId(), userId, "wellness-ack-v1", "wellness_acknowledgment");
+  );
+  insertConsent.run(newId(), userId, "wellness-ack-v1", "wellness_acknowledgment");
+  insertConsent.run(newId(), userId, TERMS_VERSION, "terms_acceptance");
   await setSessionCookie(userId);
   audit({
     actorId: userId,

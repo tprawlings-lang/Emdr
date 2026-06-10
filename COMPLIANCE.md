@@ -33,7 +33,7 @@ dependency, cannot be closed by code in this repo.
 | 3.2 Structure/function rule | ✅ | Research section claims the method with citations; product copy describes mechanics only. |
 | 3.3 Testimonials policy | ✅ | Stories are experience-only, labeled illustrative, with the required "individual experiences vary" line. |
 | 3.4 Footer disclaimer all routes; 988 banner on signup/session/companion; logged consent checkbox | ✅ | Footer is in the root layout; checkbox is never pre-checked and logged as wellness-ack-v1 with timestamp. |
-| 3.5 Attorney-finalized ToS/Privacy | 🔴 | ATTORNEY REQUIRED — packet calls this the highest-ROI compliance dollar. No ToS/Privacy pages exist yet; do not ship placeholder legal text. |
+| 3.5 Attorney-finalized ToS/Privacy | 🟡 | Working drafts live at /terms and /privacy, clearly banner-marked as drafts, containing every packet-required clause (not-medical-care, consult-a-professional, assumption-of-risk/release, eligibility/contraindication tied to the screener, AI disclosure) and a privacy policy that describes only implemented behavior. Arbitration + governing law intentionally left as open attorney decisions. Signup logs terms acceptance (terms_acceptance / tos-v0.9-draft). ATTORNEY must finalize before commercial launch. |
 | 3.6 Clinical advisor (recommended) | 🔴 | Needed to upgrade "modeled on professional practice" copy and sign off screener + crisis scripts. |
 
 ## Item 4 — Crisis safety system (full build)

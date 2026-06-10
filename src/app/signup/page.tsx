@@ -128,7 +128,15 @@ export default async function SignupPage({
                 <input type="checkbox" name="wellness_ack" required className="mt-0.5" />
                 <span>
                   I understand Steady is not therapy or medical treatment and is not monitored
-                  in real time.
+                  in real time, and I agree to the{" "}
+                  <Link href="/terms" className="underline" target="_blank">
+                    Terms of Service
+                  </Link>{" "}
+                  and{" "}
+                  <Link href="/privacy" className="underline" target="_blank">
+                    Privacy Policy
+                  </Link>
+                  .
                 </span>
               </label>
               {demo && (
