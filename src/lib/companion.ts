@@ -172,7 +172,7 @@ function detectHighActivation(ctx: CompanionContext, text: string): boolean {
 export interface CompanionReply {
   text: string;
   riskFlag: boolean;
-  mode: "crisis" | "grounding" | "readiness" | "trigger" | "reflection" | "general";
+  mode: "crisis" | "grounding" | "readiness" | "trigger" | "reflection" | "general" | "ai";
 }
 
 function groundingTools(ctx: CompanionContext): string[] {

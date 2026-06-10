@@ -23,7 +23,8 @@ import {
   getLatestReadiness,
   readinessFromCheckin,
 } from "./profile";
-import { buildCompanionContext, generateReply, writeMemory } from "./companion";
+import { buildCompanionContext, detectRisk, generateReply, writeMemory } from "./companion";
+import { aiCompanionEnabled, generateAiReply } from "./companion-ai";
 
 function createAlert(args: {
   userId: string;
@@ -495,8 +496,22 @@ export async function sendCompanionMessage(
     );
   }
 
+  // Deterministic crisis routing always runs first — the regex gate and its
+  // canned 988/911 reply never depend on a model call succeeding. Otherwise
+  // use the Claude-backed companion when configured, with the rules engine
+  // as fallback so the demo still works without an API key or network.
   const ctx = buildCompanionContext(user.id);
-  const reply = generateReply(ctx, trimmed);
+  let reply;
+  if (detectRisk(trimmed) || !aiCompanionEnabled()) {
+    reply = generateReply(ctx, trimmed);
+  } else {
+    try {
+      reply = await generateAiReply(ctx, convId, trimmed);
+    } catch (err) {
+      console.error("Companion AI call failed; using rules engine fallback:", err);
+      reply = generateReply(ctx, trimmed);
+    }
+  }
 
   const insertMsg = db.prepare(
     "INSERT INTO ai_messages (id, conversation_id, user_id, sender, message_text, risk_flag) VALUES (?, ?, ?, ?, ?, ?)"

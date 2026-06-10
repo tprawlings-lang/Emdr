@@ -20,3 +20,8 @@ services:
         value: /data
       - key: EMDR_SESSION_SECRET
         generateValue: true
+      # Set in the Render dashboard (Environment tab). Powers the AI
+      # companion; without it the companion falls back to the built-in
+      # deterministic rules engine.
+      - key: ANTHROPIC_API_KEY
+        sync: false
