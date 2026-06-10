@@ -11,7 +11,8 @@ FROM node:22-slim AS build
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
-RUN npm run build
+# The repo ships no public assets; ensure the dir exists so the runner COPY succeeds.
+RUN mkdir -p public && npm run build
 
 FROM node:22-slim AS runner
 WORKDIR /app
