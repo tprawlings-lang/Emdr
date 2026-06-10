@@ -2,6 +2,7 @@ import Database from "better-sqlite3";
 import path from "path";
 import fs from "fs";
 import crypto from "crypto";
+import { seedDemoData } from "./demo-seed";
 
 const DATA_DIR = process.env.EMDR_DATA_DIR ?? path.join(process.cwd(), ".data");
 
@@ -157,12 +158,21 @@ export function newId(): string {
 
 // Demo accounts for local development only. Production requires a real
 // identity provider with AAL2 MFA for all roles (see executive plan).
+// With EMDR_DEMO=1, a rich fictional dataset is seeded instead so demo
+// deployments are interesting on first login.
 function seed(db: Database.Database) {
   const count = db.prepare("SELECT COUNT(*) AS n FROM users").get() as { n: number };
   if (count.n > 0) return;
-  const insert = db.prepare(
-    "INSERT INTO users (id, email, name, role, password_hash) VALUES (?, ?, ?, ?, ?)"
-  );
-  insert.run(newId(), "demo@example.com", "Demo Member", "member", hashPassword("demo1234"));
-  insert.run(newId(), "clinician@example.com", "Dr. Demo Clinician", "clinician", hashPassword("demo1234"));
+  // Transactional so a failure can never leave a half-seeded database.
+  db.transaction(() => {
+    if (process.env.EMDR_DEMO === "1") {
+      seedDemoData(db);
+      return;
+    }
+    const insert = db.prepare(
+      "INSERT INTO users (id, email, name, role, password_hash) VALUES (?, ?, ?, ?, ?)"
+    );
+    insert.run(newId(), "demo@example.com", "Demo Member", "member", hashPassword("demo1234"));
+    insert.run(newId(), "clinician@example.com", "Dr. Demo Clinician", "clinician", hashPassword("demo1234"));
+  })();
 }

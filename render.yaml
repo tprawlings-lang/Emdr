@@ -1,0 +1,15 @@
+# Render.com blueprint: connect the repo in the Render dashboard and it will
+# offer to apply this file. Free-tier instances have ephemeral disks, which is
+# fine for the demo — the fictional dataset reseeds on every restart.
+services:
+  - type: web
+    name: steady-emdr-demo
+    runtime: docker
+    plan: free
+    envVars:
+      - key: EMDR_DEMO
+        value: "1"
+      - key: EMDR_DATA_DIR
+        value: /data
+      - key: EMDR_SESSION_SECRET
+        generateValue: true

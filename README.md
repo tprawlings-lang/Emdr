@@ -66,10 +66,42 @@ daily check-in → run *Calm Place* → finish the post-session check → reques
 a gated module → sign out, sign in as the clinician → review the queue, document a reason,
 unlock.
 
+## Deploying the demo
+
+The repo ships a production `Dockerfile` (Next.js standalone output) plus configs for two
+hosts. With `EMDR_DEMO=1` the app seeds a **rich fictional dataset** on first boot — a
+member three weeks into the program with improving PCL-5/ITQ trends, a reviewed hard-stop,
+a pending unlock request, and a second member sitting in the urgent risk queue — and shows
+a "demonstration environment" banner with the login credentials. Data lives in
+`EMDR_DATA_DIR` (`/data` in the container); without a mounted volume it resets and reseeds
+on every restart, which is exactly right for a demo.
+
+**Fly.io** (`fly.toml` included):
+
+```bash
+fly launch --copy-config --no-deploy   # pick your own app name
+fly secrets set EMDR_SESSION_SECRET=$(openssl rand -hex 32)
+fly deploy
+```
+
+**Render** (`render.yaml` included): create a new Blueprint in the Render dashboard,
+point it at this repo, and apply. The free tier works (ephemeral disk = auto-reseeding demo).
+
+**Any Docker host:**
+
+```bash
+docker build -t steady-demo .
+docker run -p 3000:3000 -e EMDR_SESSION_SECRET=$(openssl rand -hex 32) steady-demo
+```
+
+Demo walkthrough: sign in as the **clinician** first (`clinician@example.com` / `demo1234`)
+to see the urgent risk queue and the pending unlock request; then as the **member**
+(`demo@example.com` / `demo1234`) to run a check-in and a Calm Place session end to end.
+
 ## Stack
 
-Next.js (App Router, server actions) · TypeScript · Tailwind CSS · better-sqlite3.
-No ad-tech, no analytics pixels, no third-party trackers — by design.
+Next.js (App Router, server actions, standalone output) · TypeScript · Tailwind CSS ·
+better-sqlite3. No ad-tech, no analytics pixels, no third-party trackers — by design.
 
 ## Known gaps before any real-world use (Phase 1 exit criteria)
 
