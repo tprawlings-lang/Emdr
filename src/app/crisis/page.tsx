@@ -1,5 +1,10 @@
 import { getCurrentUser } from "@/lib/auth";
 import { acknowledgeCrisis } from "@/lib/actions";
+import {
+  CRISIS_REGIONS,
+  FALLBACK_RESOURCE,
+  NOT_MONITORED_LINE,
+} from "@/lib/crisis-resources";
 
 // Crisis screen: large text, one action at a time, no marketing, no upsell,
 // no unrelated links (executive plan guardrails). Colors stay muted per the
@@ -22,18 +27,44 @@ export default async function CrisisPage({
       </p>
 
       <div className="mt-8 space-y-4">
-        <a
-          href="tel:988"
-          className="block rounded-3xl bg-support px-6 py-5 text-center text-xl font-bold text-white transition-colors hover:bg-support-deep"
-        >
-          Call or text 988 — Suicide &amp; Crisis Lifeline (US)
-        </a>
+        {CRISIS_REGIONS[0].resources.map((r) => (
+          <a
+            key={r.href}
+            href={r.href}
+            className="block rounded-3xl bg-support px-6 py-5 text-center text-xl font-bold text-white transition-colors hover:bg-support-deep"
+          >
+            {r.label} (US)
+          </a>
+        ))}
         <a
           href="tel:911"
           className="block rounded-3xl border-2 border-support px-6 py-4 text-center text-lg font-semibold text-support-deep transition-colors hover:bg-support/10"
         >
-          In immediate danger? Call 911
+          {CRISIS_REGIONS[0].emergencyLine}
         </a>
+        <details className="rounded-3xl border border-ground/15 px-6 py-4">
+          <summary className="cursor-pointer font-semibold text-ground/85">
+            Outside the United States?
+          </summary>
+          <div className="mt-3 space-y-3">
+            {CRISIS_REGIONS.slice(1).map((region) => (
+              <div key={region.code}>
+                <p className="text-sm font-semibold">{region.name}</p>
+                {region.resources.map((r) => (
+                  <a key={r.href} href={r.href} className="block text-support-deep underline">
+                    {r.label}
+                  </a>
+                ))}
+                <p className="text-sm text-olive">{region.emergencyLine}</p>
+              </div>
+            ))}
+            <a href={FALLBACK_RESOURCE.href} className="block font-medium text-support-deep underline">
+              {FALLBACK_RESOURCE.label}
+            </a>
+            <p className="text-xs text-olive">{FALLBACK_RESOURCE.detail}</p>
+          </div>
+        </details>
+        <p className="text-center text-xs text-olive">{NOT_MONITORED_LINE}</p>
       </div>
 
       <div className="mt-10 rounded-3xl border border-ground/10 bg-linen p-6 shadow-soft">

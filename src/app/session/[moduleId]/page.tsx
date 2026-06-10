@@ -3,6 +3,7 @@ import { requireMember } from "@/lib/auth";
 import { getModule } from "@/lib/modules";
 import { checkModuleAccess } from "@/lib/gating";
 import { getSavedCalmPlace, getSessionFocus } from "@/lib/session-focus";
+import { hasSeizureFlag } from "@/lib/fitness-screener";
 import SessionPlayer from "@/components/SessionPlayer";
 
 export default async function SessionPage({
@@ -29,6 +30,7 @@ export default async function SessionPage({
       module={mod}
       focus={getSessionFocus(user.id, mod.id)}
       calmPlace={getSavedCalmPlace(user.id)}
+      audioOnlyDefault={hasSeizureFlag(user.id)}
     />
   );
 }

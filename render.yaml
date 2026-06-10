@@ -20,8 +20,16 @@ services:
         value: /data
       - key: EMDR_SESSION_SECRET
         generateValue: true
+      # App-layer encryption key for sensitive free text (compliance 2.4):
+      # a DB dump alone never exposes member-entered content.
+      - key: EMDR_DATA_KEY
+        generateValue: true
       # Set in the Render dashboard (Environment tab). Powers the AI
       # companion; without it the companion falls back to the built-in
       # deterministic rules engine.
       - key: ANTHROPIC_API_KEY
+        sync: false
+      # Kill switch (safety 4D): set to "1" in the dashboard to disable new
+      # session starts globally without a code deploy.
+      - key: EMDR_DISABLE_NEW_SESSIONS
         sync: false

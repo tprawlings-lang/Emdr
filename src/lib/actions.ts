@@ -3,7 +3,8 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { getDb, hashPassword, newId, verifyPassword } from "./db";
-import { setCancelAtPeriodEnd, startDemoSubscription, subscriptionActive } from "./billing";
+import { safetyRefundAndCancel, setCancelAtPeriodEnd, startDemoSubscription, subscriptionActive } from "./billing";
+import { recordFitnessScreening } from "./fitness-screener";
 import { audit } from "./audit";
 import {
   requireUser,
@@ -124,6 +125,55 @@ export async function signup(formData: FormData) {
       : { wellnessAck: "wellness-ack-v1" },
   });
   redirect(wantsClinician ? "/clinician" : "/subscribe");
+}
+
+// ---------- Fitness screener (compliance 4A) ----------
+
+export async function submitFitnessScreening(answersJson: string) {
+  const user = await requireMember();
+  let answers: Record<string, boolean> = {};
+  try {
+    const parsed = JSON.parse(answersJson) as Record<string, unknown>;
+    for (const [k, v] of Object.entries(parsed)) answers[k.slice(0, 60)] = v === true;
+  } catch {
+    answers = {};
+  }
+  const { outcome, flags } = recordFitnessScreening(user.id, answers);
+  audit({
+    actorId: user.id,
+    actorRole: "member",
+    family: "safety",
+    type: "fitness_screening_completed",
+    detail: { outcome, flagCount: flags.length },
+  });
+  if (outcome === "hard_stop") {
+    // Warm exit: no payment kept, resources shown, care team notified,
+    // 24h retake cooldown enforced by getFitnessState.
+    safetyRefundAndCancel(user.id);
+    createAlert({
+      userId: user.id,
+      type: "fitness_screening_stop",
+      severity: "high",
+      detail: "Fitness screening indicated this program is not a safe fit right now. Membership refunded and paused automatically.",
+    });
+    redirect("/screening/fit");
+  }
+  redirect("/screening");
+}
+
+// Coded in-session safety events (compliance 4B.4): type + ids only, never
+// content. Our internal signal for how often members hit distress.
+export async function logSafetyEvent(type: string, sessionId?: string) {
+  const user = await requireMember();
+  const allowed = new Set(["ground_me_pressed", "suds_pause", "session_time_cap", "session_winddown_shown"]);
+  if (!allowed.has(type)) return;
+  audit({
+    actorId: user.id,
+    actorRole: "member",
+    family: "safety",
+    type,
+    target: sessionId,
+  });
 }
 
 // ---------- Membership billing ----------

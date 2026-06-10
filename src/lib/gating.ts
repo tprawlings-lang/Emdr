@@ -2,6 +2,8 @@ import { getDb } from "./db";
 import { MODULES, TherapyModule } from "./modules";
 import { getLatestReadiness, getSafetyPlan, profileComplete } from "./profile";
 import { subscriptionActive } from "./billing";
+import { getFitnessState } from "./fitness-screener";
+import { MAX_PROCESSING_PER_24H, SUDS_COOLDOWN_AT, sessionsKilled } from "./session-safety";
 
 // Gating rules from the executive plan: every session entry point routes
 // through consent -> screening -> today's check-in -> tier/unlock checks.
@@ -111,16 +113,36 @@ export type ModuleAccess =
   | {
       allowed: false;
       reason: string;
-      action: "subscribe" | "consent" | "screening" | "profile" | "checkin" | "crisis" | "grounding" | "unlock" | "prereq" | "readiness" | "safety_plan";
+      action: "subscribe" | "consent" | "screening" | "profile" | "checkin" | "crisis" | "grounding" | "unlock" | "prereq" | "readiness" | "safety_plan" | "paused" | "cooldown";
     };
 
 const GROUNDING_MODULES = new Set(["calm-place", "containment"]);
 
 export function checkModuleAccess(userId: string, mod: TherapyModule): ModuleAccess {
+  // Global kill switch (compliance 4D): new session starts can be disabled
+  // within minutes if a safety defect is found in production.
+  if (sessionsKilled())
+    return {
+      allowed: false,
+      reason: "New sessions are temporarily paused for maintenance. Grounding tools and your companion remain open.",
+      action: "paused",
+    };
   if (!subscriptionActive(userId))
     return { allowed: false, reason: "An active membership is needed for sessions.", action: "subscribe" };
   if (!hasConsent(userId))
     return { allowed: false, reason: "Please review and complete consent first.", action: "consent" };
+
+  // Fitness screener (compliance 4A) gates everything session-shaped.
+  const fitness = getFitnessState(userId);
+  if (fitness.status === "none")
+    return { allowed: false, reason: "Please complete the program-fit questions first.", action: "screening" };
+  if (fitness.status === "cooldown")
+    return {
+      allowed: false,
+      reason: "Based on your fit questions, this program isn't the right fit right now. The crisis page has support that can help today.",
+      action: "crisis",
+    };
+
   if (!screeningComplete(userId))
     return { allowed: false, reason: "Please complete your baseline screening first.", action: "screening" };
   if (!profileComplete(userId))
@@ -198,6 +220,37 @@ export function checkModuleAccess(userId: string, mod: TherapyModule): ModuleAcc
               ? "Your specialist has not approved this module yet. They will discuss next steps with you."
               : "This module requires specialist review and unlock.",
         action: "unlock",
+      };
+
+    const db = getDb();
+    // Hard cap: at most N processing sessions per 24 hours (compliance 4B.3).
+    const recent = db
+      .prepare(
+        `SELECT COUNT(*) AS n FROM therapy_sessions
+         WHERE user_id = ? AND started_at > datetime('now', '-1 day')
+           AND module_id IN (${MODULES.filter((m) => m.tier === "gated").map(() => "?").join(",")})`
+      )
+      .get(userId, ...MODULES.filter((m) => m.tier === "gated").map((m) => m.id)) as { n: number };
+    if (recent.n >= MAX_PROCESSING_PER_24H)
+      return {
+        allowed: false,
+        reason: "Processing sessions are limited to one per day — that pacing protects the work. Stabilization and grounding stay open.",
+        action: "cooldown",
+      };
+
+    // High distress at the end of a recent session puts processing on a 24h
+    // cooldown (compliance 4B.2); stabilization modules remain available.
+    const hot = db
+      .prepare(
+        `SELECT COUNT(*) AS n FROM therapy_sessions
+         WHERE user_id = ? AND ended_at > datetime('now', '-1 day') AND post_suds >= ?`
+      )
+      .get(userId, SUDS_COOLDOWN_AT) as { n: number };
+    if (hot.n > 0)
+      return {
+        allowed: false,
+        reason: "Your last session ended with distress still high, so processing is resting for 24 hours. Grounding and stabilization are open, and your companion is here.",
+        action: "cooldown",
       };
   }
 

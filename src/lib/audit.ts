@@ -7,7 +7,10 @@ export type EventFamily =
   | "module_runtime"
   | "specialist_action"
   | "billing"
-  | "security";
+  | "security"
+  // Coded in-session safety events (compliance 4B.4): types and ids only,
+  // never user content.
+  | "safety";
 
 // Append-only audit trail. Every consent, gating result, session event,
 // and clinician decision must pass through here so the trail is complete.

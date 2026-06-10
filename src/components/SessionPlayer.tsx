@@ -4,16 +4,19 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { SessionStep, TherapyModule } from "@/lib/modules";
 import type { SessionFocus } from "@/lib/session-focus";
-import { finishSession, startSession } from "@/lib/actions";
+import { finishSession, logSafetyEvent, startSession } from "@/lib/actions";
+import {
+  SESSION_CAP_MIN,
+  SESSION_WINDDOWN_MIN,
+  sudsDecision,
+} from "@/lib/session-safety";
 
-// Hard-stop rules enforced client-side and recorded server-side:
-// distress >= 9 at any rating, or a rise of 3+ above the starting rating
-// while already high. The player also inserts a rest pause between BLS sets.
-const HARD_STOP_ABSOLUTE = 9;
-const HARD_STOP_RISE = 3;
+// In-session safety rules live in lib/session-safety.ts (deterministic,
+// covered by the @safety test suite). The player also inserts a rest pause
+// between BLS sets.
 const REST_SECONDS = 8;
 
-type Phase = "intro" | "running" | "hardstop" | "finishing";
+type Phase = "intro" | "running" | "ground" | "sudpause" | "hardstop" | "finishing";
 
 interface Props {
   module: TherapyModule;
@@ -21,6 +24,8 @@ interface Props {
   focus?: SessionFocus | null;
   /** Saved calm-place word, shown during grounding and hard stops. */
   calmPlace?: string | null;
+  /** Default to audio-only bilateral stimulation (photosensitivity flag). */
+  audioOnlyDefault?: boolean;
 }
 
 function BlsVisual({
@@ -109,12 +114,66 @@ function BlsVisual({
   );
 }
 
-export default function SessionPlayer({ module: mod, focus, calmPlace }: Props) {
+// Audio-only bilateral stimulation: alternating left/right tones, nothing
+// moving on screen. The default for members with a photosensitivity flag and
+// available to everyone (compliance 6.1).
+function BlsAudio({ running, speedMs }: { running: boolean; speedMs: number }) {
+  const audioRef = useRef<AudioContext | null>(null);
+  const sideRef = useRef(1);
+
+  useEffect(() => {
+    if (!running) return;
+    const beep = () => {
+      try {
+        audioRef.current ??= new AudioContext();
+        const ac = audioRef.current;
+        const osc = ac.createOscillator();
+        const gain = ac.createGain();
+        const panner = ac.createStereoPanner();
+        osc.frequency.value = 396;
+        gain.gain.setValueAtTime(0.1, ac.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.0001, ac.currentTime + 0.14);
+        panner.pan.value = sideRef.current;
+        sideRef.current *= -1;
+        osc.connect(gain).connect(panner).connect(ac.destination);
+        osc.start();
+        osc.stop(ac.currentTime + 0.15);
+      } catch {
+        // best effort
+      }
+    };
+    beep();
+    const id = setInterval(beep, speedMs / 2);
+    return () => clearInterval(id);
+  }, [running, speedMs]);
+
+  return (
+    <div className="flex h-[220px] w-full flex-col items-center justify-center rounded-3xl bg-ground text-center text-ivory/85">
+      <p className="font-serif text-2xl">{running ? "Follow the tones" : "Audio paused"}</p>
+      <p className="mt-2 max-w-sm text-sm text-ivory/60">
+        Left… right… let your attention move with the sound. Headphones work best.
+      </p>
+    </div>
+  );
+}
+
+const GROUNDING_STEPS = [
+  "Feel your feet on the floor. Press them down gently.",
+  "Breathe out longer than you breathe in. Three slow breaths.",
+  "Name five things you can see, four you can hear, three you can touch, two you can smell, one you can taste.",
+  "Look around the room. Notice where you are, today's date, that you are here now.",
+];
+
+export default function SessionPlayer({ module: mod, focus, calmPlace, audioOnlyDefault }: Props) {
   const router = useRouter();
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [phase, setPhase] = useState<Phase>("intro");
   const [selectedFocusId, setSelectedFocusId] = useState<string | null>(null);
   const [customFocus, setCustomFocus] = useState("");
+  const [blsMode, setBlsMode] = useState<"visual" | "audio">(audioOnlyDefault ? "audio" : "visual");
+  const [windDown, setWindDown] = useState(false);
+  const startedAtRef = useRef<number | null>(null);
+  const cappedRef = useRef(false);
   const [stepIndex, setStepIndex] = useState(0);
   const [sudsTrail, setSudsTrail] = useState<number[]>([]);
   const [currentSuds, setCurrentSuds] = useState(5);
@@ -187,19 +246,44 @@ export default function SessionPlayer({ module: mod, focus, calmPlace }: Props) 
   const submitSuds = useCallback(() => {
     const trail = [...sudsTrail, currentSuds];
     setSudsTrail(trail);
-    if (currentSuds >= HARD_STOP_ABSOLUTE) {
+    const decision = sudsDecision(trail);
+    if (decision === "hard_stop") {
       triggerHardStop(`Distress rated ${currentSuds}/10`, trail);
       return;
     }
-    if (trail.length > 1 && currentSuds - trail[0] >= HARD_STOP_RISE && currentSuds >= 7) {
-      triggerHardStop(
-        `Distress rose from ${trail[0]} to ${currentSuds} during the session`,
-        trail
-      );
+    if (decision === "pause") {
+      // Compliance 4B.2: pause processing, ground, then an explicit choice
+      // to continue or stop — never push through high distress.
+      setBlsStarted(false);
+      setPhase("sudpause");
+      void logSafetyEvent("suds_pause", sessionId ?? undefined);
       return;
     }
     advance();
-  }, [sudsTrail, currentSuds, advance, triggerHardStop]);
+  }, [sudsTrail, currentSuds, advance, triggerHardStop, sessionId]);
+
+  // Session length caps (compliance 4B.3): wind-down notice at 35 minutes,
+  // hard cap at 45 — the session jumps to its closing grounding step.
+  useEffect(() => {
+    if (phase === "intro" || phase === "finishing" || phase === "hardstop") return;
+    const id = setInterval(() => {
+      if (!startedAtRef.current || cappedRef.current) return;
+      const mins = (Date.now() - startedAtRef.current) / 60000;
+      if (mins >= SESSION_CAP_MIN) {
+        cappedRef.current = true;
+        setBlsStarted(false);
+        setStepIndex(mod.steps.length - 1);
+        setPhase("running");
+        void logSafetyEvent("session_time_cap", sessionId ?? undefined);
+      } else if (mins >= SESSION_WINDDOWN_MIN) {
+        setWindDown((w) => {
+          if (!w) void logSafetyEvent("session_winddown_shown", sessionId ?? undefined);
+          return true;
+        });
+      }
+    }, 15000);
+    return () => clearInterval(id);
+  }, [phase, sessionId, mod.steps.length]);
 
   // BLS set/rest timer.
   useEffect(() => {
@@ -303,14 +387,47 @@ export default function SessionPlayer({ module: mod, focus, calmPlace }: Props) 
             always allowed. If distress climbs too high, the session ends itself and offers
             grounding.
           </p>
-          <label className="mt-4 flex items-center gap-2">
-            <input
-              type="checkbox"
-              checked={soundOn}
-              onChange={(e) => setSoundOn(e.target.checked)}
-            />
-            Add alternating audio tones (left/right)
-          </label>
+          <fieldset className="mt-4">
+            <legend className="font-medium">Bilateral stimulation</legend>
+            <div className="mt-2 flex gap-2">
+              <label className="cursor-pointer rounded-full border border-ground/15 bg-ivory px-4 py-1.5 has-checked:border-clay has-checked:bg-clay has-checked:font-semibold">
+                <input
+                  type="radio"
+                  name="blsmode"
+                  checked={blsMode === "visual"}
+                  onChange={() => setBlsMode("visual")}
+                  className="sr-only"
+                />
+                Moving dot
+              </label>
+              <label className="cursor-pointer rounded-full border border-ground/15 bg-ivory px-4 py-1.5 has-checked:border-clay has-checked:bg-clay has-checked:font-semibold">
+                <input
+                  type="radio"
+                  name="blsmode"
+                  checked={blsMode === "audio"}
+                  onChange={() => setBlsMode("audio")}
+                  className="sr-only"
+                />
+                Audio only (no motion)
+              </label>
+            </div>
+            {audioOnlyDefault && (
+              <p className="mt-2 text-xs text-olive">
+                Audio-only is your default based on your fit questions — gentler for
+                photosensitivity. You can change it.
+              </p>
+            )}
+          </fieldset>
+          {blsMode === "visual" && (
+            <label className="mt-4 flex items-center gap-2">
+              <input
+                type="checkbox"
+                checked={soundOn}
+                onChange={(e) => setSoundOn(e.target.checked)}
+              />
+              Add alternating audio tones (left/right)
+            </label>
+          )}
           <label className="mt-3 block">
             Dot speed
             <select
@@ -328,6 +445,7 @@ export default function SessionPlayer({ module: mod, focus, calmPlace }: Props) 
           onClick={async () => {
             const id = await startSession(mod.id, chosenFocus || undefined);
             setSessionId(id ?? null);
+            startedAtRef.current = Date.now();
             setPhase("running");
           }}
           className="mt-6 w-full rounded-full bg-sage px-6 py-3.5 font-medium text-ground transition-colors hover:bg-sage-deep"
@@ -341,6 +459,51 @@ export default function SessionPlayer({ module: mod, focus, calmPlace }: Props) 
   if (phase === "finishing") {
     return (
       <div className="mx-auto max-w-2xl px-6 py-24 text-center text-olive">Saving…</div>
+    );
+  }
+
+  if (phase === "ground" || phase === "sudpause") {
+    return (
+      <div className="mx-auto max-w-xl px-6 py-14">
+        <div className="rounded-3xl border border-ground/10 bg-linen p-7 shadow-soft">
+          <h1 className="font-serif text-3xl font-medium">
+            {phase === "sudpause" ? "Let's pause and settle first" : "Coming back to the room"}
+          </h1>
+          {phase === "sudpause" && (
+            <p className="mt-2 text-olive">
+              Your distress is high enough that pushing on isn&apos;t the right move. Ground
+              first — then you choose.
+            </p>
+          )}
+          <ol className="mt-5 list-decimal space-y-3 pl-5 text-lg leading-relaxed text-ground/90">
+            {GROUNDING_STEPS.map((s) => (
+              <li key={s}>{s}</li>
+            ))}
+            {calmPlace && <li>Say your calm-place word to yourself: “{calmPlace}”.</li>}
+          </ol>
+          <div className="mt-7 flex flex-col gap-3">
+            <button
+              onClick={() => {
+                const wasPause = phase === "sudpause";
+                setPhase("running");
+                if (wasPause) advance();
+              }}
+              className="rounded-full bg-sage px-6 py-3.5 font-medium text-ground transition-colors hover:bg-sage-deep"
+            >
+              {phase === "sudpause" ? "I'm steadier — continue gently" : "I'm steadier — back to the session"}
+            </button>
+            <button
+              onClick={() => void endSession("abandoned")}
+              className="rounded-full border border-ground/20 px-6 py-3.5 text-ground/80 transition-colors hover:bg-moss"
+            >
+              End the session here — stopping is always allowed
+            </button>
+            <a href="/crisis" className="text-center text-sm font-semibold text-support underline">
+              I need more help than grounding
+            </a>
+          </div>
+        </div>
+      </div>
     );
   }
 
@@ -387,7 +550,25 @@ export default function SessionPlayer({ module: mod, focus, calmPlace }: Props) 
 
   // phase === "running"
   return (
-    <div className="mx-auto max-w-3xl px-6 py-8">
+    <div className="mx-auto max-w-3xl px-6 py-8 pb-28">
+      {/* Persistent exit (compliance 4B.1): always visible, one tap, no
+          confirmation — instantly halts stimulation and pivots to grounding. */}
+      <button
+        onClick={() => {
+          setBlsStarted(false);
+          setPhase("ground");
+          void logSafetyEvent("ground_me_pressed", sessionId ?? undefined);
+        }}
+        className="fixed right-5 bottom-5 z-50 rounded-full bg-support px-7 py-4 text-lg font-bold text-white shadow-soft transition-colors hover:bg-support-deep"
+      >
+        Ground me
+      </button>
+      {windDown && (
+        <div className="mb-4 rounded-3xl border border-pause/40 bg-pause-soft px-5 py-3 text-sm text-ground">
+          You&apos;ve been at this a while. Sessions wind down around {SESSION_WINDDOWN_MIN}{" "}
+          minutes — start letting the work settle.
+        </div>
+      )}
       <div className="flex items-center justify-between text-sm">
         <span className="text-olive">
           {mod.name} · step {stepIndex + 1} of {mod.steps.length}
@@ -451,11 +632,18 @@ export default function SessionPlayer({ module: mod, focus, calmPlace }: Props) 
         <div className="mt-8">
           <h2 className="font-serif text-2xl font-medium">{step.title}</h2>
           <div className="mt-5">
-            <BlsVisual
-              running={blsStarted && !blsState.resting && blsState.secondsLeft > 0}
-              speedMs={speedMs}
-              soundOn={soundOn}
-            />
+            {blsMode === "audio" ? (
+              <BlsAudio
+                running={blsStarted && !blsState.resting && blsState.secondsLeft > 0}
+                speedMs={speedMs}
+              />
+            ) : (
+              <BlsVisual
+                running={blsStarted && !blsState.resting && blsState.secondsLeft > 0}
+                speedMs={speedMs}
+                soundOn={soundOn}
+              />
+            )}
           </div>
           {!blsStarted ? (
             <button
@@ -470,8 +658,9 @@ export default function SessionPlayer({ module: mod, focus, calmPlace }: Props) 
                 <>Rest. Breathe out slowly… next set in {blsState.secondsLeft}s</>
               ) : (
                 <>
-                  Set {blsState.set} of {step.sets ?? 1} — follow the dot with your eyes ·{" "}
-                  {blsState.secondsLeft}s
+                  Set {blsState.set} of {step.sets ?? 1} —{" "}
+                  {blsMode === "audio" ? "follow the tones left and right" : "follow the dot with your eyes"}{" "}
+                  · {blsState.secondsLeft}s
                 </>
               )}
             </p>

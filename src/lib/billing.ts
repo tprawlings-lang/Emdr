@@ -129,6 +129,37 @@ export function startDemoSubscription(userId: string) {
   });
 }
 
+// Safety-refund path (compliance 5.4, non-negotiable): a member screened out
+// by the fitness screener after paying is refunded automatically, no contact
+// required, and the subscription ends immediately.
+export function safetyRefundAndCancel(userId: string) {
+  const db = getDb();
+  const sub = getSubscription(userId);
+  if (sub && sub.status !== "canceled") {
+    db.prepare(
+      "UPDATE subscriptions SET status = 'canceled', cancel_at_period_end = 0, updated_at = datetime('now') WHERE user_id = ?"
+    ).run(userId);
+  }
+  const lastCharge = db
+    .prepare(
+      `SELECT id, amount_cents FROM payments
+       WHERE user_id = ? AND status = 'succeeded' ORDER BY created_at DESC LIMIT 1`
+    )
+    .get(userId) as { id: string; amount_cents: number } | undefined;
+  if (lastCharge) {
+    db.prepare(
+      "INSERT INTO payments (id, user_id, amount_cents, currency, status, description) VALUES (?, ?, ?, ?, 'refunded', ?)"
+    ).run(newId(), userId, lastCharge.amount_cents, PLAN.currency, "Automatic refund — program fit (no action needed)");
+  }
+  audit({
+    actorId: userId,
+    actorRole: "member",
+    family: "billing",
+    type: "safety_refund",
+    detail: { refunded: Boolean(lastCharge) },
+  });
+}
+
 export function setCancelAtPeriodEnd(userId: string, cancel: boolean) {
   getDb()
     .prepare(
