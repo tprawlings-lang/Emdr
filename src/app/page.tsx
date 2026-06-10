@@ -234,6 +234,90 @@ export default async function Home() {
         </p>
       </section>
 
+      {/* Companion — the delivery differentiator, placed right after the
+          research band per handoff: research earns trust in the method, this
+          earns trust in the delivery. Quietest section on the page. Claims
+          here describe shipped behavior only; "clinical input" wording is
+          deliberately avoided (no clinician advisor yet — using the
+          handoff's fallback), and privacy lines match the real
+          architecture: no ad trackers, member-controlled memory. */}
+      <section className="mx-auto max-w-5xl px-6 pt-20">
+        <div className="grid items-center gap-10 sm:grid-cols-[3fr_2fr]">
+          <div>
+            <h2 className="font-serif text-3xl font-medium sm:text-4xl">
+              A companion built for this, and only this.
+            </h2>
+            <p className="mt-4 leading-relaxed text-olive">
+              Steady&apos;s companion was custom-built around EMDR&apos;s session structure —
+              not adapted from a general-purpose chatbot. It guides, paces, and remembers,
+              inside safety rails modeled on clinical practice.
+            </p>
+          </div>
+          {/* Product glimpse: a real exchange shape, not an AI graphic */}
+          <div className="rounded-3xl border border-ground/10 bg-ivory p-5 shadow-soft" aria-hidden="true">
+            <div className="flex justify-end">
+              <div className="max-w-[85%] rounded-3xl bg-sage/40 px-4 py-2.5 text-sm text-ground">
+                Tonight feels like too much.
+              </div>
+            </div>
+            <div className="mt-3 flex justify-start">
+              <div className="max-w-[90%] rounded-3xl border border-ground/10 bg-linen px-4 py-2.5 text-sm leading-relaxed text-ground shadow-soft">
+                We can keep this small. Last time, cold water on your wrists helped — want to
+                start there, or just breathe together for a minute?
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-10 grid gap-4 sm:grid-cols-2">
+          {[
+            {
+              lead: "It remembers, so you don't start over.",
+              body: "Your companion carries forward what grounds you, what's too much, and where you left off. Every session begins where you are, not at zero.",
+            },
+            {
+              lead: "It never rushes you.",
+              body: "Sessions move at your pace. Pause, ground, or stop at any moment — the companion follows your lead, every time.",
+            },
+            {
+              lead: "It knows when to stop.",
+              body: "The companion is built to recognize when a session should pause and guide you back to steady ground — and it screens for who it can safely serve before you begin.",
+            },
+            {
+              lead: "Nothing to perform, no one to impress.",
+              body: "No waiting room, no eye contact, no judgment. For many people, that privacy is what makes starting possible.",
+            },
+          ].map((c) => (
+            <div key={c.lead} className="rounded-3xl border border-ground/10 bg-linen p-6 shadow-soft">
+              <h3 className="font-semibold">{c.lead}</h3>
+              <p className="mt-1.5 text-sm leading-relaxed text-olive">{c.body}</p>
+            </div>
+          ))}
+        </div>
+
+        <p className="mt-6 text-center text-xs text-olive/80">
+          Purpose-built for guided eye-movement sessions · Safety screening before first
+          session · Private by design — no advertising trackers, and the companion&apos;s
+          memory is yours to view, edit, or delete anytime · Not a replacement for therapy or
+          crisis care
+        </p>
+
+        <div className="mt-8 text-center">
+          <div className="flex flex-wrap items-center justify-center gap-4">
+            <Cta label="Start your free week" />
+            <a
+              href="#how-it-works"
+              className="rounded-full border border-ground/20 px-7 py-3.5 font-medium text-ground/80 transition-colors hover:bg-moss"
+            >
+              See how a session works
+            </a>
+          </div>
+          <p className="mt-4 text-sm text-olive">
+            7 days free · cancel anytime · stop any session, anytime
+          </p>
+        </div>
+      </section>
+
       {/* Conditions */}
       <section className="mx-auto max-w-5xl px-6 pt-20">
         <h2 className="text-center font-serif text-3xl font-medium sm:text-4xl">
@@ -258,7 +342,7 @@ export default async function Home() {
       </section>
 
       {/* How it works */}
-      <section className="mt-20 bg-ground py-20 text-ivory">
+      <section id="how-it-works" className="mt-20 scroll-mt-8 bg-ground py-20 text-ivory">
         <div className="mx-auto max-w-5xl px-6">
           <h2 className="text-center font-serif text-3xl font-medium sm:text-4xl">
             How Steady works
