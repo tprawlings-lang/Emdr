@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Build a Suit — The Bikini Bar</title>
+  <meta name="description" content="Mix and match tops, bottoms, and colorways to build your made-to-order bikini." />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+  <div class="announce">Free shipping on orders over $75 &nbsp;•&nbsp; Every suit made to order</div>
+
+  <header class="site-header">
+    <div class="container nav-wrap">
+      <a class="logo" href="index.html">The <span class="accent">Bikini</span> Bar</a>
+      <nav class="main-nav">
+        <a href="index.html">Home</a>
+        <a href="builder.html" class="active">Build a Suit</a>
+        <a href="inspiration.html">Inspiration</a>
+        <a href="about.html">About</a>
+        <a href="faq.html">FAQ</a>
+        <a href="contact.html">Contact</a>
+      </nav>
+      <div class="nav-actions">
+        <a class="btn btn-blush btn-sm" href="builder.html">Mix Yours</a>
+      </div>
+    </div>
+  </header>
+
+  <div class="page-hero">
+    <div class="container">
+      <h1>Step up to the bar</h1>
+      <p>Pick a top, pick a bottom, pour on the color. Your recipe updates live below.</p>
+    </div>
+  </div>
+
+  <section class="band" style="padding-top: 30px;">
+    <div class="container builder-layout">
+
+      <div class="preview-stage">
+        <svg class="bikini-figure" viewBox="0 0 200 260" aria-label="Bikini preview">
+          <!-- top -->
+          <g id="preview-top">
+            <path d="M55 40 L85 95 L100 80 L115 95 L145 40 L130 35 L100 70 L70 35 Z" fill="#f7c9c9" stroke="#3a3330" stroke-width="2" stroke-linejoin="round"/>
+            <line x1="55" y1="40" x2="45" y2="20" stroke="#3a3330" stroke-width="2"/>
+            <line x1="145" y1="40" x2="155" y2="20" stroke="#3a3330" stroke-width="2"/>
+          </g>
+          <!-- bottom -->
+          <g id="preview-bottom">
+            <path d="M55 160 L145 160 L120 215 L100 230 L80 215 Z" fill="#fdf3dc" stroke="#3a3330" stroke-width="2" stroke-linejoin="round"/>
+            <circle cx="55" cy="160" r="6" fill="none" stroke="#3a3330" stroke-width="2"/>
+            <circle cx="145" cy="160" r="6" fill="none" stroke="#3a3330" stroke-width="2"/>
+          </g>
+        </svg>
+        <h3 id="recipe-name" style="margin-bottom: 6px;">The Sunset Spritz</h3>
+        <p id="recipe-desc" style="color: var(--ink-soft); font-size: 0.95rem;">Triangle top in Blush · Tie-side bottoms in Buttercream</p>
+        <p style="font-family: var(--font-display); font-size: 1.5rem; margin: 14px 0;">$89</p>
+        <button class="btn btn-primary" onclick="alert('This is a demo build — connect your store checkout here.')">Add to Cart</button>
+      </div>
+
+      <div>
+        <div class="option-group">
+          <h3>Top style</h3>
+          <div class="chip-row" id="top-styles">
+            <button class="chip selected">Triangle</button>
+            <button class="chip">Bandeau</button>
+            <button class="chip">Halter</button>
+            <button class="chip">Scoop</button>
+            <button class="chip">One-Shoulder</button>
+            <button class="chip">Underwire</button>
+          </div>
+        </div>
+
+        <div class="option-group">
+          <h3>Top color</h3>
+          <div class="chip-row" id="top-colors">
+            <button class="color-dot selected" data-color="#f7c9c9" data-name="Blush" style="background:#f7c9c9" aria-label="Blush"></button>
+            <button class="color-dot" data-color="#fdf3dc" data-name="Buttercream" style="background:#fdf3dc" aria-label="Buttercream"></button>
+            <button class="color-dot" data-color="#cdeae2" data-name="Seafoam" style="background:#cdeae2" aria-label="Seafoam"></button>
+            <button class="color-dot" data-color="#5b7b9e" data-name="Denim" style="background:#5b7b9e" aria-label="Denim"></button>
+            <button class="color-dot" data-color="#ef9f9f" data-name="Coral" style="background:#ef9f9f" aria-label="Coral"></button>
+            <button class="color-dot" data-color="#3a3330" data-name="Espresso" style="background:#3a3330" aria-label="Espresso"></button>
+          </div>
+        </div>
+
+        <div class="option-group">
+          <h3>Bottom style</h3>
+          <div class="chip-row" id="bottom-styles">
+            <button class="chip selected">Tie-Side</button>
+            <button class="chip">High-Waist</button>
+            <button class="chip">Cheeky</button>
+            <button class="chip">Full Coverage</button>
+            <button class="chip">Hipster</button>
+            <button class="chip">Skirted</button>
+          </div>
+        </div>
+
+        <div class="option-group">
+          <h3>Bottom color</h3>
+          <div class="chip-row" id="bottom-colors">
+            <button class="color-dot" data-color="#f7c9c9" data-name="Blush" style="background:#f7c9c9" aria-label="Blush"></button>
+            <button class="color-dot selected" data-color="#fdf3dc" data-name="Buttercream" style="background:#fdf3dc" aria-label="Buttercream"></button>
+            <button class="color-dot" data-color="#cdeae2" data-name="Seafoam" style="background:#cdeae2" aria-label="Seafoam"></button>
+            <button class="color-dot" data-color="#5b7b9e" data-name="Denim" style="background:#5b7b9e" aria-label="Denim"></button>
+            <button class="color-dot" data-color="#ef9f9f" data-name="Coral" style="background:#ef9f9f" aria-label="Coral"></button>
+            <button class="color-dot" data-color="#3a3330" data-name="Espresso" style="background:#3a3330" aria-label="Espresso"></button>
+          </div>
+        </div>
+
+        <div class="option-group">
+          <h3>Size</h3>
+          <div class="chip-row" id="sizes">
+            <button class="chip">XS</button>
+            <button class="chip selected">S</button>
+            <button class="chip">M</button>
+            <button class="chip">L</button>
+            <button class="chip">XL</button>
+            <button class="chip">XXL</button>
+          </div>
+        </div>
+
+        <div class="summary-box">
+          <dl style="margin:0;">
+            <dt>Your recipe</dt>
+            <dd id="summary-line">Triangle top in Blush · Tie-Side bottoms in Buttercream · Size S</dd>
+            <dt>Made to order</dt>
+            <dd>Cut, sewn, and shipped within 7–10 business days.</dd>
+          </dl>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <footer class="site-footer">
+    <div class="container">
+      <div class="footer-grid">
+        <div>
+          <h4>The Bikini Bar</h4>
+          <p style="font-size: 0.95rem; max-width: 280px;">Made-to-order, mix-and-match swimwear. Every suit starts with you.</p>
+        </div>
+        <div>
+          <h4>Shop</h4>
+          <ul>
+            <li><a href="builder.html">Build a Suit</a></li>
+            <li><a href="inspiration.html">Inspiration</a></li>
+            <li><a href="contact.html">Gift Cards</a></li>
+          </ul>
+        </div>
+        <div>
+          <h4>Help</h4>
+          <ul>
+            <li><a href="faq.html">FAQ</a></li>
+            <li><a href="faq.html#sizing">Sizing</a></li>
+            <li><a href="contact.html">Contact Us</a></li>
+          </ul>
+        </div>
+        <div>
+          <h4>Follow</h4>
+          <ul>
+            <li><a href="#">Instagram</a></li>
+            <li><a href="#">TikTok</a></li>
+            <li><a href="#">Pinterest</a></li>
+          </ul>
+        </div>
+      </div>
+      <div class="footer-bottom">
+        <span>© 2026 The Bikini Bar. All rights reserved.</span>
+        <span><a href="#">Privacy Policy</a> · <a href="#">Terms</a></span>
+      </div>
+    </div>
+  </footer>
+
+  <script src="builder.js"></script>
+</body>
+</html>

@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Contact — The Bikini Bar</title>
+  <meta name="description" content="Get in touch with The Bikini Bar for fit advice, order questions, gift cards, or ambassador inquiries." />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+  <div class="announce">Free shipping on orders over $75 &nbsp;•&nbsp; Every suit made to order</div>
+
+  <header class="site-header">
+    <div class="container nav-wrap">
+      <a class="logo" href="index.html">The <span class="accent">Bikini</span> Bar</a>
+      <nav class="main-nav">
+        <a href="index.html">Home</a>
+        <a href="builder.html">Build a Suit</a>
+        <a href="inspiration.html">Inspiration</a>
+        <a href="about.html">About</a>
+        <a href="faq.html">FAQ</a>
+        <a href="contact.html" class="active">Contact</a>
+      </nav>
+      <div class="nav-actions">
+        <a class="btn btn-blush btn-sm" href="builder.html">Mix Yours</a>
+      </div>
+    </div>
+  </header>
+
+  <div class="page-hero">
+    <div class="container">
+      <h1>Talk to the bar</h1>
+      <p>Fit advice, order help, gift cards, or ambassador inquiries — we read everything.</p>
+    </div>
+  </div>
+
+  <section class="band" style="padding-top: 30px;">
+    <div class="container">
+      <form class="form-card" onsubmit="event.preventDefault(); alert('This is a demo form — connect it to your email service or store backend.');">
+        <div class="form-row">
+          <label for="name">Name</label>
+          <input id="name" type="text" name="name" required placeholder="Your name" />
+        </div>
+        <div class="form-row">
+          <label for="email">Email</label>
+          <input id="email" type="email" name="email" required placeholder="you@example.com" />
+        </div>
+        <div class="form-row">
+          <label for="topic">Topic</label>
+          <select id="topic" name="topic">
+            <option>Fit &amp; sizing advice</option>
+            <option>Order question</option>
+            <option>Gift cards</option>
+            <option>Ambassador program</option>
+            <option>Something else</option>
+          </select>
+        </div>
+        <div class="form-row">
+          <label for="message">Message</label>
+          <textarea id="message" name="message" rows="5" required placeholder="How can we help?"></textarea>
+        </div>
+        <button class="btn btn-primary" type="submit" style="width: 100%;">Send Message</button>
+      </form>
+
+      <div class="grid-3" style="margin-top: 44px;">
+        <div class="card">
+          <div class="card-body" style="text-align: center;">
+            <h3>Email</h3>
+            <p>hello@thebikinibar.example</p>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-body" style="text-align: center;">
+            <h3>Hours</h3>
+            <p>Mon–Fri, 9am–5pm</p>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-body" style="text-align: center;">
+            <h3>Social</h3>
+            <p>@thebikinibar everywhere</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <footer class="site-footer">
+    <div class="container">
+      <div class="footer-grid">
+        <div>
+          <h4>The Bikini Bar</h4>
+          <p style="font-size: 0.95rem; max-width: 280px;">Made-to-order, mix-and-match swimwear. Every suit starts with you.</p>
+        </div>
+        <div>
+          <h4>Shop</h4>
+          <ul>
+            <li><a href="builder.html">Build a Suit</a></li>
+            <li><a href="inspiration.html">Inspiration</a></li>
+            <li><a href="contact.html">Gift Cards</a></li>
+          </ul>
+        </div>
+        <div>
+          <h4>Help</h4>
+          <ul>
+            <li><a href="faq.html">FAQ</a></li>
+            <li><a href="faq.html#sizing">Sizing</a></li>
+            <li><a href="contact.html">Contact Us</a></li>
+          </ul>
+        </div>
+        <div>
+          <h4>Follow</h4>
+          <ul>
+            <li><a href="#">Instagram</a></li>
+            <li><a href="#">TikTok</a></li>
+            <li><a href="#">Pinterest</a></li>
+          </ul>
+        </div>
+      </div>
+      <div class="footer-bottom">
+        <span>© 2026 The Bikini Bar. All rights reserved.</span>
+        <span><a href="#">Privacy Policy</a> · <a href="#">Terms</a></span>
+      </div>
+    </div>
+  </footer>
+
+</body>
+</html>
