@@ -14,6 +14,7 @@ import {
 import { logout, requestUnlock } from "@/lib/actions";
 import { scoreItq } from "@/lib/instruments";
 import { decryptField } from "@/lib/crypto";
+import { getFitnessState } from "@/lib/fitness-screener";
 import {
   TRACK_GUIDANCE,
   TRACK_LABELS,
@@ -39,6 +40,20 @@ function actionLabel(action: string): { label: string; tone: string } {
   }
 }
 
+// Where each blocked-module reason can actually be resolved. Without these
+// links, members told "complete X first" had no path to X (the bug that
+// stranded grandfathered accounts after the fit screener shipped).
+const ACTION_LINKS: Record<string, { href: string; label: string }> = {
+  screening: { href: "/screening", label: "Answer them now" },
+  checkin: { href: "/check-in", label: "Do today's check-in" },
+  profile: { href: "/onboarding/profile", label: "Finish getting set up" },
+  safety_plan: { href: "/onboarding/profile?step=safety-plan", label: "Complete your safety plan" },
+  consent: { href: "/onboarding", label: "Review consent" },
+  subscribe: { href: "/subscribe", label: "Restart membership" },
+  grounding: { href: "/ground", label: "Ground now" },
+  crisis: { href: "/crisis", label: "Open support" },
+};
+
 export default async function DashboardPage() {
   const user = await requireMember();
   if (!subscriptionActive(user.id)) redirect("/subscribe");
@@ -48,6 +63,7 @@ export default async function DashboardPage() {
 
   const db = getDb();
   const checkin = getTodayCheckin(user.id);
+  const fitness = getFitnessState(user.id);
   const readiness = getLatestReadiness(user.id);
   const triggers = getActiveTriggers(user.id);
   const plan = getSafetyPlan(user.id);
@@ -93,6 +109,35 @@ export default async function DashboardPage() {
 
   return (
     <main className="mx-auto max-w-4xl px-6 py-12">
+      {fitness.status === "none" && (
+        <div className="mb-6 rounded-3xl border border-pause/40 bg-pause-soft p-5">
+          <p className="font-semibold text-ground">One new step before your next session</p>
+          <p className="mt-1 text-sm text-ground/90">
+            Steady added eight quick yes-or-no program-fit questions for everyone — including
+            members who joined before they existed. Sessions stay closed until they&apos;re
+            answered; it takes about a minute.
+          </p>
+          <Link
+            href="/screening"
+            className="mt-3 inline-block rounded-full bg-sage px-6 py-2.5 text-sm font-medium text-ground transition-colors hover:bg-sage-deep"
+          >
+            Answer the fit questions
+          </Link>
+        </div>
+      )}
+      {fitness.status === "cooldown" && (
+        <div className="mb-6 rounded-3xl border border-support/40 bg-support/10 p-5">
+          <p className="font-semibold text-support-deep">Sessions are paused right now</p>
+          <p className="mt-1 text-sm text-ground/90">
+            Based on your fit answers, the safest step today is support from a person. The
+            crisis page has options that can help right now, and you can revisit the
+            questions in {fitness.retakeInHours ?? 24}h.
+          </p>
+          <Link href="/crisis" className="mt-3 inline-block rounded-full bg-support px-6 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-support-deep">
+            Open support options
+          </Link>
+        </div>
+      )}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="font-serif text-4xl font-medium">Hello, {user.name}</h1>
@@ -321,7 +366,20 @@ export default async function DashboardPage() {
                 )}
               </div>
               {!access.allowed && (
-                <p className="mt-2 text-sm text-olive">{access.reason}</p>
+                <p className="mt-2 text-sm text-olive">
+                  {access.reason}
+                  {ACTION_LINKS[access.action] && (
+                    <>
+                      {" "}
+                      <Link
+                        href={ACTION_LINKS[access.action].href}
+                        className="font-medium text-ground underline"
+                      >
+                        {ACTION_LINKS[access.action].label}
+                      </Link>
+                    </>
+                  )}
+                </p>
               )}
               {!access.allowed &&
                 access.action === "unlock" &&
