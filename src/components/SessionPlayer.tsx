@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { SessionStep, TherapyModule } from "@/lib/modules";
 import type { SessionFocus } from "@/lib/session-focus";
-import { finishSession, logSafetyEvent, startSession } from "@/lib/actions";
+import { finishSession, logSafetyEvent, recordSessionTrigger, startSession } from "@/lib/actions";
 import {
   SESSION_CAP_MIN,
   SESSION_WINDDOWN_MIN,
@@ -152,6 +152,167 @@ function BlsAudio({ running, speedMs }: { running: boolean; speedMs: number }) {
       <p className="font-serif text-2xl">{running ? "Follow the tones" : "Audio paused"}</p>
       <p className="mt-2 max-w-sm text-sm text-ivory/60">
         Left… right… let your attention move with the sound. Headphones work best.
+      </p>
+    </div>
+  );
+}
+
+const TRIGGER_CATEGORIES = [
+  { value: "relational", label: "People & relationships" },
+  { value: "environmental", label: "Places & situations" },
+  { value: "body", label: "Body sensations" },
+  { value: "memory", label: "Memories & dates" },
+  { value: "internal", label: "Thoughts & feelings" },
+  { value: "other", label: "Something else" },
+] as const;
+
+// Module 5 structured capture: each saved entry writes to the member's
+// trigger map (encrypted), which feeds the program plan, the companion, the
+// pre-session focus picker, and the specialist's review. Headline level by
+// design — short fields, not narratives.
+function TriggerEntryStep({
+  sessionId,
+  text,
+  onDone,
+}: {
+  sessionId: string | null;
+  text?: string;
+  onDone: () => void;
+}) {
+  const [saved, setSaved] = useState<string[]>([]);
+  const [name, setName] = useState("");
+  const [category, setCategory] = useState<string>("relational");
+  const [bodyFelt, setBodyFelt] = useState("");
+  const [belief, setBelief] = useState("");
+  const [disruption, setDisruption] = useState(5);
+  const [error, setError] = useState<string | null>(null);
+  const [pending, setPending] = useState(false);
+
+  const save = async () => {
+    if (!sessionId || pending) return;
+    setPending(true);
+    setError(null);
+    const res = await recordSessionTrigger({
+      sessionId,
+      name,
+      category,
+      bodyFelt,
+      belief,
+      disruption,
+    });
+    setPending(false);
+    if (!res.ok) {
+      setError(res.error ?? "That didn't save — try again.");
+      return;
+    }
+    setSaved((s) => [...s, name.trim()]);
+    setName("");
+    setBodyFelt("");
+    setBelief("");
+    setDisruption(5);
+  };
+
+  return (
+    <div className="mt-8">
+      <h2 className="font-serif text-2xl font-medium">Map your triggers (headline level)</h2>
+      {text && <p className="mt-3 text-sm leading-relaxed text-olive">{text}</p>}
+
+      {saved.length > 0 && (
+        <div className="mt-4 flex flex-wrap gap-2">
+          {saved.map((s, i) => (
+            <span key={i} className="rounded-full bg-safe/20 px-4 py-1.5 text-sm text-ground">
+              ✓ {s}
+            </span>
+          ))}
+        </div>
+      )}
+
+      <div className="mt-5 rounded-3xl border border-ground/10 bg-linen p-6 shadow-soft">
+        <label className="block">
+          <span className="text-sm font-medium">What sets it off? (a few words)</span>
+          <input
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            maxLength={120}
+            placeholder="e.g. Raised voices, hospital smells, Sunday evenings"
+            className="mt-1 w-full rounded-2xl border border-ground/15 bg-ivory px-4 py-2.5 text-sm focus:border-sage focus:outline-none"
+          />
+        </label>
+        <fieldset className="mt-4">
+          <legend className="text-sm font-medium">Where does it belong?</legend>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {TRIGGER_CATEGORIES.map((c) => (
+              <button
+                key={c.value}
+                type="button"
+                onClick={() => setCategory(c.value)}
+                className={`rounded-full border px-4 py-1.5 text-sm transition-colors ${
+                  category === c.value
+                    ? "border-clay bg-clay font-semibold"
+                    : "border-ground/15 bg-ivory hover:bg-moss"
+                }`}
+              >
+                {c.label}
+              </button>
+            ))}
+          </div>
+        </fieldset>
+        <label className="mt-4 block">
+          <span className="text-sm font-medium">Where do you feel it in your body?</span>
+          <input
+            value={bodyFelt}
+            onChange={(e) => setBodyFelt(e.target.value)}
+            maxLength={200}
+            placeholder="e.g. Tight chest, clenched jaw, heavy stomach"
+            className="mt-1 w-full rounded-2xl border border-ground/15 bg-ivory px-4 py-2.5 text-sm focus:border-sage focus:outline-none"
+          />
+        </label>
+        <label className="mt-4 block">
+          <span className="text-sm font-medium">The belief that comes with it</span>
+          <input
+            value={belief}
+            onChange={(e) => setBelief(e.target.value)}
+            maxLength={300}
+            placeholder="e.g. I am not safe · It was my fault · I can't trust anyone"
+            className="mt-1 w-full rounded-2xl border border-ground/15 bg-ivory px-4 py-2.5 text-sm focus:border-sage focus:outline-none"
+          />
+        </label>
+        <label className="mt-4 block">
+          <span className="text-sm font-medium">
+            How disruptive is it day to day? <span className="font-bold">{disruption}</span>/10
+          </span>
+          <input
+            type="range"
+            min={1}
+            max={10}
+            value={disruption}
+            onChange={(e) => setDisruption(Number(e.target.value))}
+            className="mt-1 w-full"
+            aria-label="Disruption from 1 (barely) to 10 (constant)"
+          />
+        </label>
+        {error && <p className="mt-3 text-sm text-support-deep">{error}</p>}
+        <button
+          onClick={() => void save()}
+          disabled={pending || name.trim().length === 0}
+          className="mt-5 w-full rounded-full border border-ground px-6 py-3 font-medium transition-colors hover:bg-ground hover:text-ivory disabled:opacity-50"
+        >
+          {pending ? "Saving…" : "Save this trigger to my map"}
+        </button>
+      </div>
+
+      <button
+        onClick={onDone}
+        disabled={pending}
+        className="mt-5 w-full rounded-full bg-sage px-6 py-3.5 font-medium text-ground transition-colors hover:bg-sage-deep disabled:opacity-50"
+      >
+        {saved.length > 0
+          ? `Done for today — ${saved.length} saved, continue`
+          : "Continue without adding"}
+      </button>
+      <p className="mt-3 text-center text-sm text-olive">
+        Headlines only — a few words is enough. If distress climbs above 6, stop here and use
+        “Ground me.”
       </p>
     </div>
   );
@@ -591,7 +752,9 @@ export default function SessionPlayer({ module: mod, focus, calmPlace, audioOnly
         </div>
       </div>
 
-      {step?.kind === "instruction" || step?.kind === "grounding" ? (
+      {step?.kind === "trigger-entry" ? (
+        <TriggerEntryStep sessionId={sessionId} text={step.text} onDone={advance} />
+      ) : step?.kind === "instruction" || step?.kind === "grounding" ? (
         <div className="mt-8">
           <h2 className="font-serif text-2xl font-medium">{step.title}</h2>
           <p className="mt-4 text-lg leading-relaxed text-ground/90">{step.text}</p>

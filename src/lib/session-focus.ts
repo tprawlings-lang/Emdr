@@ -1,5 +1,6 @@
 import { getMemoryItemsByType } from "./companion";
 import { getActiveTriggers, getSafetyPlan } from "./profile";
+import { getProgramPlan } from "./program-plan";
 
 // Pre-session focus selection. Before an EMDR module starts, the member is
 // offered everything Steady already knows that the module can work with —
@@ -73,6 +74,28 @@ export function getSavedCalmPlace(userId: string): string | null {
   return item ? item.memory_value : null;
 }
 
+// The program plan's recommendation for this module, surfaced as the first
+// focus option so Module 5's mapping work directly steers later sessions.
+function planOption(userId: string, moduleId: string): FocusOption | null {
+  const row = getProgramPlan(userId);
+  const step = row?.plan.nextSteps.find((s) => s.moduleId === moduleId);
+  if (!step) return null;
+  return {
+    id: `plan:${moduleId}`,
+    label: step.focus,
+    detail: `Recommended in your program plan — ${step.why}`,
+  };
+}
+
+function withPlanFirst(userId: string, moduleId: string, options: FocusOption[]): FocusOption[] {
+  const rec = planOption(userId, moduleId);
+  if (!rec) return options;
+  const rest = options.filter(
+    (o) => o.label.toLowerCase() !== rec.label.toLowerCase() || o.disabled
+  );
+  return [rec, ...rest];
+}
+
 export function getSessionFocus(userId: string, moduleId: string): SessionFocus | null {
   switch (moduleId) {
     case "calm-place": {
@@ -114,28 +137,31 @@ export function getSessionFocus(userId: string, moduleId: string): SessionFocus 
       return {
         prompt: "Which trigger from your map do you want to work on today?",
         helper: "Choose one recent, low-to-medium trigger — not a core memory.",
-        options: triggerOptions(userId, { capIntensity: true }),
+        options: withPlanFirst(userId, moduleId, triggerOptions(userId, { capIntensity: true })),
         customPlaceholder: "A recent trigger that isn't on your map yet",
       };
     case "safe-target":
       return {
         prompt: "Which target are you working on today?",
         helper: "Choose the target your specialist approved with you.",
-        options: [...triggerOptions(userId), ...focusAreaOptions(userId)],
+        options: withPlanFirst(userId, moduleId, [
+          ...triggerOptions(userId),
+          ...focusAreaOptions(userId),
+        ]),
         customPlaceholder: "Name the approved target in a few words",
       };
     case "installation":
       return {
         prompt: "Which processed target are you reinforcing?",
         helper: "Pick the target whose distress already came down in earlier work.",
-        options: triggerOptions(userId),
+        options: withPlanFirst(userId, moduleId, triggerOptions(userId)),
         customPlaceholder: "Name the processed target",
       };
     case "future-template":
       return {
         prompt: "Which upcoming situation do you want to rehearse?",
         helper: "Something you expect to be hard — rehearse yourself coping with it.",
-        options: focusAreaOptions(userId),
+        options: withPlanFirst(userId, moduleId, focusAreaOptions(userId)),
         customPlaceholder: "e.g. the custody hearing next month, visiting my parents",
       };
     case "relational":

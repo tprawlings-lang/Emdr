@@ -15,6 +15,7 @@ import { logout, requestUnlock } from "@/lib/actions";
 import { scoreItq } from "@/lib/instruments";
 import { decryptField } from "@/lib/crypto";
 import { getFitnessState } from "@/lib/fitness-screener";
+import { getProgramPlan } from "@/lib/program-plan";
 import {
   TRACK_GUIDANCE,
   TRACK_LABELS,
@@ -64,6 +65,7 @@ export default async function DashboardPage() {
   const db = getDb();
   const checkin = getTodayCheckin(user.id);
   const fitness = getFitnessState(user.id);
+  const planRow = getProgramPlan(user.id);
   const readiness = getLatestReadiness(user.id);
   const triggers = getActiveTriggers(user.id);
   const plan = getSafetyPlan(user.id);
@@ -319,6 +321,39 @@ export default async function DashboardPage() {
             )}
           </div>
         </>
+      )}
+
+      {planRow && (
+        <section className="mt-12 rounded-3xl border border-ground/10 bg-ground p-7 text-ivory shadow-soft">
+          <div className="flex flex-wrap items-baseline justify-between gap-2">
+            <h2 className="font-serif text-2xl font-medium">Your program plan</h2>
+            <p className="text-xs text-ivory/60">
+              Updated {planRow.created_at.slice(0, 10)} ·{" "}
+              {planRow.generated_by === "ai" ? "drafted by your companion" : "from your map"} ·
+              shared with your care team
+            </p>
+          </div>
+          <p className="mt-3 text-ivory/85">{planRow.plan.summary}</p>
+          {planRow.plan.nextSteps.length > 0 && (
+            <ol className="mt-4 space-y-3">
+              {planRow.plan.nextSteps.map((s, i) => {
+                const mod = MODULES.find((m) => m.id === s.moduleId);
+                return (
+                  <li key={i} className="rounded-2xl bg-ivory/10 px-4 py-3">
+                    <p className="text-sm font-semibold">
+                      {i + 1}. {mod?.name ?? s.moduleId} — focus: {s.focus}
+                    </p>
+                    <p className="mt-0.5 text-sm text-ivory/70">{s.why}</p>
+                  </li>
+                );
+              })}
+            </ol>
+          )}
+          <p className="mt-4 text-xs text-ivory/60">
+            A working plan, not a prescription — your specialist&apos;s review always comes
+            first, and it refreshes when your trigger map changes.
+          </p>
+        </section>
       )}
 
       <h2 className="mt-12 font-serif text-2xl font-medium">Your program</h2>

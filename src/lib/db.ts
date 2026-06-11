@@ -267,6 +267,17 @@ function migrate(db: Database.Database) {
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
   );
 
+  CREATE TABLE IF NOT EXISTS program_plans (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL REFERENCES users(id),
+    plan_json TEXT NOT NULL,
+    generated_by TEXT NOT NULL DEFAULT 'rules',
+    source TEXT NOT NULL DEFAULT 'trigger_map',
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_program_plans_user ON program_plans(user_id, created_at);
+
   CREATE INDEX IF NOT EXISTS idx_payments_user ON payments(user_id, created_at);
 
   CREATE INDEX IF NOT EXISTS idx_alerts_status ON alerts(status, created_at);

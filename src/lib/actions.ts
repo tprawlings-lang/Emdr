@@ -33,6 +33,7 @@ import {
   writeMemory,
 } from "./companion";
 import { aiCompanionEnabled, generateAiOpening, generateAiReply } from "./companion-ai";
+import { generateProgramPlan } from "./program-plan";
 
 function createAlert(args: {
   userId: string;
@@ -177,6 +178,66 @@ export async function submitFitnessScreening(answersJson: string) {
     redirect("/screening/fit");
   }
   redirect("/screening");
+}
+
+// Structured trigger capture inside Module 5 (trigger map). Each saved entry
+// goes straight into the member's trigger map — the same table the
+// companion, the focus picker, the program plan, and the specialist review
+// all read — with free text encrypted at the application layer.
+export async function recordSessionTrigger(args: {
+  sessionId: string;
+  name: string;
+  category: string;
+  bodyFelt: string;
+  belief: string;
+  disruption: number;
+}): Promise<{ ok: boolean; error?: string }> {
+  const user = await requireMember();
+  const db = getDb();
+  const owned = db
+    .prepare("SELECT id FROM therapy_sessions WHERE id = ? AND user_id = ?")
+    .get(args.sessionId, user.id);
+  if (!owned) return { ok: false, error: "Session not found." };
+
+  const name = args.name.trim().slice(0, 120);
+  if (!name) return { ok: false, error: "Give the trigger a short name first." };
+  const categories = ["relational", "environmental", "body", "memory", "internal", "other"];
+  const category = categories.includes(args.category) ? args.category : "other";
+  const disruption = Math.max(1, Math.min(10, Math.round(args.disruption)));
+  const bodyFelt = args.bodyFelt.trim().slice(0, 200);
+  const belief = args.belief.trim().slice(0, 300);
+  const notes =
+    [
+      bodyFelt ? `Felt in: ${bodyFelt}.` : "",
+      belief ? `Belief that comes with it: “${belief}”.` : "",
+      `Mapped in Module 5.`,
+    ]
+      .filter(Boolean)
+      .join(" ") || null;
+
+  const existing = db
+    .prepare("SELECT id FROM user_triggers WHERE user_id = ? AND trigger_name = ?")
+    .get(user.id, name) as { id: string } | undefined;
+  if (existing) {
+    db.prepare(
+      `UPDATE user_triggers SET trigger_category = ?, intensity_score = ?, notes = ?,
+         active = 1, updated_at = datetime('now') WHERE id = ?`
+    ).run(category, disruption, encryptField(notes), existing.id);
+  } else {
+    db.prepare(
+      `INSERT INTO user_triggers (id, user_id, trigger_name, trigger_category, intensity_score, common_responses_json, notes)
+       VALUES (?, ?, ?, ?, ?, '[]', ?)`
+    ).run(newId(), user.id, name, category, disruption, encryptField(notes));
+  }
+  audit({
+    actorId: user.id,
+    actorRole: "member",
+    family: "clinical",
+    type: "trigger_mapped_in_session",
+    target: args.sessionId,
+    detail: { category, disruption, updated: Boolean(existing) },
+  });
+  return { ok: true };
 }
 
 // Coded in-session safety events (compliance 4B.4): type + ids only, never
@@ -1020,6 +1081,16 @@ export async function finishSession(args: {
       severity: "high",
       detail: `Hard stop in module ${session.module_id}: ${args.hardStopReason ?? "unspecified"}`,
     });
+  }
+
+  // Completing the trigger-map module refreshes the program plan so what was
+  // just mapped immediately shapes the companion, the focus picker, and the
+  // specialist's view. Fire-and-forget: plan generation must never block or
+  // fail the session-completion path.
+  if (args.outcome === "completed" && session.module_id === "trigger-map") {
+    void generateProgramPlan(user.id, "trigger_map").catch((err) =>
+      console.error("Program plan generation failed after trigger map:", err)
+    );
   }
 }
 

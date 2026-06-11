@@ -10,6 +10,7 @@ import {
   writeMemory,
 } from "./companion";
 import { TRACK_LABELS, getProfile } from "./profile";
+import { getProgramPlan } from "./program-plan";
 
 // LLM-backed companion. The deterministic safety routing in actions.ts
 // (crisis regex → canned crisis reply + alert) always runs BEFORE this module,
@@ -326,6 +327,18 @@ activation ${c.activation}, shutdown ${c.shutdown}, dissociation ${c.dissociatio
       `MOST RECENT SESSION: module ${s.module_id}, status ${s.status}${
         s.pre_suds !== null && s.post_suds !== null ? `, distress went ${s.pre_suds} → ${s.post_suds}` : ""
       } (started ${s.started_at}).`
+    );
+  }
+
+  const planRow = getProgramPlan(ctx.userId);
+  if (planRow) {
+    const p = planRow.plan;
+    lines.push(
+      `THEIR CURRENT PROGRAM PLAN (drafted ${planRow.created_at.slice(0, 10)}, shared with their reviewer; the specialist always outranks it)
+Summary: ${p.summary}
+Next steps:
+${p.nextSteps.map((s) => `- ${s.moduleId}: focus "${s.focus}" — ${s.why}`).join("\n")}
+Use this to give direction: when they ask what to work on or prepare for, anchor to the plan's next step unless today's check-in says otherwise.`
     );
   }
 

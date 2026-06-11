@@ -6,6 +6,7 @@ import { MODULES } from "@/lib/modules";
 import { audit } from "@/lib/audit";
 import { scoreItq } from "@/lib/instruments";
 import { decryptField } from "@/lib/crypto";
+import { getProgramPlan } from "@/lib/program-plan";
 import TrendChart from "@/components/TrendChart";
 
 export default async function MemberDetailPage({
@@ -98,6 +99,7 @@ export default async function MemberDetailPage({
     .all(id) as { policy_version: string; scope: string; granted_at: string; revoked_at: string | null }[];
 
   const moduleName = (mid: string) => MODULES.find((m) => m.id === mid)?.name ?? mid;
+  const planRow = getProgramPlan(member.id);
 
   return (
     <main className="mx-auto max-w-5xl px-6 py-10">
@@ -146,6 +148,40 @@ export default async function MemberDetailPage({
               (provisional, screen-based — diagnosis remains a clinical decision)
             </p>
           )}
+        </section>
+      )}
+
+      {planRow && (
+        <section className="mt-8">
+          <h2 className="font-serif text-2xl font-medium">Program plan (AI-drafted)</h2>
+          <div className="mt-2 rounded-3xl border border-ground/10 bg-linen p-6 shadow-soft">
+            <p className="text-sm text-olive">
+              Generated {planRow.created_at.slice(0, 10)} ·{" "}
+              {planRow.generated_by === "ai" ? "model-drafted from the trigger map" : "rules-engine draft"} ·
+              advisory only — your unlock decisions outrank it
+            </p>
+            <p className="mt-3 text-sm leading-relaxed text-ground/90">{planRow.plan.summary}</p>
+            {planRow.plan.targets.length > 0 && (
+              <ul className="mt-3 space-y-1 text-sm text-ground/90">
+                {planRow.plan.targets.map((t, i) => (
+                  <li key={i}>
+                    <span className="font-medium">{t.name}</span>
+                    {t.intensity !== null ? ` · ${t.intensity}/10` : ""} — {t.approach}
+                    {t.belief ? ` · belief: “${t.belief}”` : ""}
+                  </li>
+                ))}
+              </ul>
+            )}
+            {planRow.plan.nextSteps.length > 0 && (
+              <ol className="mt-3 list-decimal space-y-1 pl-5 text-sm text-olive">
+                {planRow.plan.nextSteps.map((s, i) => (
+                  <li key={i}>
+                    {moduleName(s.moduleId)} — focus: {s.focus} ({s.why})
+                  </li>
+                ))}
+              </ol>
+            )}
+          </div>
         </section>
       )}
 

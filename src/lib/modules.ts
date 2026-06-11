@@ -7,7 +7,7 @@
 export type ModuleTier = "autonomous" | "gated" | "maintenance";
 
 export interface SessionStep {
-  kind: "instruction" | "suds" | "bls" | "grounding";
+  kind: "instruction" | "suds" | "bls" | "grounding" | "trigger-entry";
   title: string;
   text?: string;
   /** For bls steps: seconds per set. */
@@ -125,9 +125,9 @@ export const MODULES: TherapyModule[] = [
       },
       { kind: "suds", title: "Rate your distress (0–10)" },
       {
-        kind: "instruction",
-        title: "List your triggers (headline level)",
-        text: "For each trigger note: what sets it off, where you feel it in your body, the belief that comes with it (for example “I am not safe”, “It was my fault”), and how disruptive it is day to day. Three to six items is plenty for today.",
+        kind: "trigger-entry",
+        title: "Map your triggers (headline level)",
+        text: "For each trigger: what sets it off, where you feel it in your body, the belief that comes with it (for example “I am not safe”, “It was my fault”), and how disruptive it is day to day. Three to six items is plenty for today. Everything you save here goes into your trigger map — it shapes your program plan, your specialist's review, and the focus choices in later sessions. If writing an item raises your distress above 6, stop and contain.",
       },
       { kind: "suds", title: "Rate your distress now (0–10)" },
       CLOSING_GROUNDING,
