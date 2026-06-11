@@ -33,7 +33,7 @@ dependency, cannot be closed by code in this repo.
 | 3.2 Structure/function rule | ✅ | Research section claims the method with citations; product copy describes mechanics only. |
 | 3.3 Testimonials policy | ✅ | Stories are experience-only, labeled illustrative, with the required "individual experiences vary" line. |
 | 3.4 Footer disclaimer all routes; 988 banner on signup/session/companion; logged consent checkbox | ✅ | Footer is in the root layout; checkbox is never pre-checked and logged as wellness-ack-v1 with timestamp. |
-| 3.5 Attorney-finalized ToS/Privacy | 🟡 | tos-v2.0 expands coverage to competitor-standard commercial protections (acceptance, account terms, as-is disclaimer, 3-month liability cap, IP/license, third-party services, legal-disclosure reservation, indemnity, auto-renewal disclosure, governing law) in original language, keeping all wellness-lane safety clauses. Two deliberate divergences from the competitor: 18+ strict (no parental-consent path) and no named-condition program description (their lane violation). OPEN: governing-law state and branded support email (placeholders in §16–17); have counsel confirm the new sections, then bump status to ✅. |
+| 3.5 Attorney-finalized ToS/Privacy | ✅ | tos-v2.0 + privacy-v1.0 confirmed by counsel (per founder, 2026-06-11). Competitor-standard commercial coverage in original language (acceptance, account terms, as-is disclaimer, 3-month liability cap, IP/license, third-party services, legal-disclosure reservation, indemnity, auto-renewal disclosure, Arizona governing law), all wellness-lane safety clauses retained, 18+ strict, no named-condition claims. Signup logs acceptance with version. Sole open cosmetic item: branded support email pending domain choice (placeholder in §16–17). Any wording change requires counsel re-review and a version bump. |
 | 3.6 Clinical advisor (recommended) | 🔴 | Needed to upgrade "modeled on professional practice" copy and sign off screener + crisis scripts. |
 
 ## Item 4 — Crisis safety system (full build)
@@ -66,7 +66,7 @@ dependency, cannot be closed by code in this repo.
 | 6.4 Deletion + retention | ✅/🟡 | Self-serve immediate deletion at /settings/account (no reason required); 24-month retention sweep script (scripts/retention-sweep.ts) — needs a schedule (Render cron) and the 30-day warning email needs the email provider. |
 
 ## Open founder dependencies (cannot be closed from this repo)
-1. **ToS v2.0 follow-ups (3.5):** governing law set to Arizona (per founder, 2026-06-11). Still open: stand up a branded support email (e.g. support@&lt;domain&gt;) — placeholder in /terms §16–17 — and have counsel confirm the new commercial sections.
+1. **Branded support email (3.5, cosmetic):** counsel has confirmed tos-v2.0; the only remaining edit is the support address in /terms §16–17 once the founder picks a domain. The same domain/email provider also unlocks password resets, lockout notices, pre-charge trial reminders, retention warnings, and backup failure alerts (Items 1, 5, 6 and docs/backups.md).
 2. Retain an **EMDR-trained clinical advisor** (3.6/4A) — screener wording, crisis scripts, session scripts.
 3. **Managed auth provider** account + migration (1.1/1.2/1.6).
 4. **Email provider** (password reset, lockout notices, pre-charge reminders, retention warnings).
