@@ -5,7 +5,7 @@
 // approved by counsel on 2026-06-10 (per founder). Any wording change
 // requires re-review and a version bump.
 export const CONSENT_VERSION = "v2.0-wellness";
-export const TERMS_VERSION = "tos-v1.0";
+export const TERMS_VERSION = "tos-v2.0";
 export const PRIVACY_VERSION = "privacy-v1.0";
 
 export const CONSENT_SECTIONS: { title: string; body: string }[] = [

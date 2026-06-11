@@ -33,7 +33,7 @@ dependency, cannot be closed by code in this repo.
 | 3.2 Structure/function rule | ✅ | Research section claims the method with citations; product copy describes mechanics only. |
 | 3.3 Testimonials policy | ✅ | Stories are experience-only, labeled illustrative, with the required "individual experiences vary" line. |
 | 3.4 Footer disclaimer all routes; 988 banner on signup/session/companion; logged consent checkbox | ✅ | Footer is in the root layout; checkbox is never pre-checked and logged as wellness-ack-v1 with timestamp. |
-| 3.5 Attorney-finalized ToS/Privacy | ✅ | Final v1.0 live at /terms and /privacy — reviewed and approved by counsel 2026-06-10 (per founder). All packet-required clauses present; privacy policy describes only implemented behavior; disputes section uses a courts-based clause (no arbitration). Signup logs acceptance (terms_acceptance / tos-v1.0). Any wording change requires re-review and a version bump. |
+| 3.5 Attorney-finalized ToS/Privacy | 🟡 | tos-v2.0 expands coverage to competitor-standard commercial protections (acceptance, account terms, as-is disclaimer, 3-month liability cap, IP/license, third-party services, legal-disclosure reservation, indemnity, auto-renewal disclosure, governing law) in original language, keeping all wellness-lane safety clauses. Two deliberate divergences from the competitor: 18+ strict (no parental-consent path) and no named-condition program description (their lane violation). OPEN: governing-law state and branded support email (placeholders in §16–17); have counsel confirm the new sections, then bump status to ✅. |
 | 3.6 Clinical advisor (recommended) | 🔴 | Needed to upgrade "modeled on professional practice" copy and sign off screener + crisis scripts. |
 
 ## Item 4 — Crisis safety system (full build)
@@ -66,7 +66,7 @@ dependency, cannot be closed by code in this repo.
 | 6.4 Deletion + retention | ✅/🟡 | Self-serve immediate deletion at /settings/account (no reason required); 24-month retention sweep script (scripts/retention-sweep.ts) — needs a schedule (Render cron) and the 30-day warning email needs the email provider. |
 
 ## Open founder dependencies (cannot be closed from this repo)
-1. ~~Retain an attorney (3.5)~~ — ✅ done: counsel reviewed and approved ToS/Privacy 2026-06-10. Keep counsel available for re-review on any wording change.
+1. **ToS v2.0 follow-ups (3.5):** confirm the governing-law state and stand up a branded support email (e.g. support@&lt;domain&gt;) — both are marked placeholders in /terms §16–17; have counsel confirm the new commercial sections, then update the date and re-version.
 2. Retain an **EMDR-trained clinical advisor** (3.6/4A) — screener wording, crisis scripts, session scripts.
 3. **Managed auth provider** account + migration (1.1/1.2/1.6).
 4. **Email provider** (password reset, lockout notices, pre-charge reminders, retention warnings).
