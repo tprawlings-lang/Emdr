@@ -3,83 +3,150 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Inspiration — The Bikini Bar</title>
-  <meta name="description" content="Browse colorway combinations and community favorites for ideas before you build your own suit." />
+  <title>Collections — The Bikini Bar</title>
+  <meta name="description" content="Desert Luxe, Wild Print, Neon Nights, Bridal Pool Party, and the Scottsdale Edit. Shop the drop or build your own." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,500;0,600;0,700;1,500&family=Cormorant+Garamond:ital@0;1&family=Inter:wght@400;500;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
 
-  <div class="announce">Free shipping on orders over $75 &nbsp;•&nbsp; Every suit made to order</div>
+  <div class="announce">Free shipping over $75 <span class="gold">•</span> Every bikini made to order <span class="gold">•</span> Scottsdale, AZ</div>
 
   <header class="site-header">
     <div class="container nav-wrap">
-      <a class="logo" href="index.html">The <span class="accent">Bikini</span> Bar</a>
+      <a class="logo" href="index.html">The Bikini Bar<span class="charm"> ☼</span></a>
       <nav class="main-nav">
         <a href="index.html">Home</a>
-        <a href="builder.html">Build a Suit</a>
-        <a href="inspiration.html" class="active">Inspiration</a>
+        <a href="builder.html">Build Your Bikini</a>
+        <a href="inspiration.html" class="active">Collections</a>
+        <a href="events.html">Events</a>
         <a href="about.html">About</a>
         <a href="faq.html">FAQ</a>
         <a href="contact.html">Contact</a>
       </nav>
       <div class="nav-actions">
-        <a class="btn btn-blush btn-sm" href="builder.html">Mix Yours</a>
+        <a class="button-primary btn-sm" href="builder.html">Start Building</a>
       </div>
     </div>
   </header>
 
   <div class="page-hero">
     <div class="container">
-      <h1>The inspiration menu</h1>
-      <p>Combinations our community has mixed and loved. Swap your own photos into these tiles when you're ready to launch.</p>
+      <span class="eyebrow">The Collections</span>
+      <h1>Shop the Drop</h1>
+      <p>Five moods, one builder. Every collection is a starting point — finish the build your way.</p>
     </div>
   </div>
 
-  <section class="band" style="padding-top: 30px;">
+  <section class="band" style="padding-top: 28px;">
     <div class="container">
-      <div class="gallery-grid">
-        <div class="gallery-tile swatch-sunset">The Sunset Spritz</div>
-        <div class="gallery-tile swatch-lagoon">The Lagoon Cooler</div>
-        <div class="gallery-tile swatch-denim">The Boardwalk Punch</div>
-        <div class="gallery-tile swatch-cream">The Beach Club Classic</div>
-        <div class="gallery-tile swatch-shell">The Cabana Crush</div>
-        <div class="gallery-tile swatch-tide">The Tide Pool Twist</div>
-        <div class="gallery-tile swatch-lagoon" style="filter: hue-rotate(20deg);">The Marina Mule</div>
-        <div class="gallery-tile swatch-sunset" style="filter: hue-rotate(-15deg);">The Pier Paloma</div>
-        <div class="gallery-tile swatch-shell" style="filter: hue-rotate(35deg);">The Saltwater Sour</div>
+
+      <div class="grid-2" style="align-items: center; margin-bottom: 56px;">
+        <a class="gallery-tile swatch-desert-luxe" href="builder.html" style="aspect-ratio: 16/11;">
+          <span class="tile-label">Resort Collection</span>
+          <span class="tile-title">Desert Luxe</span>
+        </a>
+        <div>
+          <span class="eyebrow">Cactus Green · Gold · Cream</span>
+          <h2 style="font-size: var(--font-size-h3); margin-bottom: 12px;">Desert Luxe</h2>
+          <p style="color: var(--color-text-soft); margin-bottom: 22px;">Warm, rich, and polished. Deep greens with gold hardware — the build for cabana days and golden-hour photos.</p>
+          <a class="button-primary" href="builder.html">Start Building</a>
+        </div>
       </div>
+
+      <div class="grid-2" style="align-items: center; margin-bottom: 56px;">
+        <div style="order: 2;">
+          <span class="eyebrow">Leopard · Zebra · Snake</span>
+          <h2 style="font-size: var(--font-size-h3); margin-bottom: 12px;">Wild Print</h2>
+          <p style="color: var(--color-text-soft); margin-bottom: 22px;">Confident, flirty, bold. Animal prints in black, tan, and cream with heavy gold hardware.</p>
+          <a class="button-primary" href="builder.html">Shop the Drop</a>
+        </div>
+        <a class="gallery-tile swatch-wild-print" href="builder.html" style="aspect-ratio: 16/11; order: 1;">
+          <span class="tile-label">Bold Prints</span>
+          <span class="tile-title">Wild Print</span>
+        </a>
+      </div>
+
+      <div class="grid-2" style="align-items: center; margin-bottom: 56px;">
+        <a class="gallery-tile swatch-neon-nights" href="builder.html" style="aspect-ratio: 16/11;">
+          <span class="tile-label">Limited Drop</span>
+          <span class="tile-title">Neon Nights</span>
+        </a>
+        <div>
+          <span class="eyebrow" style="color: var(--color-neon-pink);">Neon Pink · Neon Lime · Black</span>
+          <h2 style="font-size: var(--font-size-h3); margin-bottom: 12px;">Neon Nights</h2>
+          <p style="color: var(--color-text-soft); margin-bottom: 22px;">Fast, fun, party-ready. Built for night swims and Scottsdale pool parties. Limited drop — when it's gone, it's gone.</p>
+          <a class="button-campaign" href="builder.html">Shop the Drop</a>
+        </div>
+      </div>
+
+      <div class="grid-2" style="align-items: center; margin-bottom: 56px;">
+        <div style="order: 2;">
+          <span class="eyebrow">White · Pearl · Gold</span>
+          <h2 style="font-size: var(--font-size-h3); margin-bottom: 12px;">Bridal Pool Party</h2>
+          <p style="color: var(--color-text-soft); margin-bottom: 22px;">White builds with pearl charms for the bride, matching accents for the group. Group orders welcome — ask us about bachelorette packages.</p>
+          <a class="button-primary" href="builder.html">Start Building</a>
+          <a class="button-secondary" href="events.html" style="margin-left: 10px;">Plan the Party</a>
+        </div>
+        <a class="gallery-tile swatch-bridal on-light" href="builder.html" style="aspect-ratio: 16/11; order: 1;">
+          <span class="tile-label">Bachelorette</span>
+          <span class="tile-title">Bridal Pool Party</span>
+        </a>
+      </div>
+
+      <div class="grid-2" style="align-items: center;">
+        <a class="gallery-tile swatch-scottsdale" href="builder.html" style="aspect-ratio: 16/11;">
+          <span class="tile-label">Local Edit</span>
+          <span class="tile-title">Scottsdale Edit</span>
+        </a>
+        <div>
+          <span class="eyebrow">Cactus · Turquoise · Desert Tan</span>
+          <h2 style="font-size: var(--font-size-h3); margin-bottom: 12px;">Scottsdale Edit</h2>
+          <p style="color: var(--color-text-soft); margin-bottom: 22px;">Local, stylish, poolside. Desert tones with turquoise and cactus charms — our hometown build.</p>
+          <a class="button-primary" href="builder.html">Start Building</a>
+        </div>
+      </div>
+
     </div>
   </section>
 
-  <section class="band tint-cream">
+  <section class="band tint-ivory">
     <div class="container" style="text-align: center;">
-      <h2 style="font-size: 2rem; margin-bottom: 12px;">Mixed something you love?</h2>
-      <p style="color: var(--ink-soft); max-width: 520px; margin: 0 auto 28px;">Tag us on Instagram or TikTok and your combination could earn a spot on the menu — named after you.</p>
-      <a class="btn btn-primary" href="builder.html">Build Your Own</a>
+      <span class="eyebrow">Community</span>
+      <h2 style="font-size: var(--font-size-h2); margin-bottom: 12px;">Built something good?</h2>
+      <p style="color: var(--color-text-soft); max-width: 520px; margin: 0 auto 28px;">Tag us on Instagram or TikTok. The best builds make it into next season's drop — named after the person who built them.</p>
+      <a class="button-primary" href="builder.html">Build Your Bikini</a>
     </div>
   </section>
 
-  <footer class="site-footer">
+  <footer class="footer">
     <div class="container">
       <div class="footer-grid">
         <div>
-          <h4>The Bikini Bar</h4>
-          <p style="font-size: 0.95rem; max-width: 280px;">Made-to-order, mix-and-match swimwear. Every suit starts with you.</p>
+          <a class="footer-logo" href="index.html">The Bikini Bar<span class="charm"> ☼</span></a>
+          <p style="font-size: var(--font-size-small); max-width: 300px; opacity: 0.85;">Build Your Bikini.</p>
+          <p style="font-size: var(--font-size-small); margin-top: 14px; opacity: 0.85;">Get first access to drops, charms, and pop-ups.</p>
+          <form class="signup-row" onsubmit="event.preventDefault(); alert('Demo form — connect your email platform here.');">
+            <input type="email" placeholder="Email address" required aria-label="Email address" />
+            <button type="submit">Join</button>
+          </form>
         </div>
         <div>
           <h4>Shop</h4>
           <ul>
-            <li><a href="builder.html">Build a Suit</a></li>
-            <li><a href="inspiration.html">Inspiration</a></li>
+            <li><a href="builder.html">Build Your Bikini</a></li>
+            <li><a href="inspiration.html">Collections</a></li>
             <li><a href="contact.html">Gift Cards</a></li>
           </ul>
         </div>
         <div>
           <h4>Help</h4>
           <ul>
-            <li><a href="faq.html">FAQ</a></li>
-            <li><a href="faq.html#sizing">Sizing</a></li>
-            <li><a href="contact.html">Contact Us</a></li>
+            <li><a href="faq.html#sizing">Find Your Fit</a></li>
+            <li><a href="faq.html">Shipping &amp; Returns</a></li>
+            <li><a href="contact.html">Contact</a></li>
           </ul>
         </div>
         <div>
@@ -87,12 +154,12 @@
           <ul>
             <li><a href="#">Instagram</a></li>
             <li><a href="#">TikTok</a></li>
-            <li><a href="#">Pinterest</a></li>
+            <li><a href="events.html">Events</a></li>
           </ul>
         </div>
       </div>
       <div class="footer-bottom">
-        <span>© 2026 The Bikini Bar. All rights reserved.</span>
+        <span>© 2026 The Bikini Bar · Scottsdale, AZ</span>
         <span><a href="#">Privacy Policy</a> · <a href="#">Terms</a></span>
       </div>
     </div>

@@ -4,40 +4,45 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Contact — The Bikini Bar</title>
-  <meta name="description" content="Get in touch with The Bikini Bar for fit advice, order questions, gift cards, or ambassador inquiries." />
+  <meta name="description" content="Fit advice, order help, gift cards, events, and ambassador inquiries — talk to The Bikini Bar." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,500;0,600;0,700;1,500&family=Cormorant+Garamond:ital@0;1&family=Inter:wght@400;500;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
 
-  <div class="announce">Free shipping on orders over $75 &nbsp;•&nbsp; Every suit made to order</div>
+  <div class="announce">Free shipping over $75 <span class="gold">•</span> Every bikini made to order <span class="gold">•</span> Scottsdale, AZ</div>
 
   <header class="site-header">
     <div class="container nav-wrap">
-      <a class="logo" href="index.html">The <span class="accent">Bikini</span> Bar</a>
+      <a class="logo" href="index.html">The Bikini Bar<span class="charm"> ☼</span></a>
       <nav class="main-nav">
         <a href="index.html">Home</a>
-        <a href="builder.html">Build a Suit</a>
-        <a href="inspiration.html">Inspiration</a>
+        <a href="builder.html">Build Your Bikini</a>
+        <a href="inspiration.html">Collections</a>
+        <a href="events.html">Events</a>
         <a href="about.html">About</a>
         <a href="faq.html">FAQ</a>
         <a href="contact.html" class="active">Contact</a>
       </nav>
       <div class="nav-actions">
-        <a class="btn btn-blush btn-sm" href="builder.html">Mix Yours</a>
+        <a class="button-primary btn-sm" href="builder.html">Start Building</a>
       </div>
     </div>
   </header>
 
   <div class="page-hero">
     <div class="container">
-      <h1>Talk to the bar</h1>
-      <p>Fit advice, order help, gift cards, or ambassador inquiries — we read everything.</p>
+      <span class="eyebrow">Contact</span>
+      <h1>Talk to the bar.</h1>
+      <p>Fit advice, order help, gift cards, events, ambassadors — we read everything.</p>
     </div>
   </div>
 
-  <section class="band" style="padding-top: 30px;">
+  <section class="band" style="padding-top: 28px;">
     <div class="container">
-      <form class="form-card" onsubmit="event.preventDefault(); alert('This is a demo form — connect it to your email service or store backend.');">
+      <form class="form-card" onsubmit="event.preventDefault(); alert('Demo form — connect it to your email service or store backend.');">
         <div class="form-row">
           <label for="name">Name</label>
           <input id="name" type="text" name="name" required placeholder="Your name" />
@@ -52,6 +57,7 @@
             <option>Fit &amp; sizing advice</option>
             <option>Order question</option>
             <option>Gift cards</option>
+            <option>Events &amp; bachelorette parties</option>
             <option>Ambassador program</option>
             <option>Something else</option>
           </select>
@@ -60,25 +66,25 @@
           <label for="message">Message</label>
           <textarea id="message" name="message" rows="5" required placeholder="How can we help?"></textarea>
         </div>
-        <button class="btn btn-primary" type="submit" style="width: 100%;">Send Message</button>
+        <button class="button-primary" type="submit" style="width: 100%;">Send Message</button>
       </form>
 
       <div class="grid-3" style="margin-top: 44px;">
-        <div class="card">
+        <div class="product-card">
           <div class="card-body" style="text-align: center;">
-            <h3>Email</h3>
+            <span class="card-label">Email</span>
             <p>hello@thebikinibar.example</p>
           </div>
         </div>
-        <div class="card">
+        <div class="product-card">
           <div class="card-body" style="text-align: center;">
-            <h3>Hours</h3>
-            <p>Mon–Fri, 9am–5pm</p>
+            <span class="card-label">Hours</span>
+            <p>Mon–Fri, 9am–5pm MST</p>
           </div>
         </div>
-        <div class="card">
+        <div class="product-card">
           <div class="card-body" style="text-align: center;">
-            <h3>Social</h3>
+            <span class="card-label">Social</span>
             <p>@thebikinibar everywhere</p>
           </div>
         </div>
@@ -86,27 +92,32 @@
     </div>
   </section>
 
-  <footer class="site-footer">
+  <footer class="footer">
     <div class="container">
       <div class="footer-grid">
         <div>
-          <h4>The Bikini Bar</h4>
-          <p style="font-size: 0.95rem; max-width: 280px;">Made-to-order, mix-and-match swimwear. Every suit starts with you.</p>
+          <a class="footer-logo" href="index.html">The Bikini Bar<span class="charm"> ☼</span></a>
+          <p style="font-size: var(--font-size-small); max-width: 300px; opacity: 0.85;">Build Your Bikini.</p>
+          <p style="font-size: var(--font-size-small); margin-top: 14px; opacity: 0.85;">Get first access to drops, charms, and pop-ups.</p>
+          <form class="signup-row" onsubmit="event.preventDefault(); alert('Demo form — connect your email platform here.');">
+            <input type="email" placeholder="Email address" required aria-label="Email address" />
+            <button type="submit">Join</button>
+          </form>
         </div>
         <div>
           <h4>Shop</h4>
           <ul>
-            <li><a href="builder.html">Build a Suit</a></li>
-            <li><a href="inspiration.html">Inspiration</a></li>
+            <li><a href="builder.html">Build Your Bikini</a></li>
+            <li><a href="inspiration.html">Collections</a></li>
             <li><a href="contact.html">Gift Cards</a></li>
           </ul>
         </div>
         <div>
           <h4>Help</h4>
           <ul>
-            <li><a href="faq.html">FAQ</a></li>
-            <li><a href="faq.html#sizing">Sizing</a></li>
-            <li><a href="contact.html">Contact Us</a></li>
+            <li><a href="faq.html#sizing">Find Your Fit</a></li>
+            <li><a href="faq.html">Shipping &amp; Returns</a></li>
+            <li><a href="contact.html">Contact</a></li>
           </ul>
         </div>
         <div>
@@ -114,12 +125,12 @@
           <ul>
             <li><a href="#">Instagram</a></li>
             <li><a href="#">TikTok</a></li>
-            <li><a href="#">Pinterest</a></li>
+            <li><a href="events.html">Events</a></li>
           </ul>
         </div>
       </div>
       <div class="footer-bottom">
-        <span>© 2026 The Bikini Bar. All rights reserved.</span>
+        <span>© 2026 The Bikini Bar · Scottsdale, AZ</span>
         <span><a href="#">Privacy Policy</a> · <a href="#">Terms</a></span>
       </div>
     </div>

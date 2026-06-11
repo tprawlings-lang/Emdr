@@ -3,65 +3,76 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Build a Suit — The Bikini Bar</title>
-  <meta name="description" content="Mix and match tops, bottoms, and colorways to build your made-to-order bikini." />
+  <title>Build Your Bikini — The Bikini Bar</title>
+  <meta name="description" content="Pick your top, match your bottom, choose your color, and add your charms. Your full bikini build, made to order." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,500;0,600;0,700;1,500&family=Cormorant+Garamond:ital@0;1&family=Inter:wght@400;500;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="styles.css" />
 </head>
-<body>
+<body class="has-sticky-cta">
 
-  <div class="announce">Free shipping on orders over $75 &nbsp;•&nbsp; Every suit made to order</div>
+  <div class="announce">Free shipping over $75 <span class="gold">•</span> Every bikini made to order <span class="gold">•</span> Scottsdale, AZ</div>
 
   <header class="site-header">
     <div class="container nav-wrap">
-      <a class="logo" href="index.html">The <span class="accent">Bikini</span> Bar</a>
+      <a class="logo" href="index.html">The Bikini Bar<span class="charm"> ☼</span></a>
       <nav class="main-nav">
         <a href="index.html">Home</a>
-        <a href="builder.html" class="active">Build a Suit</a>
-        <a href="inspiration.html">Inspiration</a>
+        <a href="builder.html" class="active">Build Your Bikini</a>
+        <a href="inspiration.html">Collections</a>
+        <a href="events.html">Events</a>
         <a href="about.html">About</a>
         <a href="faq.html">FAQ</a>
         <a href="contact.html">Contact</a>
       </nav>
       <div class="nav-actions">
-        <a class="btn btn-blush btn-sm" href="builder.html">Mix Yours</a>
+        <a class="button-primary btn-sm" href="builder.html">Start Building</a>
       </div>
     </div>
   </header>
 
   <div class="page-hero">
     <div class="container">
-      <h1>Step up to the bar</h1>
-      <p>Pick a top, pick a bottom, pour on the color. Your recipe updates live below.</p>
+      <span class="eyebrow">The Builder</span>
+      <h1>Build Your Bikini.</h1>
+      <div class="progress-steps" style="margin-top: 18px;">
+        <span>1 · Top</span>
+        <span>2 · Bottom</span>
+        <span>3 · Color</span>
+        <span>4 · Charms</span>
+        <span>5 · Review</span>
+      </div>
     </div>
   </div>
 
-  <section class="band" style="padding-top: 30px;">
+  <section class="band" style="padding-top: 28px;">
     <div class="container builder-layout">
 
       <div class="preview-stage">
         <svg class="bikini-figure" viewBox="0 0 200 260" aria-label="Bikini preview">
-          <!-- top -->
           <g id="preview-top">
-            <path d="M55 40 L85 95 L100 80 L115 95 L145 40 L130 35 L100 70 L70 35 Z" fill="#f7c9c9" stroke="#3a3330" stroke-width="2" stroke-linejoin="round"/>
-            <line x1="55" y1="40" x2="45" y2="20" stroke="#3a3330" stroke-width="2"/>
-            <line x1="145" y1="40" x2="155" y2="20" stroke="#3a3330" stroke-width="2"/>
+            <path d="M55 40 L85 95 L100 80 L115 95 L145 40 L130 35 L100 70 L70 35 Z" fill="#0F5132" stroke="#111111" stroke-width="2" stroke-linejoin="round"/>
+            <line x1="55" y1="40" x2="45" y2="20" stroke="#111111" stroke-width="2"/>
+            <line x1="145" y1="40" x2="155" y2="20" stroke="#111111" stroke-width="2"/>
           </g>
-          <!-- bottom -->
           <g id="preview-bottom">
-            <path d="M55 160 L145 160 L120 215 L100 230 L80 215 Z" fill="#fdf3dc" stroke="#3a3330" stroke-width="2" stroke-linejoin="round"/>
-            <circle cx="55" cy="160" r="6" fill="none" stroke="#3a3330" stroke-width="2"/>
-            <circle cx="145" cy="160" r="6" fill="none" stroke="#3a3330" stroke-width="2"/>
+            <path d="M55 160 L145 160 L120 215 L100 230 L80 215 Z" fill="#F6EFE3" stroke="#111111" stroke-width="2" stroke-linejoin="round"/>
+            <circle cx="55" cy="160" r="6" fill="none" stroke="#C8A24A" stroke-width="2.5"/>
+            <circle cx="145" cy="160" r="6" fill="none" stroke="#C8A24A" stroke-width="2.5"/>
           </g>
         </svg>
-        <h3 id="recipe-name" style="margin-bottom: 6px;">The Sunset Spritz</h3>
-        <p id="recipe-desc" style="color: var(--ink-soft); font-size: 0.95rem;">Triangle top in Blush · Tie-side bottoms in Buttercream</p>
-        <p style="font-family: var(--font-display); font-size: 1.5rem; margin: 14px 0;">$89</p>
-        <button class="btn btn-primary" onclick="alert('This is a demo build — connect your store checkout here.')">Add to Cart</button>
+        <div class="charm-row" id="charm-display" aria-label="Selected charms"></div>
+        <h3 id="recipe-name" style="margin-bottom: 6px;">Desert Luxe Build</h3>
+        <p id="recipe-desc" style="color: var(--color-text-soft); font-size: var(--font-size-small);">Triangle top in Cactus Green · Tie-side bottoms in Sand Cream</p>
+        <p class="price-line" id="price-line">$98</p>
+        <button class="button-primary" id="add-to-cart" onclick="alert('Demo build — connect your store checkout here.')">Add Full Build to Cart</button>
       </div>
 
       <div>
         <div class="option-group">
-          <h3>Top style</h3>
+          <span class="step-label">Step 1</span>
+          <h3>Choose Your Top</h3>
           <div class="chip-row" id="top-styles">
             <button class="chip selected">Triangle</button>
             <button class="chip">Bandeau</button>
@@ -70,22 +81,22 @@
             <button class="chip">One-Shoulder</button>
             <button class="chip">Underwire</button>
           </div>
-        </div>
-
-        <div class="option-group">
-          <h3>Top color</h3>
-          <div class="chip-row" id="top-colors">
-            <button class="color-dot selected" data-color="#f7c9c9" data-name="Blush" style="background:#f7c9c9" aria-label="Blush"></button>
-            <button class="color-dot" data-color="#fdf3dc" data-name="Buttercream" style="background:#fdf3dc" aria-label="Buttercream"></button>
-            <button class="color-dot" data-color="#cdeae2" data-name="Seafoam" style="background:#cdeae2" aria-label="Seafoam"></button>
-            <button class="color-dot" data-color="#5b7b9e" data-name="Denim" style="background:#5b7b9e" aria-label="Denim"></button>
-            <button class="color-dot" data-color="#ef9f9f" data-name="Coral" style="background:#ef9f9f" aria-label="Coral"></button>
-            <button class="color-dot" data-color="#3a3330" data-name="Espresso" style="background:#3a3330" aria-label="Espresso"></button>
+          <div class="chip-row" id="top-colors" style="margin-top: 14px;">
+            <button class="color-dot selected" data-color="#0F5132" data-name="Cactus Green" style="background:#0F5132" aria-label="Cactus Green"></button>
+            <button class="color-dot" data-color="#F6EFE3" data-name="Sand Cream" style="background:#F6EFE3" aria-label="Sand Cream"></button>
+            <button class="color-dot" data-color="#C8A24A" data-name="Gold" style="background:#C8A24A" aria-label="Gold"></button>
+            <button class="color-dot" data-color="#D9B98F" data-name="Desert Tan" style="background:#D9B98F" aria-label="Desert Tan"></button>
+            <button class="color-dot" data-color="#1EB6A7" data-name="Turquoise" style="background:#1EB6A7" aria-label="Turquoise"></button>
+            <button class="color-dot" data-color="#FF6F61" data-name="Pool Coral" style="background:#FF6F61" aria-label="Pool Coral"></button>
+            <button class="color-dot" data-color="#FF2DAA" data-name="Neon Pink" style="background:#FF2DAA" aria-label="Neon Pink"></button>
+            <button class="color-dot" data-color="#111111" data-name="Black" style="background:#111111" aria-label="Black"></button>
+            <button class="color-dot" data-color="#FFF9F0" data-name="Bridal White" style="background:#FFF9F0" aria-label="Bridal White"></button>
           </div>
         </div>
 
         <div class="option-group">
-          <h3>Bottom style</h3>
+          <span class="step-label">Step 2</span>
+          <h3>Pick Your Bottom</h3>
           <div class="chip-row" id="bottom-styles">
             <button class="chip selected">Tie-Side</button>
             <button class="chip">High-Waist</button>
@@ -94,22 +105,22 @@
             <button class="chip">Hipster</button>
             <button class="chip">Skirted</button>
           </div>
-        </div>
-
-        <div class="option-group">
-          <h3>Bottom color</h3>
-          <div class="chip-row" id="bottom-colors">
-            <button class="color-dot" data-color="#f7c9c9" data-name="Blush" style="background:#f7c9c9" aria-label="Blush"></button>
-            <button class="color-dot selected" data-color="#fdf3dc" data-name="Buttercream" style="background:#fdf3dc" aria-label="Buttercream"></button>
-            <button class="color-dot" data-color="#cdeae2" data-name="Seafoam" style="background:#cdeae2" aria-label="Seafoam"></button>
-            <button class="color-dot" data-color="#5b7b9e" data-name="Denim" style="background:#5b7b9e" aria-label="Denim"></button>
-            <button class="color-dot" data-color="#ef9f9f" data-name="Coral" style="background:#ef9f9f" aria-label="Coral"></button>
-            <button class="color-dot" data-color="#3a3330" data-name="Espresso" style="background:#3a3330" aria-label="Espresso"></button>
+          <div class="chip-row" id="bottom-colors" style="margin-top: 14px;">
+            <button class="color-dot" data-color="#0F5132" data-name="Cactus Green" style="background:#0F5132" aria-label="Cactus Green"></button>
+            <button class="color-dot selected" data-color="#F6EFE3" data-name="Sand Cream" style="background:#F6EFE3" aria-label="Sand Cream"></button>
+            <button class="color-dot" data-color="#C8A24A" data-name="Gold" style="background:#C8A24A" aria-label="Gold"></button>
+            <button class="color-dot" data-color="#D9B98F" data-name="Desert Tan" style="background:#D9B98F" aria-label="Desert Tan"></button>
+            <button class="color-dot" data-color="#1EB6A7" data-name="Turquoise" style="background:#1EB6A7" aria-label="Turquoise"></button>
+            <button class="color-dot" data-color="#FF6F61" data-name="Pool Coral" style="background:#FF6F61" aria-label="Pool Coral"></button>
+            <button class="color-dot" data-color="#FF2DAA" data-name="Neon Pink" style="background:#FF2DAA" aria-label="Neon Pink"></button>
+            <button class="color-dot" data-color="#111111" data-name="Black" style="background:#111111" aria-label="Black"></button>
+            <button class="color-dot" data-color="#FFF9F0" data-name="Bridal White" style="background:#FFF9F0" aria-label="Bridal White"></button>
           </div>
         </div>
 
         <div class="option-group">
-          <h3>Size</h3>
+          <span class="step-label">Step 3</span>
+          <h3>Choose Your Size</h3>
           <div class="chip-row" id="sizes">
             <button class="chip">XS</button>
             <button class="chip selected">S</button>
@@ -118,14 +129,35 @@
             <button class="chip">XL</button>
             <button class="chip">XXL</button>
           </div>
+          <p style="font-size: var(--font-size-small); color: var(--color-text-soft); margin-top: 12px;">
+            Tops and bottoms ship in independent sizes. <a href="faq.html#sizing">Find Your Fit</a>
+          </p>
+        </div>
+
+        <div class="option-group">
+          <span class="step-label">Step 4 · The Charm Bar</span>
+          <h3>Add Your Charms</h3>
+          <p style="font-size: var(--font-size-small); color: var(--color-text-soft); margin-bottom: 12px;">Add the details that make it yours. $6 each — pick as many as you like.</p>
+          <div class="chip-row" id="charms">
+            <button class="chip" data-icon="✦">✦ Star</button>
+            <button class="chip" data-icon="♥">♥ Heart</button>
+            <button class="chip" data-icon="🐚">Shell</button>
+            <button class="chip" data-icon="☼">☼ Sun</button>
+            <button class="chip" data-icon="🌵">Cactus</button>
+            <button class="chip" data-icon="○">○ Pearl</button>
+            <button class="chip" data-icon="A">Letter</button>
+          </div>
         </div>
 
         <div class="summary-box">
-          <dl style="margin:0;">
-            <dt>Your recipe</dt>
-            <dd id="summary-line">Triangle top in Blush · Tie-Side bottoms in Buttercream · Size S</dd>
-            <dt>Made to order</dt>
-            <dd>Cut, sewn, and shipped within 7–10 business days.</dd>
+          <span class="step-label">Step 5 · Review Your Build</span>
+          <dl style="margin: 10px 0 0;">
+            <dt>Your Bikini Build</dt>
+            <dd id="summary-line">Triangle top in Cactus Green · Tie-Side bottoms in Sand Cream · Size S</dd>
+            <dt>Charms</dt>
+            <dd id="summary-charms">None yet — make it yours.</dd>
+            <dt>Made to Order</dt>
+            <dd>Cut, sewn, and shipped in 7–10 business days.</dd>
           </dl>
         </div>
       </div>
@@ -133,27 +165,36 @@
     </div>
   </section>
 
-  <footer class="site-footer">
+  <div class="sticky-cta">
+    <button class="button-primary" id="sticky-add" onclick="alert('Demo build — connect your store checkout here.')">Add Full Build to Cart · $98</button>
+  </div>
+
+  <footer class="footer">
     <div class="container">
       <div class="footer-grid">
         <div>
-          <h4>The Bikini Bar</h4>
-          <p style="font-size: 0.95rem; max-width: 280px;">Made-to-order, mix-and-match swimwear. Every suit starts with you.</p>
+          <a class="footer-logo" href="index.html">The Bikini Bar<span class="charm"> ☼</span></a>
+          <p style="font-size: var(--font-size-small); max-width: 300px; opacity: 0.85;">Build Your Bikini.</p>
+          <p style="font-size: var(--font-size-small); margin-top: 14px; opacity: 0.85;">Get first access to drops, charms, and pop-ups.</p>
+          <form class="signup-row" onsubmit="event.preventDefault(); alert('Demo form — connect your email platform here.');">
+            <input type="email" placeholder="Email address" required aria-label="Email address" />
+            <button type="submit">Join</button>
+          </form>
         </div>
         <div>
           <h4>Shop</h4>
           <ul>
-            <li><a href="builder.html">Build a Suit</a></li>
-            <li><a href="inspiration.html">Inspiration</a></li>
+            <li><a href="builder.html">Build Your Bikini</a></li>
+            <li><a href="inspiration.html">Collections</a></li>
             <li><a href="contact.html">Gift Cards</a></li>
           </ul>
         </div>
         <div>
           <h4>Help</h4>
           <ul>
-            <li><a href="faq.html">FAQ</a></li>
-            <li><a href="faq.html#sizing">Sizing</a></li>
-            <li><a href="contact.html">Contact Us</a></li>
+            <li><a href="faq.html#sizing">Find Your Fit</a></li>
+            <li><a href="faq.html">Shipping &amp; Returns</a></li>
+            <li><a href="contact.html">Contact</a></li>
           </ul>
         </div>
         <div>
@@ -161,12 +202,12 @@
           <ul>
             <li><a href="#">Instagram</a></li>
             <li><a href="#">TikTok</a></li>
-            <li><a href="#">Pinterest</a></li>
+            <li><a href="events.html">Events</a></li>
           </ul>
         </div>
       </div>
       <div class="footer-bottom">
-        <span>© 2026 The Bikini Bar. All rights reserved.</span>
+        <span>© 2026 The Bikini Bar · Scottsdale, AZ</span>
         <span><a href="#">Privacy Policy</a> · <a href="#">Terms</a></span>
       </div>
     </div>
