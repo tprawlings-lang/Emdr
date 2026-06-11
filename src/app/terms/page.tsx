@@ -232,11 +232,10 @@ export default function TermsPage() {
         <p>
           If something goes wrong, contact us first ({CONTACT_EMAIL}) — most issues
           (billing, refunds, deletion) are resolved directly and quickly. These terms are
-          governed by the laws of{" "}
-          <em>[NEEDS ADDRESSED: state of company formation — confirm with counsel]</em>,
-          without regard to conflict-of-law rules, and any dispute that cannot be resolved
-          informally will be brought in the state or federal courts located there. These
-          terms do not waive your right to bring claims in court.
+          governed by the laws of the State of Arizona, without regard to conflict-of-law
+          rules, and any dispute that cannot be resolved informally will be brought in the
+          state or federal courts located in Arizona. These terms do not waive your right
+          to bring claims in court.
         </p>
       </Section>
 

@@ -66,7 +66,7 @@ dependency, cannot be closed by code in this repo.
 | 6.4 Deletion + retention | ✅/🟡 | Self-serve immediate deletion at /settings/account (no reason required); 24-month retention sweep script (scripts/retention-sweep.ts) — needs a schedule (Render cron) and the 30-day warning email needs the email provider. |
 
 ## Open founder dependencies (cannot be closed from this repo)
-1. **ToS v2.0 follow-ups (3.5):** confirm the governing-law state and stand up a branded support email (e.g. support@&lt;domain&gt;) — both are marked placeholders in /terms §16–17; have counsel confirm the new commercial sections, then update the date and re-version.
+1. **ToS v2.0 follow-ups (3.5):** governing law set to Arizona (per founder, 2026-06-11). Still open: stand up a branded support email (e.g. support@&lt;domain&gt;) — placeholder in /terms §16–17 — and have counsel confirm the new commercial sections.
 2. Retain an **EMDR-trained clinical advisor** (3.6/4A) — screener wording, crisis scripts, session scripts.
 3. **Managed auth provider** account + migration (1.1/1.2/1.6).
 4. **Email provider** (password reset, lockout notices, pre-charge reminders, retention warnings).
