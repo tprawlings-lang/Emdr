@@ -34,6 +34,7 @@ import {
 } from "./companion";
 import { aiCompanionEnabled, generateAiOpening, generateAiReply } from "./companion-ai";
 import { generateProgramPlan } from "./program-plan";
+import { addMemberTrack, archiveMemberTrack, getTrack, saveTrackIntake } from "./tracks";
 
 function createAlert(args: {
   userId: string;
@@ -1218,6 +1219,74 @@ export async function decideUnlock(formData: FormData) {
   redirect("/clinician");
 }
 
+// Clinician override: open a gated module ahead of the program's pacing for a
+// specific member, with a required reason. This relaxes prerequisites and the
+// readiness track only — the daily safety gates (check-in routing, cooldowns,
+// caps, kill switch) still hold (handoff §6.3, §12.2). A reason is mandatory
+// so every override is auditable for quality review.
+export async function clinicianOpenModule(formData: FormData) {
+  const clinician = await requireClinician();
+  const memberId = String(formData.get("memberId") ?? "");
+  const moduleId = String(formData.get("moduleId") ?? "");
+  const reason = String(formData.get("reason") ?? "").slice(0, 1000);
+  const mod = getModule(moduleId);
+  if (!mod || mod.tier !== "gated") redirect(`/clinician/member/${memberId}?error=not_gated`);
+  if (!reason.trim()) redirect(`/clinician/member/${memberId}?error=reason_required`);
+
+  const db = getDb();
+  const member = db
+    .prepare("SELECT id FROM users WHERE id = ? AND role = 'member'")
+    .get(memberId) as { id: string } | undefined;
+  if (!member) redirect("/clinician");
+
+  db.prepare(
+    `INSERT INTO module_unlocks (id, user_id, module_id, status, clinician_id, decision_reason, override, decided_at)
+     VALUES (?, ?, ?, 'unlocked', ?, ?, 1, datetime('now'))
+     ON CONFLICT(user_id, module_id) DO UPDATE SET
+       status = 'unlocked', clinician_id = excluded.clinician_id,
+       decision_reason = excluded.decision_reason, override = 1,
+       decided_at = datetime('now')`
+  ).run(newId(), memberId, moduleId, clinician.id, reason);
+
+  audit({
+    actorId: clinician.id,
+    actorRole: "clinician",
+    family: "specialist_action",
+    type: "module_override_opened",
+    target: `${memberId}:${moduleId}`,
+    detail: { reason, moduleName: mod.name },
+  });
+  revalidatePath(`/clinician/member/${memberId}`);
+  redirect(`/clinician/member/${memberId}`);
+}
+
+// Reverse a clinician override (or any granted unlock): close the module again.
+export async function clinicianCloseModule(formData: FormData) {
+  const clinician = await requireClinician();
+  const memberId = String(formData.get("memberId") ?? "");
+  const moduleId = String(formData.get("moduleId") ?? "");
+  const reason = String(formData.get("reason") ?? "").slice(0, 1000);
+  if (!reason.trim()) redirect(`/clinician/member/${memberId}?error=reason_required`);
+
+  const db = getDb();
+  db.prepare(
+    `UPDATE module_unlocks SET status = 'revoked', clinician_id = ?, decision_reason = ?,
+       override = 0, decided_at = datetime('now')
+     WHERE user_id = ? AND module_id = ?`
+  ).run(clinician.id, reason, memberId, moduleId);
+
+  audit({
+    actorId: clinician.id,
+    actorRole: "clinician",
+    family: "specialist_action",
+    type: "module_override_closed",
+    target: `${memberId}:${moduleId}`,
+    detail: { reason },
+  });
+  revalidatePath(`/clinician/member/${memberId}`);
+  redirect(`/clinician/member/${memberId}`);
+}
+
 export async function reviewAlert(formData: FormData) {
   const clinician = await requireClinician();
   const alertId = String(formData.get("alertId") ?? "");
@@ -1256,4 +1325,57 @@ export async function acknowledgeCrisis() {
     type: "crisis_screen_acknowledged",
   });
   redirect("/dashboard");
+}
+
+// ---------- Care pathways (goal-based routing) ----------
+
+export async function saveTrackIntakeAction(formData: FormData) {
+  const user = await requireMember();
+  const goalText = String(formData.get("goalText") ?? "");
+  const tags = formData.getAll("tags").map((t) => String(t));
+  saveTrackIntake(user.id, goalText, tags);
+  audit({
+    actorId: user.id,
+    actorRole: "member",
+    family: "clinical",
+    type: "track_intake_saved",
+    detail: { tagCount: tags.length, hasGoalText: goalText.trim().length > 0 },
+  });
+  revalidatePath("/paths");
+  redirect("/paths");
+}
+
+export async function selectCareTrack(formData: FormData) {
+  const user = await requireMember();
+  const trackId = String(formData.get("trackId") ?? "");
+  const track = getTrack(trackId);
+  if (!track) redirect("/paths");
+  addMemberTrack(user.id, trackId);
+  audit({
+    actorId: user.id,
+    actorRole: "member",
+    family: "clinical",
+    type: "care_track_selected",
+    target: trackId,
+    detail: { evidenceGrade: track.evidenceGrade, clinicianReview: track.clinicianReview },
+  });
+  revalidatePath("/paths");
+  revalidatePath("/dashboard");
+  redirect("/dashboard");
+}
+
+export async function removeCareTrack(formData: FormData) {
+  const user = await requireMember();
+  const trackId = String(formData.get("trackId") ?? "");
+  archiveMemberTrack(user.id, trackId);
+  audit({
+    actorId: user.id,
+    actorRole: "member",
+    family: "clinical",
+    type: "care_track_archived",
+    target: trackId,
+  });
+  revalidatePath("/paths");
+  revalidatePath("/dashboard");
+  redirect("/paths");
 }

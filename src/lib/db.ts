@@ -278,6 +278,24 @@ function migrate(db: Database.Database) {
 
   CREATE INDEX IF NOT EXISTS idx_program_plans_user ON program_plans(user_id, created_at);
 
+  CREATE TABLE IF NOT EXISTS care_tracks (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL REFERENCES users(id),
+    track_id TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active','archived')),
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    UNIQUE (user_id, track_id)
+  );
+
+  CREATE TABLE IF NOT EXISTS care_track_intake (
+    user_id TEXT PRIMARY KEY REFERENCES users(id),
+    goal_text TEXT,
+    tags_json TEXT NOT NULL DEFAULT '[]',
+    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_care_tracks_user ON care_tracks(user_id, status);
+
   CREATE INDEX IF NOT EXISTS idx_payments_user ON payments(user_id, created_at);
 
   CREATE INDEX IF NOT EXISTS idx_alerts_status ON alerts(status, created_at);
@@ -293,6 +311,9 @@ function migrate(db: Database.Database) {
   ensureColumn(db, "checkins", "triggers_json", "TEXT NOT NULL DEFAULT '[]'");
   // Date of birth for the 18+ gate at account creation (compliance 4A.7).
   ensureColumn(db, "users", "dob", "TEXT");
+  // Clinician override: a specialist may open a gated module ahead of the
+  // program's pacing (prerequisites + readiness). Daily safety gates still hold.
+  ensureColumn(db, "module_unlocks", "override", "INTEGER NOT NULL DEFAULT 0");
 }
 
 function ensureColumn(db: Database.Database, table: string, column: string, ddl: string) {

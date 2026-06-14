@@ -12,6 +12,7 @@ import {
   getSafetyPlan,
   TRACK_LABELS,
 } from "./profile";
+import { getMemberTracks } from "./tracks";
 
 // Mirrors companion-ai's aiCompanionEnabled(); kept local to avoid a
 // circular import (companion-ai reads the plan for its system prompt).
@@ -152,8 +153,15 @@ async function aiPlan(userId: string): Promise<ProgramPlan> {
   const prefs = getCompanionPrefs(userId);
   const focusAreas = getMemoryItemsByType(userId, "focus_area");
   const tools = parseJsonArray(getSafetyPlan(userId)?.grounding_tools_json);
+  const tracks = getMemberTracks(userId);
 
   const context = {
+    chosenPaths: tracks.map((t) => ({
+      name: t.name,
+      evidenceGrade: t.evidenceGrade,
+      clinicianReview: t.clinicianReview,
+      moduleSequence: t.moduleIds,
+    })),
     triggers: triggers.map((t) => ({
       name: t.trigger_name,
       category: t.trigger_category,
@@ -178,6 +186,8 @@ async function aiPlan(userId: string): Promise<ProgramPlan> {
     system: `You draft the working "program plan" for Steady, a self-guided wellness program built on the EMDR method. You are given a member's trigger map (their own words, headline level), readiness, goals, focus areas, and the module catalog.
 
 Produce a plan that sequences their work: which triggers to approach first (always lowest intensity first; anything rated 7+ is specialist-territory and must be marked for specialist review, never self-guided), which module each next step belongs to, and what grounding to keep ready.
+
+If the member has chosen care paths (chosenPaths), honor them: prefer next steps that fall inside a chosen path's moduleSequence, and for any path whose clinicianReview is "required", keep its steps to grounding and preparation only — never sequence self-guided processing for it; instead note that the deeper work belongs with a specialist.
 
 HARD RULES
 - You are planning a wellness program, not treatment. Never diagnose, never name a condition the member has not named, never promise outcomes.

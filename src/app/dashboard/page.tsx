@@ -6,6 +6,7 @@ import { getDb } from "@/lib/db";
 import { MODULES } from "@/lib/modules";
 import {
   checkModuleAccess,
+  completedModuleIds,
   getTodayCheckin,
   getUnlock,
   hasConsent,
@@ -16,6 +17,7 @@ import { scoreItq } from "@/lib/instruments";
 import { decryptField } from "@/lib/crypto";
 import { getFitnessState } from "@/lib/fitness-screener";
 import { getProgramPlan } from "@/lib/program-plan";
+import { getMemberTracks, nextModuleId } from "@/lib/tracks";
 import {
   TRACK_GUIDANCE,
   TRACK_LABELS,
@@ -72,6 +74,8 @@ export default async function DashboardPage() {
   const groundingTools: string[] = plan ? JSON.parse(plan.grounding_tools_json) : [];
   const todayTriggerIds: string[] = checkin?.triggers_json ? JSON.parse(checkin.triggers_json) : [];
   const todayTriggers = triggers.filter((t) => todayTriggerIds.includes(t.id));
+  const myTracks = getMemberTracks(user.id);
+  const completed = completedModuleIds(user.id);
 
   const pcl5 = db
     .prepare(
@@ -321,6 +325,52 @@ export default async function DashboardPage() {
             )}
           </div>
         </>
+      )}
+
+      {myTracks.length > 0 ? (
+        <section className="mt-12">
+          <div className="flex items-baseline justify-between">
+            <h2 className="font-serif text-2xl font-medium">Your paths</h2>
+            <Link href="/paths" className="text-sm text-olive underline">
+              Manage paths
+            </Link>
+          </div>
+          <div className="mt-4 grid gap-3 sm:grid-cols-2">
+            {myTracks.map((track) => {
+              const next = nextModuleId(track, completed);
+              return (
+                <div key={track.id} className="rounded-3xl border border-ground/10 bg-linen p-5 shadow-soft">
+                  <h3 className="font-semibold">{track.name}</h3>
+                  <p className="mt-1 text-sm text-olive">{track.blurb}</p>
+                  {next ? (
+                    <Link
+                      href={`/session/${next}`}
+                      className="mt-3 inline-block rounded-full bg-sage px-5 py-2 text-sm font-medium text-ground transition-colors hover:bg-sage-deep"
+                    >
+                      Next: {MODULES.find((m) => m.id === next)?.name ?? next}
+                    </Link>
+                  ) : (
+                    <p className="mt-3 text-sm text-olive">You&apos;ve worked through this path&apos;s steps.</p>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      ) : (
+        <section className="mt-12 rounded-3xl border border-clay/40 bg-clay/15 p-6">
+          <h2 className="font-serif text-2xl font-medium">Find your path</h2>
+          <p className="mt-2 text-sm text-ground/90">
+            Tell us what you&apos;d like to work on and we&apos;ll suggest where to start — trauma,
+            anxiety, a specific fear, grief, and more. You can follow more than one.
+          </p>
+          <Link
+            href="/paths"
+            className="mt-4 inline-block rounded-full bg-ground px-6 py-2.5 text-sm font-medium text-ivory transition-colors hover:bg-olive"
+          >
+            Explore paths
+          </Link>
+        </section>
       )}
 
       {planRow && (

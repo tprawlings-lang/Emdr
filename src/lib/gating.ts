@@ -90,6 +90,7 @@ export interface UnlockRow {
   member_note: string | null;
   clinician_id: string | null;
   decision_reason: string | null;
+  override: number;
   requested_at: string;
   decided_at: string | null;
 }
@@ -177,10 +178,21 @@ export function checkModuleAccess(userId: string, mod: TherapyModule): ModuleAcc
       action: "grounding",
     };
 
+  // A clinician override opens a gated module ahead of the program's pacing.
+  // It relaxes only the pacing gates below (readiness track + prerequisites) —
+  // never the daily safety read above (check-in crisis/grounding/stabilization)
+  // or the cooldown/cap checks further down.
+  const override =
+    mod.tier === "gated" &&
+    (() => {
+      const u = getUnlock(userId, mod.id);
+      return !!u && u.status === "unlocked" && u.override === 1;
+    })();
+
   // Readiness track gating (feature spec section 5). The language never
   // implies failure: today may simply be better for grounding.
   const readiness = getLatestReadiness(userId);
-  if (readiness) {
+  if (readiness && !override) {
     if (readiness.recommended_track === "stabilization" && !GROUNDING_MODULES.has(mod.id))
       return {
         allowed: false,
@@ -204,7 +216,7 @@ export function checkModuleAccess(userId: string, mod: TherapyModule): ModuleAcc
     };
 
   const completed = completedModuleIds(userId);
-  const missing = mod.prerequisiteIds.filter((p) => !completed.has(p));
+  const missing = override ? [] : mod.prerequisiteIds.filter((p) => !completed.has(p));
   if (missing.length > 0) {
     const names = missing
       .map((id) => MODULES.find((m) => m.id === id)?.name ?? id)

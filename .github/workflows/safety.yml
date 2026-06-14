@@ -21,7 +21,9 @@ jobs:
         run: |
           # Outcome/medical claims that must never appear in product copy.
           # Disclaimers ("does not diagnose") are explicitly allowed.
-          ! grep -rniE "cure|heal your|treats? (ptsd|anxiety|depression|addiction)|AI therapist|clinically proven" \
+          # \bcure matches the banned claim "cure"/"cures"/"cured" at a word
+          # boundary without false-positiving on "secure"/"unsecured".
+          ! grep -rniE "\bcure|heal your|treats? (ptsd|anxiety|depression|addiction)|AI therapist|clinically proven" \
             src/app src/components --include="*.tsx" \
             | grep -v "does not diagnose" \
             | grep -v "diagnosis remains" \

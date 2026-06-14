@@ -10,6 +10,7 @@ import { sudsDecision } from "../src/lib/session-safety";
 import { classifyFitness, FITNESS_ITEMS } from "../src/lib/fitness-screener";
 import { evaluateCheckin } from "../src/lib/gating";
 import { detectRisk } from "../src/lib/companion";
+import { scoreTrackCandidates, trackSafetyGate } from "../src/lib/track-recommender";
 
 function allNo(): Record<string, boolean> {
   return Object.fromEntries(FITNESS_ITEMS.map((i) => [i.id, false]));
@@ -81,4 +82,51 @@ test("companion crisis pre-filter catches risk phrasing", () => {
   ];
   for (const p of phrases) assert.ok(detectRisk(p), `should flag: ${p}`);
   assert.equal(detectRisk("today was a calm day, I walked the dog"), false);
+});
+
+test("track recommender: never recommends through an incomplete or flagged safety screen", () => {
+  // Unanswered program-fit screen blocks recommendation.
+  const noScreen = trackSafetyGate({ fitnessStatus: "none", screeningComplete: true, checkinAction: null });
+  assert.equal(noScreen.proceed, false);
+
+  // Fit cooldown routes to crisis support, not a pathway.
+  const cooldown = trackSafetyGate({ fitnessStatus: "cooldown", screeningComplete: true, checkinAction: null });
+  assert.equal(cooldown.proceed, false);
+  if (!cooldown.proceed) assert.equal(cooldown.safety.action, "crisis");
+
+  // Incomplete baseline measures block recommendation.
+  const noBaseline = trackSafetyGate({ fitnessStatus: "passed", screeningComplete: false, checkinAction: null });
+  assert.equal(noBaseline.proceed, false);
+
+  // A check-in that flagged crisis blocks recommendation.
+  const crisis = trackSafetyGate({ fitnessStatus: "passed", screeningComplete: true, checkinAction: "crisis" });
+  assert.equal(crisis.proceed, false);
+  if (!crisis.proceed) assert.equal(crisis.safety.level, "blocked");
+
+  // All clear proceeds.
+  assert.equal(
+    trackSafetyGate({ fitnessStatus: "passed", screeningComplete: true, checkinAction: "processing_ok" }).proceed,
+    true
+  );
+});
+
+test("track recommender: scoring maps intake tags to the right pathways and caps at three", () => {
+  const panic = scoreTrackCandidates(["panic"]);
+  assert.equal(panic[0].trackId, "anxiety_panic", "panic tag should rank Anxiety & Panic first");
+
+  // "numb / losing time" routes to the complex-trauma readiness lane, which is
+  // referral-only — it must never be presented as self-guided processing.
+  const numb = scoreTrackCandidates(["numb"]);
+  assert.equal(numb[0].trackId, "complex_readiness");
+  assert.equal(numb[0].referralOnly, true);
+
+  // No tags -> no candidates (never guess a pathway).
+  assert.equal(scoreTrackCandidates([]).length, 0);
+
+  // Unknown tags are ignored, not crashed on.
+  assert.equal(scoreTrackCandidates(["not_a_real_tag"]).length, 0);
+
+  // At most three candidates are ever returned.
+  const many = scoreTrackCandidates(["intrusions", "panic", "specific_fear", "grief", "low_mood", "cravings"]);
+  assert.ok(many.length <= 3, "candidates are capped at three");
 });

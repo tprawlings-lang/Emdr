@@ -7,6 +7,7 @@ import { audit } from "@/lib/audit";
 import { scoreItq } from "@/lib/instruments";
 import { decryptField } from "@/lib/crypto";
 import { getProgramPlan } from "@/lib/program-plan";
+import { clinicianCloseModule, clinicianOpenModule } from "@/lib/actions";
 import TrendChart from "@/components/TrendChart";
 
 export default async function MemberDetailPage({
@@ -90,6 +91,7 @@ export default async function MemberDetailPage({
     module_id: string;
     status: string;
     decision_reason: string | null;
+    override: number;
     requested_at: string;
     decided_at: string | null;
   }[];
@@ -100,6 +102,12 @@ export default async function MemberDetailPage({
 
   const moduleName = (mid: string) => MODULES.find((m) => m.id === mid)?.name ?? mid;
   const planRow = getProgramPlan(member.id);
+
+  // Latest unlock row per module (unlocks are ordered newest-first), so the
+  // specialist controls show current access state.
+  const unlockByModule = new Map<string, (typeof unlocks)[number]>();
+  for (const u of unlocks) if (!unlockByModule.has(u.module_id)) unlockByModule.set(u.module_id, u);
+  const gatedModules = MODULES.filter((m) => m.tier === "gated");
 
   return (
     <main className="mx-auto max-w-5xl px-6 py-10">
@@ -289,6 +297,81 @@ export default async function MemberDetailPage({
               ))}
             </tbody>
           </table>
+        </div>
+      </section>
+
+      <section className="mt-8">
+        <h2 className="font-serif text-2xl font-medium">Module access</h2>
+        <p className="mt-1 text-sm text-olive">
+          Open a gated module ahead of the program&apos;s pacing when your review supports it. An
+          override relaxes prerequisites and the readiness track only — the daily check-in,
+          cooldown, and cap safety gates still apply, and the member still moves through today&apos;s
+          check-in. A reason is required and recorded.
+        </p>
+        <div className="mt-3 space-y-3">
+          {gatedModules.map((mod) => {
+            const u = unlockByModule.get(mod.id);
+            const open = u?.status === "unlocked";
+            const isOverride = open && u?.override === 1;
+            return (
+              <div key={mod.id} className="rounded-3xl border border-ground/10 bg-linen p-5 shadow-soft">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div>
+                    <p className="font-semibold">{mod.name}</p>
+                    <p className="text-xs text-olive">
+                      {open
+                        ? isOverride
+                          ? "Open by your override"
+                          : "Unlocked"
+                        : u?.status === "requested"
+                          ? "Member has requested this"
+                          : u?.status === "denied"
+                            ? "Previously declined"
+                            : "Not open"}
+                    </p>
+                  </div>
+                  <span
+                    className={`rounded-full px-3 py-1 text-xs font-medium ${
+                      open ? "bg-safe/20 text-safe-deep" : "bg-sand/50 text-olive"
+                    }`}
+                  >
+                    {open ? "Open" : "Closed"}
+                  </span>
+                </div>
+                {open ? (
+                  <form action={clinicianCloseModule} className="mt-3 flex flex-wrap items-center gap-2">
+                    <input type="hidden" name="memberId" value={member.id} />
+                    <input type="hidden" name="moduleId" value={mod.id} />
+                    <input
+                      type="text"
+                      name="reason"
+                      required
+                      placeholder="Reason for closing (recorded)"
+                      className="min-w-64 flex-1 rounded-2xl border border-ground/15 bg-ivory px-4 py-2 text-sm focus:border-sage focus:outline-none"
+                    />
+                    <button className="rounded-full border border-support px-5 py-2 text-sm font-medium text-support-deep transition-colors hover:bg-support hover:text-white">
+                      Close module
+                    </button>
+                  </form>
+                ) : (
+                  <form action={clinicianOpenModule} className="mt-3 flex flex-wrap items-center gap-2">
+                    <input type="hidden" name="memberId" value={member.id} />
+                    <input type="hidden" name="moduleId" value={mod.id} />
+                    <input
+                      type="text"
+                      name="reason"
+                      required
+                      placeholder="Clinical reason for opening early (recorded)"
+                      className="min-w-64 flex-1 rounded-2xl border border-ground/15 bg-ivory px-4 py-2 text-sm focus:border-sage focus:outline-none"
+                    />
+                    <button className="rounded-full border border-ground px-5 py-2 text-sm font-medium transition-colors hover:bg-ground hover:text-ivory">
+                      Open module
+                    </button>
+                  </form>
+                )}
+              </div>
+            );
+          })}
         </div>
       </section>
 
