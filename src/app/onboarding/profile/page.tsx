@@ -69,14 +69,14 @@ function Pill({
   required?: boolean;
 }) {
   return (
-    <label className="cursor-pointer rounded-full border border-ground/15 bg-linen px-4 py-2 text-sm transition-colors hover:bg-moss has-checked:border-clay has-checked:bg-clay has-checked:font-semibold">
+    <label className="relative cursor-pointer rounded-full border border-ground/15 bg-linen px-4 py-2 text-sm transition-colors hover:bg-moss has-checked:border-clay has-checked:bg-clay has-checked:font-semibold">
       <input
         type={type}
         name={name}
         value={value}
         defaultChecked={defaultChecked}
         required={required}
-        className="sr-only"
+        className="absolute inset-0 m-0 h-full w-full cursor-pointer opacity-0"
       />
       {label}
     </label>
@@ -90,9 +90,15 @@ function ScaleRow({ name, low, high }: { name: string; low: string; high: string
         {Array.from({ length: 11 }, (_, v) => (
           <label
             key={v}
-            className="flex h-10 w-10 cursor-pointer items-center justify-center rounded-full border border-ground/15 bg-linen text-sm transition-colors hover:bg-moss has-checked:border-clay has-checked:bg-clay has-checked:font-semibold"
+            className="relative flex h-10 w-10 cursor-pointer items-center justify-center rounded-full border border-ground/15 bg-linen text-sm transition-colors hover:bg-moss has-checked:border-clay has-checked:bg-clay has-checked:font-semibold"
           >
-            <input type="radio" name={name} value={v} required className="sr-only" />
+            <input
+              type="radio"
+              name={name}
+              value={v}
+              required
+              className="absolute inset-0 m-0 h-full w-full cursor-pointer opacity-0"
+            />
             {v}
           </label>
         ))}
