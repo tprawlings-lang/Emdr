@@ -2,6 +2,7 @@ import Link from "next/link";
 import { getCurrentUser } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { SteadyMark, Wordmark } from "@/components/Brand";
+import { CalmScene, LeafSprig, SoftWave, WarmWash } from "@/components/Illustrations";
 
 // Marketing landing page. The voice is "calm conviction": the benefit-led
 // structure of direct-to-consumer EMDR marketing (outcomes, research,
@@ -77,7 +78,7 @@ const FAQS = [
   },
   {
     q: "What does it cost?",
-    a: "$24.99 a month after a 7-day free trial — a fraction of a single traditional session. If it doesn't feel right within your first week, cancel and pay nothing. Crisis support and grounding tools stay open to everyone, regardless of membership.",
+    a: "$34.99 a month after a 7-day free trial — a fraction of a single traditional session. If it doesn't feel right within your first week, cancel and pay nothing. Crisis support and grounding tools stay open to everyone, regardless of membership.",
   },
 ];
 
@@ -99,18 +100,18 @@ export default async function Home() {
   return (
     <main className="overflow-x-clip">
       {/* Nav */}
-      <header className="mx-auto flex max-w-5xl items-center justify-between px-6 pt-8">
-        <div className="flex items-center gap-3">
-          <SteadyMark className="h-9 w-9 text-olive" />
-          <Wordmark className="text-3xl" />
+      <header className="mx-auto flex max-w-5xl items-center justify-between gap-3 px-6 pt-8">
+        <div className="flex items-center gap-2 sm:gap-3">
+          <SteadyMark className="h-8 w-8 text-olive sm:h-9 sm:w-9" />
+          <Wordmark className="text-2xl sm:text-3xl" />
         </div>
-        <div className="flex items-center gap-5 text-sm">
-          <Link href="/crisis" className="font-semibold text-support underline">
+        <div className="flex items-center gap-3 text-sm sm:gap-5">
+          <Link href="/crisis" className="font-semibold whitespace-nowrap text-support underline">
             Need help now?
           </Link>
           <Link
             href="/login"
-            className="rounded-full border border-ground/20 px-5 py-2 text-ground/80 transition-colors hover:bg-moss"
+            className="rounded-full border border-ground/20 px-4 py-2 text-ground/80 transition-colors hover:bg-moss sm:px-5"
           >
             Sign in
           </Link>
@@ -118,7 +119,8 @@ export default async function Home() {
       </header>
 
       {/* Hero */}
-      <section className="mx-auto max-w-5xl px-6 pt-14 sm:pt-20">
+      <section className="relative mx-auto max-w-5xl px-6 pt-14 sm:pt-20">
+        <WarmWash />
         <div className="grid items-center gap-12 sm:grid-cols-[3fr_2fr]">
           <div>
             <p className="text-sm font-semibold tracking-wide text-olive uppercase">
@@ -149,15 +151,11 @@ export default async function Home() {
             </p>
           </div>
 
-          {/* Breathing visual: motion paced like a long exhale */}
-          <div className="relative mx-auto hidden h-72 w-72 sm:block" aria-hidden="true">
-            <div className="animate-breathe-slow absolute inset-0 rounded-full bg-moss" />
-            <div className="animate-breathe absolute inset-8 rounded-full bg-sage/50" />
-            <div className="absolute inset-16 rounded-full bg-linen shadow-soft" />
-            <div className="absolute inset-0 flex flex-col items-center justify-center text-ground">
-              <SteadyMark className="h-14 w-14 text-olive" />
-              <p className="mt-2 font-serif text-lg text-olive">breathe out longer</p>
-            </div>
+          {/* Warm hero scene: a person sitting calmly at sunrise. The sun keeps
+              the breath-paced motion; disabled under reduced-motion. */}
+          <div className="relative mx-auto w-full max-w-xs sm:max-w-sm">
+            <CalmScene className="w-full" />
+            <p className="mt-3 text-center font-serif text-lg text-olive">breathe out longer</p>
           </div>
         </div>
 
@@ -320,7 +318,8 @@ export default async function Home() {
 
       {/* Conditions */}
       <section className="mx-auto max-w-5xl px-6 pt-20">
-        <h2 className="text-center font-serif text-3xl font-medium sm:text-4xl">
+        <LeafSprig className="mx-auto h-9 w-9" />
+        <h2 className="mt-3 text-center font-serif text-3xl font-medium sm:text-4xl">
           A steadier way through
         </h2>
         <p className="mx-auto mt-3 max-w-xl text-center text-olive">
@@ -341,8 +340,9 @@ export default async function Home() {
         </div>
       </section>
 
-      {/* How it works */}
-      <section id="how-it-works" className="mt-20 scroll-mt-8 bg-ground py-20 text-ivory">
+      {/* How it works — organic wave softens the seam into the dark band */}
+      <SoftWave className="mt-20 block h-16 w-full sm:h-24" fill="var(--color-ground)" />
+      <section id="how-it-works" className="-mt-px scroll-mt-8 bg-ground py-20 text-ivory">
         <div className="mx-auto max-w-5xl px-6">
           <h2 className="text-center font-serif text-3xl font-medium sm:text-4xl">
             How Steady works
@@ -448,7 +448,7 @@ export default async function Home() {
             as long as the work takes.
           </p>
           <p className="mt-8 font-serif text-6xl font-medium">
-            $24.99<span className="text-2xl text-olive">/month</span>
+            $34.99<span className="text-2xl text-olive">/month</span>
           </p>
           <p className="mt-2 text-sm text-olive">First 7 days free</p>
           <ul className="mx-auto mt-6 max-w-md space-y-2 text-left text-sm text-ground/90">
@@ -517,8 +517,10 @@ export default async function Home() {
       </section>
 
       {/* Final CTA */}
-      <section className="mx-auto max-w-3xl px-6 py-20 text-center">
-        <h2 className="font-serif text-4xl leading-tight font-medium sm:text-5xl">
+      <section className="relative mx-auto mt-10 max-w-3xl overflow-hidden rounded-[2.5rem] px-6 py-20 text-center">
+        <WarmWash />
+        <LeafSprig className="mx-auto h-10 w-10" />
+        <h2 className="mt-3 font-serif text-4xl leading-tight font-medium sm:text-5xl">
           Your nervous system deserves
           <br />a steady place to land.
         </h2>
