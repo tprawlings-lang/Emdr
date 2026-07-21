@@ -423,8 +423,13 @@ With `EMDR_DEMO=1` a rich fictional dataset seeds instead.
 
 **Tests & CI:** `npm run test:safety` runs the CI-blocking `@safety` suite (screener
 hard stops, SUDS rules, check-in routing, crisis regex, track-recommender safety gate).
-CI also runs a banned-vocabulary grep over product copy (wellness-lane claims
-discipline).
+`npm run test:e2e` runs the Playwright smoke suite (critical unauthenticated surfaces +
+security headers; hermetic by default, or point at a deploy with `E2E_BASE_URL`).
+CI (`.github/workflows/safety.yml`) blocks on `@safety` + build + `npm audit`
+(high/critical) + the e2e smoke suite + a banned-vocabulary grep over product copy;
+a nightly `load` job (`.github/workflows/load.yml`) runs `npm run loadcheck`
+(autocannon) and fails on p99/error-rate breach of the discovered single-instance
+baseline (`docs/load-test/README.md`).
 
 **Deploy:** production `Dockerfile` (standalone output); Render blueprint
 (`render.yaml`) with persistent disk at `/data`; nightly encrypted backups to

@@ -1,0 +1,48 @@
+# Nightly load gate (compliance: testing / discovered thresholds enforced in CI).
+# Builds + starts the production server and fails if p99 latency or error rate
+# breaches the discovered single-instance baseline (docs/load-test/README.md).
+# Scheduled rather than per-PR because load runs are slow and shared-runner
+# noisy; run on demand with the "Run workflow" button.
+name: load
+on:
+  schedule:
+    - cron: "17 7 * * *" # 07:17 UTC nightly
+  workflow_dispatch:
+
+jobs:
+  loadcheck:
+    runs-on: ubuntu-latest
+    env:
+      EMDR_DEMO: "1"
+      EMDR_SESSION_SECRET: load-ci-placeholder-secret-not-used-at-runtime
+      EMDR_DATA_KEY: load-ci-placeholder-key
+      NODE_ENV: production
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Build
+        run: npm run build
+      - name: Start server
+        run: |
+          npm run start > server.log 2>&1 &
+          echo "SERVER_PID=$!" >> "$GITHUB_ENV"
+          for i in $(seq 1 30); do
+            if [ "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:3000/)" = "200" ]; then
+              echo "ready after ${i}s"; exit 0
+            fi
+            sleep 1
+          done
+          echo "server did not become ready"; cat server.log; exit 1
+      - name: Load gate
+        run: npm run loadcheck
+        env:
+          BASE: http://127.0.0.1:3000
+          CONNECTIONS: "50"
+          DURATION: "20"
+      - name: Stop server
+        if: always()
+        run: kill "$SERVER_PID" 2>/dev/null || true

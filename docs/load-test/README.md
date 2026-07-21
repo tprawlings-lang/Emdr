@@ -17,17 +17,43 @@ BASE=https://staging.example.com EMAIL=... PASS=... k6 run docs/load-test/steady
 3. **Soak:** hold ~60% of the ceiling for 30 min to surface leaks (watch RSS,
    the rate-limiter map, SQLite WAL size).
 
-## Discovered thresholds (fill in after the first staging run)
-| Metric | Baseline (100 VU) | Ceiling |
-|---|---|---|
-| p95 latency | _TBD_ | _TBD_ |
-| p99 latency | _TBD_ | _TBD_ |
-| error rate | _TBD_ | _TBD_ |
-| single-instance VU ceiling | — | _TBD_ |
+## Discovered thresholds
 
-Once filled in, tighten the `thresholds` block in `steady-load.js` to the
-discovered numbers and add a **nightly CI job** (against staging) that runs the
-script and fails on threshold breach — that is the CI enforcement of the gate.
+First run captured **2026-07** with `autocannon` against a **local production
+build** (`npm run build && npm run start`, `EMDR_DEMO=1`) on the hot read path
+(`GET /`, server-rendered). Ramp by concurrent connections:
+
+| Connections | Throughput | p50 | p97.5 | p99 | Errors |
+|---|---|---|---|---|---|
+| 50  | ~140 req/s | 340 ms | 494 ms | 514 ms | 0 |
+| 100 | ~150 req/s | 643 ms | 800 ms | 804 ms | 0 |
+| 200 | ~150 req/s | 1283 ms | 1649 ms | 1653 ms | 0 |
+| 400 | ~140 req/s | 1567 ms | 1698 ms | 3563 ms | **150 timeouts** |
+
+**Interpretation.** Throughput saturates at **~150 req/s** for the render path;
+adding concurrency past that only grows the queue (latency climbs, throughput
+flat). The **single-instance ceiling** is ~200 in-flight requests — p99
+approaches the 2 s budget there and, past ~400 in-flight, the server sheds load
+as timeouts. Baseline gate: **p99 < 2000 ms and error rate < 1 % at 50
+concurrent connections** (observed p99 ≈ 455–514 ms, 0 errors).
+
+> ⚠️ These numbers are from a local build on CI-class hardware, **not** the
+> deployed Render **starter** instance (0.5 CPU / 512 MB), which will be
+> lower. Treat them as a regression baseline and re-run `k6` against a real
+> staging instance to set production capacity numbers.
+
+## CI enforcement (implemented)
+
+`scripts/loadcheck.mjs` fires `autocannon` at an already-running server and
+**exits non-zero if p99 or error rate breaches the gate** (defaults: p99 <
+2000 ms, error rate < 1 %; override via `MAX_P99_MS` / `MAX_ERROR_RATE` /
+`CONNECTIONS` / `DURATION`). The **nightly `load` CI job**
+(`.github/workflows/load.yml`) builds the app, starts it, and runs
+`npm run loadcheck` — a threshold breach fails the run. It is scheduled (not
+per-PR) because load runs are slow and shared-runner-noisy. The higher-fidelity
+`steady-load.js` (k6) remains the tool for ramp/stress/soak against staging;
+tighten its `thresholds` block to the staging-discovered numbers when a staging
+target exists.
 
 ## Known architectural ceiling
 Steady is single-instance (ADR 0004). Vertical scaling (bigger instance) is the
