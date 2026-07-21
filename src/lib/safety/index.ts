@@ -6,6 +6,10 @@
 // independent licensed-clinician sign-off (docs/autonomous/01-signoff-ledger.md).
 
 export { evaluateAccess, buildRoutingAuditDetail } from "./engine";
+export { decideAccess, shadowDecide } from "./decide";
+export { gatherSafetyInputs } from "./gather";
+export { scoreReadiness } from "./readiness";
+export { mapProgramFit, stateHardStopActive, traitHardStopActive } from "./program-fit";
 export { AccessTier, TIER_LABEL } from "./types";
 export type {
   SafetyInputs,

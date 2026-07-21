@@ -17,6 +17,7 @@ import {
 import { getInstrument, scoreInstrument } from "./instruments";
 import { getModule } from "./modules";
 import { checkModuleAccess, evaluateCheckin, todayISO } from "./gating";
+import { shadowDecide } from "./safety/decide";
 import { CONSENT_VERSION, TERMS_VERSION } from "./policy";
 import {
   ReadinessAnswers,
@@ -1002,6 +1003,11 @@ export async function startSession(moduleId: string, focus?: string) {
   if (!mod) redirect("/dashboard");
   const access = checkModuleAccess(user.id, mod);
   if (!access.allowed) redirect("/dashboard");
+
+  // Autonomous safety core (shadow mode): record the deterministic engine's
+  // parallel decision so it can be validated against the live gate before it
+  // ever governs. Best-effort — never affects this session (docs/autonomous).
+  shadowDecide(user.id, "session_start", Date.now());
 
   const chosenFocus = focus?.trim().slice(0, 200) || null;
   const db = getDb();
