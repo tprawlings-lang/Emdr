@@ -92,6 +92,17 @@ export async function logout() {
   redirect("/");
 }
 
+// "Sign out everywhere": bump the user's token epoch so every previously issued
+// session token (on any device) stops validating, then clear this device's
+// cookie too. Cheap, stateless revocation (auth.ts checks the epoch).
+export async function signOutEverywhere() {
+  const user = await requireUser();
+  getDb().prepare("UPDATE users SET token_epoch = token_epoch + 1 WHERE id = ?").run(user.id);
+  audit({ actorId: user.id, actorRole: user.role, family: "identity", type: "sign_out_everywhere" });
+  await clearSessionCookie();
+  redirect("/login?signedout=1");
+}
+
 export async function signup(formData: FormData) {
   const name = String(formData.get("name") ?? "").trim().slice(0, 80);
   const email = String(formData.get("email") ?? "").trim().toLowerCase().slice(0, 200);

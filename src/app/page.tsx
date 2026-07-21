@@ -211,7 +211,7 @@ export default async function Home() {
                 {s.stat}
               </p>
               <p className="mt-3 flex-1 text-sm leading-relaxed text-olive">{s.text}</p>
-              <p className="mt-4 text-xs text-olive/80">
+              <p className="mt-4 text-xs text-olive">
                 Source:{" "}
                 <a
                   href={s.href}
@@ -293,7 +293,7 @@ export default async function Home() {
           ))}
         </div>
 
-        <p className="mt-6 text-center text-xs text-olive/80">
+        <p className="mt-6 text-center text-xs text-olive">
           Purpose-built for guided eye-movement sessions · Safety screening before first
           session · Private by design — no advertising trackers, and the companion&apos;s
           memory is yours to view, edit, or delete anytime · Not a replacement for therapy or
@@ -430,7 +430,7 @@ export default async function Home() {
             </figure>
           ))}
         </div>
-        <p className="mt-4 text-center text-xs text-olive/80">
+        <p className="mt-4 text-center text-xs text-olive">
           Illustrative member stories — composites that reflect typical experiences, not
           individual endorsements. Individual experiences vary; Steady is not therapy or
           medical treatment.

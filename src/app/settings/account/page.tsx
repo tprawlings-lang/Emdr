@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { requireUser } from "@/lib/auth";
-import { deleteAccount } from "@/lib/actions";
+import { deleteAccount, signOutEverywhere } from "@/lib/actions";
 
 // Account deletion (compliance 6.4): self-serve, no reason required, no
 // chat-with-us-to-cancel. Program data is removed immediately; financial
@@ -19,6 +19,19 @@ export default async function AccountSettingsPage({
         ← Back to dashboard
       </Link>
       <h1 className="mt-3 font-serif text-4xl font-medium">Your account</h1>
+
+      <section className="mt-8 rounded-3xl border border-ground/10 bg-linen p-7 shadow-soft">
+        <h2 className="font-serif text-2xl font-medium">Sign out everywhere</h2>
+        <p className="mt-3 text-sm leading-relaxed text-olive">
+          Signs you out on every device — useful if you used a shared computer or think someone
+          else may have access. You&apos;ll sign back in here as usual.
+        </p>
+        <form action={signOutEverywhere} className="mt-5">
+          <button className="rounded-full border border-ground px-6 py-2.5 text-sm font-medium transition-colors hover:bg-ground hover:text-ivory">
+            Sign out of all devices
+          </button>
+        </form>
+      </section>
 
       <section className="mt-8 rounded-3xl border border-support/30 bg-linen p-7 shadow-soft">
         <h2 className="font-serif text-2xl font-medium">Delete my account and data</h2>

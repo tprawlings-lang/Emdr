@@ -324,6 +324,9 @@ function migrate(db: Database.Database) {
   // (see audit.ts verifyAuditChain).
   ensureColumn(db, "audit_log", "prev_hash", "TEXT");
   ensureColumn(db, "audit_log", "entry_hash", "TEXT");
+  // Session revocation epoch: bumping it invalidates every issued token for the
+  // user ("sign out everywhere" / password change). See auth.ts.
+  ensureColumn(db, "users", "token_epoch", "INTEGER NOT NULL DEFAULT 0");
 }
 
 function ensureColumn(db: Database.Database, table: string, column: string, ddl: string) {

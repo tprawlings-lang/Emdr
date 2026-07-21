@@ -386,7 +386,7 @@ export default async function MemberDetailPage({
                   {moduleName(u.module_id)} — {u.status}
                 </p>
                 {u.decision_reason && <p className="text-olive">Reason: {u.decision_reason}</p>}
-                <p className="text-xs text-olive/70">
+                <p className="text-xs text-olive">
                   requested {u.requested_at}
                   {u.decided_at ? ` · decided ${u.decided_at}` : ""}
                 </p>
@@ -402,7 +402,7 @@ export default async function MemberDetailPage({
                 <p className="font-medium">
                   {c.policy_version} · {c.scope}
                 </p>
-                <p className="text-xs text-olive/70">
+                <p className="text-xs text-olive">
                   granted {c.granted_at}
                   {c.revoked_at ? ` · revoked ${c.revoked_at}` : " · active"}
                 </p>

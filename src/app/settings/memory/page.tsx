@@ -116,7 +116,7 @@ export default async function MemoryControlsPage() {
                   <div>
                     <p className="text-sm font-medium">{m.memory_key}</p>
                     <p className="mt-0.5 text-sm text-olive">{m.memory_value}</p>
-                    <p className="mt-1 text-xs text-olive/70">
+                    <p className="mt-1 text-xs text-olive">
                       {SOURCE_LABELS[m.source_type] ?? m.source_type}
                     </p>
                   </div>

@@ -14,10 +14,15 @@
   --color-clay: #c9a98f;
   --color-moss: #dce4d4;
   --color-linen: #fbf8f2;
-  --color-olive: #697568;
+  /* Deepened from #697568 to meet WCAG AA (4.5:1) as body/secondary text on
+     the ivory/linen/sand/moss surfaces — the previous value failed on all but
+     linen. Still the same grey-green brand family. */
+  --color-olive: #545e53;
   --color-amber-soft: #e8c98a;
-  --color-support: #b66a5d;
-  --color-support-deep: #a05648;
+  /* Deepened from #b66a5d so the "Need help now?" crisis links meet WCAG AA as
+     text (the old value was 3.8:1); white-on-support buttons improve too. */
+  --color-support: #9a4f42;
+  --color-support-deep: #8a4335;
   --color-pause: #d7a85f;
   --color-pause-soft: #f3e4c8;
   --color-safe: #7fa37b;

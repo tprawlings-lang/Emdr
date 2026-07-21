@@ -19,8 +19,19 @@ function sign(payload: string): string {
   return crypto.createHmac("sha256", SECRET).update(payload).digest("hex");
 }
 
+// Per-user token epoch: bumping it (signOutEverywhere / password change)
+// invalidates every previously issued token for that user. Tokens issued
+// before this feature carry no epoch and are treated as epoch 0, matching the
+// default, so existing sessions stay valid until they expire or the user bumps.
+function currentEpoch(userId: string): number {
+  const row = getDb().prepare("SELECT token_epoch FROM users WHERE id = ?").get(userId) as
+    | { token_epoch: number | null }
+    | undefined;
+  return row?.token_epoch ?? 0;
+}
+
 export function makeSessionToken(userId: string): string {
-  const payload = `${userId}.${Date.now()}`;
+  const payload = `${userId}.${Date.now()}.${currentEpoch(userId)}`;
   return `${payload}.${sign(payload)}`;
 }
 
@@ -29,7 +40,7 @@ export function makeSessionToken(userId: string): string {
 const IDLE_MAX_AGE_SEC = 7 * 24 * 60 * 60;
 const ABSOLUTE_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000;
 
-function parseToken(token: string): string | null {
+function parseToken(token: string): { userId: string; epoch: number } | null {
   const lastDot = token.lastIndexOf(".");
   if (lastDot < 0) return null;
   const payload = token.slice(0, lastDot);
@@ -37,11 +48,11 @@ function parseToken(token: string): string | null {
   const expected = sign(payload);
   if (sig.length !== expected.length) return null;
   if (!crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(expected))) return null;
-  const [userId, issuedAt] = payload.split(".");
+  const [userId, issuedAt, epoch] = payload.split(".");
   if (!userId) return null;
   const issued = Number(issuedAt);
   if (!Number.isFinite(issued) || Date.now() - issued > ABSOLUTE_MAX_AGE_MS) return null;
-  return userId;
+  return { userId, epoch: Number(epoch ?? 0) || 0 };
 }
 
 export async function setSessionCookie(userId: string) {
@@ -64,13 +75,17 @@ export async function getCurrentUser(): Promise<SessionUser | null> {
   const store = await cookies();
   const token = store.get(COOKIE)?.value;
   if (!token) return null;
-  const userId = parseToken(token);
-  if (!userId) return null;
+  const parsed = parseToken(token);
+  if (!parsed) return null;
   const db = getDb();
   const row = db
-    .prepare("SELECT id, email, name, role FROM users WHERE id = ? AND status = 'active'")
-    .get(userId) as SessionUser | undefined;
-  return row ?? null;
+    .prepare("SELECT id, email, name, role, token_epoch FROM users WHERE id = ? AND status = 'active'")
+    .get(parsed.userId) as (SessionUser & { token_epoch: number | null }) | undefined;
+  if (!row) return null;
+  // Revocation: a token whose epoch is behind the user's current epoch was
+  // invalidated by "sign out everywhere" (or a password change).
+  if ((row.token_epoch ?? 0) !== parsed.epoch) return null;
+  return { id: row.id, email: row.email, name: row.name, role: row.role };
 }
 
 export async function requireUser(): Promise<SessionUser> {

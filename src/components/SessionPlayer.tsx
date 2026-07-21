@@ -835,7 +835,7 @@ export default function SessionPlayer({ module: mod, focus, calmPlace, audioOnly
       ) : null}
 
       {preSuds !== null && (
-        <p className="mt-10 text-center text-xs text-olive/70">
+        <p className="mt-10 text-center text-xs text-olive">
           Start distress {preSuds} · peak {peakSuds}
         </p>
       )}
