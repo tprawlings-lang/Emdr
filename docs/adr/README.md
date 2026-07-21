@@ -11,3 +11,4 @@ accepted; supersede rather than edit.
 | [0004](0004-single-instance-architecture.md) | Single-instance runtime; in-process scheduler & rate limiter | Accepted |
 | [0005](0005-tamper-evident-audit-chain.md) | Tamper-evident audit log via hash chain | Accepted |
 | [0006](0006-stateless-hmac-sessions.md) | Stateless HMAC sessions; revocation via account status | Accepted |
+| [0007](0007-scaling-and-zero-downtime-deploys.md) | Sequenced path to zero-downtime deploys & horizontal scale | Proposed |

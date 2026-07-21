@@ -447,7 +447,9 @@ trackers — by design.
 
 ## 14. Known gaps before any real-world use (wellness-lane launch gates)
 
-Tracked in full in [`COMPLIANCE.md`](COMPLIANCE.md); still open:
+Tracked in full in [`COMPLIANCE.md`](COMPLIANCE.md); founder decisions and
+actions are collected as a checklist in
+[`docs/audit-open-items.md`](docs/audit-open-items.md). Still open:
 
 - **EMDR-trained clinical advisor** — screener wording/thresholds (`fit-v1-placeholder`),
   crisis script, and session scripts need sign-off. Under the planned autonomous model
