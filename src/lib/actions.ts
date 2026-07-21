@@ -18,7 +18,7 @@ import { getInstrument, scoreInstrument } from "./instruments";
 import { getModule } from "./modules";
 import { checkModuleAccess, evaluateCheckin, todayISO } from "./gating";
 import { shadowDecide } from "./safety/decide";
-import { CONSENT_VERSION, TERMS_VERSION } from "./policy";
+import { currentConsentVersion, currentTermsVersion } from "./policy";
 import {
   ReadinessAnswers,
   computeReadiness,
@@ -150,7 +150,7 @@ export async function signup(formData: FormData) {
     "INSERT INTO consents (id, user_id, policy_version, scope) VALUES (?, ?, ?, ?)"
   );
   insertConsent.run(newId(), userId, "wellness-ack-v1", "wellness_acknowledgment");
-  insertConsent.run(newId(), userId, TERMS_VERSION, "terms_acceptance");
+  insertConsent.run(newId(), userId, currentTermsVersion(), "terms_acceptance");
   await setSessionCookie(userId);
   audit({
     actorId: userId,
@@ -316,13 +316,13 @@ export async function grantConsent() {
   if (!existing) {
     db.prepare(
       "INSERT INTO consents (id, user_id, policy_version, scope) VALUES (?, ?, ?, ?)"
-    ).run(newId(), user.id, CONSENT_VERSION, "care_program_full");
+    ).run(newId(), user.id, currentConsentVersion(), "care_program_full");
     audit({
       actorId: user.id,
       actorRole: "member",
       family: "consent",
       type: "consent_granted",
-      detail: { policy_version: CONSENT_VERSION, scope: "care_program_full" },
+      detail: { policy_version: currentConsentVersion(), scope: "care_program_full" },
     });
   }
   redirect("/screening");

@@ -1,12 +1,32 @@
+import { autonomousSafetyEnabled } from "./safety/config";
+
 // Versioned policy identifiers. Bump a version whenever its text changes so
 // the consent ledger stays meaningful (who agreed to what, when).
 //
 // Legal text in this file and in /terms and /privacy was reviewed and
 // approved by counsel on 2026-06-10 (per founder). Any wording change
 // requires re-review and a version bump.
+//
+// TWO SETS OF VERSIONS live here on purpose. The `*_AUTONOMOUS` set is the
+// counsel-approved (2026-07, per founder's attorney) rewrite for the model
+// where fixed automated rules — not a human reviewer — decide fit, daily
+// availability, and module unlocks. It ships ATOMICALLY with the
+// `EMDR_AUTONOMOUS_SAFETY` flag: while a human is still in the loop the
+// current "human review" copy is accurate and stays live; the moment the
+// flag flips, the selectors below serve the autonomous copy and the ledger
+// records the autonomous version. Never diverge the served copy from the
+// recorded version — always go through the selectors.
 export const CONSENT_VERSION = "v2.0-wellness";
 export const TERMS_VERSION = "tos-v2.0";
 export const PRIVACY_VERSION = "privacy-v1.0";
+
+export const CONSENT_VERSION_AUTONOMOUS = "v3.0-autonomous";
+export const TERMS_VERSION_AUTONOMOUS = "tos-v3.0-autonomous";
+export const PRIVACY_VERSION_AUTONOMOUS = "privacy-v2.0-autonomous";
+
+// Reworded "Safety review model" consent body for the autonomous model.
+const SAFETY_REVIEW_MODEL_AUTONOMOUS =
+  "Steady's safety rails are automated and asynchronous. Fit questions decide whether the program is safe to start, daily check-ins decide what is open today, sessions pause or end themselves when distress climbs, and higher-intensity modules unlock automatically — only when fixed readiness and safety rules are met. No one reviews your readiness by hand and no one is watching live. If the rules cannot clear you, or you repeatedly reach a safety stop, you are routed to human support and crisis resources. You can always see the plain-language reason for any limitation.";
 
 export const CONSENT_SECTIONS: { title: string; body: string }[] = [
   {
@@ -38,3 +58,39 @@ export const CONSENT_SECTIONS: { title: string; body: string }[] = [
     body: "You can stop any session at any time — stopping early is always allowed and never penalized. You can pause or end the program, export nothing you didn't enter, revoke this consent, and delete your account and data on your own from settings. Revoking consent stops new program activity; deleting your account removes your data immediately, except records we are legally required to keep (such as payment history).",
   },
 ];
+
+// The autonomous consent set is the approved copy with only the "Safety review
+// model" section reworded — every other section is unchanged from the current,
+// counsel-approved copy.
+export const CONSENT_SECTIONS_AUTONOMOUS: { title: string; body: string }[] =
+  CONSENT_SECTIONS.map((section) =>
+    section.title === "Safety review model"
+      ? { ...section, body: SAFETY_REVIEW_MODEL_AUTONOMOUS }
+      : section,
+  );
+
+// --- Selectors: always resolve the served copy + recorded version together.
+// Consumers (onboarding, /terms, /privacy, consent ledger writes) MUST use
+// these rather than the raw constants so served text and recorded version can
+// never drift apart when the flag flips.
+
+/** True when the autonomous copy/versions are the live set. */
+export function autonomousCopyActive(): boolean {
+  return autonomousSafetyEnabled();
+}
+
+export function currentConsentVersion(): string {
+  return autonomousCopyActive() ? CONSENT_VERSION_AUTONOMOUS : CONSENT_VERSION;
+}
+
+export function currentTermsVersion(): string {
+  return autonomousCopyActive() ? TERMS_VERSION_AUTONOMOUS : TERMS_VERSION;
+}
+
+export function currentPrivacyVersion(): string {
+  return autonomousCopyActive() ? PRIVACY_VERSION_AUTONOMOUS : PRIVACY_VERSION;
+}
+
+export function currentConsentSections(): { title: string; body: string }[] {
+  return autonomousCopyActive() ? CONSENT_SECTIONS_AUTONOMOUS : CONSENT_SECTIONS;
+}

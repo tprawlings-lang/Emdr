@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { PRIVACY_VERSION } from "@/lib/policy";
+import { currentPrivacyVersion } from "@/lib/policy";
+import { autonomousSafetyEnabled } from "@/lib/safety/config";
 
 // Privacy Policy (compliance packet 3.5). The packet's rule: this document
 // describes ONLY what the code actually does. Every statement below maps to
@@ -17,11 +18,12 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 }
 
 export default function PrivacyPage() {
+  const autonomous = autonomousSafetyEnabled();
   return (
     <main className="mx-auto max-w-3xl px-6 py-12">
       <h1 className="font-serif text-4xl font-medium">Privacy Policy</h1>
       <p className="mt-2 text-sm text-olive">
-        Version {PRIVACY_VERSION} · Effective June 10, 2026 · Every statement here describes
+        Version {currentPrivacyVersion()} · Effective June 10, 2026 · Every statement here describes
         what the software actually does today.
       </p>
 
@@ -39,7 +41,7 @@ export default function PrivacyPage() {
         </p>
         <p>
           <strong>Operational records:</strong> an append-only audit log of events (logins,
-          consents, session start/stop, coded safety events). Audit entries contain event
+          consents, session start/stop, coded safety events{autonomous ? ", and the automated safety decisions the program makes about your access" : ""}). Audit entries contain event
           types and identifiers — not the content of anything you wrote.
         </p>
         <p>
@@ -81,7 +83,7 @@ export default function PrivacyPage() {
           generate the reply. We use Anthropic&apos;s commercial API, which under
           Anthropic&apos;s usage policies does not use API customer data to train its models.
           Crisis-risk detection runs on our own servers before any AI call, and crisis
-          replies are scripted, not AI-generated.
+          replies are scripted, not AI-generated.{autonomous ? " The companion cannot make safety decisions or change what is available to you — those are handled separately by the program's automated rules (below)." : ""}
         </p>
         <p>
           You control the companion&apos;s memory: view, deactivate single items, or clear
@@ -89,12 +91,43 @@ export default function PrivacyPage() {
         </p>
       </Section>
 
+      {autonomous && (
+        <Section title="How the program decides what's available to you">
+          <p>
+            Steady uses fixed, automated rules — <strong>not a person</strong> — to decide
+            whether the program is a safe fit for you, what is open to you each day, and when
+            higher-intensity modules unlock. These decisions are based on information you
+            provide: your program-fit answers, daily check-ins, questionnaire scores, and the
+            distress ratings you give around sessions. The rules are designed to keep you safe
+            and to move toward <em>less</em> intensity whenever your information is unclear or
+            your distress rises.
+          </p>
+          <p>
+            You are never left without a path: you can always see the plain-language reason
+            for any limitation, stopping is always allowed and never penalized, and if the
+            rules cannot clear you — or you repeatedly reach a safety stop — you are routed to
+            human support and crisis resources. We keep a coded, content-free record of these
+            automated decisions in the audit log so they can be reviewed.
+          </p>
+        </Section>
+      )}
+
       <Section title="Who can see your data">
-        <p>
-          You; reviewers with a safety role inside the program (who review readiness,
-          unlock requests, and safety alerts); and the engineers who operate the service,
-          under access controls and the audit log. No one watches in real time.
-        </p>
+        {autonomous ? (
+          <p>
+            You; the engineers who operate the service, under access controls and the audit
+            log; and — <strong>only if you are routed to them for support or escalation</strong>{" "}
+            — a clinician. Routine decisions about what is available to you are made
+            automatically by the program&apos;s rules, <strong>not by a person reviewing your
+            file</strong>. No one watches in real time.
+          </p>
+        ) : (
+          <p>
+            You; reviewers with a safety role inside the program (who review readiness,
+            unlock requests, and safety alerts); and the engineers who operate the service,
+            under access controls and the audit log. No one watches in real time.
+          </p>
+        )}
       </Section>
 
       <Section title="Deletion and retention">
@@ -125,14 +158,14 @@ export default function PrivacyPage() {
         <p>
           Regardless of where you live, we honor: access to what the companion remembers
           (Settings → Memory), deletion without a reason (Settings → Account), and consent
-          withdrawal. Residents of states with consumer-health-data laws (e.g. Washington
+          withdrawal.{autonomous ? " Because decisions about your access are automated, you can also always see the reason for a limitation and reach human support if the automated rules keep you out." : ""} Residents of states with consumer-health-data laws (e.g. Washington
           My Health My Data) have these rights by statute; we apply them to everyone.
         </p>
       </Section>
 
       <Section title="Changes">
         <p>
-          This policy is versioned ({PRIVACY_VERSION}). The privacy policy only ever
+          This policy is versioned ({currentPrivacyVersion()}). The privacy policy only ever
           describes what the code actually does; if behavior changes, the policy and
           version change with it, and we will show you what changed.
         </p>

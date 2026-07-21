@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { TERMS_VERSION } from "@/lib/policy";
+import { currentTermsVersion } from "@/lib/policy";
+import { autonomousSafetyEnabled } from "@/lib/safety/config";
 import { PLAN } from "@/lib/billing";
 
 // Terms of Service v2.0. Coverage expanded per counsel's instruction to match
@@ -28,10 +29,11 @@ function Section({ n, title, children }: { n: number; title: string; children: R
 }
 
 export default function TermsPage() {
+  const autonomous = autonomousSafetyEnabled();
   return (
     <main className="mx-auto max-w-3xl px-6 py-12">
       <h1 className="font-serif text-4xl font-medium">Terms of Service</h1>
-      <p className="mt-2 text-sm text-olive">Version {TERMS_VERSION} · {EFFECTIVE}</p>
+      <p className="mt-2 text-sm text-olive">Version {currentTermsVersion()} · {EFFECTIVE}</p>
 
       <Section n={1} title="Agreement to these terms">
         <p>
@@ -50,6 +52,16 @@ export default function TermsPage() {
           guided sessions, daily check-ins, grounding tools, progress measurement, and a
           software companion.
         </p>
+        {autonomous && (
+          <p>
+            <strong>
+              Steady&apos;s safety, pacing, and access decisions — whether the program is a
+              safe fit for you, what is available to you each day, and when higher-intensity
+              modules open — are made automatically by fixed rules built into the software,
+              not by a person reviewing your file.
+            </strong>
+          </p>
+        )}
         <p>
           <strong>
             Steady is not therapy, medical or mental-health care, or a substitute for
@@ -85,7 +97,10 @@ export default function TermsPage() {
         </p>
       </Section>
 
-      <Section n={5} title="Eligibility and fit screening">
+      <Section
+        n={5}
+        title={autonomous ? "Eligibility, fit screening, and automated safety rules" : "Eligibility and fit screening"}
+      >
         <p>
           Steady is for adults 18 and over — no exceptions, including with parental consent.
           Before your first session you must answer program-fit questions honestly. Some
@@ -93,10 +108,34 @@ export default function TermsPage() {
           hospitalization, psychotic or dissociative disorders, substance dependence used to
           cope with memories, or an unsafe living situation — mean self-guided work is not
           safe, and Steady will decline or pause your access and point you to appropriate
-          resources instead. We may pause sessions or end access at any time when our safety
-          systems indicate the program is not a safe fit; if that happens after you have
-          paid, your most recent charge is refunded automatically (section 10).
+          resources instead.
         </p>
+        {autonomous ? (
+          <>
+            <p>
+              <strong>
+                These decisions, and the day-to-day decisions about what is available to you
+                and when higher-intensity modules unlock, are made by automated rules — not by
+                a person reviewing your readiness or approving unlocks.
+              </strong>{" "}
+              The rules are designed to keep you safe and to move toward <em>less</em>{" "}
+              intensity whenever your information is unclear. You can always see the reason for
+              a limitation, and if the rules cannot clear you — or you repeatedly reach a
+              safety stop — you are routed to human support and crisis resources.
+            </p>
+            <p>
+              We may pause sessions or end access at any time when our automated safety rules
+              indicate the program is not a safe fit; if that happens after you have paid, your
+              most recent charge is refunded automatically (section 10).
+            </p>
+          </>
+        ) : (
+          <p>
+            We may pause sessions or end access at any time when our safety systems indicate
+            the program is not a safe fit; if that happens after you have paid, your most
+            recent charge is refunded automatically (section 10).
+          </p>
+        )}
       </Section>
 
       <Section n={6} title="Your account">
@@ -202,7 +241,7 @@ export default function TermsPage() {
           Our <Link href="/privacy" className="underline">Privacy Policy</Link> describes
           exactly what we collect, how it is protected, and your deletion rights — no
           advertising trackers, no sale of data, application-layer encryption of what you
-          write, self-serve deletion. We may disclose information where required by law, to
+          write, self-serve deletion.{autonomous ? " It also describes how the program's automated decisions work." : ""} We may disclose information where required by law, to
           enforce these terms, to address suspected illegal activity, or to protect the
           rights and safety of members, the public, or Steady — and the Privacy Policy
           governs how.
