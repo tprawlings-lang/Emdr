@@ -20,6 +20,8 @@ export type {
   RuleCategory,
 } from "./types";
 export { RULES } from "./rules";
+export { SESSION_RULES } from "./rule-catalog";
+export type { CatalogRule } from "./rule-catalog";
 export { BETA_CONFIG, SESSION, BLS, autonomousSafetyEnabled } from "./config";
 export {
   newSession,

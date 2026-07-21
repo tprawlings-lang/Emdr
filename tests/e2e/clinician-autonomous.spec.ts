@@ -25,7 +25,7 @@ test("clinician can open the autonomous review console and see gated decisions",
   await expect(page.getByText(/✓ allowed/)).toBeVisible();
 
   // Sign-off register: record Agree for a rule and confirm it persists.
-  await expect(page.getByRole("heading", { name: /rule sign-off register/i })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Rule sign-off register", exact: true })).toBeVisible();
   const ruleForm = page.locator('form:has(input[name="rule_id"][value="FIT_UNDER_18"])');
   await ruleForm.locator('input[name="note"]').fill("Threshold correct per DSM age gate.");
   await ruleForm.getByRole("button", { name: "Agree" }).click();
@@ -39,6 +39,13 @@ test("clinician can open the autonomous review console and see gated decisions",
   await expect(page.getByText("containment", { exact: true })).toBeVisible();
   await expect(page.getByText(/8h|48h/)).toBeVisible(); // cooldown shown
 
+  // Session-rule register: sign off a session threshold as needs-change.
+  await expect(page.getByRole("heading", { name: /session-rule sign-off register/i })).toBeVisible();
+  const sessForm = page.locator('form:has(input[name="rule_id"][value="SESSION_MAX_SETS"])');
+  await sessForm.getByRole("button", { name: "Needs change" }).click();
+  await expect(page.getByText(/1 needs change/)).toBeVisible();
+  await expect(page.getByText(/1 agreed/)).toBeVisible();
+
   // CSV export (fetched in-page so it carries the clinician session cookie).
   const out = await page.evaluate(async () => {
     const r = await fetch("/clinician/autonomous/export");
@@ -48,4 +55,5 @@ test("clinician can open the autonomous review console and see gated decisions",
   expect(out.ct).toContain("text/csv");
   expect(out.text).toContain("rule_id,category,config_version,verdict,note");
   expect(out.text).toMatch(/FIT_UNDER_18,[^,]*,[^,]*,agree/);
+  expect(out.text).toMatch(/SESSION_MAX_SETS,[^,]*,[^,]*,needs_change/);
 });
