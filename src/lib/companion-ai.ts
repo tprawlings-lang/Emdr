@@ -10,6 +10,30 @@ import {
   writeMemory,
 } from "./companion";
 import { TRACK_LABELS, getProfile } from "./profile";
+import { audit } from "./audit";
+import { validateCompanionOutput, SAFE_FALLBACK } from "./safety/companion-guard";
+import { autonomousSafetyEnabled } from "./safety/config";
+
+// Deterministic output guard (Autonomous Step 4). The model only proposes; this
+// backstop validates the candidate against the corpus's "never say" rules. In
+// shadow mode it logs violations; when governance is on it replaces the text
+// with a safe fallback. Best-effort — never throws into a reply.
+function guardCompanionText(userId: string, text: string): string {
+  try {
+    const { ok, violations } = validateCompanionOutput(text);
+    if (ok) return text;
+    audit({
+      actorId: userId,
+      actorRole: "member",
+      family: "safety",
+      type: autonomousSafetyEnabled() ? "companion_output_blocked" : "companion_output_violation_shadow",
+      detail: { kinds: violations.map((v) => v.kind) },
+    });
+    return autonomousSafetyEnabled() ? SAFE_FALLBACK : text;
+  } catch {
+    return text;
+  }
+}
 import { getProgramPlan } from "./program-plan";
 
 // LLM-backed companion. The deterministic safety routing in actions.ts
@@ -422,7 +446,10 @@ export async function generateAiReply(
         .join("\n")
         .trim();
       return {
-        text: text || "I'm here. Tell me a little more about what's going on for you right now.",
+        text: guardCompanionText(
+          ctx.userId,
+          text || "I'm here. Tell me a little more about what's going on for you right now."
+        ),
         riskFlag: state.riskFlag,
         mode: state.riskFlag ? "crisis" : "ai",
       };

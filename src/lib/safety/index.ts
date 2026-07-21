@@ -32,3 +32,19 @@ export {
   completeClosure,
 } from "./session";
 export type { SessionState, SessionPhase, SessionDecision, SessionAction } from "./session";
+export {
+  MemoryClass,
+  classifyMemory,
+  decayState,
+  canExposeToModel,
+  canShareWithProvider,
+  canInfluenceSafety,
+  SENSITIVE_EPISODIC_TTL_DAYS,
+} from "./memory";
+export type { Provenance, ClassifiedMemory, DecayInput } from "./memory";
+export {
+  validateCompanionOutput,
+  buildGuardrailBlock,
+  SAFE_FALLBACK,
+} from "./companion-guard";
+export type { Violation, ViolationKind } from "./companion-guard";
