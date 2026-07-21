@@ -48,3 +48,12 @@ export {
   SAFE_FALLBACK,
 } from "./companion-guard";
 export type { Violation, ViolationKind } from "./companion-guard";
+export {
+  JourneyStage,
+  STAGE_OWNER,
+  STAGE_GATE_ROUTE,
+  resolveJourneyStage,
+} from "./journey";
+export type { JourneySignals, TransitionOwner } from "./journey";
+export { orchestrateNext } from "./orchestrate";
+export type { OrchestrationDecision, OrchestrationCategory } from "./orchestrate";
