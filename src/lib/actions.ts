@@ -35,6 +35,11 @@ import {
 import { aiCompanionEnabled, generateAiOpening, generateAiReply } from "./companion-ai";
 import { generateProgramPlan } from "./program-plan";
 import { addMemberTrack, archiveMemberTrack, getTrack, saveTrackIntake } from "./tracks";
+import { rateLimit } from "./rate-limit";
+
+// Companion cost/abuse guard: model-backed messages per user per window.
+const COMPANION_MSG_LIMIT = Number(process.env.EMDR_COMPANION_RATE_LIMIT ?? 20);
+const COMPANION_WINDOW_MS = 60_000;
 
 function createAlert(args: {
   userId: string;
@@ -663,9 +668,19 @@ export async function sendCompanionMessage(
   // use the Claude-backed companion when configured, with the rules engine
   // as fallback so the demo still works without an API key or network.
   const ctx = buildCompanionContext(user.id);
+  const isCrisis = detectRisk(trimmed);
   let reply;
-  if (detectRisk(trimmed) || !aiCompanionEnabled()) {
+  if (isCrisis || !aiCompanionEnabled()) {
+    // Crisis routing and the rules engine never call the paid model, and crisis
+    // is always exempt from rate limiting — safety is never throttled.
     reply = generateReply(ctx, trimmed);
+  } else if (!rateLimit(`companion:${user.id}`, COMPANION_MSG_LIMIT, COMPANION_WINDOW_MS).ok) {
+    // Cost/abuse guard on the model-backed path. A gentle, non-alarming reply;
+    // no model call, nothing flagged.
+    reply = {
+      text: "Let's take this a little slower — I'm still here. Give it a moment and send that again in a minute.",
+      riskFlag: false,
+    };
   } else {
     try {
       reply = await generateAiReply(ctx, convId, trimmed);

@@ -11,6 +11,8 @@ import { classifyFitness, FITNESS_ITEMS } from "../src/lib/fitness-screener";
 import { evaluateCheckin } from "../src/lib/gating";
 import { detectRisk } from "../src/lib/companion";
 import { scoreTrackCandidates, trackSafetyGate } from "../src/lib/track-recommender";
+import { collectEnvIssues } from "../src/lib/env-guard";
+import { rateLimit, resetRateLimits } from "../src/lib/rate-limit";
 
 function allNo(): Record<string, boolean> {
   return Object.fromEntries(FITNESS_ITEMS.map((i) => [i.id, false]));
@@ -129,4 +131,53 @@ test("track recommender: scoring maps intake tags to the right pathways and caps
   // At most three candidates are ever returned.
   const many = scoreTrackCandidates(["intrusions", "panic", "specific_fear", "grief", "low_mood", "cravings"]);
   assert.ok(many.length <= 3, "candidates are capped at three");
+});
+
+test("env-guard: production refuses missing/default secrets, accepts strong config", () => {
+  const strong = "a".repeat(48);
+  // Missing session secret in production is fatal.
+  const missing = collectEnvIssues({ NODE_ENV: "production", EMDR_DATA_KEY: strong } as NodeJS.ProcessEnv);
+  assert.ok(missing.some((i) => i.key === "EMDR_SESSION_SECRET" && i.level === "fatal"));
+
+  // Dev-default session secret in production is fatal.
+  const devDefault = collectEnvIssues({
+    NODE_ENV: "production",
+    EMDR_SESSION_SECRET: "dev-only-secret-change-me",
+    EMDR_DATA_KEY: strong,
+  } as NodeJS.ProcessEnv);
+  assert.ok(devDefault.some((i) => i.key === "EMDR_SESSION_SECRET" && i.level === "fatal"));
+
+  // Missing data key in production is fatal (would store PII as plaintext).
+  const noKey = collectEnvIssues({ NODE_ENV: "production", EMDR_SESSION_SECRET: strong } as NodeJS.ProcessEnv);
+  assert.ok(noKey.some((i) => i.key === "EMDR_DATA_KEY" && i.level === "fatal"));
+
+  // A fully-configured production env has no fatal issues.
+  const good = collectEnvIssues({
+    NODE_ENV: "production",
+    EMDR_SESSION_SECRET: strong,
+    EMDR_DATA_KEY: strong,
+    R2_ACCOUNT_ID: "x",
+    R2_ACCESS_KEY_ID: "x",
+    R2_SECRET_ACCESS_KEY: "x",
+    R2_BUCKET: "x",
+    BACKUP_AGE_RECIPIENT: "x",
+  } as NodeJS.ProcessEnv);
+  assert.equal(good.filter((i) => i.level === "fatal").length, 0);
+
+  // In development, the same gaps are warnings, never fatal.
+  const dev = collectEnvIssues({ NODE_ENV: "development" } as NodeJS.ProcessEnv);
+  assert.equal(dev.filter((i) => i.level === "fatal").length, 0);
+});
+
+test("rate-limit: allows up to the limit then blocks, and resets after the window", () => {
+  resetRateLimits();
+  const key = "test:user";
+  for (let i = 0; i < 3; i++) assert.equal(rateLimit(key, 3, 60_000).ok, true, `call ${i} should pass`);
+  assert.equal(rateLimit(key, 3, 60_000).ok, false, "4th call should be blocked");
+  // A different key is independent.
+  assert.equal(rateLimit("test:other", 3, 60_000).ok, true);
+  // A zero-length window means every call starts a fresh window (immediate reset).
+  resetRateLimits();
+  assert.equal(rateLimit(key, 1, 0).ok, true);
+  assert.equal(rateLimit(key, 1, 0).ok, true);
 });

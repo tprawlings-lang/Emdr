@@ -4,14 +4,19 @@ import fs from "fs";
 import crypto from "crypto";
 import { seedDemoData } from "./demo-seed";
 
-const DATA_DIR = process.env.EMDR_DATA_DIR ?? path.join(process.cwd(), ".data");
+// Resolved lazily inside getDb() (not at module load) so EMDR_DATA_DIR is
+// honored even when set just before the first DB access — e.g. hermetic tests.
+function dataDir(): string {
+  return process.env.EMDR_DATA_DIR ?? path.join(process.cwd(), ".data");
+}
 
 let db: Database.Database | null = null;
 
 export function getDb(): Database.Database {
   if (db) return db;
-  fs.mkdirSync(DATA_DIR, { recursive: true });
-  db = new Database(path.join(DATA_DIR, "emdr.db"));
+  const dir = dataDir();
+  fs.mkdirSync(dir, { recursive: true });
+  db = new Database(path.join(dir, "emdr.db"));
   db.pragma("journal_mode = WAL");
   db.pragma("foreign_keys = ON");
   migrate(db);
@@ -314,6 +319,11 @@ function migrate(db: Database.Database) {
   // Clinician override: a specialist may open a gated module ahead of the
   // program's pacing (prerequisites + readiness). Daily safety gates still hold.
   ensureColumn(db, "module_unlocks", "override", "INTEGER NOT NULL DEFAULT 0");
+  // Tamper-evident audit chain: each row carries the hash of the previous row
+  // and its own content hash, so retroactive edits/deletions are detectable
+  // (see audit.ts verifyAuditChain).
+  ensureColumn(db, "audit_log", "prev_hash", "TEXT");
+  ensureColumn(db, "audit_log", "entry_hash", "TEXT");
 }
 
 function ensureColumn(db: Database.Database, table: string, column: string, ddl: string) {

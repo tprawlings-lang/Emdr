@@ -4,6 +4,11 @@
 // a separate cron service could not mount.
 export async function register() {
   if (process.env.NEXT_RUNTIME === "nodejs") {
+    // Fail fast on a misconfigured production deploy (forgeable sessions /
+    // plaintext PII) before serving a single request.
+    const { assertProductionConfig } = await import("./lib/env-guard");
+    assertProductionConfig();
+
     const { scheduleNightlyBackups } = await import("./lib/backup");
     scheduleNightlyBackups();
   }
