@@ -8,8 +8,11 @@ import {
   validateCompanionOutput,
   safetyCoreStatus,
   AccessTier,
+  RULES,
   type SafetyInputs,
 } from "@/lib/safety";
+import { getRuleSignoffs, signoffProgress } from "@/lib/safety/signoff";
+import { recordRuleSignoff } from "@/lib/actions";
 
 // Clinician "Autonomous Review" console (beta sign-off workbench). Lets a
 // clinician (a) simulate any scenario and see exactly what the deterministic
@@ -84,6 +87,15 @@ export default async function AutonomousReview({ searchParams }: { searchParams:
     (e) => e.event_type.startsWith("safety_routing") || e.event_type.startsWith("companion_output")
   );
 
+  const signoffs = getRuleSignoffs();
+  const progress = signoffProgress(RULES.map((r) => r.id), signoffs);
+  const verdictBadge = (ruleId: string) => {
+    const v = signoffs.get(ruleId)?.verdict;
+    if (v === "agree") return <span className="ml-2 rounded bg-safe/20 px-1.5 py-0.5 text-[10px] text-ground">agreed</span>;
+    if (v === "needs_change") return <span className="ml-2 rounded bg-support/15 px-1.5 py-0.5 text-[10px] text-support-deep">needs change</span>;
+    return <span className="ml-2 rounded bg-linen px-1.5 py-0.5 text-[10px] text-olive">unreviewed</span>;
+  };
+
   const field = "mt-1 w-full rounded-lg border border-ground/15 bg-ivory px-3 py-1.5 text-sm";
   const chk = "flex items-center gap-2 text-sm text-ground/90";
 
@@ -102,6 +114,15 @@ export default async function AutonomousReview({ searchParams }: { searchParams:
         <span className="rounded-full border border-pause/50 bg-pause-soft px-3 py-1">mode: {status.mode}</span>
         <span className="rounded-full border border-ground/15 bg-linen px-3 py-1">governance: {status.governanceEnabled ? "ON" : "off"}</span>
         <span className="rounded-full border border-support/40 bg-support/10 px-3 py-1 text-support-deep">provisional — sign-off required</span>
+      </div>
+
+      <div className="mt-3 flex flex-wrap items-center gap-3 text-xs">
+        <span className="font-medium text-olive">Rule sign-off:</span>
+        <span className="rounded bg-safe/20 px-2 py-0.5">{progress.agreed} agreed</span>
+        <span className="rounded bg-support/15 px-2 py-0.5 text-support-deep">{progress.needsChange} needs change</span>
+        <span className="rounded bg-linen px-2 py-0.5 text-olive">{progress.unreviewed} unreviewed</span>
+        <span className="text-olive">of {progress.total} rules</span>
+        <a href="#register" className="underline text-olive">go to register ↓</a>
       </div>
 
       <p className="mt-4 rounded-xl border border-ground/15 bg-linen px-4 py-3 text-sm text-ground/80">
@@ -219,6 +240,7 @@ export default async function AutonomousReview({ searchParams }: { searchParams:
                   <li key={h.id} className="rounded-lg border border-ground/10 bg-linen/60 px-3 py-2 text-sm">
                     <code className="text-xs font-medium text-ground">{h.id}</code>
                     <span className="ml-2 text-xs text-olive">({h.category})</span>
+                    {verdictBadge(h.id)}
                     <p className="mt-0.5 text-ground/80">{h.reason}</p>
                   </li>
                 ))}
@@ -276,6 +298,45 @@ export default async function AutonomousReview({ searchParams }: { searchParams:
             </table>
           </div>
         )}
+      </section>
+
+      {/* ── Rule sign-off register ─────────────────────────────────────── */}
+      <section id="register" className="mt-8 rounded-2xl border border-ground/15 bg-white p-5">
+        <h2 className="font-serif text-xl">Rule sign-off register</h2>
+        <p className="mt-1 text-xs text-olive">
+          Record your verdict on each deterministic rule at config {status.configVersion}. Verdicts reset if a
+          threshold changes. These write to the tamper-evident audit log.
+        </p>
+        <div className="mt-4 space-y-2">
+          {RULES.map((r) => {
+            const current = signoffs.get(r.id);
+            return (
+              <div key={r.id} className="rounded-lg border border-ground/10 bg-linen/40 px-3 py-2">
+                <div className="flex items-center gap-2">
+                  <code className="text-xs font-medium">{r.id}</code>
+                  <span className="text-[10px] text-olive">({r.category})</span>
+                  {verdictBadge(r.id)}
+                </div>
+                <p className="mt-0.5 text-xs text-ground/70">{r.reason}</p>
+                <form action={recordRuleSignoff} className="mt-2 flex flex-wrap items-center gap-2">
+                  <input type="hidden" name="rule_id" value={r.id} />
+                  <input
+                    name="note"
+                    defaultValue={current?.note ?? ""}
+                    placeholder="optional note"
+                    className="min-w-40 flex-1 rounded border border-ground/15 bg-ivory px-2 py-1 text-xs"
+                  />
+                  <button name="verdict" value="agree" className="rounded-full bg-safe/25 px-3 py-1 text-xs font-medium text-ground hover:bg-safe/40">
+                    Agree
+                  </button>
+                  <button name="verdict" value="needs_change" className="rounded-full bg-support/15 px-3 py-1 text-xs font-medium text-support-deep hover:bg-support/25">
+                    Needs change
+                  </button>
+                </form>
+              </div>
+            );
+          })}
+        </div>
       </section>
     </main>
   );

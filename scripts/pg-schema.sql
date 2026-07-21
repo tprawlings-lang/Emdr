@@ -298,3 +298,14 @@ CREATE INDEX IF NOT EXISTS idx_triggers_user ON user_triggers(user_id, active);
 CREATE INDEX IF NOT EXISTS idx_readiness_user ON readiness_assessments(user_id, created_at);
 CREATE INDEX IF NOT EXISTS idx_memory_user ON ai_memory_items(user_id, memory_type, active);
 CREATE INDEX IF NOT EXISTS idx_ai_messages_conv ON ai_messages(conversation_id, created_at);
+
+CREATE TABLE IF NOT EXISTS autonomous_signoffs (
+  id text PRIMARY KEY,
+  rule_id text NOT NULL,
+  config_version text NOT NULL,
+  verdict text NOT NULL CHECK (verdict IN ('agree','needs_change')),
+  note text,
+  clinician_id text REFERENCES users(id),
+  created_at text NOT NULL DEFAULT steady_now()
+);
+CREATE INDEX IF NOT EXISTS idx_signoffs_rule ON autonomous_signoffs(rule_id, config_version, created_at);

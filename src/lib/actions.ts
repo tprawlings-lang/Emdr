@@ -1411,3 +1411,31 @@ export async function removeCareTrack(formData: FormData) {
   revalidatePath("/dashboard");
   redirect("/paths");
 }
+
+// ---------- Autonomous review sign-off (clinician) ----------
+
+export async function recordRuleSignoff(formData: FormData) {
+  const clinician = await requireClinician();
+  const ruleId = String(formData.get("rule_id") ?? "").trim().slice(0, 80);
+  const verdict = String(formData.get("verdict") ?? "");
+  const note = String(formData.get("note") ?? "").trim().slice(0, 500) || null;
+  if (!ruleId || (verdict !== "agree" && verdict !== "needs_change")) redirect("/clinician/autonomous");
+
+  const { SAFETY_CONFIG_VERSION } = await import("./safety/governance");
+  getDb()
+    .prepare(
+      "INSERT INTO autonomous_signoffs (id, rule_id, config_version, verdict, note, clinician_id) VALUES (?, ?, ?, ?, ?, ?)"
+    )
+    .run(newId(), ruleId, SAFETY_CONFIG_VERSION, verdict, note ? encryptField(note) : null, clinician.id);
+
+  audit({
+    actorId: clinician.id,
+    actorRole: "clinician",
+    family: "specialist_action",
+    type: "autonomous_rule_signoff",
+    target: ruleId,
+    detail: { verdict, configVersion: SAFETY_CONFIG_VERSION, hasNote: !!note },
+  });
+  revalidatePath("/clinician/autonomous");
+  redirect("/clinician/autonomous#register");
+}

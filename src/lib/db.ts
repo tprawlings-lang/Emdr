@@ -310,6 +310,17 @@ function migrate(db: Database.Database) {
   CREATE INDEX IF NOT EXISTS idx_readiness_user ON readiness_assessments(user_id, created_at);
   CREATE INDEX IF NOT EXISTS idx_memory_user ON ai_memory_items(user_id, memory_type, active);
   CREATE INDEX IF NOT EXISTS idx_ai_messages_conv ON ai_messages(conversation_id, created_at);
+
+  CREATE TABLE IF NOT EXISTS autonomous_signoffs (
+    id TEXT PRIMARY KEY,
+    rule_id TEXT NOT NULL,
+    config_version TEXT NOT NULL,
+    verdict TEXT NOT NULL CHECK (verdict IN ('agree','needs_change')),
+    note TEXT,
+    clinician_id TEXT REFERENCES users(id),
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+  CREATE INDEX IF NOT EXISTS idx_signoffs_rule ON autonomous_signoffs(rule_id, config_version, created_at);
   `);
 
   // Columns added after initial release; SQLite has no ADD COLUMN IF NOT EXISTS.
