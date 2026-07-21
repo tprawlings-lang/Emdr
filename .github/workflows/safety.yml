@@ -42,9 +42,10 @@ jobs:
             | grep .
 
   e2e:
-    # End-to-end smoke suite: builds and starts the production server, then runs
-    # read-only Playwright checks on the critical unauthenticated surfaces
-    # (home, crisis, login, signup, security headers, auth redirect).
+    # End-to-end suite: builds and starts the production server, then runs
+    # Playwright checks on the critical unauthenticated surfaces (home, crisis,
+    # login, signup, security headers, auth redirect) PLUS an axe-core WCAG
+    # audit that blocks on any serious/critical violation.
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
