@@ -519,8 +519,23 @@ demo; they are the gates to a real launch:
 
 - [x] Companion transcripts — **keep encrypted persistence** (decided).
 - [x] CSP hardening — **nonce-based, done** (ADR 0008).
-- [x] Zero-downtime deploys — **approved, migration in progress** (ADR 0007).
+- [x] Zero-downtime deploys — **approved** (ADR 0007); migration steps tracked in §14.5.
 - [ ] **Autonomous-model claim rewrite** (§10) — pending founder handoff.
+
+### 14.5 Infrastructure — required before live mode (not demo) 🔴
+
+The demo runs single-instance on SQLite, which forces a brief outage on every deploy.
+**Before switching from demo to live**, finish the Postgres migration so deploys are
+zero-downtime and the app can run more than one instance (ADR 0007):
+
+- [x] PG schema + driver (`scripts/pg-schema.sql`, dual SQLite/PG data layer).
+- [x] Async data-access layer.
+- [ ] **Port remaining call sites to the async layer** (~157 sites). 🔴
+- [ ] **Port the backup/restore system** to Postgres (`pg_dump` path + off-site age
+  encryption; keep RPO 24h / RTO ~1h). 🔴
+- [ ] **Cut Render over**: provision the ~$7/mo managed Postgres, point
+  `DATABASE_URL` at it, run the quiet-moment few-minute cutover (option A), then
+  scale past one instance. 🔴
 
 ### 14.4 Autonomous safety system (§10) — status
 
@@ -530,10 +545,13 @@ demo; they are the gates to a real launch:
   per-rule Agree / Needs-change sign-off and CSV export.
 - [ ] **Clinician sign-off** on the rules + Volume II conflict resolution (via the console
   + [`docs/autonomous/01-signoff-ledger.md`](docs/autonomous/01-signoff-ledger.md)). 🔴
-- [ ] **Policy / ToS / product-copy changes** — the consent + privacy copy still promise
-  *human review of readiness*, which autonomy removes; add an automated-decision-making
-  disclosure. Counsel-gated change-set drafted in
-  [`docs/autonomous/02-policy-and-copy-changes.md`](docs/autonomous/02-policy-and-copy-changes.md);
-  ship atomically with the flag flip. 🔴
+- [x] **Legal copy (ToS / Privacy / consent)** — counsel-approved autonomous rewrite is
+  applied **flag-aware**: current human-in-loop copy stays live; the `*-autonomous`
+  versions + automated-decision-making disclosure serve automatically when
+  `EMDR_AUTONOMOUS_SAFETY` flips. Change-set:
+  [`docs/autonomous/02-policy-and-copy-changes.md`](docs/autonomous/02-policy-and-copy-changes.md).
+- [ ] **Product microcopy** (`gating.ts` unlock strings, dashboard care-team) still says
+  *waiting for your specialist's review* — reword to rule-based language **with** the flag
+  flip + session-UI wiring (deferred until auto-unlock is wired). 🔴
 - [ ] **Flip `EMDR_AUTONOMOUS_SAFETY=1`** (one stage at a time) + wire the session UI /
   dashboard to the engine — only after sign-off. 🔴
