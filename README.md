@@ -14,9 +14,12 @@ treatment claims. Membership is **$34.99/month** after a 7-day free trial.
 skills/automation on top of Steady. It documents the **entire member workflow**, every
 **instrument and questionnaire**, exactly **how each is scored**, and **how ongoing scores
 open and close modules**. Everything described in §1–§9 is implemented and live. §10
-describes the **planned fully-autonomous direction** (replacing clinician oversight with
-rules) — that is a design target only; it is **not built and must not be assumed** by
-skills until it ships.
+describes the **autonomous direction**: the clinician-designed deterministic safety
+architecture is now **built and deployed in shadow mode** — it computes and audit-logs
+every decision but **governs nothing a member sees**, and stays that way until an
+independent licensed clinician signs off (flag `EMDR_AUTONOMOUS_SAFETY`, default off).
+Skills must **not** assume it is governing yet. Build docs live in
+[`docs/autonomous/`](docs/autonomous/).
 
 ---
 
@@ -349,43 +352,68 @@ the recommender — is **already deterministic and autonomous**.
 
 ---
 
-## 10. Planned direction: fully autonomous (NOT YET BUILT)
+## 10. Autonomous direction — BUILT in shadow mode, pending clinician sign-off
 
-**Status: design target only. Do not build skills that assume this is live.** The founder
-intends to remove clinician oversight and run fully autonomous. Nothing in the codebase
-implements this yet; this section exists so skills can be designed with the destination
-in mind.
+**Status: the deterministic safety architecture is built and deployed, but runs in
+SHADOW MODE — it computes and audit-logs every decision and governs NOTHING a member
+experiences.** It is gated behind `EMDR_AUTONOMOUS_SAFETY` (default off) and stays in
+shadow until an independent licensed clinician signs off. Skills must **not** assume it is
+governing. It was built faithfully from the five-volume clinician-authored corpus; the
+mapping, the build sequence, and the sign-off ledger are in
+[`docs/autonomous/`](docs/autonomous/).
 
-What would change (§9 items get rules-based replacements):
+**The one architectural rule (all five volumes agree):** safety decisions are deterministic
+and verified; the AI companion is advisory only and is *structurally prevented* from making,
+reversing, or clearing any safety decision. "Increasing uncertainty must reduce intervention
+intensity." Autonomy here means *more deterministic automation of clinician-validated rules*
+— never *the AI deciding more*.
 
-- **Unlocks → auto-unlock criteria.** A gated module opens when deterministic criteria
-  are met instead of a human decision. The natural inputs already exist: readiness track
-  (`gentle_processing`/`full`), N completed prerequisite sessions with settling SUDS
-  (e.g., post < pre, post ≤ 4), no hard stop / crisis routing / worsening alert in a
-  lookback window, safety plan present, and trigger intensity of the chosen focus < 7.
-  Exact thresholds are **not decided** — treat as open parameters.
-- **Alert queue → automated dispositions.** Risk-item positives and post-session
-  escalations would route to scripted crisis resources + tightened gating (e.g., forced
-  stabilization track for 72h) instead of a human reviewer. Urgent paths (not-safe-
-  tonight) already route to crisis resources today and would keep doing so.
-- **Program plan** stays advisory but becomes the sequencing authority the auto-unlock
-  criteria read from.
+### What is built (all pure, tested, flag-gated — `src/lib/safety/`)
+1. **Deterministic safety core** — a permission-intersection engine + machine-ID rule table
+   (Vol II §13); most-restrictive-wins; missing input never defaults favorably; every
+   routing decision produces a content-free audit record.
+2. **Scoring to spec** — state/trait program-fit, caps-based readiness, item-level
+   instrument safety (PHQ-9 q9, PCL-5 q16), narrow-only daily route. Runs in shadow on real
+   data at session start (`safety_routing_shadow` audit events).
+3. **Session-runtime engine** — starting-SUDS gate, post-set containment rules, one-tap
+   Ground-Me, mandatory closure, BLS limits. Never auto-starts a set; every stop absolute.
+4. **Companion memory + output guard** — 6-class memory with provenance + graceful
+   forgetting; a deterministic validator that blocks the corpus's "never-say" outputs
+   (simulated feelings, asserted internal states, diagnosis, cure claims, false monitoring,
+   reprocessing instructions, dependency).
+5. **Journey orchestration** — the 22-stage journey with a named owner per transition; the
+   orchestrator personalizes within the gates and only *consumes* the risk engine (never
+   invents an escalation).
+6. **Governance** — kill switches (generative conversation / provider sharing / escalation
+   automation), config-as-code snapshot, and `/api/safety-status` (mode, version, stages).
 
-What must be true before this launches (blocking, tracked here deliberately):
+~112 dedicated safety unit tests plus an end-to-end red-team harness (`tests/safety-*.ts`).
 
-1. **Every "specialist review" claim must change** — marketing copy, FAQ, dashboard
-   ("shared with your care team", "specialist gated"), module copy, ToS/consent language,
-   and `COMPLIANCE.md` all currently promise human review. Shipping autonomy without
-   rewriting these makes existing claims false.
-2. **The third-party build handoff (June 2026) names a live-clinician gate as its
-   non-negotiable rule** — going autonomous is an explicit founder decision to depart
-   from that document; counsel should re-confirm the wellness-lane posture with
-   oversight removed.
-3. **The EMDR-trained advisor sign-off** (already a launch gate for screener wording)
-   becomes more important, not less: the auto-unlock thresholds inherit the safety role
+### How a clinician validates and signs off
+The clinician-only **Autonomous Review console** (`/clinician/autonomous`) is the sign-off
+workbench: simulate any gating scenario and see exactly what would be gated/passed and *why*
+(every rule fired, by name); simulate an in-session step (SUDS → containment/closure); test a
+companion message against the output guard; review the real shadow decisions logged during
+beta; and record **Agree / Needs-change** per rule (written to a register + the tamper-evident
+audit log, exportable as CSV). All thresholds are **provisional** and tracked in
+[`docs/autonomous/01-signoff-ledger.md`](docs/autonomous/01-signoff-ledger.md), including the
+Volume II numeric conflicts the clinician must resolve.
+
+### Path to launch (staged, per the corpus)
+shadow → clinician walks the console + ratifies the ledger → flip `EMDR_AUTONOMOUS_SAFETY=1`
+**one stage at a time** (kill switches available per capability) → governing → full launch.
+Blocking before it governs a real member:
+
+1. **Every "specialist review" claim must change** — marketing/FAQ/dashboard/module copy,
+   ToS/consent, and `COMPLIANCE.md` currently promise human review; shipping autonomy without
+   rewriting these makes existing claims false. *(Pending founder handoff — §14.3.)*
+2. **Counsel re-confirms the wellness-lane posture with oversight removed** (the June 2026
+   build handoff named a live-clinician gate as non-negotiable).
+3. **Independent licensed clinician (≥2) sign-off** on scope/thresholds/stop rules/crisis
+   routing via the review console + ledger — the deterministic rules inherit the safety role
    the clinician held.
-4. The `@safety` suite must grow tests for the auto-unlock rules before any rollout, and
-   the kill switch + fitness screener + SUDS rules remain non-negotiable substrate.
+4. The `@safety` + safety-core suites (done) stay green; kill switch + fitness screener +
+   SUDS rules remain non-negotiable substrate.
 
 ---
 
@@ -422,7 +450,10 @@ Member `demo@example.com` / `demo1234` · Clinician `clinician@example.com` / `d
 With `EMDR_DEMO=1` a rich fictional dataset seeds instead.
 
 **Tests & CI:** `npm run test:safety` runs the CI-blocking `@safety` suite (screener
-hard stops, SUDS rules, check-in routing, crisis regex, track-recommender safety gate).
+hard stops, SUDS rules, check-in routing, crisis regex, track-recommender safety gate)
+plus the **autonomous safety-core suite** (~112 tests: the deterministic engine, scoring,
+session runtime, companion guard, journey orchestration, governance, and a red-team
+harness — §10).
 `npm run test:e2e` runs the Playwright smoke suite (critical unauthenticated surfaces +
 security headers; hermetic by default, or point at a deploy with `E2E_BASE_URL`).
 CI (`.github/workflows/safety.yml`) blocks on `@safety` + build + `npm audit`
@@ -438,12 +469,17 @@ alert vars are set (see [`docs/backups.md`](docs/backups.md), `make restore-test
 Env vars of note: `ANTHROPIC_API_KEY` (companion + AI plans), `EMDR_DATA_KEY`
 (field encryption), `EMDR_DISABLE_NEW_SESSIONS` (kill switch),
 `EMDR_MAX_DAILY_PROCESSING` (default 1), `BACKUP_HOUR_UTC` (default 3).
+Autonomous safety core (§10): `EMDR_AUTONOMOUS_SAFETY` (default off — governs only
+after clinician sign-off), and the emergency kill switches `EMDR_KILL_GENERATIVE`
+(companion → static safe info), `EMDR_KILL_PROVIDER_SHARING`, `EMDR_KILL_ESCALATION`.
 
 ## 13. Stack
 
 Next.js (App Router, server actions, standalone output) · TypeScript · Tailwind CSS ·
 better-sqlite3 · Anthropic SDK. No ad-tech, no analytics pixels, no third-party
-trackers — by design.
+trackers — by design. The clinician-designed **deterministic safety core** lives in
+[`src/lib/safety/`](src/lib/safety/) (pure, ~112 tests, shadow-mode, flag-gated — §10),
+surfaced for review at `/clinician/autonomous` and `/api/safety-status`.
 
 ## 14. Before any real-world use (wellness-lane launch gates)
 
@@ -464,7 +500,10 @@ demo; they are the gates to a real launch:
 - [ ] **Stripe** — real hosted checkout. Safety auto-refund and 2-click cancel
   already work against the demo provider.
 - [ ] **EMDR-trained clinical advisor** — sign-off on screener wording/thresholds
-  (`fit-v1-placeholder`), crisis script, and session scripts.
+  (`fit-v1-placeholder`), crisis script, and session scripts. Also the **autonomous
+  safety rules** (§10): the advisor walks the Autonomous Review console
+  (`/clinician/autonomous`), resolves the Volume II numeric conflicts, and records an
+  Agree / Needs-change verdict per rule ([`docs/autonomous/01-signoff-ledger.md`](docs/autonomous/01-signoff-ledger.md)).
 - [ ] **Cyber liability insurance** quote ([`docs/incident-response.md`](docs/incident-response.md)).
 - [ ] **Branded domain + support email** — unblocks the ToS contact placeholder.
 
@@ -482,3 +521,14 @@ demo; they are the gates to a real launch:
 - [x] CSP hardening — **nonce-based, done** (ADR 0008).
 - [x] Zero-downtime deploys — **approved, migration in progress** (ADR 0007).
 - [ ] **Autonomous-model claim rewrite** (§10) — pending founder handoff.
+
+### 14.4 Autonomous safety system (§10) — status
+
+- [x] Built from the clinician corpus (safety core, scoring, session engine, companion
+  guard, journey orchestration, governance) — pure, ~112 tests, red-team harness.
+- [x] Deployed in **shadow mode** (governs nothing) + clinician review console with
+  per-rule Agree / Needs-change sign-off and CSV export.
+- [ ] **Clinician sign-off** on the rules + Volume II conflict resolution (via the console
+  + [`docs/autonomous/01-signoff-ledger.md`](docs/autonomous/01-signoff-ledger.md)). 🔴
+- [ ] **Flip `EMDR_AUTONOMOUS_SAFETY=1`** (one stage at a time) + wire the session UI /
+  dashboard to the engine — only after sign-off. 🔴
