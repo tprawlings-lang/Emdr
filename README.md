@@ -445,24 +445,40 @@ Next.js (App Router, server actions, standalone output) · TypeScript · Tailwin
 better-sqlite3 · Anthropic SDK. No ad-tech, no analytics pixels, no third-party
 trackers — by design.
 
-## 14. Known gaps before any real-world use (wellness-lane launch gates)
+## 14. Before any real-world use (wellness-lane launch gates)
 
-Tracked in full in [`COMPLIANCE.md`](COMPLIANCE.md); founder decisions and
-actions are collected as a checklist in
-[`docs/audit-open-items.md`](docs/audit-open-items.md). Still open:
+Full detail in [`COMPLIANCE.md`](COMPLIANCE.md); the live founder checklist with
+severities is [`docs/audit-open-items.md`](docs/audit-open-items.md).
 
-- **EMDR-trained clinical advisor** — screener wording/thresholds (`fit-v1-placeholder`),
-  crisis script, and session scripts need sign-off. Under the planned autonomous model
-  (§10) this advisor also owns the auto-unlock thresholds.
-- **Managed auth provider** (TOTP 2FA, admin realm) — interim: scrypt + signed cookies,
-  login lockout, 7-day-idle/30-day-absolute sessions.
-- **Email provider** — password reset, lockout notices, pre-charge reminders,
-  retention warnings, backup-failure alerts.
-- **Real payments** — Stripe hosted checkout; safety auto-refund and 2-click cancel
+### 14.1 Founder to-do — outside accounts you need to set up 🔴
+
+These require **you** to sign up for an outside service. None are needed for the
+demo; they are the gates to a real launch:
+
+- [ ] **Login + 2-factor provider** (e.g. Auth0 / Clerk / WorkOS) — for MFA and an
+  admin realm. Interim in place: scrypt + signed cookies, login lockout,
+  7-day-idle / 30-day-absolute sessions.
+- [ ] **Email provider** (e.g. Resend — already coded, just needs the API key) —
+  unblocks password reset, lockout notices, pre-charge reminders, retention
+  warnings, and backup-failure alerts.
+- [ ] **Stripe** — real hosted checkout. Safety auto-refund and 2-click cancel
   already work against the demo provider.
-- **Security & accessibility evidence** — companion red-team pass, WCAG 2.2 self-audit,
-  ZAP + gitleaks, backup-restore drill, SSL Labs record.
-- **Cyber liability insurance** quote ([`docs/incident-response.md`](docs/incident-response.md)).
-- **Founder decisions** — encrypted companion transcripts vs summarize-and-discard
-  (compliance 2.4); domain + branded support email (unblocks ToS contact placeholder);
-  **autonomous-model claim rewrite** (§10 item 1).
+- [ ] **EMDR-trained clinical advisor** — sign-off on screener wording/thresholds
+  (`fit-v1-placeholder`), crisis script, and session scripts.
+- [ ] **Cyber liability insurance** quote ([`docs/incident-response.md`](docs/incident-response.md)).
+- [ ] **Branded domain + support email** — unblocks the ToS contact placeholder.
+
+### 14.2 Drills & evidence to run (need the accounts above)
+
+- [ ] **Off-site backups** — set `R2_*` + `BACKUP_AGE_RECIPIENT`, then run
+  `make restore-test` (RPO 24h / RTO ~1h).
+- [ ] **Security/accessibility evidence** — companion red-team pass, ZAP scan,
+  SSL Labs record. (Automated already: `gitleaks` secret scan, `npm audit`,
+  Dependabot, and the axe-core WCAG gate.)
+
+### 14.3 Founder decisions
+
+- [x] Companion transcripts — **keep encrypted persistence** (decided).
+- [x] CSP hardening — **nonce-based, done** (ADR 0008).
+- [x] Zero-downtime deploys — **approved, migration in progress** (ADR 0007).
+- [ ] **Autonomous-model claim rewrite** (§10) — pending founder handoff.
