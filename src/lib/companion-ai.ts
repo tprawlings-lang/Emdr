@@ -13,6 +13,7 @@ import { TRACK_LABELS, getProfile } from "./profile";
 import { audit } from "./audit";
 import { validateCompanionOutput, SAFE_FALLBACK } from "./safety/companion-guard";
 import { autonomousSafetyEnabled } from "./safety/config";
+import { generativeConversationDisabled } from "./safety/governance";
 
 // Deterministic output guard (Autonomous Step 4). The model only proposes; this
 // backstop validates the candidate against the corpus's "never say" rules. In
@@ -413,6 +414,15 @@ export async function generateAiReply(
   convId: string,
   userText: string
 ): Promise<CompanionReply> {
+  // Kill switch (Autonomous Step 6): if generative conversation is disabled,
+  // present static safe information instead of calling the model at all.
+  if (generativeConversationDisabled()) {
+    return {
+      text: "The companion chat is paused for maintenance right now. Your grounding tools and the crisis page (988) are always available, and you can reach your support contact any time.",
+      riskFlag: false,
+      mode: "grounding",
+    };
+  }
   // The SDK retries transient errors (429/5xx/network) with exponential
   // backoff; set it explicitly rather than relying on the default (2).
   const client = new Anthropic({ maxRetries: 3 });

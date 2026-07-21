@@ -57,3 +57,13 @@ export {
 export type { JourneySignals, TransitionOwner } from "./journey";
 export { orchestrateNext } from "./orchestrate";
 export type { OrchestrationDecision, OrchestrationCategory } from "./orchestrate";
+export {
+  SAFETY_CONFIG_VERSION,
+  killSwitches,
+  generativeConversationDisabled,
+  providerSharingDisabled,
+  escalationAutomationDisabled,
+  safetyConfigSnapshot,
+  safetyCoreStatus,
+  AUTONOMOUS_STAGES,
+} from "./governance";

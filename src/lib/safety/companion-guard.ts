@@ -26,17 +26,18 @@ export interface Violation {
 const STATE_WORDS =
   "dissociating|dissociative|avoidant|avoiding|hypervigilant|traumatized|traumatised|in denial|resistant|manipulative|dependent|unstable|repressing|numb|broken";
 
+// A small lazy gap so a few filler words between phrases can't evade a rule
+// (e.g. "I really do care about you"). Stops at sentence boundaries.
+const GAP = "[^.?!\\n]{0,20}?";
+
 const PATTERNS: Array<{ kind: ViolationKind; re: RegExp }> = [
   // Simulated feelings / consciousness.
-  {
-    kind: "simulated_emotion",
-    re: /\bI\s+(care about you|love you|feel (?:for|so|really)|am (?:scared|worried|afraid|heartbroken)|truly care)\b/i,
-  },
-  { kind: "simulated_emotion", re: /\bI(?:'m| am)\s+(?:scared|worried|afraid) (?:for|about) you\b/i },
-  // Asserting the member's internal state as fact ("you are/you're [being] X").
-  { kind: "asserted_internal_state", re: new RegExp(`\\byou(?:'re| are)\\s+(?:being\\s+)?(?:${STATE_WORDS})\\b`, "i") },
+  { kind: "simulated_emotion", re: new RegExp(`\\bI\\b${GAP}\\b(?:care about you|love you|truly care)\\b`, "i") },
+  { kind: "simulated_emotion", re: new RegExp(`\\bI(?:'m| am)\\b${GAP}\\b(?:scared|worried|afraid|heartbroken)\\b`, "i") },
+  // Asserting the member's internal state as fact ("you are/you're [...] X").
+  { kind: "asserted_internal_state", re: new RegExp(`\\byou(?:'re| are)\\b${GAP}\\b(?:${STATE_WORDS})\\b`, "i") },
   // Diagnosis.
-  { kind: "diagnosis", re: /\byou (?:have|suffer from|are diagnosed with)\s+(?:ptsd|c-?ptsd|depression|anxiety disorder|a dissociative disorder)\b/i },
+  { kind: "diagnosis", re: new RegExp(`\\byou\\b${GAP}\\b(?:have|suffer from|are diagnosed with)\\s+(?:ptsd|c-?ptsd|depression|an? anxiety disorder|a dissociative disorder)\\b`, "i") },
   { kind: "diagnosis", re: /\b(?:I diagnose|my diagnosis|you are clinically)\b/i },
   // Outcome / cure claims.
   { kind: "outcome_claim", re: /\b(?:cure|cures|cured|heal your trauma|erase (?:the|your) memory|make it (?:disappear|go away forever)|guaranteed? to work|permanently fix)\b/i },
