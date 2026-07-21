@@ -1,6 +1,7 @@
 # 0007 — Scaling & zero-downtime deploys
 
-**Status:** Proposed — needs founder sign-off (see `docs/audit-open-items.md`)
+**Status:** Accepted (2026-07) — founder approved starting the migration now.
+Execution tracked in `docs/audit-open-items.md`.
 
 ## Context
 The app runs as a single instance (ADR 0004). Two consequences surfaced during

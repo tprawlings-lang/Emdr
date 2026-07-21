@@ -31,7 +31,13 @@ test("signup page is reachable", async ({ page }) => {
 test("security headers are present on every response", async ({ request }) => {
   const res = await request.get("/");
   const h = res.headers();
-  expect(h["content-security-policy"]).toContain("default-src 'self'");
+  const csp = h["content-security-policy"] ?? "";
+  expect(csp).toContain("default-src 'self'");
+  // Nonce-based hardening (ADR 0008): script-src carries a per-request nonce
+  // and no longer allows 'unsafe-inline'.
+  const scriptSrc = csp.split(";").find((d) => d.trim().startsWith("script-src")) ?? "";
+  expect(scriptSrc).toMatch(/'nonce-[^']+'/);
+  expect(scriptSrc).not.toContain("'unsafe-inline'");
   expect(h["strict-transport-security"]).toContain("max-age=");
   expect(h["x-content-type-options"]).toBe("nosniff");
   expect(h["x-frame-options"]).toBe("DENY");

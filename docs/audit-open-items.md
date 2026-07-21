@@ -8,23 +8,20 @@ severity is 🔴 launch-blocking / 🟡 important / ⚪ nice-to-have.
 
 Last updated: 2026-07 (during audit remediation).
 
-## A. Decisions to sign off (no external service needed)
+## A. Decisions — RESOLVED
 
-- [ ] **🟡 ADR 0007 — scaling / zero-downtime deploys.** Each deploy currently
-  causes ~30–60s of `502` (single instance). The fix is a sequenced migration
-  to Postgres + Redis + ≥2 instances (`docs/adr/0007-...md`). Decide: accept the
-  plan and when to start, or defer and accept deploy-window downtime for now.
-- [ ] **🟡 Encrypted companion transcripts vs summarize-and-discard**
-  (COMPLIANCE 2.4). Persist encrypted chat transcripts, or keep only distilled
-  memory items and discard raw text? Affects data-minimization posture.
-- [ ] **🟡 Autonomous-model claim rewrite** (README §10). The "planned fully
-  autonomous" direction must not read as built. Confirm the wording / whether to
-  keep the section.
-- [ ] **⚪ CSP `'unsafe-inline'` → nonce** (ADR 0003). Accept the small residual
-  XSS surface for now, or invest in nonce-based middleware.
-- [ ] **⚪ Render instance plan.** You're on the Pro workspace; the service is on
-  the `starter` instance (always-on, persistent disk — recommended to keep for a
-  demo). Bump only if you want more headroom.
+- [x] **ADR 0007 — scaling / zero-downtime deploys.** ✅ **Decided: fix now.**
+  Founder approved starting the Postgres → shared-store → multi-instance
+  migration. ADR 0007 now Accepted. In progress — see §E below.
+- [x] **Companion transcripts (COMPLIANCE 2.4).** ✅ **Decided: keep encrypted
+  persistence** (current behaviour — supports continuity + safety review, already
+  encrypted at rest and deleted on account deletion). No change.
+- [x] **CSP `'unsafe-inline'` → nonce.** ✅ **Decided: harden now — done.**
+  Nonce-based CSP shipped (ADR 0008); `'unsafe-inline'` removed from script-src.
+- [ ] **🟡 Autonomous-model claim rewrite** (README §10). ⏳ **Founder will send a
+  handoff for this later** — leaving the wording untouched until then.
+- [x] **Render instance plan.** ✅ Staying on `starter` (always-on, persistent
+  disk). No action.
 
 ## B. External services to provision (then I can wire/verify)
 
@@ -71,3 +68,23 @@ Last updated: 2026-07 (during audit remediation).
   durable.
 - [ ] **⚪ Enable branch protection** requiring the `safety`, `e2e`, and
   `gitleaks` CI checks before merge (needs repo-admin settings).
+
+## E. Zero-downtime migration (ADR 0007) — in progress
+
+Founder approved "fix now". Sequenced so the app keeps working at each step; the
+big cutover (step 1) is destructive-capable and needs a paid Postgres DB, so it
+gets its own go-ahead before flipping.
+
+- [ ] **Step 1 — datastore → Postgres.** Needs a provisioned Postgres (Render
+  Postgres, ~$/mo). Largest step: port the better-sqlite3 (synchronous) data
+  layer to an async Postgres client, keeping the schema + queries behind a
+  data-access seam. **Founder action:** approve provisioning the Postgres
+  instance (cost) so I can begin.
+- [ ] **Step 2 — shared rate-limit store (Redis/Upstash).** Replace the
+  in-memory limiter so limits hold across instances.
+- [ ] **Step 3 — externalize the backup scheduler** (Render Cron or leader
+  election) so it fires once across instances.
+- [ ] **Step 4 — concurrency-safe audit append** (advisory lock / single-writer
+  path) so the hash chain stays intact with multiple writers.
+- [ ] **Step 5 — set `numInstances ≥ 2`** → Render does rolling, zero-downtime
+  deploys automatically.
