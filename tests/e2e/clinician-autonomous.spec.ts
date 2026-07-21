@@ -32,4 +32,20 @@ test("clinician can open the autonomous review console and see gated decisions",
   // After the server action + reload, the register shows one agreed verdict.
   await expect(page.getByText(/1 agreed/)).toBeVisible();
   await expect(ruleForm.locator('input[name="note"]')).toHaveValue(/DSM age gate/);
+
+  // Session-runtime simulator: a +5 jump from a start of 3 must contain.
+  await page.goto("/clinician/autonomous?s_startSuds=3&s_postSuds=8");
+  await expect(page.getByRole("heading", { name: /what the session engine decides/i })).toBeVisible();
+  await expect(page.getByText("containment", { exact: true })).toBeVisible();
+  await expect(page.getByText(/8h|48h/)).toBeVisible(); // cooldown shown
+
+  // CSV export (fetched in-page so it carries the clinician session cookie).
+  const out = await page.evaluate(async () => {
+    const r = await fetch("/clinician/autonomous/export");
+    return { status: r.status, ct: r.headers.get("content-type") ?? "", text: await r.text() };
+  });
+  expect(out.status).toBe(200);
+  expect(out.ct).toContain("text/csv");
+  expect(out.text).toContain("rule_id,category,config_version,verdict,note");
+  expect(out.text).toMatch(/FIT_UNDER_18,[^,]*,[^,]*,agree/);
 });

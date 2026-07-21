@@ -9,7 +9,11 @@ import {
   safetyCoreStatus,
   AccessTier,
   RULES,
+  newSession,
+  preSessionCheck,
+  postSet,
   type SafetyInputs,
+  type SessionDecision,
 } from "@/lib/safety";
 import { getRuleSignoffs, signoffProgress } from "@/lib/safety/signoff";
 import { recordRuleSignoff } from "@/lib/actions";
@@ -59,7 +63,9 @@ function buildInputs(sp: SP): SafetyInputs {
       activation: num(sp.activation, 2),
       shutdown: num(sp.shutdown, 1),
       harmUrge: on(sp.harmUrge),
-      feelsSafe: sp.feelsSafe === undefined ? true : on(sp.feelsSafe),
+      // Default-checked "feels safe" is only uncheckable once the form has been
+      // submitted (the _sim sentinel); before that it defaults to safe.
+      feelsSafe: sp._sim ? on(sp.feelsSafe) : true,
       dissociation: num(sp.dissociation, 0),
       sleepQuality: num(sp.sleep, 7),
       substanceFlag: on(sp.substance),
@@ -82,6 +88,28 @@ export default async function AutonomousReview({ searchParams }: { searchParams:
 
   const companionText = sp.companionText ?? "";
   const guard = companionText ? validateCompanionOutput(companionText) : null;
+
+  // Session-runtime simulator: starting-SUDS gate, then one post-set reading.
+  let sessionResult: SessionDecision | null = null;
+  if (sp.s_startSuds) {
+    const startSuds = num(sp.s_startSuds, 3);
+    const startedAtMs = Date.now() - num(sp.s_minutes, 0) * 60000;
+    const pre = preSessionCheck(newSession(startedAtMs), startSuds);
+    if (pre.action === "deny_stimulation" || !sp.s_postSuds) {
+      sessionResult = pre;
+    } else {
+      const st = { ...pre.state, setsCompleted: num(sp.s_sets, 0) };
+      sessionResult = postSet(
+        st,
+        {
+          suds: num(sp.s_postSuds, startSuds),
+          dissociation: num(sp.s_dissociation, 0),
+          oriented: sp._ssim ? on(sp.s_oriented) : true,
+        },
+        Date.now()
+      );
+    }
+  }
 
   const shadow = recentAuditEvents(400).filter(
     (e) => e.event_type.startsWith("safety_routing") || e.event_type.startsWith("companion_output")
@@ -167,7 +195,7 @@ export default async function AutonomousReview({ searchParams }: { searchParams:
 
           <div className="mt-4 grid grid-cols-2 gap-2">
             <label className={chk}><input type="checkbox" name="harmUrge" defaultChecked={on(sp.harmUrge)} /> harm urge</label>
-            <label className={chk}><input type="checkbox" name="feelsSafe" defaultChecked={sp.feelsSafe === undefined ? true : on(sp.feelsSafe)} /> feels safe</label>
+            <label className={chk}><input type="checkbox" name="feelsSafe" defaultChecked={sp._sim ? on(sp.feelsSafe) : true} /> feels safe</label>
             <label className={chk}><input type="checkbox" name="substance" defaultChecked={on(sp.substance)} /> substance</label>
             <label className={chk}><input type="checkbox" name="missingCheckin" defaultChecked={on(sp.missingCheckin)} /> no check-in today</label>
           </div>
@@ -185,6 +213,7 @@ export default async function AutonomousReview({ searchParams }: { searchParams:
           </div>
 
           {companionText ? <input type="hidden" name="companionText" value={companionText} /> : null}
+          <input type="hidden" name="_sim" value="1" />
           <button type="submit" className="mt-5 w-full rounded-full bg-sage px-5 py-2.5 text-sm font-medium text-ground hover:bg-sage-deep">
             Evaluate
           </button>
@@ -300,9 +329,74 @@ export default async function AutonomousReview({ searchParams }: { searchParams:
         )}
       </section>
 
+      {/* ── Session-runtime simulator ──────────────────────────────────── */}
+      <section className="mt-8 grid gap-6 md:grid-cols-2">
+        <form method="get" className="rounded-2xl border border-ground/15 bg-white p-5">
+          <h2 className="font-serif text-xl">Simulate a session step</h2>
+          <p className="mt-1 text-xs text-olive">Validate the in-session SUDS / containment rules.</p>
+          {Object.entries(sp).filter(([k]) => !k.startsWith("s_") && k !== "_ssim").map(([k, v]) => (
+            <input key={k} type="hidden" name={k} value={v ?? ""} />
+          ))}
+          <div className="mt-4 grid grid-cols-2 gap-3">
+            <label className="text-sm">Starting SUDS (0–10)
+              <input className={field} type="number" min="0" max="10" name="s_startSuds" defaultValue={sp.s_startSuds ?? "3"} />
+            </label>
+            <label className="text-sm">Post-set SUDS (0–10)
+              <input className={field} type="number" min="0" max="10" name="s_postSuds" defaultValue={sp.s_postSuds ?? ""} placeholder="—" />
+            </label>
+            <label className="text-sm">Dissociation (0–10)
+              <input className={field} type="number" min="0" max="10" name="s_dissociation" defaultValue={sp.s_dissociation ?? "0"} />
+            </label>
+            <label className="text-sm">Sets already done
+              <input className={field} type="number" min="0" max="3" name="s_sets" defaultValue={sp.s_sets ?? "0"} />
+            </label>
+            <label className="text-sm">Minutes elapsed
+              <input className={field} type="number" min="0" max="60" name="s_minutes" defaultValue={sp.s_minutes ?? "0"} />
+            </label>
+            <label className={`${chk} mt-6`}><input type="checkbox" name="s_oriented" defaultChecked={sp._ssim ? on(sp.s_oriented) : true} /> oriented</label>
+          </div>
+          <input type="hidden" name="_ssim" value="1" />
+          <button type="submit" className="mt-5 w-full rounded-full bg-sage px-5 py-2.5 text-sm font-medium text-ground hover:bg-sage-deep">
+            Evaluate session step
+          </button>
+        </form>
+
+        <div className="rounded-2xl border border-ground/15 bg-white p-5">
+          <h2 className="font-serif text-xl">What the session engine decides</h2>
+          {!sessionResult ? (
+            <p className="mt-3 text-sm text-ground/70">Enter a starting SUDS (and optionally a post-set reading) to evaluate.</p>
+          ) : (
+            <>
+              <div className={`mt-3 inline-flex rounded-full border px-4 py-1.5 text-sm font-medium ${
+                sessionResult.action === "containment" || sessionResult.action === "deny_stimulation"
+                  ? "bg-support/15 text-support-deep border-support/50"
+                  : sessionResult.action === "pause" || sessionResult.action === "closure"
+                    ? "bg-pause-soft text-ground border-pause/60"
+                    : "bg-safe/15 text-ground border-safe/50"
+              }`}>
+                {sessionResult.action}
+              </div>
+              <p className="mt-3 text-sm text-ground/80">{sessionResult.reason}</p>
+              <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
+                <dt className="text-olive">May offer next set</dt><dd>{sessionResult.allowNextSet ? "yes" : "no"}</dd>
+                {sessionResult.effects.cooldownHours ? (<><dt className="text-olive">Cooldown</dt><dd>{sessionResult.effects.cooldownHours}h</dd></>) : null}
+                {sessionResult.effects.lockStimulation ? (<><dt className="text-olive">Stimulation</dt><dd>locked for session</dd></>) : null}
+                {sessionResult.effects.requireOrientation ? (<><dt className="text-olive">Requires</dt><dd>re-orientation</dd></>) : null}
+                {sessionResult.effects.alert ? (<><dt className="text-olive">Alert logged</dt><dd><code className="text-xs">{sessionResult.effects.alert}</code></dd></>) : null}
+              </dl>
+            </>
+          )}
+        </div>
+      </section>
+
       {/* ── Rule sign-off register ─────────────────────────────────────── */}
       <section id="register" className="mt-8 rounded-2xl border border-ground/15 bg-white p-5">
-        <h2 className="font-serif text-xl">Rule sign-off register</h2>
+        <div className="flex items-center justify-between gap-3">
+          <h2 className="font-serif text-xl">Rule sign-off register</h2>
+          <a href="/clinician/autonomous/export" className="rounded-full border border-ground/20 bg-linen px-3 py-1 text-xs font-medium text-ground hover:bg-mist/30">
+            Export CSV ↓
+          </a>
+        </div>
         <p className="mt-1 text-xs text-olive">
           Record your verdict on each deterministic rule at config {status.configVersion}. Verdicts reset if a
           threshold changes. These write to the tamper-evident audit log.
