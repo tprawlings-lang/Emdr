@@ -389,7 +389,9 @@ export async function generateAiReply(
   convId: string,
   userText: string
 ): Promise<CompanionReply> {
-  const client = new Anthropic();
+  // The SDK retries transient errors (429/5xx/network) with exponential
+  // backoff; set it explicitly rather than relying on the default (2).
+  const client = new Anthropic({ maxRetries: 3 });
   const memoryOn = memoryEnabled(ctx.userId);
   const conv = getDb()
     .prepare("SELECT context_type FROM ai_conversations WHERE id = ?")

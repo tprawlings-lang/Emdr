@@ -11,6 +11,7 @@ import {
 import { Encrypter } from "age-encryption";
 import { getDb } from "./db";
 import { audit } from "./audit";
+import { withRetry, isTransientHttpError } from "./retry";
 
 // Nightly encrypted off-site backups (compliance 2.6).
 //
@@ -59,6 +60,9 @@ function s3(): S3Client {
       accessKeyId: process.env.R2_ACCESS_KEY_ID!,
       secretAccessKey: process.env.R2_SECRET_ACCESS_KEY!,
     },
+    // Explicit resilience posture: the SDK retries transient S3 errors with
+    // its standard exponential-backoff strategy (default 3 attempts → 4 here).
+    maxAttempts: 4,
   });
 }
 
@@ -209,19 +213,36 @@ export async function sendBackupAlert(subject: string, body: string) {
     return;
   }
   try {
-    const res = await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        from: process.env.BACKUP_ALERT_FROM ?? "Steady Backups <onboarding@resend.dev>",
-        to: [to],
-        subject,
-        text: body,
-      }),
-    });
-    if (!res.ok) console.error("backup alert email failed:", res.status, await res.text());
+    await withRetry(
+      async () => {
+        const res = await fetch("https://api.resend.com/emails", {
+          method: "POST",
+          headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+          body: JSON.stringify({
+            from: process.env.BACKUP_ALERT_FROM ?? "Steady Backups <onboarding@resend.dev>",
+            to: [to],
+            subject,
+            text: body,
+          }),
+        });
+        if (!res.ok) {
+          const detail = await res.text().catch(() => "");
+          const err = new Error(`resend ${res.status}: ${detail}`) as Error & { status?: number };
+          err.status = res.status;
+          throw err;
+        }
+      },
+      {
+        attempts: 4,
+        // A backup-failure alert is exactly when the network may be flaky —
+        // retry transient failures rather than dropping the alert on one blip.
+        shouldRetry: isTransientHttpError,
+        onRetry: (err, attempt, delayMs) =>
+          console.warn(`backup alert retry ${attempt} in ${delayMs}ms:`, (err as Error).message),
+      }
+    );
   } catch (err) {
-    console.error("backup alert email failed:", err);
+    console.error("backup alert email failed after retries:", err);
   }
 }
 
