@@ -1,0 +1,18 @@
+# gitleaks config — extends the default ruleset and allowlists the non-secret
+# placeholders used by CI/tests so the secret-scan gate does not false-positive.
+# Real secrets live only in the platform env (Render), never in the repo.
+title = "Steady gitleaks config"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Non-secret CI and test placeholders (not real credentials)"
+regexes = [
+  '''placeholder-(secret|key)''',
+  '''placeholder-session-secret''',
+  '''not-a-real-secret''',
+  '''ci-build-placeholder''',
+  '''load-ci-placeholder''',
+  '''dev-only-secret-change-me''',
+]

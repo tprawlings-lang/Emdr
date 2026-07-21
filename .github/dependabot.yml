@@ -1,0 +1,21 @@
+version: 2
+updates:
+  # Application dependencies. Grouped so related bumps land in one PR and the
+  # @safety + e2e CI gates review them together.
+  - package-ecosystem: npm
+    directory: "/"
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 10
+    groups:
+      production:
+        dependency-type: production
+      development:
+        dependency-type: development
+    # Security updates are always raised regardless of the groups above.
+
+  # Keep the GitHub Actions used by our workflows patched.
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly

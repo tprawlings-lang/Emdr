@@ -1,0 +1,26 @@
+# Secret scanning (compliance 6.2). Fails the build if a credential is
+# committed. Runs the gitleaks binary directly (pinned) so there is no
+# action-license gate; scans the full history on push/PR.
+name: gitleaks
+on:
+  push:
+  pull_request:
+
+jobs:
+  gitleaks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # full history so the scan covers every commit
+      - name: Install gitleaks
+        env:
+          GITLEAKS_VERSION: 8.18.4
+        run: |
+          curl -sSfL \
+            "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" \
+            | tar -xz gitleaks
+          sudo mv gitleaks /usr/local/bin/gitleaks
+          gitleaks version
+      - name: Scan for committed secrets
+        run: gitleaks detect --source . --redact --verbose --exit-code 1
