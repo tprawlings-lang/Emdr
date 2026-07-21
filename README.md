@@ -530,5 +530,10 @@ demo; they are the gates to a real launch:
   per-rule Agree / Needs-change sign-off and CSV export.
 - [ ] **Clinician sign-off** on the rules + Volume II conflict resolution (via the console
   + [`docs/autonomous/01-signoff-ledger.md`](docs/autonomous/01-signoff-ledger.md)). 🔴
+- [ ] **Policy / ToS / product-copy changes** — the consent + privacy copy still promise
+  *human review of readiness*, which autonomy removes; add an automated-decision-making
+  disclosure. Counsel-gated change-set drafted in
+  [`docs/autonomous/02-policy-and-copy-changes.md`](docs/autonomous/02-policy-and-copy-changes.md);
+  ship atomically with the flag flip. 🔴
 - [ ] **Flip `EMDR_AUTONOMOUS_SAFETY=1`** (one stage at a time) + wire the session UI /
   dashboard to the engine — only after sign-off. 🔴
