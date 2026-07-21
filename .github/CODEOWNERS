@@ -1,0 +1,15 @@
+# Default owner for everything in the repo.
+* @tprawlings-lang
+
+# Safety-critical surfaces — extra scrutiny. Keep these owners in sync with the
+# review standards in CONTRIBUTING.md.
+/src/lib/actions.ts      @tprawlings-lang
+/src/lib/auth.ts         @tprawlings-lang
+/src/lib/crypto.ts       @tprawlings-lang
+/src/lib/audit.ts        @tprawlings-lang
+/src/lib/env-guard.ts    @tprawlings-lang
+/src/lib/safety*.ts      @tprawlings-lang
+/tests/                  @tprawlings-lang
+/.github/                @tprawlings-lang
+/docs/adr/               @tprawlings-lang
+/COMPLIANCE.md           @tprawlings-lang

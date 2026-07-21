@@ -1,0 +1,94 @@
+openapi: 3.1.0
+info:
+  title: Steady — operational API
+  version: "1.0.0"
+  description: >
+    Steady is a Next.js App Router application. Its member-facing behaviour is
+    delivered through **React Server Actions** (RPC-style, invoked from forms and
+    client components — see docs/api.md for the full action inventory and their
+    authorization rules), not through a conventional REST surface. Only a small
+    number of **read-only JSON HTTP endpoints** exist, all for operational
+    visibility, and they are documented here. These endpoints expose no secrets
+    and no member data.
+servers:
+  - url: https://steady-emdr-demo.onrender.com
+    description: Demo deployment
+  - url: http://localhost:3000
+    description: Local development
+tags:
+  - name: ops
+    description: Operational health/status endpoints (no auth, no member data)
+paths:
+  /api/companion-status:
+    get:
+      tags: [ops]
+      operationId: getCompanionStatus
+      summary: AI companion health probe
+      description: >
+        Reports whether an ANTHROPIC_API_KEY is configured and whether a minimal
+        test call to the Claude API succeeds. The result is cached for 60s so the
+        endpoint cannot be used to drive up API spend. Exposes no secrets.
+      responses:
+        "200":
+          description: Current companion status (possibly cached up to 60s).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CompanionStatus"
+  /api/backup-status:
+    get:
+      tags: [ops]
+      operationId: getBackupStatus
+      summary: Nightly backup status
+      description: >
+        Reports whether off-site encrypted backups are configured and the last
+        success/failure timestamps. No keys and no data are returned.
+      responses:
+        "200":
+          description: Current backup configuration and last-run state.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BackupStatus"
+components:
+  schemas:
+    CompanionStatus:
+      type: object
+      required: [keyPresent, api, model, detail, checkedAt]
+      properties:
+        keyPresent:
+          type: boolean
+          description: Whether ANTHROPIC_API_KEY is set. When false the companion falls back to the built-in deterministic rules engine.
+        api:
+          type: string
+          enum: [ok, auth_error, billing_error, rate_limited, error, skipped]
+          description: Outcome of the last probe call. "skipped" when no key is present.
+        model:
+          type: string
+          example: claude-opus-4-8
+        detail:
+          type: string
+          description: Human-readable explanation of the status.
+        checkedAt:
+          type: string
+          format: date-time
+    BackupStatus:
+      type: object
+      required: [configured]
+      properties:
+        configured:
+          type: boolean
+          description: Whether all R2_* and BACKUP_AGE_RECIPIENT env vars are present.
+        lastSuccessAt:
+          type: [string, "null"]
+          format: date-time
+        lastKey:
+          type: [string, "null"]
+          description: Object key of the most recent successful backup.
+        lastBytes:
+          type: [integer, "null"]
+        lastFailureAt:
+          type: [string, "null"]
+          format: date-time
+        lastError:
+          type: [string, "null"]
