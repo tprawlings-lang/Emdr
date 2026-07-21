@@ -40,3 +40,26 @@ jobs:
             | grep -v "does not diagnose" \
             | grep -v "diagnosis remains" \
             | grep .
+
+  e2e:
+    # End-to-end smoke suite: builds and starts the production server, then runs
+    # read-only Playwright checks on the critical unauthenticated surfaces
+    # (home, crisis, login, signup, security headers, auth redirect).
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+      - name: E2E smoke tests
+        run: npm run test:e2e
+        env:
+          # Playwright's webServer builds + starts the app with these; the
+          # secrets are non-production placeholders used only for the test run.
+          EMDR_DEMO: "1"
+          EMDR_SESSION_SECRET: e2e-placeholder-session-secret-not-a-real-secret
+          EMDR_DATA_KEY: e2e-placeholder-data-key
