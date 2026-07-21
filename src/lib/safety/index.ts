@@ -20,4 +20,15 @@ export type {
   RuleCategory,
 } from "./types";
 export { RULES } from "./rules";
-export { BETA_CONFIG, autonomousSafetyEnabled } from "./config";
+export { BETA_CONFIG, SESSION, BLS, autonomousSafetyEnabled } from "./config";
+export {
+  newSession,
+  preSessionCheck,
+  postSet,
+  authorizeSet,
+  canOfferNextSet,
+  groundMe,
+  tick,
+  completeClosure,
+} from "./session";
+export type { SessionState, SessionPhase, SessionDecision, SessionAction } from "./session";

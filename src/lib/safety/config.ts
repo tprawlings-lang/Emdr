@@ -85,6 +85,48 @@ export const PROGRAM_FIT = {
 // ── Acute-trauma exclusion (Vol I A-8) ──────────────────────────────────────
 export const ACUTE_TRAUMA_EXCLUSION_DAYS = 30;
 
+// ── Session-runtime safety (Vol II §5/§7; Vol I A-1..A-7) ───────────────────
+// Beta uses the CONSERVATIVE UNION where Vol II conflicts with itself
+// (ledger A2/A3): a set is stopped/contained if ANY stop condition fires.
+export const SESSION = {
+  /** Starting SUDS strictly above this denies stimulation (beta ceiling 5). */
+  startingSudsCeiling: 5,
+  /** Max stimulation sets in beta (ledger A5). */
+  maxSets: 2,
+  /** Wind-down begins (no new sets) at this many minutes (ledger A3: 30/40). */
+  windDownMinutes: 30,
+  /** Hard stop — force closure — at this many minutes. */
+  hardStopMinutes: 40,
+  /** Mandatory minimum closure seconds. */
+  closureMinSeconds: 120,
+  /** Ordinary-completion SUDS target at closure. */
+  closureTargetSuds: 4,
+  /** Post-set delta at/above which the session goes to containment (main +2). */
+  containmentDelta: 2,
+  /** Absolute post-set SUDS at/above which containment fires (App A ≥8). */
+  containmentAbsolute: 8,
+  /** Absolute SUDS at/above which the session hard-stops (App A ≥9). */
+  hardStopSuds: 9,
+  /** Rise over the STARTING suds at/above which containment fires (App A ≥3). */
+  containmentRiseOverStart: 3,
+  /** State dissociation at/above which stimulation stops (Vol II §5). */
+  dissociationStop: 4,
+  /** "No change" across this many sets ends stimulation (main body = 2). */
+  noChangeSets: 2,
+} as const;
+
+// ── Bilateral stimulation (Vol II §7; Vol I A-1) ────────────────────────────
+export const BLS = {
+  defaultHz: 1.25,
+  minHz: 1.0,
+  maxHz: 1.5,
+  cautiousHz: 1.0,
+  /** WCAG 2.3.2 hard ceiling — never exceed, regardless of any other value. */
+  maxFlashesPerSecond: 3,
+  /** Preview seconds for a new modality. */
+  previewSeconds: 5,
+} as const;
+
 // ── Readiness caps (Vol II §4 Appendix; caps ARE the safety mechanism) ──────
 export const READINESS_CAP = {
   lessThanFullySafeCeiling: 30, // → stabilization band
