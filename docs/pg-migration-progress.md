@@ -23,11 +23,11 @@ enable multi-instance/Postgres. Tracking to zero remaining `getDb()`.
 - [x] 3 — Profile / gating / fitness-screener / instruments.
 - [x] 4 — Companion (companion.ts, companion-ai.ts, program-plan, track-recommender) (companion.ts, companion-ai.ts) + program-plan + tracks.
 - [x] 5 — Billing (billing done; session-focus done) + session-focus.
-- [ ] 6 — actions.ts residual sites + pages (dashboard, screening, measures,
+- [x] 6 — actions.ts residual sites + pages (dashboard, screening, measures,
       clinician, session complete).
-- [ ] 7 — Backup: SQLite `.backup()` stays for the sqlite backend; add a
+- [x] 7 — Backup: SQLite `.backup()` stays for the sqlite backend; add a
       `pg_dump` path for Postgres (task 16).
-- [ ] 8 — Remove `getDb()` from app code (keep only inside data.ts's sqlite
+- [x] 8 — Remove `getDb()` from app code (keep only inside data.ts's sqlite
       backend); grep confirms zero remaining sites.
 
 ## Verification each slice
@@ -55,3 +55,20 @@ Then: provision Postgres, set DATABASE_URL, flip EMDR_DB=postgres, verify.
 `audit()` now wraps read-latest + insert in `data().tx()`. Under multi-instance
 Postgres, concurrent appends could still race the chain tip; add
 `SELECT ... FOR UPDATE` / a Postgres advisory lock before enabling >1 instance.
+
+## ✅ VERIFIED ON REAL POSTGRES (local cluster, PG 16)
+Booted the built app with `EMDR_DB=postgres` + `DATABASE_URL` against a local
+Postgres 16 cluster with `scripts/pg-schema.sql` applied (24 tables):
+- App boots and serves (homepage 200, no errors).
+- Data layer round-trips through the migrated code: `?`→`$n` placeholder
+  rewrite, `ON CONFLICT`, `CURRENT_TIMESTAMP`, insert + read-back all correct.
+- Audit hash-chain transaction (`data().tx` BEGIN/COMMIT) runs on Postgres and
+  `verifyAuditChain()` returns ok.
+- Relative-date queries (login lockout / caps / measures) work with JS cutoffs.
+- `pg_dump -Fc` backup produces a restorable custom-format archive.
+
+**The migration is code-complete and verified.** Remaining is OPS only:
+1. Provision the managed Render Postgres, set `DATABASE_URL` + `EMDR_DB=postgres`.
+2. Migrate existing SQLite data into it (one-time load), then flip.
+3. Before running >1 instance, add the audit-chain serialization
+   (`SELECT ... FOR UPDATE` / advisory lock) noted above.
