@@ -17,7 +17,7 @@ import {
 import { getInstrument, scoreInstrument } from "./instruments";
 import { getModule } from "./modules";
 import { checkModuleAccess, evaluateCheckin, todayISO } from "./gating";
-import { shadowDecide } from "./safety/decide";
+import { shadowDecide, decideAccess } from "./safety/decide";
 import { currentConsentVersion, currentTermsVersion } from "./policy";
 import {
   ReadinessAnswers,
@@ -31,9 +31,19 @@ import {
   detectRisk,
   generateCheckinOpening,
   generateReply,
+  getModelExposableMemoryItems,
+  memoryEnabled,
   writeMemory,
 } from "./companion";
 import { aiCompanionEnabled, generateAiOpening, generateAiReply } from "./companion-ai";
+import { selectTechniques } from "./therapy-kb";
+import { liveSessionEnabled } from "./safety/config";
+import { validateCompanionOutput, SAFE_FALLBACK } from "./safety/companion-guard";
+import {
+  composeSessionResponse,
+  buildSessionRephrasePrompt,
+  type SessionResponse,
+} from "./session-companion";
 import { generateProgramPlan } from "./program-plan";
 import { addMemberTrack, archiveMemberTrack, getTrack, saveTrackIntake } from "./tracks";
 import { rateLimit } from "./rate-limit";
@@ -1439,4 +1449,109 @@ export async function recordRuleSignoff(formData: FormData) {
   });
   revalidatePath("/clinician/autonomous");
   redirect("/clinician/autonomous#register");
+}
+
+// ---------- Live spoken sessions: dynamic in-session responder ----------
+
+// Called when a member SPEAKS during a live session. Draws on memory + rules +
+// the therapy KB to respond dynamically to what they said. This NEVER changes
+// the session's clinical flow — the deterministic engine owns continue/contain/
+// stop; this returns words and at most a Ground-me UI hint. Crisis/high-
+// activation replies are scripted (never AI); any AI phrasing is guarded with a
+// deterministic fallback. Content-free audit only.
+export async function speakInSession(args: {
+  sessionId: string;
+  moduleId: string;
+  transcript: string;
+  currentSuds: number | null;
+  calmPlace: string | null;
+  name: string | null;
+}): Promise<{ ok: boolean; error?: string; response?: SessionResponse }> {
+  const user = await requireMember();
+  if (!liveSessionEnabled()) return { ok: false, error: "Live sessions are not enabled." };
+
+  const db = getDb();
+  const owned = db
+    .prepare("SELECT id FROM therapy_sessions WHERE id = ? AND user_id = ?")
+    .get(args.sessionId, user.id);
+  if (!owned) return { ok: false, error: "Session not found." };
+
+  const transcript = String(args.transcript ?? "").trim().slice(0, 1000);
+  if (!transcript) return { ok: false, error: "Nothing to respond to." };
+  if (!rateLimit(`session-speak:${user.id}`, 30, 60_000).ok) {
+    return { ok: false, error: "Let's take that a little slower." };
+  }
+
+  // Rules: the member's current deterministic tier + capabilities.
+  let tier;
+  try {
+    tier = decideAccess(user.id, Date.now()).tier;
+  } catch {
+    return { ok: false, error: "Unavailable right now." };
+  }
+
+  // Memory (exposure-policy enforced) + KB techniques cleared for state.
+  const memories = memoryEnabled(user.id) ? getModelExposableMemoryItems(user.id) : [];
+  const signalText = [transcript, ...memories.map((m) => `${m.memory_key} ${m.memory_value}`)].join(" ");
+  const techniques = selectTechniques({
+    tier,
+    activation: args.currentSuds,
+    dissociation: null, // unknown mid-session → selector treats conservatively
+    text: signalText,
+    limit: 1,
+  });
+
+  // Deterministic response (safe by construction).
+  const base = composeSessionResponse({
+    transcript,
+    currentSuds: args.currentSuds,
+    tier,
+    techniques,
+    calmPlace: args.calmPlace,
+    name: args.name,
+  });
+
+  let response = base;
+
+  // Optional AI phrasing — ONLY reword an already-safe, non-crisis, non-ground
+  // line, and only when the model is available. Guarded; falls back to the
+  // deterministic text on any violation or error.
+  if (base.kind === "acknowledge" && aiCompanionEnabled()) {
+    try {
+      const Anthropic = (await import("@anthropic-ai/sdk")).default;
+      const client = new Anthropic({ maxRetries: 2 });
+      const msg = await client.messages.create({
+        model: "claude-haiku-4-5-20251001",
+        max_tokens: 160,
+        system: buildSessionRephrasePrompt(base, args.calmPlace),
+        messages: [{ role: "user", content: transcript }],
+      });
+      const text = msg.content
+        .filter((b) => b.type === "text")
+        .map((b) => ("text" in b ? b.text : ""))
+        .join(" ")
+        .trim();
+      if (text && validateCompanionOutput(text).ok) {
+        response = { ...base, text, source: "ai" };
+      }
+    } catch {
+      /* keep the deterministic line */
+    }
+  }
+
+  // Belt-and-braces: never emit an unguarded line.
+  if (!validateCompanionOutput(response.text).ok) {
+    response = { ...response, text: SAFE_FALLBACK, source: "deterministic" };
+  }
+
+  audit({
+    actorId: user.id,
+    actorRole: "member",
+    family: "module_runtime",
+    type: "session_spoken_response",
+    target: args.moduleId,
+    detail: { kind: response.kind, crisis: response.crisis, source: response.source, suggestGroundMe: response.suggestGroundMe },
+  });
+
+  return { ok: true, response };
 }

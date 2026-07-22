@@ -27,6 +27,16 @@ export function companionGuardEnforced(): boolean {
   return autonomousSafetyEnabled() || process.env.EMDR_DEMO === "1";
 }
 
+/** Live spoken sessions: hands-free voice + a dynamic (memory/rule/KB-aware)
+ *  in-session responder. Highest-risk surface, so it is OFF by default and only
+ *  available in demo (for the clinician to experience and review) unless
+ *  explicitly flagged. Even when on, the deterministic session engine still
+ *  owns every clinical decision; this only adds a spoken conversational layer.
+ *  Requires clinician sign-off before non-demo use. */
+export function liveSessionEnabled(): boolean {
+  return process.env.EMDR_LIVE_SESSION === "1" || process.env.EMDR_DEMO === "1";
+}
+
 /** Voice responses (member answers a free-text reflection by speaking instead
  *  of typing). On automatically in demo so the clinician can experience it and
  *  review it; off for real members until explicitly flagged AND signed off.

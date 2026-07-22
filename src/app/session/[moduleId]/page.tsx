@@ -4,7 +4,7 @@ import { getModule } from "@/lib/modules";
 import { checkModuleAccess } from "@/lib/gating";
 import { getSavedCalmPlace, getSessionFocus } from "@/lib/session-focus";
 import { hasSeizureFlag } from "@/lib/fitness-screener";
-import { voiceInputEnabled } from "@/lib/safety/config";
+import { voiceInputEnabled, liveSessionEnabled } from "@/lib/safety/config";
 import { getCompanionPrefs } from "@/lib/profile";
 import SessionPlayer from "@/components/SessionPlayer";
 
@@ -39,6 +39,7 @@ export default async function SessionPage({
       audioOnlyDefault={hasSeizureFlag(user.id)}
       voiceEnabled={voiceInputEnabled()}
       memberName={preferredName}
+      liveEnabled={liveSessionEnabled()}
     />
   );
 }

@@ -71,4 +71,28 @@ export const EXPERIENCE_RULES: CatalogRule[] = [
     reason:
       "Voice may be treated as biometric data in some jurisdictions. Before non-demo use it requires a distinct, versioned voice-input consent and counsel review; it is disabled by default outside demo.",
   },
+  {
+    id: "LIVE_SESSION_ENGINE_OWNS_FLOW",
+    category: "live_session",
+    reason:
+      "In live spoken sessions the dynamic responder returns words and at most a Ground-me UI hint — it can NEVER continue a set, end closure, or override a stop. The deterministic session engine (SUDS → containment/hard-stop/cooldown) alone owns all clinical progression.",
+  },
+  {
+    id: "LIVE_SESSION_CRISIS_SCRIPTED",
+    category: "live_session",
+    reason:
+      "Spoken input is checked for crisis first (detectRisk); crisis and high-activation responses are scripted and route to Ground-me + 988 — never AI-generated. Any AI phrasing only rewords an already-safe, non-crisis line and is discarded if it fails the output guard.",
+  },
+  {
+    id: "LIVE_SESSION_BOUNDED_RESPONSE",
+    category: "live_session",
+    reason:
+      "The responder draws on the member's tier, distress, exposable memory, and the tier-gated therapy KB, but never instructs reprocessing (no 'bring up / stay with the memory') and never claims feelings or outcomes. Every line passes the output guard with a deterministic fallback.",
+  },
+  {
+    id: "LIVE_SESSION_DEMO_GATED",
+    category: "live_session",
+    reason:
+      "Hands-free voice + dynamic in-session response is OFF for real members (demo/flag only) and requires clinician sign-off plus the voice/biometric consent before any non-demo use. Browser preview uses the browser recognizer; production uses on-device recognition.",
+  },
 ];

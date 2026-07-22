@@ -6,8 +6,9 @@ import type { SessionStep, TherapyModule } from "@/lib/modules";
 import { fillNarrationSlots } from "@/lib/modules";
 import NarrationView from "@/components/NarrationView";
 import type { SessionFocus } from "@/lib/session-focus";
-import { finishSession, logSafetyEvent, recordSessionTrigger, startSession } from "@/lib/actions";
+import { finishSession, logSafetyEvent, recordSessionTrigger, speakInSession, startSession } from "@/lib/actions";
 import VoiceInput from "@/components/VoiceInput";
+import LiveVoice from "@/components/LiveVoice";
 import {
   SESSION_CAP_MIN,
   SESSION_WINDDOWN_MIN,
@@ -34,6 +35,8 @@ interface Props {
   voiceEnabled?: boolean;
   /** Member's preferred name, for personalizing the guided narration. */
   memberName?: string | null;
+  /** Enable hands-free voice + the dynamic in-session responder (demo/flag). */
+  liveEnabled?: boolean;
 }
 
 function BlsVisual({
@@ -344,7 +347,7 @@ const GROUNDING_STEPS = [
   "Look around the room. Notice where you are, today's date, that you are here now.",
 ];
 
-export default function SessionPlayer({ module: mod, focus, calmPlace, audioOnlyDefault, voiceEnabled = false, memberName }: Props) {
+export default function SessionPlayer({ module: mod, focus, calmPlace, audioOnlyDefault, voiceEnabled = false, memberName, liveEnabled = false }: Props) {
   const router = useRouter();
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [phase, setPhase] = useState<Phase>("intro");
@@ -364,6 +367,46 @@ export default function SessionPlayer({ module: mod, focus, calmPlace, audioOnly
     { set: 1, secondsLeft: 0, resting: false }
   );
   const [blsStarted, setBlsStarted] = useState(false);
+
+  // Live spoken conversation (hands-free). The deterministic session flow above
+  // is untouched — this only overlays a spoken exchange. suggestGroundMe just
+  // visually emphasizes the Ground-me affordance; it never moves the engine.
+  const [liveTurns, setLiveTurns] = useState<{ role: "you" | "steady"; text: string }[]>([]);
+  const [liveBusy, setLiveBusy] = useState(false);
+  const liveBusyRef = useRef(false);
+
+  const handleUtterance = useCallback(
+    async (text: string) => {
+      if (liveBusyRef.current) return;
+      liveBusyRef.current = true;
+      setLiveBusy(true);
+      setLiveTurns((t) => [...t.slice(-8), { role: "you", text }]);
+      try {
+        const res = await speakInSession({
+          sessionId: sessionId ?? "",
+          moduleId: mod.id,
+          transcript: text,
+          currentSuds: sudsTrail.length ? sudsTrail[sudsTrail.length - 1] : null,
+          calmPlace: calmPlace ?? null,
+          name: memberName ?? null,
+        });
+        if (res.ok && res.response) {
+          setLiveTurns((t) => [...t.slice(-8), { role: "steady", text: res.response!.text }]);
+          if (res.response.suggestGroundMe && typeof window !== "undefined") {
+            // Distress signal in speech → surface grounding immediately.
+            setPhase("ground");
+            setBlsStarted(false);
+          }
+        }
+      } catch {
+        /* a failed turn is silent; the session itself is unaffected */
+      } finally {
+        liveBusyRef.current = false;
+        setLiveBusy(false);
+      }
+    },
+    [sessionId, mod.id, sudsTrail, calmPlace, memberName]
+  );
 
   const step: SessionStep | undefined = mod.steps[stepIndex];
   const preSuds = sudsTrail.length > 0 ? sudsTrail[0] : null;
@@ -786,6 +829,30 @@ export default function SessionPlayer({ module: mod, focus, calmPlace, audioOnly
           ) : (
             <p className="mt-4 text-lg leading-relaxed text-ground/90">{step.text}</p>
           )}
+
+          {liveEnabled && (
+            <div className="mt-6">
+              {liveTurns.length > 0 && (
+                <div className="mb-3 space-y-2" aria-live="polite">
+                  {liveTurns.slice(-4).map((t, i) => (
+                    <p
+                      key={i}
+                      className={
+                        t.role === "you"
+                          ? "text-right text-sm text-olive"
+                          : "rounded-2xl bg-linen px-4 py-2 text-[15px] leading-relaxed text-ground/90"
+                      }
+                    >
+                      {t.role === "you" ? `You: ${t.text}` : t.text}
+                    </p>
+                  ))}
+                  {liveBusy && <p className="text-xs text-olive">…</p>}
+                </div>
+              )}
+              <LiveVoice onUtterance={handleUtterance} busy={liveBusy} />
+            </div>
+          )}
+
           <button
             onClick={advance}
             className="mt-8 w-full rounded-full bg-sage px-6 py-3.5 font-medium text-ground transition-colors hover:bg-sage-deep"

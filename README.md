@@ -548,6 +548,14 @@ zero-downtime and the app can run more than one instance (ADR 0007):
   gets none; output guard still validates every reply). Browsable + sign-offable at
   `/clinician/autonomous#therapy-kb` (`KB_*` rows). Modality list provisional pending the
   founder's reference sheet. 🔴
+- [x] **Live spoken sessions** (hands-free voice + dynamic in-session responder) — the
+  member can speak during a session without pressing anything, and the system responds
+  dynamically from memory + rules + the therapy KB. Safety by construction: the
+  deterministic session engine still owns every clinical decision (the responder returns
+  words + at most a Ground-me hint, never moves a set); crisis/high-activation replies are
+  scripted (→ Ground-me + 988, never AI); every line passes the output guard with a
+  deterministic fallback. Demo/flag-gated (`EMDR_LIVE_SESSION`), off for real members;
+  needs clinician sign-off (`LIVE_SESSION_*`) + voice consent before non-demo. 🔴
 - [x] **Voice responses** (member answers a free-text reflection by speaking) — live in
   demo (`EMDR_VOICE_INPUT` / on with `EMDR_DEMO`), off by default for real members. Typing
   is always available; recognition is confirm-before-submit; free-text only (never SUDS or
