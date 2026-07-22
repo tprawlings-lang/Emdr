@@ -5,6 +5,7 @@ import { checkModuleAccess } from "@/lib/gating";
 import { getSavedCalmPlace, getSessionFocus } from "@/lib/session-focus";
 import { hasSeizureFlag } from "@/lib/fitness-screener";
 import { voiceInputEnabled } from "@/lib/safety/config";
+import { getCompanionPrefs } from "@/lib/profile";
 import SessionPlayer from "@/components/SessionPlayer";
 
 export default async function SessionPage({
@@ -26,6 +27,10 @@ export default async function SessionPage({
 
   // Offer everything Steady already knows — triggers, calm place, resources,
   // focus areas from companion conversations — as the session's focus.
+  const preferredName =
+    getCompanionPrefs(user.id)?.preferred_user_name?.trim() ||
+    user.name?.trim().split(/\s+/)[0] ||
+    null;
   return (
     <SessionPlayer
       module={mod}
@@ -33,6 +38,7 @@ export default async function SessionPage({
       calmPlace={getSavedCalmPlace(user.id)}
       audioOnlyDefault={hasSeizureFlag(user.id)}
       voiceEnabled={voiceInputEnabled()}
+      memberName={preferredName}
     />
   );
 }

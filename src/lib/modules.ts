@@ -10,10 +10,29 @@ export interface SessionStep {
   kind: "instruction" | "suds" | "bls" | "grounding" | "trigger-entry";
   title: string;
   text?: string;
+  /** Guided narration: the clinician-voice lines delivered one at a time as
+   *  scrolling "someone is talking" text (the session talk-through). These are
+   *  deterministic, authored copy — no model in the session loop — and may
+   *  contain {calmPlace} / {name} slots filled from what Steady knows about the
+   *  member. `text` remains as the plain fallback when a step has no beats. */
+  beats?: string[];
   /** For bls steps: seconds per set. */
   durationSec?: number;
   /** For bls steps: number of sets before moving on. */
   sets?: number;
+}
+
+/** Fill narration slots from what the app knows. Missing values degrade
+ *  gracefully to gentle generic phrasing — never a literal "{calmPlace}". */
+export function fillNarrationSlots(
+  line: string,
+  ctx: { calmPlace?: string | null; name?: string | null }
+): string {
+  const calm = (ctx.calmPlace ?? "").trim();
+  const name = (ctx.name ?? "").trim();
+  return line
+    .replace(/\{calmPlace\}/g, calm || "your calm place")
+    .replace(/\{name\},?\s*/g, name ? `${name}, ` : "");
 }
 
 export interface TherapyModule {
@@ -47,16 +66,38 @@ export const MODULES: TherapyModule[] = [
         kind: "instruction",
         title: "What this is",
         text: "A calm place is a mental anchor — a real or imagined place where you feel settled and safe. You will picture it while following slow bilateral stimulation. If distress rises instead of falling at any point, the session stops automatically. That is the system working, not you failing.",
+        beats: [
+          "{name}welcome. Let's set up your calm place together — this is one of the gentlest things we do here.",
+          "There are no difficult memories today. We're only building a place your mind can return to whenever things feel like too much.",
+          "In a moment you'll bring that place to mind while a slow, steady rhythm plays underneath. Nothing to get right — we're just noticing.",
+          "If distress ever climbs instead of easing, the session stops on its own. That's the design working for you, never a failure on your part.",
+          "You can pause or stop at any point, and the Ground-me button stays right there in the corner. Take all the time you need.",
+        ],
       },
       { kind: "suds", title: "Before we start, rate your distress (0–10)" },
       {
         kind: "instruction",
         title: "Choose your calm place",
         text: "Bring to mind a place where you feel calm. Notice what you see, hear, and feel there — temperature, light, sounds. Choose a single word that captures it (for example: shore, pines, kitchen).",
+        beats: [
+          "Let's find your place now. Bring to mind somewhere you feel calm and settled — real or imagined, anywhere at all.",
+          "Notice what's there with you: what you can see, the quality of the light, any sounds, the temperature on your skin.",
+          "Let yourself really arrive there for a moment. There's no rush.",
+          "When it feels clear, choose one word that holds it — something like shore, pines, or kitchen. We'll call it {calmPlace} from here.",
+        ],
       },
       { kind: "bls", title: "Slow bilateral sets while holding your calm place", durationSec: 30, sets: 3 },
       { kind: "suds", title: "Rate your distress now (0–10)" },
-      CLOSING_GROUNDING,
+      {
+        ...CLOSING_GROUNDING,
+        beats: [
+          "That's the work for today — gently done. Let's come back to the room together.",
+          "Feel your feet on the floor and press them down softly. Notice three things you can see right now.",
+          "Take one slow breath, a little longer on the way out.",
+          "{calmPlace} stays yours — you can return to it any time you need it, in a session or on your own.",
+          "Nicely done for showing up for yourself today.",
+        ],
+      },
     ],
   },
   {

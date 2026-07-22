@@ -39,6 +39,10 @@ export function seedDemoData(db: Database.Database) {
   insScreening.run(id(), alexId, "pc-ptsd-5", "2021", 4, "[1,1,1,1,0]", "[]", daysAgo(21));
   insScreening.run(id(), alexId, "phq-9", "standard", 9, "[1,2,2,1,1,1,1,0,0]", "[]", daysAgo(21));
   insScreening.run(id(), alexId, "gad-7", "standard", 9, "[2,1,2,1,1,1,1]", "[]", daysAgo(21));
+  // Program-fit screener PASSED (no hard-stops) — without this row the demo
+  // member is blocked from every session, so the demo could never reach a
+  // guided session. Cleared, so calm-place and the other autonomous modules open.
+  insScreening.run(id(), alexId, "fitness-screener", "fit-v1-placeholder", 0, "[]", "[]", daysAgo(21));
   // Weekly PCL-5 + ITQ, improving
   const itqWeek: [string, number][] = [
     ["[3,2,2,3,2,2,3,1,0,3,2,2,3,2,2,3,0,0]", 28], // cPTSD criteria met

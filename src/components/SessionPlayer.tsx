@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { SessionStep, TherapyModule } from "@/lib/modules";
+import { fillNarrationSlots } from "@/lib/modules";
+import NarrationView from "@/components/NarrationView";
 import type { SessionFocus } from "@/lib/session-focus";
 import { finishSession, logSafetyEvent, recordSessionTrigger, startSession } from "@/lib/actions";
 import VoiceInput from "@/components/VoiceInput";
@@ -30,6 +32,8 @@ interface Props {
   /** Offer voice answers on free-text reflections (demo/flagged; typing stays
    *  the full path either way). */
   voiceEnabled?: boolean;
+  /** Member's preferred name, for personalizing the guided narration. */
+  memberName?: string | null;
 }
 
 function BlsVisual({
@@ -340,7 +344,7 @@ const GROUNDING_STEPS = [
   "Look around the room. Notice where you are, today's date, that you are here now.",
 ];
 
-export default function SessionPlayer({ module: mod, focus, calmPlace, audioOnlyDefault, voiceEnabled = false }: Props) {
+export default function SessionPlayer({ module: mod, focus, calmPlace, audioOnlyDefault, voiceEnabled = false, memberName }: Props) {
   const router = useRouter();
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [phase, setPhase] = useState<Phase>("intro");
@@ -772,7 +776,16 @@ export default function SessionPlayer({ module: mod, focus, calmPlace, audioOnly
       ) : step?.kind === "instruction" || step?.kind === "grounding" ? (
         <div className="mt-8">
           <h2 className="font-serif text-2xl font-medium">{step.title}</h2>
-          <p className="mt-4 text-lg leading-relaxed text-ground/90">{step.text}</p>
+          {step.beats && step.beats.length > 0 ? (
+            <div className="mt-4">
+              <NarrationView
+                key={stepIndex}
+                beats={step.beats.map((b) => fillNarrationSlots(b, { calmPlace, name: memberName }))}
+              />
+            </div>
+          ) : (
+            <p className="mt-4 text-lg leading-relaxed text-ground/90">{step.text}</p>
+          )}
           <button
             onClick={advance}
             className="mt-8 w-full rounded-full bg-sage px-6 py-3.5 font-medium text-ground transition-colors hover:bg-sage-deep"
