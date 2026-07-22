@@ -7,6 +7,16 @@ walks. Nothing is "final" without a named, credentialed, signed reviewer (Vol I 
 
 Legend: 🔴 blocks real-user use · 🟡 resolve before pilot · ⚪ track.
 
+**Printable form:** a fillable Word version of this ledger for reviewers to
+complete and sign is at [`clinician-signoff-form.docx`](clinician-signoff-form.docx)
+(reviewer credentials ×2 · Section-A numeric rulings · per-rule Agree/Needs-change
+for all deterministic rules, mapping 1:1 to the console CSV · Section-E evidence ·
+attestation + signatures). Regenerate with `scripts/gen-signoff-form.js`
+(`npm i docx` then `node scripts/gen-signoff-form.js out.docx`). The in-app
+console at `/clinician/autonomous` remains the system-of-record for the per-rule
+verdicts; the form captures what the app does not (credentials, the ≥2-reviewer
+attestation, the numeric-conflict rulings, and the out-of-app evidence).
+
 ---
 
 ## A. Unresolved numeric conflicts in the spec (Volume II) — MUST resolve
