@@ -499,11 +499,13 @@ demo; they are the gates to a real launch:
   warnings, and backup-failure alerts.
 - [ ] **Stripe** — real hosted checkout. Safety auto-refund and 2-click cancel
   already work against the demo provider.
-- [ ] **EMDR-trained clinical advisor** — sign-off on screener wording/thresholds
-  (`fit-v1-placeholder`), crisis script, and session scripts. Also the **autonomous
-  safety rules** (§10): the advisor walks the Autonomous Review console
-  (`/clinician/autonomous`), resolves the Volume II numeric conflicts, and records an
-  Agree / Needs-change verdict per rule ([`docs/autonomous/01-signoff-ledger.md`](docs/autonomous/01-signoff-ledger.md)).
+- [x] **EMDR-trained clinical advisor** — ✅ **DONE (with conditions), 2026-07-22.** Two
+  independent licensed psychologists ratified the screener wording (finalized `fit-v2-clinrev`),
+  crisis script, session scripts, and the **autonomous safety rules** (§10) at config
+  `beta-clinrev-2026-07` — all rules Agree, all numeric conflicts Confirm
+  ([`docs/autonomous/01-signoff-ledger.md`](docs/autonomous/01-signoff-ledger.md); signed
+  [`PDF`](docs/autonomous/clinician-signoff-SIGNED-2026-07-22.pdf)). Conditions: complete the
+  §14.2 evidence gates and keep autonomous BLS disabled before governing a real member.
 - [ ] **Cyber liability insurance** quote ([`docs/incident-response.md`](docs/incident-response.md)).
 - [ ] **Branded domain + support email** — unblocks the ToS contact placeholder.
 
@@ -572,8 +574,13 @@ detail in [`docs/go-live-runbook.md`](docs/go-live-runbook.md) §4 and
   console (`/clinician/autonomous#voice`, `VOICE_INPUT_*` in the register). Voice/biometric
   consent is **counsel-approved** (`voice-consent-v1.0`) and the gate is wired
   (`/settings/voice` → `voiceAvailableFor`); remaining before non-demo: the flag flip. 🔴
-- [ ] **Clinician sign-off** on the rules + Volume II conflict resolution (via the console
-  + [`docs/autonomous/01-signoff-ledger.md`](docs/autonomous/01-signoff-ledger.md)). 🔴
+- [x] **Clinician sign-off** on the rules + Volume II conflict resolution — ✅ **DONE
+  (with conditions), 2026-07-22.** Two independent licensed psychologists (Altschuler
+  PSY-005804, Allen PSY-002055) ratified config `beta-clinrev-2026-07`: all rules Agree,
+  all Section-A items Confirm. Signed:
+  [`docs/autonomous/clinician-signoff-SIGNED-2026-07-22.pdf`](docs/autonomous/clinician-signoff-SIGNED-2026-07-22.pdf).
+  Conditions: complete the Part 4 evidence gates (§14.2) and keep autonomous BLS/reprocessing
+  disabled before the flag flips.
 - [x] **Legal copy (ToS / Privacy / consent)** — counsel-approved autonomous rewrite is
   applied **flag-aware**: current human-in-loop copy stays live; the `*-autonomous`
   versions + automated-decision-making disclosure serve automatically when

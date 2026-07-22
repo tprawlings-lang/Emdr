@@ -7,6 +7,39 @@ walks. Nothing is "final" without a named, credentialed, signed reviewer (Vol I 
 
 Legend: 🔴 blocks real-user use · 🟡 resolve before pilot · ⚪ track.
 
+## ✅ Clinician sign-off status — RATIFIED WITH CONDITIONS (2026-07-22)
+
+Config `beta-clinrev-2026-07` was reviewed and signed by **two independent
+licensed psychologists**:
+
+- **Rebecca Altschuler, PhD** — Psychologist, AZ PSY-005804 (Active, no board actions).
+- **John Allen, PhD** — Psychologist, AZ PSY-002055 (Active, no board actions).
+
+Signed artifact: [`clinician-signoff-SIGNED-2026-07-22.pdf`](clinician-signoff-SIGNED-2026-07-22.pdf)
+(ref STEADY-CLINREV-2026-07-22-01). Verdicts:
+
+- **Part 2 (Section A):** all ten items **Confirmed** (no revisions).
+- **Part 3 (rules B–D):** **every** deterministic rule **Agree**, zero
+  Needs-change — access/gating, session/BLS, voice/live, therapy-KB.
+- **Part 3.5 human-in-the-loop:** all five checkpoints confirmed.
+- **Overall determination: Approved *with conditions*.**
+
+**Conditions the reviewers attached (still open — do NOT flip
+`EMDR_AUTONOMOUS_SAFETY` until met):**
+1. Real-member staged activation is conditioned on completing + documenting the
+   **Part 4 / Section-E deployment gates** below (evidence matrix, clinical
+   implementation spec, independent privacy/security review, human-factors
+   testing, technical verification, staged-validation protocol, claims review,
+   red-team closure). Only gate 1 (independent ≥2-clinician review) is satisfied.
+2. **No autonomous bilateral stimulation or trauma-memory reprocessing** is
+   approved in beta — this must stay disabled.
+3. Any **material configuration change** resets sign-off and requires renewed
+   clinician review.
+
+This clears the **clinical-sign-off** launch gate (runbook §2 / README §14.4);
+the conditions above remain as separate gates. The engine stays in shadow mode
+until the founder deliberately flips the flag after the conditions are met.
+
 ## Changelog — config `beta-clinrev-2026-07` (supersedes `beta-provisional-2026-07`)
 
 A clinical-review change set has been **applied to the deterministic core** and
@@ -126,8 +159,9 @@ clinician approval. Flagged points:
 
 ## E. Validation gates before any pilot (Volume I & V) — the deployment checklist
 
-- 🔴 Independent review by **≥2 licensed trauma clinicians** of scope/thresholds/stop-rules/
-  dissociation/crisis-routing/user-language (Vol I App. A #1).
+- [x] 🔴 Independent review by **≥2 licensed trauma clinicians** of scope/thresholds/stop-rules/
+  dissociation/crisis-routing/user-language (Vol I App. A #1). ✅ **DONE** — Altschuler +
+  Allen, 2026-07-22 (`clinician-signoff-SIGNED-2026-07-22.pdf`); approved with conditions.
 - 🔴 Evidence matrix mapping every parameter to supporting/absent evidence.
 - 🔴 Clinical implementation spec (decision tables, state transitions, pseudocode, test cases).
 - 🔴 Privacy/security review by qualified professionals (not inferred from clinical design).
