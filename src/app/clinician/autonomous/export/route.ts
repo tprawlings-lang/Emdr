@@ -15,7 +15,7 @@ function csvCell(v: string | null): string {
 
 export async function GET() {
   await requireClinician();
-  const signoffs = getRuleSignoffs();
+  const signoffs = await getRuleSignoffs();
   const header = ["rule_id", "category", "config_version", "verdict", "note", "clinician_id", "reviewed_at"];
   const lines = [header.join(",")];
   for (const r of [...RULES, ...SESSION_RULES, ...EXPERIENCE_RULES, ...THERAPY_KB_RULES]) {

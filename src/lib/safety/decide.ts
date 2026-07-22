@@ -12,8 +12,8 @@ import { evaluateAccess, buildRoutingAuditDetail } from "./engine";
 import { gatherSafetyInputs } from "./gather";
 import type { AccessDecision } from "./types";
 
-export function decideAccess(userId: string, nowMs: number): AccessDecision {
-  return evaluateAccess(gatherSafetyInputs(userId, nowMs));
+export async function decideAccess(userId: string, nowMs: number): Promise<AccessDecision> {
+  return evaluateAccess(await gatherSafetyInputs(userId, nowMs));
 }
 
 /**
@@ -22,9 +22,9 @@ export function decideAccess(userId: string, nowMs: number): AccessDecision {
  * caller ignores the result; when governance is enabled the caller may act on
  * it. `context` labels where the evaluation happened (e.g. "session_start").
  */
-export function shadowDecide(userId: string, context: string, nowMs: number): AccessDecision | null {
+export async function shadowDecide(userId: string, context: string, nowMs: number): Promise<AccessDecision | null> {
   try {
-    const inputs = gatherSafetyInputs(userId, nowMs);
+    const inputs = await gatherSafetyInputs(userId, nowMs);
     const decision = evaluateAccess(inputs);
     audit({
       actorId: userId,

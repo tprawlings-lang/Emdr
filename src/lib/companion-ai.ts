@@ -217,7 +217,7 @@ function parseJsonArray(json: string | null | undefined): string[] {
   }
 }
 
-function buildSystemPrompt(ctx: CompanionContext, contextType: string, latestUserText = ""): string {
+async function buildSystemPrompt(ctx: CompanionContext, contextType: string, latestUserText = ""): Promise<string> {
   const prefs = ctx.prefs;
   // Memory injection is deterministic, not a prompt instruction (audit):
   // when the member disabled memory nothing is injected at all, and the
@@ -395,7 +395,7 @@ Use this to give direction: when they ask what to work on or prepare for, anchor
   // entirely (audit): unknown state gets no techniques, matching "crisis
   // receives no KB" as the unknown-state default.
   try {
-    const decision = decideAccess(ctx.userId, Date.now());
+    const decision = await decideAccess(ctx.userId, Date.now());
     const c = ctx.checkin;
     const signalText = [
       latestUserText,
@@ -473,7 +473,7 @@ export async function generateAiReply(
   const conv = getDb()
     .prepare("SELECT context_type FROM ai_conversations WHERE id = ?")
     .get(convId) as { context_type: string } | undefined;
-  const system = buildSystemPrompt(ctx, conv?.context_type ?? "general", userText);
+  const system = await buildSystemPrompt(ctx, conv?.context_type ?? "general", userText);
   const toolSet = tools(memoryOn);
   const messages: Anthropic.MessageParam[] = [...loadHistory(convId, ctx.userId), { role: "user", content: userText }];
   const state = { riskFlag: false };

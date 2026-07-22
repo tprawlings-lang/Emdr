@@ -121,7 +121,7 @@ export default async function AutonomousReview({ searchParams }: { searchParams:
     (e) => e.event_type.startsWith("safety_routing") || e.event_type.startsWith("companion_output")
   );
 
-  const signoffs = getRuleSignoffs();
+  const signoffs = await getRuleSignoffs();
   const allRules = [...RULES, ...SESSION_RULES, ...EXPERIENCE_RULES, ...THERAPY_KB_RULES];
   const progress = signoffProgress(allRules.map((r) => r.id), signoffs);
   const verdictBadge = (ruleId: string) => {

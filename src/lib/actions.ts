@@ -1017,7 +1017,7 @@ export async function startSession(moduleId: string, focus?: string) {
   // Autonomous safety core (shadow mode): record the deterministic engine's
   // parallel decision so it can be validated against the live gate before it
   // ever governs. Best-effort — never affects this session (docs/autonomous).
-  shadowDecide(user.id, "session_start", Date.now());
+  void shadowDecide(user.id, "session_start", Date.now());
 
   const chosenFocus = focus?.trim().slice(0, 200) || null;
   const db = getDb();
@@ -1484,7 +1484,7 @@ export async function speakInSession(args: {
   // Rules: the member's current deterministic tier + capabilities.
   let tier;
   try {
-    tier = decideAccess(user.id, Date.now()).tier;
+    tier = (await decideAccess(user.id, Date.now())).tier;
   } catch {
     return { ok: false, error: "Unavailable right now." };
   }

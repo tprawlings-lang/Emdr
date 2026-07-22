@@ -3,7 +3,7 @@
 // version — so if a threshold changes, its sign-off resets. Read side here; the
 // write is a clinician-gated server action (recordRuleSignoff in actions.ts).
 
-import { getDb } from "../db";
+import { data } from "../data";
 import { decryptField } from "../crypto";
 import { SAFETY_CONFIG_VERSION } from "./governance";
 
@@ -18,15 +18,15 @@ export interface RuleSignoff {
 }
 
 /** Latest verdict per rule for the current config version. */
-export function getRuleSignoffs(configVersion = SAFETY_CONFIG_VERSION): Map<string, RuleSignoff> {
-  const rows = getDb()
-    .prepare(
-      `SELECT rule_id, verdict, note, clinician_id, created_at
+export async function getRuleSignoffs(configVersion = SAFETY_CONFIG_VERSION): Promise<Map<string, RuleSignoff>> {
+  const c = await data();
+  const rows = (await c.all(
+    `SELECT rule_id, verdict, note, clinician_id, created_at
        FROM autonomous_signoffs
        WHERE config_version = ?
-       ORDER BY created_at ASC, rowid ASC`
-    )
-    .all(configVersion) as {
+       ORDER BY created_at ASC, rowid ASC`,
+    [configVersion]
+  )) as {
     rule_id: string;
     verdict: Verdict;
     note: string | null;
