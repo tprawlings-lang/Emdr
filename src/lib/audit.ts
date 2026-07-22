@@ -1,5 +1,5 @@
 import crypto from "crypto";
-import { getDb } from "./db";
+import { data } from "./data";
 
 export type EventFamily =
   | "identity"
@@ -51,50 +51,56 @@ const GENESIS = "0".repeat(64);
 // so any retroactive edit or deletion breaks the chain from that point on
 // (detectable via verifyAuditChain). Single-writer by design (one SQLite
 // process); the insert reads the latest hash and appends under that assumption.
-export function audit(args: {
+export async function audit(args: {
   actorId?: string | null;
   actorRole?: string | null;
   family: EventFamily;
   type: string;
   target?: string | null;
   detail?: Record<string, unknown>;
-}) {
-  const db = getDb();
+}): Promise<void> {
   const detailJson = JSON.stringify(args.detail ?? {});
   const createdAt = new Date().toISOString();
 
-  const prev = db
-    .prepare("SELECT entry_hash FROM audit_log ORDER BY id DESC LIMIT 1")
-    .get() as { entry_hash: string | null } | undefined;
-  const prevHash = prev?.entry_hash ?? GENESIS;
+  // Read-latest-then-append is wrapped in a transaction so the hash chain is
+  // atomic. (Multi-instance serialization — SELECT..FOR UPDATE / advisory lock
+  // on Postgres — is tracked as a hardening follow-up in pg-migration-progress.)
+  const c = await data();
+  await c.tx(async (t) => {
+    const prev = (await t.get(
+      "SELECT entry_hash FROM audit_log ORDER BY id DESC LIMIT 1"
+    )) as { entry_hash: string | null } | undefined;
+    const prevHash = prev?.entry_hash ?? GENESIS;
 
-  const entryHash = sha256(
-    canonical({
-      prevHash,
-      actorId: args.actorId ?? null,
-      actorRole: args.actorRole ?? null,
-      family: args.family,
-      type: args.type,
-      target: args.target ?? null,
-      detailJson,
-      createdAt,
-    })
-  );
+    const entryHash = sha256(
+      canonical({
+        prevHash,
+        actorId: args.actorId ?? null,
+        actorRole: args.actorRole ?? null,
+        family: args.family,
+        type: args.type,
+        target: args.target ?? null,
+        detailJson,
+        createdAt,
+      })
+    );
 
-  db.prepare(
-    `INSERT INTO audit_log (actor_id, actor_role, event_family, event_type, target, detail_json, created_at, prev_hash, entry_hash)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
-  ).run(
-    args.actorId ?? null,
-    args.actorRole ?? null,
-    args.family,
-    args.type,
-    args.target ?? null,
-    detailJson,
-    createdAt,
-    prevHash,
-    entryHash
-  );
+    await t.run(
+      `INSERT INTO audit_log (actor_id, actor_role, event_family, event_type, target, detail_json, created_at, prev_hash, entry_hash)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        args.actorId ?? null,
+        args.actorRole ?? null,
+        args.family,
+        args.type,
+        args.target ?? null,
+        detailJson,
+        createdAt,
+        prevHash,
+        entryHash,
+      ]
+    );
+  });
 }
 
 export interface AuditRow {
@@ -110,11 +116,9 @@ export interface AuditRow {
   entry_hash: string | null;
 }
 
-export function recentAuditEvents(limit = 200): AuditRow[] {
-  const db = getDb();
-  return db
-    .prepare("SELECT * FROM audit_log ORDER BY id DESC LIMIT ?")
-    .all(limit) as AuditRow[];
+export async function recentAuditEvents(limit = 200): Promise<AuditRow[]> {
+  const c = await data();
+  return (await c.all("SELECT * FROM audit_log ORDER BY id DESC LIMIT ?", [limit])) as AuditRow[];
 }
 
 export interface ChainVerification {
@@ -132,13 +136,11 @@ export interface ChainVerification {
  * columns existed (entry_hash NULL) are skipped until the first chained row,
  * so the check is meaningful on databases that predate this feature.
  */
-export function verifyAuditChain(): ChainVerification {
-  const db = getDb();
-  const rows = db
-    .prepare(
-      "SELECT id, actor_id, actor_role, event_family, event_type, target, detail_json, created_at, prev_hash, entry_hash FROM audit_log ORDER BY id ASC"
-    )
-    .all() as AuditRow[];
+export async function verifyAuditChain(): Promise<ChainVerification> {
+  const c = await data();
+  const rows = (await c.all(
+    "SELECT id, actor_id, actor_role, event_family, event_type, target, detail_json, created_at, prev_hash, entry_hash FROM audit_log ORDER BY id ASC"
+  )) as AuditRow[];
 
   let prevHash: string | null = null;
   let checked = 0;

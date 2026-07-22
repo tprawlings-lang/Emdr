@@ -26,7 +26,7 @@ export async function shadowDecide(userId: string, context: string, nowMs: numbe
   try {
     const inputs = await gatherSafetyInputs(userId, nowMs);
     const decision = evaluateAccess(inputs);
-    audit({
+    await audit({
       actorId: userId,
       actorRole: "member",
       family: "module_runtime",

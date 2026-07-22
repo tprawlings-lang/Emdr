@@ -11,7 +11,7 @@ import FitnessScreener from "@/components/FitnessScreener";
 
 export default async function ScreeningPage() {
   const user = await requireMember();
-  if (!subscriptionActive(user.id)) redirect("/subscribe");
+  if (!(await subscriptionActive(user.id))) redirect("/subscribe");
   if (!hasConsent(user.id)) redirect("/onboarding");
 
   // Program-fit questions come before any baseline instrument (compliance

@@ -59,7 +59,7 @@ const ACTION_LINKS: Record<string, { href: string; label: string }> = {
 
 export default async function DashboardPage() {
   const user = await requireMember();
-  if (!subscriptionActive(user.id)) redirect("/subscribe");
+  if (!(await subscriptionActive(user.id))) redirect("/subscribe");
   if (!hasConsent(user.id)) redirect("/onboarding");
   if (!screeningComplete(user.id)) redirect("/screening");
   if (!profileComplete(user.id)) redirect("/onboarding/profile");
@@ -67,7 +67,7 @@ export default async function DashboardPage() {
   const db = getDb();
   const checkin = getTodayCheckin(user.id);
   const fitness = getFitnessState(user.id);
-  const planRow = getProgramPlan(user.id);
+  const planRow = await getProgramPlan(user.id);
   const readiness = getLatestReadiness(user.id);
   const triggers = getActiveTriggers(user.id);
   const plan = getSafetyPlan(user.id);
@@ -112,6 +112,13 @@ export default async function DashboardPage() {
   const streak = db
     .prepare("SELECT COUNT(*) AS n FROM checkins WHERE user_id = ?")
     .get(user.id) as { n: number };
+
+  // Precompute module access (checkModuleAccess is async now) so the JSX map
+  // below stays synchronous.
+  const modulesWithAccess: { mod: (typeof MODULES)[number]; access: Awaited<ReturnType<typeof checkModuleAccess>> }[] = [];
+  for (const mod of MODULES) {
+    modulesWithAccess.push({ mod, access: await checkModuleAccess(user.id, mod) });
+  }
 
   return (
     <main className="mx-auto max-w-4xl px-6 py-12">
@@ -413,8 +420,7 @@ export default async function DashboardPage() {
       </p>
 
       <div className="mt-4 space-y-3">
-        {MODULES.map((mod) => {
-          const access = checkModuleAccess(user.id, mod);
+        {modulesWithAccess.map(({ mod, access }) => {
           const unlock = mod.tier === "gated" ? getUnlock(user.id, mod.id) : null;
           return (
             <div key={mod.id} className="rounded-3xl border border-ground/10 bg-linen p-6 shadow-soft">

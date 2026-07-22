@@ -12,8 +12,8 @@ const STATUS_COPY: Record<string, string> = {
 
 export default async function BillingPage() {
   const user = await requireMember();
-  const sub = getCurrentSubscription(user.id);
-  const payments = getPayments(user.id);
+  const sub = await getCurrentSubscription(user.id);
+  const payments = await getPayments(user.id);
 
   return (
     <main className="mx-auto max-w-2xl px-6 py-12">

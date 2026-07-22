@@ -18,7 +18,7 @@ export default async function MeasuresPage({
   searchParams: Promise<{ submitted?: string }>;
 }) {
   const user = await requireMember();
-  if (!subscriptionActive(user.id)) redirect("/subscribe");
+  if (!(await subscriptionActive(user.id))) redirect("/subscribe");
   if (!hasConsent(user.id)) redirect("/onboarding");
   if (!screeningComplete(user.id)) redirect("/screening");
   const { submitted } = await searchParams;

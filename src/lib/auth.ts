@@ -1,7 +1,7 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import crypto from "crypto";
-import { getDb } from "./db";
+import { data } from "./data";
 
 const COOKIE = "emdr_session";
 // Dev-only signing secret. Production: managed secrets, short-lived sessions,
@@ -23,15 +23,16 @@ function sign(payload: string): string {
 // invalidates every previously issued token for that user. Tokens issued
 // before this feature carry no epoch and are treated as epoch 0, matching the
 // default, so existing sessions stay valid until they expire or the user bumps.
-function currentEpoch(userId: string): number {
-  const row = getDb().prepare("SELECT token_epoch FROM users WHERE id = ?").get(userId) as
+async function currentEpoch(userId: string): Promise<number> {
+  const c = await data();
+  const row = (await c.get("SELECT token_epoch FROM users WHERE id = ?", [userId])) as
     | { token_epoch: number | null }
     | undefined;
   return row?.token_epoch ?? 0;
 }
 
-export function makeSessionToken(userId: string): string {
-  const payload = `${userId}.${Date.now()}.${currentEpoch(userId)}`;
+export async function makeSessionToken(userId: string): Promise<string> {
+  const payload = `${userId}.${Date.now()}.${await currentEpoch(userId)}`;
   return `${payload}.${sign(payload)}`;
 }
 
@@ -57,7 +58,7 @@ function parseToken(token: string): { userId: string; epoch: number } | null {
 
 export async function setSessionCookie(userId: string) {
   const store = await cookies();
-  store.set(COOKIE, makeSessionToken(userId), {
+  store.set(COOKIE, await makeSessionToken(userId), {
     httpOnly: true,
     sameSite: "lax",
     secure: process.env.NODE_ENV === "production",
@@ -77,10 +78,11 @@ export async function getCurrentUser(): Promise<SessionUser | null> {
   if (!token) return null;
   const parsed = parseToken(token);
   if (!parsed) return null;
-  const db = getDb();
-  const row = db
-    .prepare("SELECT id, email, name, role, token_epoch FROM users WHERE id = ? AND status = 'active'")
-    .get(parsed.userId) as (SessionUser & { token_epoch: number | null }) | undefined;
+  const c = await data();
+  const row = (await c.get(
+    "SELECT id, email, name, role, token_epoch FROM users WHERE id = ? AND status = 'active'",
+    [parsed.userId]
+  )) as (SessionUser & { token_epoch: number | null }) | undefined;
   if (!row) return null;
   // Revocation: a token whose epoch is behind the user's current epoch was
   // invalidated by "sign out everywhere" (or a password change).

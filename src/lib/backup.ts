@@ -168,7 +168,7 @@ export async function runBackup(opts: { localDir?: string } = {}): Promise<Backu
 
     const result: BackupResult = { key, bytes: ciphertext.byteLength, uploaded, pruned };
     writeBackupState({ lastSuccessAt: new Date().toISOString(), lastKey: key, lastBytes: result.bytes });
-    audit({
+    await audit({
       actorRole: "system",
       family: "security",
       type: "backup_completed",
@@ -286,7 +286,7 @@ export function scheduleNightlyBackups() {
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
         writeBackupState({ lastFailureAt: new Date().toISOString(), lastError: message });
-        audit({ actorRole: "system", family: "security", type: "backup_failed", detail: { message } });
+        await audit({ actorRole: "system", family: "security", type: "backup_failed", detail: { message } });
         console.error("backups: NIGHTLY BACKUP FAILED:", message);
         const state = readBackupState();
         await sendBackupAlert(

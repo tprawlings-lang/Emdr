@@ -7,7 +7,7 @@ import { subscriptionActive } from "@/lib/billing";
 
 export default async function OnboardingPage() {
   const user = await requireMember();
-  if (!subscriptionActive(user.id)) redirect("/subscribe");
+  if (!(await subscriptionActive(user.id))) redirect("/subscribe");
   if (hasConsent(user.id)) redirect("/screening");
 
   const consentVersion = currentConsentVersion();

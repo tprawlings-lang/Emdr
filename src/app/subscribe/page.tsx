@@ -9,7 +9,7 @@ import { startSubscription } from "@/lib/actions";
 // here (see lib/billing.ts).
 export default async function SubscribePage() {
   const user = await requireMember();
-  const sub = getCurrentSubscription(user.id);
+  const sub = await getCurrentSubscription(user.id);
   if (sub && (sub.status === "active" || sub.status === "trialing")) redirect("/onboarding");
 
   const demo = process.env.EMDR_DEMO === "1" || !process.env.STRIPE_SECRET_KEY;

@@ -117,7 +117,7 @@ export default async function AutonomousReview({ searchParams }: { searchParams:
     }
   }
 
-  const shadow = recentAuditEvents(400).filter(
+  const shadow = (await recentAuditEvents(400)).filter(
     (e) => e.event_type.startsWith("safety_routing") || e.event_type.startsWith("companion_output")
   );
 

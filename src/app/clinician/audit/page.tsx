@@ -4,7 +4,7 @@ import { recentAuditEvents } from "@/lib/audit";
 
 export default async function AuditConsolePage() {
   await requireClinician();
-  const events = recentAuditEvents(300);
+  const events = await recentAuditEvents(300);
 
   return (
     <main className="mx-auto max-w-5xl px-6 py-10">

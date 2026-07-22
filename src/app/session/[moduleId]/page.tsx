@@ -19,7 +19,7 @@ export default async function SessionPage({
 
   // Server-side gate: the session player never renders for a module the
   // member is not cleared for today.
-  const access = checkModuleAccess(user.id, mod);
+  const access = await checkModuleAccess(user.id, mod);
   if (!access.allowed) {
     redirect(access.action === "crisis" ? "/crisis" : "/dashboard");
   }
@@ -33,7 +33,7 @@ export default async function SessionPage({
   return (
     <SessionPlayer
       module={mod}
-      focus={getSessionFocus(user.id, mod.id)}
+      focus={await getSessionFocus(user.id, mod.id)}
       calmPlace={getSavedCalmPlace(user.id)}
       audioOnlyDefault={hasSeizureFlag(user.id)}
       voiceEnabled={voiceAvailableFor(user.id)}

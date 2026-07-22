@@ -25,7 +25,7 @@ export default async function MemberDetailPage({
   if (!member) notFound();
 
   // Record-access events belong in the audit trail too.
-  audit({
+  await audit({
     actorId: clinician.id,
     actorRole: "clinician",
     family: "security",
@@ -101,7 +101,7 @@ export default async function MemberDetailPage({
     .all(id) as { policy_version: string; scope: string; granted_at: string; revoked_at: string | null }[];
 
   const moduleName = (mid: string) => MODULES.find((m) => m.id === mid)?.name ?? mid;
-  const planRow = getProgramPlan(member.id);
+  const planRow = await getProgramPlan(member.id);
 
   // Latest unlock row per module (unlocks are ordered newest-first), so the
   // specialist controls show current access state.

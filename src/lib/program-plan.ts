@@ -1,5 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
-import { getDb, newId } from "./db";
+import { newId } from "./db";
+import { data } from "./data";
 import { decryptField, encryptField } from "./crypto";
 import { audit } from "./audit";
 import { getMemoryItemsByType } from "./companion";
@@ -59,12 +60,12 @@ export interface ProgramPlanRow {
   created_at: string;
 }
 
-export function getProgramPlan(userId: string): ProgramPlanRow | null {
-  const row = getDb()
-    .prepare(
-      "SELECT id, plan_json, generated_by, created_at FROM program_plans WHERE user_id = ? ORDER BY created_at DESC, rowid DESC LIMIT 1"
-    )
-    .get(userId) as
+export async function getProgramPlan(userId: string): Promise<ProgramPlanRow | null> {
+  const c = await data();
+  const row = (await c.get(
+    "SELECT id, plan_json, generated_by, created_at FROM program_plans WHERE user_id = ? ORDER BY created_at DESC, rowid DESC LIMIT 1",
+    [userId]
+  )) as
     | { id: string; plan_json: string; generated_by: "ai" | "rules"; created_at: string }
     | undefined;
   if (!row) return null;
@@ -242,12 +243,12 @@ export async function generateProgramPlan(
   }
 
   const id = newId();
-  getDb()
-    .prepare(
-      "INSERT INTO program_plans (id, user_id, plan_json, generated_by, source) VALUES (?, ?, ?, ?, ?)"
-    )
-    .run(id, userId, encryptField(JSON.stringify(plan)), generatedBy, source);
-  audit({
+  const c = await data();
+  await c.run(
+    "INSERT INTO program_plans (id, user_id, plan_json, generated_by, source) VALUES (?, ?, ?, ?, ?)",
+    [id, userId, encryptField(JSON.stringify(plan)), generatedBy, source]
+  );
+  await audit({
     actorId: userId,
     actorRole: "member",
     family: "clinical",

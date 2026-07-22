@@ -39,7 +39,7 @@ function moduleName(id: string): string {
 
 export default async function PathsPage() {
   const user = await requireMember();
-  if (!subscriptionActive(user.id)) redirect("/subscribe");
+  if (!(await subscriptionActive(user.id))) redirect("/subscribe");
 
   const intake = getTrackIntake(user.id);
   const savedTags = new Set(intake?.tags ?? []);

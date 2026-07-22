@@ -21,11 +21,11 @@ import { selectTechniques, buildTechniqueBlock } from "./therapy-kb";
 // backstop validates the candidate against the corpus's "never say" rules. In
 // shadow mode it logs violations; when governance is on it replaces the text
 // with a safe fallback. Best-effort — never throws into a reply.
-function guardCompanionText(userId: string, text: string): string {
+async function guardCompanionText(userId: string, text: string): Promise<string> {
   try {
     const { ok, violations } = validateCompanionOutput(text);
     if (ok) return text;
-    audit({
+    await audit({
       actorId: userId,
       actorRole: "member",
       family: "safety",
@@ -368,7 +368,7 @@ activation ${c.activation}, shutdown ${c.shutdown}, dissociation ${c.dissociatio
     );
   }
 
-  const planRow = getProgramPlan(ctx.userId);
+  const planRow = await getProgramPlan(ctx.userId);
   if (planRow) {
     const p = planRow.plan;
     lines.push(
@@ -500,7 +500,7 @@ export async function generateAiReply(
         .trim();
       return {
         text: ensureCrisisResources(
-          guardCompanionText(
+          await guardCompanionText(
             ctx.userId,
             text || "I'm here. Tell me a little more about what's going on for you right now."
           ),

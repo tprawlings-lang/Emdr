@@ -163,7 +163,7 @@ export type ModuleAccess =
 
 const GROUNDING_MODULES = new Set(["calm-place", "containment"]);
 
-export function checkModuleAccess(userId: string, mod: TherapyModule): ModuleAccess {
+export async function checkModuleAccess(userId: string, mod: TherapyModule): Promise<ModuleAccess> {
   // Global kill switch (compliance 4D): new session starts can be disabled
   // within minutes if a safety defect is found in production.
   if (sessionsKilled())
@@ -172,7 +172,7 @@ export function checkModuleAccess(userId: string, mod: TherapyModule): ModuleAcc
       reason: "New sessions are temporarily paused for maintenance. Grounding tools and your companion remain open.",
       action: "paused",
     };
-  if (!subscriptionActive(userId))
+  if (!(await subscriptionActive(userId)))
     return { allowed: false, reason: "An active membership is needed for sessions.", action: "subscribe" };
   if (!hasConsent(userId))
     return { allowed: false, reason: "Please review and complete consent first.", action: "consent" };

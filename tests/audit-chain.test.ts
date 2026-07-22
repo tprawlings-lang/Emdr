@@ -15,17 +15,19 @@ function auditIds(): number[] {
   );
 }
 
-test("audit chain: a clean chain verifies", () => {
+test("audit chain: a clean chain verifies", async () => {
   const before = auditIds().length;
   for (let i = 0; i < 5; i++) {
-    audit({ actorId: `u${i}`, actorRole: "member", family: "clinical", type: "test_event", detail: { i } });
+    // Awaited so the hash-chain transactions run sequentially (as they do in
+    // the app now that audit() is async).
+    await audit({ actorId: `u${i}`, actorRole: "member", family: "clinical", type: "test_event", detail: { i } });
   }
-  const v = verifyAuditChain();
+  const v = await verifyAuditChain();
   assert.equal(v.ok, true, v.reason);
   assert.ok(v.checked >= before + 5);
 });
 
-test("audit chain: editing a row's content breaks the chain at that row", () => {
+test("audit chain: editing a row's content breaks the chain at that row", async () => {
   const db = getDb();
   const ids = auditIds();
   const targetId = ids[ids.length - 2]; // an interior chained row
@@ -33,17 +35,17 @@ test("audit chain: editing a row's content breaks the chain at that row", () => 
     JSON.stringify({ tampered: true }),
     targetId
   );
-  const v = verifyAuditChain();
+  const v = await verifyAuditChain();
   assert.equal(v.ok, false);
   assert.equal(v.brokenAtId, targetId);
 });
 
-test("audit chain: deleting a row breaks the chain", () => {
+test("audit chain: deleting a row breaks the chain", async () => {
   const db = getDb();
   const ids = auditIds();
   const before = ids.length;
   db.prepare("DELETE FROM audit_log WHERE id = ?").run(ids[1]);
   assert.equal(auditIds().length, before - 1);
-  const v = verifyAuditChain();
+  const v = await verifyAuditChain();
   assert.equal(v.ok, false, "a deleted row must break the chain");
 });

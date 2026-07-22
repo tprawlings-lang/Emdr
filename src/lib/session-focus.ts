@@ -76,8 +76,8 @@ export function getSavedCalmPlace(userId: string): string | null {
 
 // The program plan's recommendation for this module, surfaced as the first
 // focus option so Module 5's mapping work directly steers later sessions.
-function planOption(userId: string, moduleId: string): FocusOption | null {
-  const row = getProgramPlan(userId);
+async function planOption(userId: string, moduleId: string): Promise<FocusOption | null> {
+  const row = await getProgramPlan(userId);
   const step = row?.plan.nextSteps.find((s) => s.moduleId === moduleId);
   if (!step) return null;
   return {
@@ -87,8 +87,8 @@ function planOption(userId: string, moduleId: string): FocusOption | null {
   };
 }
 
-function withPlanFirst(userId: string, moduleId: string, options: FocusOption[]): FocusOption[] {
-  const rec = planOption(userId, moduleId);
+async function withPlanFirst(userId: string, moduleId: string, options: FocusOption[]): Promise<FocusOption[]> {
+  const rec = await planOption(userId, moduleId);
   if (!rec) return options;
   const rest = options.filter(
     (o) => o.label.toLowerCase() !== rec.label.toLowerCase() || o.disabled
@@ -96,7 +96,7 @@ function withPlanFirst(userId: string, moduleId: string, options: FocusOption[])
   return [rec, ...rest];
 }
 
-export function getSessionFocus(userId: string, moduleId: string): SessionFocus | null {
+export async function getSessionFocus(userId: string, moduleId: string): Promise<SessionFocus | null> {
   switch (moduleId) {
     case "calm-place": {
       const saved = getSavedCalmPlace(userId);
@@ -137,14 +137,14 @@ export function getSessionFocus(userId: string, moduleId: string): SessionFocus 
       return {
         prompt: "Which trigger from your map do you want to work on today?",
         helper: "Choose one recent, low-to-medium trigger — not a core memory.",
-        options: withPlanFirst(userId, moduleId, triggerOptions(userId, { capIntensity: true })),
+        options: await withPlanFirst(userId, moduleId, triggerOptions(userId, { capIntensity: true })),
         customPlaceholder: "A recent trigger that isn't on your map yet",
       };
     case "safe-target":
       return {
         prompt: "Which target are you working on today?",
         helper: "Choose the target your specialist approved with you.",
-        options: withPlanFirst(userId, moduleId, [
+        options: await withPlanFirst(userId, moduleId, [
           ...triggerOptions(userId),
           ...focusAreaOptions(userId),
         ]),
@@ -154,14 +154,14 @@ export function getSessionFocus(userId: string, moduleId: string): SessionFocus 
       return {
         prompt: "Which processed target are you reinforcing?",
         helper: "Pick the target whose distress already came down in earlier work.",
-        options: withPlanFirst(userId, moduleId, triggerOptions(userId)),
+        options: await withPlanFirst(userId, moduleId, triggerOptions(userId)),
         customPlaceholder: "Name the processed target",
       };
     case "future-template":
       return {
         prompt: "Which upcoming situation do you want to rehearse?",
         helper: "Something you expect to be hard — rehearse yourself coping with it.",
-        options: withPlanFirst(userId, moduleId, focusAreaOptions(userId)),
+        options: await withPlanFirst(userId, moduleId, focusAreaOptions(userId)),
         customPlaceholder: "e.g. the custody hearing next month, visiting my parents",
       };
     case "relational":

@@ -80,7 +80,7 @@ export async function login(formData: FormData) {
     )
     .get(email) as { n: number };
   if (recentFailures.n >= 10) {
-    audit({ family: "identity", type: "login_locked", target: email });
+    await audit({ family: "identity", type: "login_locked", target: email });
     redirect("/login?error=locked");
   }
 
@@ -89,11 +89,11 @@ export async function login(formData: FormData) {
     .get(email) as { id: string; role: string; password_hash: string } | undefined;
 
   if (!user || !verifyPassword(password, user.password_hash)) {
-    audit({ family: "identity", type: "login_failed", target: email });
+    await audit({ family: "identity", type: "login_failed", target: email });
     redirect("/login?error=1");
   }
   await setSessionCookie(user.id);
-  audit({ actorId: user.id, actorRole: user.role, family: "identity", type: "login_success" });
+  await audit({ actorId: user.id, actorRole: user.role, family: "identity", type: "login_success" });
   redirect(user.role === "member" ? "/dashboard" : "/clinician");
 }
 
@@ -108,7 +108,7 @@ export async function logout() {
 export async function signOutEverywhere() {
   const user = await requireUser();
   getDb().prepare("UPDATE users SET token_epoch = token_epoch + 1 WHERE id = ?").run(user.id);
-  audit({ actorId: user.id, actorRole: user.role, family: "identity", type: "sign_out_everywhere" });
+  await audit({ actorId: user.id, actorRole: user.role, family: "identity", type: "sign_out_everywhere" });
   await clearSessionCookie();
   redirect("/login?signedout=1");
 }
@@ -161,7 +161,7 @@ export async function signup(formData: FormData) {
   insertConsent.run(newId(), userId, "wellness-ack-v1", "wellness_acknowledgment");
   insertConsent.run(newId(), userId, currentTermsVersion(), "terms_acceptance");
   await setSessionCookie(userId);
-  audit({
+  await audit({
     actorId: userId,
     actorRole: wantsClinician ? "clinician" : "member",
     family: "identity",
@@ -185,7 +185,7 @@ export async function submitFitnessScreening(answersJson: string) {
     answers = {};
   }
   const { outcome, flags } = recordFitnessScreening(user.id, answers);
-  audit({
+  await audit({
     actorId: user.id,
     actorRole: "member",
     family: "safety",
@@ -256,7 +256,7 @@ export async function recordSessionTrigger(args: {
        VALUES (?, ?, ?, ?, ?, '[]', ?)`
     ).run(newId(), user.id, name, category, disruption, encryptField(notes));
   }
-  audit({
+  await audit({
     actorId: user.id,
     actorRole: "member",
     family: "clinical",
@@ -273,7 +273,7 @@ export async function logSafetyEvent(type: string, sessionId?: string) {
   const user = await requireMember();
   const allowed = new Set(["ground_me_pressed", "suds_pause", "session_time_cap", "session_winddown_shown"]);
   if (!allowed.has(type)) return;
-  audit({
+  await audit({
     actorId: user.id,
     actorRole: "member",
     family: "safety",
@@ -308,7 +308,7 @@ export async function resumeSubscription() {
 
 export async function restartSubscription() {
   const user = await requireMember();
-  if (!subscriptionActive(user.id)) startDemoSubscription(user.id);
+  if (!(await subscriptionActive(user.id))) await startDemoSubscription(user.id);
   redirect("/dashboard");
 }
 
@@ -326,7 +326,7 @@ export async function grantConsent() {
     db.prepare(
       "INSERT INTO consents (id, user_id, policy_version, scope) VALUES (?, ?, ?, ?)"
     ).run(newId(), user.id, currentConsentVersion(), "care_program_full");
-    audit({
+    await audit({
       actorId: user.id,
       actorRole: "member",
       family: "consent",
@@ -369,7 +369,7 @@ export async function submitScreening(formData: FormData) {
      VALUES (?, ?, ?, ?, ?, ?, ?)`
   ).run(newId(), user.id, instrument.id, instrument.version, total, encryptField(JSON.stringify(answers)), JSON.stringify(riskFlags));
 
-  audit({
+  await audit({
     actorId: user.id,
     actorRole: "member",
     family: "clinical",
@@ -423,7 +423,7 @@ export async function saveSupportStatus(formData: FormData) {
     emdr_experience: String(formData.get("emdr_experience") ?? "not_sure"),
     goals_json: JSON.stringify(formData.getAll("goal").map(String).slice(0, 10)),
   });
-  audit({ actorId: user.id, actorRole: "member", family: "clinical", type: "onboarding_support_status" });
+  await audit({ actorId: user.id, actorRole: "member", family: "clinical", type: "onboarding_support_status" });
   redirect("/onboarding/profile?step=background");
 }
 
@@ -438,7 +438,7 @@ export async function saveTraumaContext(formData: FormData) {
   for (const topic of restricted) {
     writeMemory({ userId: user.id, type: "restricted_topic", key: topic, value: "Do not raise unless the member brings it up first.", source: "onboarding" });
   }
-  audit({ actorId: user.id, actorRole: "member", family: "clinical", type: "onboarding_trauma_context" });
+  await audit({ actorId: user.id, actorRole: "member", family: "clinical", type: "onboarding_trauma_context" });
   redirect("/onboarding/profile?step=triggers");
 }
 
@@ -463,7 +463,7 @@ export async function saveTriggers(formData: FormData) {
   }
   for (const name of custom) insert.run(newId(), user.id, name.slice(0, 100), "custom");
 
-  audit({
+  await audit({
     actorId: user.id,
     actorRole: "member",
     family: "clinical",
@@ -493,7 +493,7 @@ export async function saveTriggerDetails(formData: FormData) {
       sourceId: t.id,
     });
   }
-  audit({ actorId: user.id, actorRole: "member", family: "clinical", type: "onboarding_trigger_details" });
+  await audit({ actorId: user.id, actorRole: "member", family: "clinical", type: "onboarding_trigger_details" });
   redirect("/onboarding/profile?step=warning-signs");
 }
 
@@ -515,7 +515,7 @@ export async function saveWarningSigns(formData: FormData) {
       source: "onboarding",
     });
   }
-  audit({ actorId: user.id, actorRole: "member", family: "clinical", type: "onboarding_warning_signs" });
+  await audit({ actorId: user.id, actorRole: "member", family: "clinical", type: "onboarding_warning_signs" });
   redirect("/onboarding/profile?step=readiness");
 }
 
@@ -532,7 +532,7 @@ export async function saveReadinessAssessment(formData: FormData) {
       severity: "urgent",
       detail: "Member reported recent harm thoughts and possible current unsafety during onboarding readiness assessment.",
     });
-    audit({ actorId: user.id, actorRole: "member", family: "clinical", type: "onboarding_crisis_route" });
+    await audit({ actorId: user.id, actorRole: "member", family: "clinical", type: "onboarding_crisis_route" });
     redirect("/crisis?from=onboarding");
   }
 
@@ -576,7 +576,7 @@ export async function saveReadinessAssessment(formData: FormData) {
       detail: "Member reported recent harm thoughts during onboarding but feels safe right now. Routed to stabilization track.",
     });
   }
-  audit({
+  await audit({
     actorId: user.id,
     actorRole: "member",
     family: "clinical",
@@ -620,7 +620,7 @@ export async function saveSafetyPlan(formData: FormData) {
   if (reminder) {
     writeMemory({ userId: user.id, type: "safety", key: "reminder_phrase", value: reminder.slice(0, 300), source: "onboarding" });
   }
-  audit({ actorId: user.id, actorRole: "member", family: "clinical", type: "safety_plan_saved" });
+  await audit({ actorId: user.id, actorRole: "member", family: "clinical", type: "safety_plan_saved" });
   redirect("/onboarding/profile?step=companion");
 }
 
@@ -643,14 +643,14 @@ export async function saveCompanionPrefs(formData: FormData) {
     JSON.stringify(formData.getAll("avoid").map(String).slice(0, 10)),
     ["yes", "no", "ask"].includes(String(formData.get("memory"))) ? String(formData.get("memory")) : "yes"
   );
-  audit({ actorId: user.id, actorRole: "member", family: "clinical", type: "companion_preferences_saved" });
+  await audit({ actorId: user.id, actorRole: "member", family: "clinical", type: "companion_preferences_saved" });
   redirect("/onboarding/profile?step=summary");
 }
 
 export async function completeOnboardingProfile() {
   const user = await requireMember();
   upsertProfile(user.id, { profile_complete: "1" });
-  audit({ actorId: user.id, actorRole: "member", family: "clinical", type: "onboarding_profile_complete" });
+  await audit({ actorId: user.id, actorRole: "member", family: "clinical", type: "onboarding_profile_complete" });
   redirect("/dashboard");
 }
 
@@ -727,7 +727,7 @@ export async function sendCompanionMessage(
       detail: "Risk language detected in a companion conversation. Companion routed the member to crisis resources.",
     });
   }
-  audit({
+  await audit({
     actorId: user.id,
     actorRole: "member",
     family: "clinical",
@@ -777,7 +777,7 @@ export async function deleteAccount(formData: FormData) {
       "UPDATE subscriptions SET status = 'canceled', cancel_at_period_end = 0, updated_at = datetime('now') WHERE user_id = ?"
     ).run(user.id);
   })();
-  audit({ actorId: user.id, actorRole: user.role, family: "identity", type: "account_deleted" });
+  await audit({ actorId: user.id, actorRole: user.role, family: "identity", type: "account_deleted" });
   await clearSessionCookie();
   redirect("/?deleted=1");
 }
@@ -795,7 +795,7 @@ export async function setMemoryEnabled(formData: FormData) {
        ON CONFLICT(user_id) DO UPDATE SET memory_enabled = excluded.memory_enabled, updated_at = datetime('now')`
     )
     .run(user.id, value);
-  audit({ actorId: user.id, actorRole: "member", family: "clinical", type: "companion_memory_setting", detail: { value } });
+  await audit({ actorId: user.id, actorRole: "member", family: "clinical", type: "companion_memory_setting", detail: { value } });
   revalidatePath("/settings/memory");
   redirect("/settings/memory");
 }
@@ -806,7 +806,7 @@ export async function deleteMemoryItem(formData: FormData) {
   getDb()
     .prepare("UPDATE ai_memory_items SET active = 0, updated_at = datetime('now') WHERE id = ? AND user_id = ?")
     .run(id, user.id);
-  audit({ actorId: user.id, actorRole: "member", family: "clinical", type: "companion_memory_deleted", target: id });
+  await audit({ actorId: user.id, actorRole: "member", family: "clinical", type: "companion_memory_deleted", target: id });
   revalidatePath("/settings/memory");
   redirect("/settings/memory");
 }
@@ -816,7 +816,7 @@ export async function clearCompanionMemory() {
   getDb()
     .prepare("UPDATE ai_memory_items SET active = 0, updated_at = datetime('now') WHERE user_id = ?")
     .run(user.id);
-  audit({ actorId: user.id, actorRole: "member", family: "clinical", type: "companion_memory_cleared" });
+  await audit({ actorId: user.id, actorRole: "member", family: "clinical", type: "companion_memory_cleared" });
   revalidatePath("/settings/memory");
   redirect("/settings/memory");
 }
@@ -828,7 +828,7 @@ export async function setTriggerActive(formData: FormData) {
   getDb()
     .prepare("UPDATE user_triggers SET active = ?, updated_at = datetime('now') WHERE id = ? AND user_id = ?")
     .run(active, id, user.id);
-  audit({ actorId: user.id, actorRole: "member", family: "clinical", type: "trigger_updated", target: id, detail: { active } });
+  await audit({ actorId: user.id, actorRole: "member", family: "clinical", type: "trigger_updated", target: id, detail: { active } });
   revalidatePath("/settings/memory");
   redirect("/settings/memory");
 }
@@ -898,7 +898,7 @@ export async function submitCheckin(formData: FormData) {
     );
   }
 
-  audit({
+  await audit({
     actorId: user.id,
     actorRole: "member",
     family: "clinical",
@@ -991,7 +991,7 @@ export async function startDailyCompanionChat(): Promise<{
       detail: "Risk surfaced while opening the post-check-in companion chat.",
     });
   }
-  audit({
+  await audit({
     actorId: user.id,
     actorRole: "member",
     family: "clinical",
@@ -1011,7 +1011,7 @@ export async function startSession(moduleId: string, focus?: string) {
   const user = await requireMember();
   const mod = getModule(moduleId);
   if (!mod) redirect("/dashboard");
-  const access = checkModuleAccess(user.id, mod);
+  const access = await checkModuleAccess(user.id, mod);
   if (!access.allowed) redirect("/dashboard");
 
   // Autonomous safety core (shadow mode): record the deterministic engine's
@@ -1050,7 +1050,7 @@ export async function startSession(moduleId: string, focus?: string) {
     });
   }
 
-  audit({
+  await audit({
     actorId: user.id,
     actorRole: "member",
     family: "module_runtime",
@@ -1102,7 +1102,7 @@ export async function finishSession(args: {
     args.sessionId
   );
 
-  audit({
+  await audit({
     actorId: user.id,
     actorRole: "member",
     family: "module_runtime",
@@ -1165,7 +1165,7 @@ export async function submitPostSessionCheck(formData: FormData) {
     needsEscalation ? 1 : 0
   );
 
-  audit({
+  await audit({
     actorId: user.id,
     actorRole: "member",
     family: "clinical",
@@ -1218,7 +1218,7 @@ export async function requestUnlock(formData: FormData) {
     severity: "moderate",
     detail: `Member requested unlock for module: ${mod.name}`,
   });
-  audit({
+  await audit({
     actorId: user.id,
     actorRole: "member",
     family: "clinical",
@@ -1249,7 +1249,7 @@ export async function decideUnlock(formData: FormData) {
      WHERE id = ?`
   ).run(decision, clinician.id, reason, unlockId);
 
-  audit({
+  await audit({
     actorId: clinician.id,
     actorRole: "clinician",
     family: "specialist_action",
@@ -1290,7 +1290,7 @@ export async function clinicianOpenModule(formData: FormData) {
        decided_at = datetime('now')`
   ).run(newId(), memberId, moduleId, clinician.id, reason);
 
-  audit({
+  await audit({
     actorId: clinician.id,
     actorRole: "clinician",
     family: "specialist_action",
@@ -1317,7 +1317,7 @@ export async function clinicianCloseModule(formData: FormData) {
      WHERE user_id = ? AND module_id = ?`
   ).run(clinician.id, reason, memberId, moduleId);
 
-  audit({
+  await audit({
     actorId: clinician.id,
     actorRole: "clinician",
     family: "specialist_action",
@@ -1346,7 +1346,7 @@ export async function reviewAlert(formData: FormData) {
      WHERE id = ?`
   ).run(clinician.id, note, alertId);
 
-  audit({
+  await audit({
     actorId: clinician.id,
     actorRole: "clinician",
     family: "specialist_action",
@@ -1360,7 +1360,7 @@ export async function reviewAlert(formData: FormData) {
 
 export async function acknowledgeCrisis() {
   const user = await requireUser();
-  audit({
+  await audit({
     actorId: user.id,
     actorRole: user.role,
     family: "clinical",
@@ -1376,7 +1376,7 @@ export async function saveTrackIntakeAction(formData: FormData) {
   const goalText = String(formData.get("goalText") ?? "");
   const tags = formData.getAll("tags").map((t) => String(t));
   saveTrackIntake(user.id, goalText, tags);
-  audit({
+  await audit({
     actorId: user.id,
     actorRole: "member",
     family: "clinical",
@@ -1393,7 +1393,7 @@ export async function selectCareTrack(formData: FormData) {
   const track = getTrack(trackId);
   if (!track) redirect("/paths");
   addMemberTrack(user.id, trackId);
-  audit({
+  await audit({
     actorId: user.id,
     actorRole: "member",
     family: "clinical",
@@ -1410,7 +1410,7 @@ export async function removeCareTrack(formData: FormData) {
   const user = await requireMember();
   const trackId = String(formData.get("trackId") ?? "");
   archiveMemberTrack(user.id, trackId);
-  audit({
+  await audit({
     actorId: user.id,
     actorRole: "member",
     family: "clinical",
@@ -1438,7 +1438,7 @@ export async function recordRuleSignoff(formData: FormData) {
     )
     .run(newId(), ruleId, SAFETY_CONFIG_VERSION, verdict, note ? encryptField(note) : null, clinician.id);
 
-  audit({
+  await audit({
     actorId: clinician.id,
     actorRole: "clinician",
     family: "specialist_action",
@@ -1544,7 +1544,7 @@ export async function speakInSession(args: {
     response = { ...response, text: SAFE_FALLBACK, source: "deterministic" };
   }
 
-  audit({
+  await audit({
     actorId: user.id,
     actorRole: "member",
     family: "module_runtime",
@@ -1573,7 +1573,7 @@ export async function grantVoiceConsent(): Promise<void> {
     db.prepare(
       "INSERT INTO consents (id, user_id, policy_version, scope) VALUES (?, ?, ?, ?)"
     ).run(newId(), user.id, VOICE_CONSENT_VERSION, "voice_biometric");
-    audit({
+    await audit({
       actorId: user.id,
       actorRole: "member",
       family: "consent",
@@ -1592,7 +1592,7 @@ export async function withdrawVoiceConsent(): Promise<void> {
   db.prepare(
     "UPDATE consents SET revoked_at = datetime('now') WHERE user_id = ? AND scope = 'voice_biometric' AND revoked_at IS NULL"
   ).run(user.id);
-  audit({
+  await audit({
     actorId: user.id,
     actorRole: "member",
     family: "consent",

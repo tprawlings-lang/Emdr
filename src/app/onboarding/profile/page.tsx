@@ -128,7 +128,7 @@ export default async function ProfileOnboardingPage({
   searchParams: Promise<{ step?: string }>;
 }) {
   const user = await requireMember();
-  if (!subscriptionActive(user.id)) redirect("/subscribe");
+  if (!(await subscriptionActive(user.id))) redirect("/subscribe");
   if (!hasConsent(user.id)) redirect("/onboarding");
   if (!screeningComplete(user.id)) redirect("/screening");
   if (profileComplete(user.id)) redirect("/dashboard");
