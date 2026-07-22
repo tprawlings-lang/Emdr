@@ -13,16 +13,17 @@ treatment claims. Membership is **$34.99/month** after a 7-day free trial.
 **Who this document is for.** This README is the handoff spec for anyone building
 skills/automation on top of Steady. It documents the **entire member workflow**, every
 **instrument and questionnaire**, exactly **how each is scored**, and **how ongoing scores
-open and close modules**. §1–§9 document the member workflow (some details pre-date the
-2026-07 clinical-review revision — see §10). §10 describes the **autonomous safety
-engine**: as of config `beta-clinrev-2026-07` it has been **ratified by two independent
-licensed clinicians (2026-07-22, approved *with conditions*)** and **governs access
-wherever `EMDR_AUTONOMOUS_SAFETY=1`** (the demo/dogfood deployment runs with it on). The
-default remains **off** (shadow mode: computes + audit-logs, governs nothing), and
-**real-member launch is still gated** on the reviewers' remaining conditions (independent
-privacy/security review + human-factors testing; no autonomous BLS in beta). Skills must
-read `/api/safety-status` for the live `mode` rather than assume. Build docs + the signed
-sign-off live in [`docs/autonomous/`](docs/autonomous/).
+open and close modules**. Everything in §1–§9 is implemented and live — this is the
+**human-in-the-loop gate chain (`checkModuleAccess`) that actually governs members today**,
+regardless of any flag. §10 describes the **parallel autonomous safety engine**: as of
+config `beta-clinrev-2026-07` it has been **ratified by two independent licensed clinicians
+(2026-07-22, approved *with conditions*)**, but it currently runs in **shadow** (computes +
+audit-logs; the clinician console can simulate it) and is **not yet wired into member-facing
+gating**. `EMDR_AUTONOMOUS_SAFETY=1` today only serves the autonomous ToS/privacy/consent
+copy and labels the shadow audit `safety_routing`; making the engine actually govern module
+unlocks is a remaining wiring step (§14.4), gated on the reviewers' conditions. So **members
+are governed by §1–§9 whether the flag is on or off.** Build docs + the signed sign-off live
+in [`docs/autonomous/`](docs/autonomous/).
 
 ---
 
@@ -360,16 +361,20 @@ the recommender — is **already deterministic and autonomous**.
 **Status (config `beta-clinrev-2026-07`): the deterministic safety architecture is built,
 deployed, and — as of 2026-07-22 — clinically ratified by two independent licensed
 psychologists (approved *with conditions*; signed record in
-[`docs/autonomous/`](docs/autonomous/)).** It is gated behind `EMDR_AUTONOMOUS_SAFETY`:
-**default off = shadow** (computes + audit-logs, governs nothing); **`=1` = governing**
-(the demo/dogfood deployment runs governing). **Real-member launch remains gated** on the
-reviewers' conditions — the deployment-evidence gates (independent privacy/security review
-+ human-factors testing) and no autonomous BLS in beta
-([`docs/autonomous/evidence/`](docs/autonomous/evidence/)). Skills must read
-`/api/safety-status` for the live `mode`, not assume. Built faithfully from the
-five-volume corpus; the clinical-review change set (no autonomous BLS, diagnosis/history →
-human review, numeric scores → review triggers, DES-II omitted, PCL-5 item 16 de-scoped as
-a suicide proxy, "readiness" → Educational Access State) is in the ledger changelog.
+[`docs/autonomous/`](docs/autonomous/)).** But it is **not yet the governing decision-maker
+for members.** `shadowDecide()` computes + audit-logs the engine's decision at session start
+as a `void` call that *"never affects this session"* — the live gate is still
+`checkModuleAccess` (§5). `EMDR_AUTONOMOUS_SAFETY` currently controls only two things:
+**default off** → audit label `safety_routing_shadow` + human-in-loop legal copy; **`=1`** →
+audit label `safety_routing` + autonomous legal copy. **Neither setting wires the engine into
+module gating** — that (the session-UI / auto-unlock wiring) is a remaining implementation
+step (§14.4), and real-member governance stays gated on the reviewers' conditions (the
+deployment-evidence gates — independent privacy/security review + human-factors testing — and
+no autonomous BLS in beta, [`docs/autonomous/evidence/`](docs/autonomous/evidence/)). Built
+faithfully from the five-volume corpus; the clinical-review change set (no autonomous BLS,
+diagnosis/history → human review, numeric scores → review triggers, DES-II omitted, PCL-5
+item 16 de-scoped as a suicide proxy, "readiness" → Educational Access State) is in the
+ledger changelog.
 
 **The one architectural rule (all five volumes agree):** safety decisions are deterministic
 and verified; the AI companion is advisory only and is *structurally prevented* from making,
@@ -560,8 +565,9 @@ detail in [`docs/go-live-runbook.md`](docs/go-live-runbook.md) §4 and
 - [x] Built from the clinician corpus (safety core, scoring, session engine, companion
   guard, journey orchestration, governance) — pure, ~112 tests, red-team harness.
 - [x] Deployed + clinician review console with per-rule Agree / Needs-change sign-off and
-  CSV export. **Ratified (with conditions) 2026-07-22**; governs when `EMDR_AUTONOMOUS_SAFETY=1`,
-  else shadow. Default off; real-member launch gated on the §14.2 evidence gates.
+  CSV export. **Ratified (with conditions) 2026-07-22.** Still shadow — the flag swaps legal
+  copy + audit label only; the engine is **not yet wired to govern module gating** (see below).
+  Real-member launch gated on the §14.2 evidence gates.
 - [x] **Therapy knowledge base** — file-based, clinician-reviewable technique library
   (8 modalities, deterministic tier/activation/dissociation-gated retrieval; crisis tier
   gets none; output guard still validates every reply). Browsable + sign-offable at
