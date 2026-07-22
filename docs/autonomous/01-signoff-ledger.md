@@ -40,6 +40,37 @@ This clears the **clinical-sign-off** launch gate (runbook §2 / README §14.4);
 the conditions above remain as separate gates. The engine stays in shadow mode
 until the founder deliberately flips the flag after the conditions are met.
 
+### BLS protocol (ledger A7) — APPROVED FOR VALIDATION (2026-07-22)
+
+The separate **bilateral-stimulation protocol** (`bls-protocol-v1-DRAFT`, ref
+STEADY-BLS-CLINREV-2026-07-22) was signed by the same two psychologists. Signed
+artifact: [`bls-protocol-SIGNED-2026-07-22.pdf`](bls-protocol-SIGNED-2026-07-22.pdf).
+
+- **All Part-2 parameters approved as written** (modality: auditory + self-tapping,
+  visual off; 1.0–1.5 Hz, default 1.25; desensitization set 20–30 s; resourcing set
+  short/slow; max 2 sets; fixed length — no adaptive extension; starting-SUDS gate
+  > 5; containment triggers; stuck rule; 30/40-min limits; ≥120 s closure + orientation
+  + stability check; 48 h cooldown).
+- **Part-3 verbal model approved** — light+directive during / responsive between;
+  **no autonomous cognitive interweaves** (system closes/grounds instead).
+- **Part-4/5 contraindications + self-administered safety constraints confirmed**; a
+  **distinct processing-session consent + counsel review** is required.
+- **Determination: APPROVED FOR VALIDATION ONLY.** This unblocks *building* the BLS
+  automation to these parameters and running the validation — but **no real-member BLS
+  session may occur** until the four still-open Part-6 gates are complete + documented:
+  (1) human-factors testing on the BLS flow, (2) red-team closure on BLS paths,
+  (3) the processing-session consent + counsel review, (4) a staged Phase-4 rollout
+  with stopping criteria + kill switch. `autonomousStimulationEnabled` stays `false`.
+
+> **⚠️ Policy tension to reconcile in counsel review:** the deep-research brief found
+> that **EMDRIA policy "strictly forbids" self-administration of EMDR** and Shapiro
+> warns self-directed processing risks re-traumatization. This signed protocol
+> authorizes a *self-administered* processing protocol (for validation). The reviewers
+> are the clinical authority and approved it, but this conflict — and its implications
+> for EMDR trademark/claims, the reviewers' own EMDRIA standing, and liability — should
+> be addressed explicitly in the Part-6 counsel review, not treated as resolved by this
+> sign-off. See the research brief.
+
 **Deployment-evidence package** for the conditions is drafted at
 [`evidence/`](evidence/) (README with per-gate status). Gates 2/3/6/8/9 are
 drafted from the code + test suite and ready to accept; gate 8 raised one finding
