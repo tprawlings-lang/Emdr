@@ -9,7 +9,6 @@ import {
   S3Client,
 } from "@aws-sdk/client-s3";
 import { Encrypter } from "age-encryption";
-import { getDb } from "./db";
 import { audit } from "./audit";
 import { withRetry, isTransientHttpError } from "./retry";
 
@@ -135,13 +134,34 @@ async function prune(client: S3Client, bucket: string, retentionDays: number): P
  * file is written there instead of uploading (used by `npm run backup -- --local`
  * and the test suite; exercises the full pipeline except R2).
  */
+// Snapshot the database to `dest`. SQLite uses the Online Backup API; Postgres
+// (EMDR_DB=postgres) uses pg_dump's custom compressed format against
+// DATABASE_URL. Both produce a single file that encryptSnapshot() then seals.
+async function snapshot(dest: string): Promise<void> {
+  if (process.env.EMDR_DB === "postgres") {
+    const url = process.env.DATABASE_URL ?? process.env.EMDR_DATABASE_URL;
+    if (!url) throw new Error("EMDR_DB=postgres but DATABASE_URL is not set");
+    const { execFile } = await import("node:child_process");
+    const { promisify } = await import("node:util");
+    // -Fc = custom format (compressed, restore with pg_restore). Credentials
+    // travel via the connection string in argv[]; no shell interpolation.
+    await promisify(execFile)("pg_dump", ["-Fc", "--no-owner", "--no-privileges", "-f", dest, url], {
+      maxBuffer: 1024 * 1024 * 64,
+    });
+    return;
+  }
+  const { getDb } = await import("./db");
+  await getDb().backup(dest);
+}
+
 export async function runBackup(opts: { localDir?: string } = {}): Promise<BackupResult> {
   const stamp = new Date().toISOString().slice(0, 19).replace(/:/g, "-") + "Z";
-  const key = `${PREFIX}emdr-${stamp}.db.age`;
+  const pg = process.env.EMDR_DB === "postgres";
+  const key = `${PREFIX}emdr-${stamp}.${pg ? "dump" : "db"}.age`;
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "steady-backup-"));
-  const snapshotPath = path.join(tmp, "snapshot.db");
+  const snapshotPath = path.join(tmp, pg ? "snapshot.dump" : "snapshot.db");
   try {
-    await getDb().backup(snapshotPath);
+    await snapshot(snapshotPath);
     const ciphertext = await encryptSnapshot(snapshotPath);
 
     let pruned = 0;
