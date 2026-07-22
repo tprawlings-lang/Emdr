@@ -27,10 +27,12 @@ wording (`PROGRAM_FIT_GATE_WORDING`), and the dashboard/marketing route copy.
   professional treatment; it does not diagnose or treat any condition; …does not
   create a clinician-patient relationship."
 
-## Finding — 1 item to reconcile 🟡
+## Finding — 1 item (✅ RESOLVED 2026-07-22)
 
-**F-1 (medium): consent body describes "processing difficult memories," which
-reads as trauma reprocessing.** `src/lib/policy.ts` (consent version
+**F-1 (medium) — RESOLVED: consent body described "processing difficult
+memories," which read as trauma reprocessing.** Counsel approved the Option B
+rewrite; applied to `policy.ts` with `CONSENT_VERSION` → `v2.1-wellness`. Detail
+below and in [`06a-F1-consent-copy-proposal.md`](06a-F1-consent-copy-proposal.md). `src/lib/policy.ts` (consent version
 `v2.0-wellness`) currently says the program is *"for processing difficult
 memories and reducing emotional intensity."* Under the clinical-review revision,
 beta performs **no autonomous trauma-memory reprocessing** and is

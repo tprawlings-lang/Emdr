@@ -1,9 +1,10 @@
-# F-1 — Consent-copy rewrite proposal (for counsel)
+# F-1 — Consent-copy rewrite (RESOLVED)
 
-**Status:** proposal only. **Not applied to `src/lib/policy.ts`.** The consent
-text is counsel-finalized (`v2.0-wellness`, approved 2026-06-10); any wording
-change requires counsel re-review and a version bump. This document is what to
-take to counsel.
+**Status:** ✅ **APPLIED — Option B, counsel-approved 2026-07-22** (per founder's
+attorney). `src/lib/policy.ts` section "What this service is — and is not"
+reworded; `CONSENT_VERSION` bumped `v2.0-wellness` → `v2.1-wellness`. Existing
+members re-consent via the grandfather re-prompt at launch (runbook §2). The
+before/after and rationale are retained below for the record.
 
 **Source of the finding:** [claims & communications review, F-1](06-claims-communications-review.md).
 **Config context:** `beta-clinrev-2026-07` — beta performs **no autonomous

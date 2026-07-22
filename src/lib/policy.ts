@@ -7,6 +7,14 @@ import { autonomousSafetyEnabled } from "./safety/config";
 // approved by counsel on 2026-06-10 (per founder). Any wording change
 // requires re-review and a version bump.
 //
+// 2026-07-22 (F-1, per founder's attorney): the "What this service is — and is
+// not" section was reworded to remove reprocessing/outcome language ("processing
+// difficult memories and reducing emotional intensity") and align with the
+// ratified preparation-only, no-autonomous-reprocessing scope (config
+// beta-clinrev-2026-07; program-fit wording fit-v2-clinrev). Counsel-approved
+// (Option B). CONSENT_VERSION bumped v2.0-wellness → v2.1-wellness. Existing
+// members re-consent via the grandfather re-prompt at launch (runbook §2).
+//
 // TWO SETS OF VERSIONS live here on purpose. The `*_AUTONOMOUS` set is the
 // counsel-approved (2026-07, per founder's attorney) rewrite for the model
 // where fixed automated rules — not a human reviewer — decide fit, daily
@@ -16,7 +24,7 @@ import { autonomousSafetyEnabled } from "./safety/config";
 // flag flips, the selectors below serve the autonomous copy and the ledger
 // records the autonomous version. Never diverge the served copy from the
 // recorded version — always go through the selectors.
-export const CONSENT_VERSION = "v2.0-wellness";
+export const CONSENT_VERSION = "v2.1-wellness";
 export const TERMS_VERSION = "tos-v2.0";
 export const PRIVACY_VERSION = "privacy-v1.0";
 
@@ -31,7 +39,7 @@ const SAFETY_REVIEW_MODEL_AUTONOMOUS =
 export const CONSENT_SECTIONS: { title: string; body: string }[] = [
   {
     title: "What this service is — and is not",
-    body: "Steady is a self-guided wellness program for adults, built around the EMDR method, for processing difficult memories and reducing emotional intensity. It is software: it guides sessions, paces you with daily check-ins, and remembers what helps. It is not therapy, medical care, or a substitute for professional treatment; it does not diagnose or treat any condition; and using it does not create a clinician-patient relationship with anyone.",
+    body: "Steady is a self-guided wellness program for adults, built around the EMDR method, for building grounding and stabilization skills and preparing to work with difficult memories. It is software: it guides sessions, paces you with daily check-ins, and remembers what helps. It is not therapy, medical care, or a substitute for professional treatment; it does not diagnose or treat any condition, does not process trauma, and does not determine your readiness for trauma processing; and using it does not create a clinician-patient relationship with anyone. Steady prepares you for that kind of work; it does not do the trauma processing itself.",
   },
   {
     title: "Safety review model",

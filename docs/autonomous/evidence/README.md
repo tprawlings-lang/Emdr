@@ -23,7 +23,7 @@ in shadow mode until the founder acts on a satisfied gate set.
 | 5 | Human-factors testing | ⏳ **Scoped — needs external execution** | [`07-privacy-security-and-human-factors-plan.md`](07-privacy-security-and-human-factors-plan.md) |
 | 6 | Technical verification (deterministic routing, logging, crash recovery, regression) | ✅ **Drafted** | [`03-technical-verification.md`](03-technical-verification.md) |
 | 7 | Staged validation Phases 1→4 with progression/stopping criteria | ✅ **Drafted (protocol)** | [`05-staged-validation-protocol.md`](05-staged-validation-protocol.md) |
-| 8 | Claims/communications review (preparation-only scope) | ✅ **Drafted — 1 finding (F-1)** | [`06-claims-communications-review.md`](06-claims-communications-review.md) · [F-1 rewrite proposal](06a-F1-consent-copy-proposal.md) |
+| 8 | Claims/communications review (preparation-only scope) | ✅ **Done — F-1 resolved** | [`06-claims-communications-review.md`](06-claims-communications-review.md) · [F-1 (applied)](06a-F1-consent-copy-proposal.md) |
 | 9 | Model safety gates + pilot entry: no unresolved critical red-team findings | ✅ **Drafted** | [`04-red-team-closure.md`](04-red-team-closure.md) |
 
 ## What "drafted" means here
