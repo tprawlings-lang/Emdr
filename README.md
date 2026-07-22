@@ -522,20 +522,25 @@ demo; they are the gates to a real launch:
 - [x] Zero-downtime deploys — **approved** (ADR 0007); migration steps tracked in §14.5.
 - [ ] **Autonomous-model claim rewrite** (§10) — pending founder handoff.
 
-### 14.5 Infrastructure — required before live mode (not demo) 🔴
+### 14.5 Infrastructure — Postgres cutover (required before live mode, not demo)
 
 The demo runs single-instance on SQLite, which forces a brief outage on every deploy.
-**Before switching from demo to live**, finish the Postgres migration so deploys are
-zero-downtime and the app can run more than one instance (ADR 0007):
+The Postgres migration (ADR 0007) that makes deploys zero-downtime and lets the app run
+more than one instance is now **code-complete and verified on a real Postgres 16 cluster**
+(boot + round-trip + audit-chain verify + `pg_dump` backup). What remains is **OPS only** —
+detail in [`docs/go-live-runbook.md`](docs/go-live-runbook.md) §4 and
+[`docs/pg-migration-progress.md`](docs/pg-migration-progress.md).
 
 - [x] PG schema + driver (`scripts/pg-schema.sql`, dual SQLite/PG data layer).
-- [x] Async data-access layer.
-- [ ] **Port remaining call sites to the async layer** (~157 sites). 🔴
-- [ ] **Port the backup/restore system** to Postgres (`pg_dump` path + off-site age
-  encryption; keep RPO 24h / RTO ~1h). 🔴
-- [ ] **Cut Render over**: provision the ~$7/mo managed Postgres, point
-  `DATABASE_URL` at it, run the quiet-moment few-minute cutover (option A), then
-  scale past one instance. 🔴
+- [x] Async data-access layer — **every app `getDb()` call site ported** (0 remaining).
+- [x] Dialect-neutral SQL (no SQLite-only `datetime('now')` / `julianday` / `INSERT OR IGNORE`).
+- [x] Backup/restore `pg_dump` path (custom-format archive; keeps RPO 24h / RTO ~1h).
+- [x] **Verified on real Postgres 16** — app boots + serves, data round-trips, the audit
+  hash-chain transaction verifies, relative-date queries work, `pg_dump` archive restorable.
+- [ ] **OPS — provision Render Postgres** (~$7/mo), set `DATABASE_URL` + `EMDR_DB=postgres`. 🔴
+- [ ] **OPS — one-time load** of existing SQLite data into Postgres, then flip. 🔴
+- [ ] **OPS — audit-chain serialization** (`SELECT … FOR UPDATE` / advisory lock) before
+  scaling past one instance, then set `numInstances ≥ 2` for automatic rolling deploys. 🔴
 
 ### 14.4 Autonomous safety system (§10) — status
 
