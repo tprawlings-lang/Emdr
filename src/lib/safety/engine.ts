@@ -35,11 +35,13 @@ const HOUR_MS = 3600 * 1000;
 const DAY_MS = 24 * HOUR_MS;
 
 export function evaluateAccess(inputs: SafetyInputs): AccessDecision {
-  // Start permissive, then only ever tighten. Visual stimulation is off
-  // globally in beta regardless of any rule (config, ledger A7).
+  // Start permissive, then only ever tighten. Clinical-review revision: beta
+  // runs NO autonomous bilateral stimulation / reprocessing, so the stimulation
+  // capability starts OFF unless explicitly enabled (ledger A3/A5/A7). Visual
+  // stimulation is off globally in beta regardless (ledger A7).
   let tier: AccessTier = trackCeiling(inputs.readiness?.track);
   const capabilities: Capabilities = {
-    stimulation: true,
+    stimulation: BETA_CONFIG.autonomousStimulationEnabled,
     visualStimulation: BETA_CONFIG.visualStimulationEnabled,
     imagery: true,
   };
@@ -52,6 +54,11 @@ export function evaluateAccess(inputs: SafetyInputs): AccessDecision {
     cooldownUntil: null,
     forcedStabilizationUntil: null,
     retakeAllowedAt: null,
+    humanReviewPending: false,
+    presentSafetyClarificationRequired: false,
+    jurisdictionAwareResources: false,
+    reviewTriggered: false,
+    urgentMedicalReferral: false,
   };
   const hits: RuleHit[] = [];
   // Track which rule produced the current lowest tier, for the primary reason.
@@ -76,6 +83,11 @@ export function evaluateAccess(inputs: SafetyInputs): AccessDecision {
     if (e.referral) dispositions.referralSurfaced = true;
     if (e.standingExclusion) dispositions.standingExclusion = true;
     if (e.autoRefund) dispositions.autoRefund = true;
+    if (e.humanReviewPending) dispositions.humanReviewPending = true;
+    if (e.presentSafetyClarification) dispositions.presentSafetyClarificationRequired = true;
+    if (e.jurisdictionAwareResources) dispositions.jurisdictionAwareResources = true;
+    if (e.reviewTrigger) dispositions.reviewTriggered = true;
+    if (e.urgentMedicalReferral) dispositions.urgentMedicalReferral = true;
     if (e.forcedStabilizationHours) {
       dispositions.forcedStabilizationUntil = maxTs(
         dispositions.forcedStabilizationUntil,
@@ -129,6 +141,7 @@ export function evaluateAccess(inputs: SafetyInputs): AccessDecision {
   const activatingSessionsAllowed =
     !crisisActive &&
     !dispositions.standingExclusion &&
+    !dispositions.humanReviewPending &&
     !cooldownActive &&
     capabilities.stimulation &&
     tier >= AccessTier.CAUTIOUS;
@@ -165,6 +178,11 @@ export function buildRoutingAuditDetail(inputs: SafetyInputs, decision: AccessDe
       safetyQuestion: decision.dispositions.safetyQuestionRequired,
       referral: decision.dispositions.referralSurfaced,
       standingExclusion: decision.dispositions.standingExclusion,
+      humanReviewPending: decision.dispositions.humanReviewPending,
+      presentSafetyClarification: decision.dispositions.presentSafetyClarificationRequired,
+      jurisdictionAwareResources: decision.dispositions.jurisdictionAwareResources,
+      reviewTriggered: decision.dispositions.reviewTriggered,
+      urgentMedicalReferral: decision.dispositions.urgentMedicalReferral,
       cooldownUntil: decision.dispositions.cooldownUntil,
       forcedStabilizationUntil: decision.dispositions.forcedStabilizationUntil,
     },

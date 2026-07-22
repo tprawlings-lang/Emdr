@@ -19,8 +19,13 @@ import {
 } from "./config";
 
 /** Bump when any safety threshold or policy changes (requires regression +
- *  documented clinical review per Vol I D-5 / Vol V Ch.21). */
-export const SAFETY_CONFIG_VERSION = "beta-provisional-2026-07";
+ *  documented clinical review per Vol I D-5 / Vol V Ch.21). Bumping resets all
+ *  per-rule sign-offs — verdicts are scoped to the config version. The
+ *  `-clinrev-` revision applies the clinical-review change set (no autonomous
+ *  BLS/reprocessing, history/dx → human review, scores → review triggers,
+ *  DES-II omitted, PCL-5 item 16 de-scoped, readiness → Educational Access
+ *  State) and is pending independent licensed-clinician ratification. */
+export const SAFETY_CONFIG_VERSION = "beta-clinrev-2026-07";
 
 /** Emergency kill switches (Vol V Ch.21). Each stops one capability without
  *  taking the platform down; static safe information stays available. */

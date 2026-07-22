@@ -7,15 +7,54 @@ walks. Nothing is "final" without a named, credentialed, signed reviewer (Vol I 
 
 Legend: 🔴 blocks real-user use · 🟡 resolve before pilot · ⚪ track.
 
-**Printable form:** a fillable Word version of this ledger for reviewers to
-complete and sign is at [`clinician-signoff-form.docx`](clinician-signoff-form.docx)
-(reviewer credentials ×2 · Section-A numeric rulings · per-rule Agree/Needs-change
-for all deterministic rules, mapping 1:1 to the console CSV · Section-E evidence ·
-attestation + signatures). Regenerate with `scripts/gen-signoff-form.js`
-(`npm i docx` then `node scripts/gen-signoff-form.js out.docx`). The in-app
-console at `/clinician/autonomous` remains the system-of-record for the per-rule
-verdicts; the form captures what the app does not (credentials, the ≥2-reviewer
-attestation, the numeric-conflict rulings, and the out-of-app evidence).
+## Changelog — config `beta-clinrev-2026-07` (supersedes `beta-provisional-2026-07`)
+
+A clinical-review change set has been **applied to the deterministic core** and
+is pending ratification by the two named reviewers (see the form). The engine
+remains in shadow mode (governs nothing). Bumping the config version reset all
+prior per-rule sign-offs. Summary of what changed in code:
+
+- **No autonomous BLS / trauma-memory reprocessing in beta**
+  (`BETA_CONFIG.autonomousStimulationEnabled = false`): the engine removes the
+  `stimulation` capability globally; session/BLS rules remain as fail-safe stops
+  and upper bounds only. Self-tapping is grounding-only (A3/A5/A7).
+- **Diagnosis / hospitalization / substance *history* → `humanReviewPending`**
+  (restricted access pending human review) instead of standing exclusions (A6;
+  rules `FIT_PSYCHOTIC_DISSOCIATIVE_DX` / `FIT_HOSPITALIZATION_12M` /
+  `FIT_SUBSTANCE_DEPENDENCE`; §C trait hard-stop item).
+- **Numeric daily/worsening scores → review triggers** (`reviewTriggered`) +
+  fresh check-in, not automatic lockouts; present-state crisis inputs
+  (harm urge / not-safe today) keep their crisis floor with a present-safety
+  clarification + jurisdiction-aware resources.
+- **`CRISIS_PHQ9_ITEM9`**: present-risk clarification (no standalone fixed 72 h
+  lockout). **`CRISIS_PCL5_ITEM16` → `PCL5_ITEM16_CONTEXT`**: de-scoped as a
+  suicide proxy (context prompt / review trigger only).
+- **DES-II omitted** in beta (`des2SurfaceEnabled = false`; rules inert).
+- **"Readiness" → "Educational Access State"** (category + reasons; domain gates,
+  not a composite readiness score). Finalized program-fit wording
+  (`PROGRAM_FIT_GATE_WORDING`, `fit-v2-clinrev`).
+- New dispositions surfaced in the console + audit detail: `humanReviewPending`,
+  `presentSafetyClarificationRequired`, `jurisdictionAwareResources`,
+  `reviewTriggered`, `urgentMedicalReferral`.
+
+Verification: `npx tsc --noEmit` clean; `npm run test:safety` 166/166.
+Tracked follow-ups (larger, non-safety-layer): full member-facing "readiness"
+copy rename across pages; a persisted current-state vs trait/history datastore
+split (A10); branch-by-type inputs for unsafe-situation / present-risk
+clarification flows.
+
+**Printable form:** the fillable Word form for the reviewers is at
+[`clinician-signoff-form.docx`](clinician-signoff-form.docx), generated against
+config `beta-clinrev-2026-07` and **pre-filled with the two named reviewers**
+(R. Altschuler, PSY-005804; J. Allen, PSY-002055). It shows each applied
+clinical-review decision for confirm/revise, per-rule Agree/Needs-change for all
+deterministic rules (mapping 1:1 to the console CSV), the Section-E evidence
+checklist, and the attestation/signature block. Regenerate with
+`scripts/gen-signoff-form.js` (`npm i docx` then
+`node scripts/gen-signoff-form.js out.docx`). The in-app console at
+`/clinician/autonomous` remains the system-of-record for the per-rule verdicts;
+the form captures what the app does not (credentials, the ≥2-reviewer
+attestation, the numeric-conflict confirmations, and the out-of-app evidence).
 
 ---
 

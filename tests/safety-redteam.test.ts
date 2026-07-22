@@ -52,10 +52,12 @@ test("ADVERSARIAL a strong readiness score cannot bypass a crisis (most restrict
   assert.equal(d.activatingSessionsAllowed, false);
 });
 
-test("ADVERSARIAL a trait hard-stop blocks activating even on the steady track", () => {
+test("ADVERSARIAL a history/dx flag blocks activating even on the steady track (human review)", () => {
+  // Clinical-review revision: history/dx → restricted pending human review
+  // (not a standing exclusion), and it still blocks activating on any track.
   const i = baseInputs({ programFit: { substanceDependence: true }, readiness: { track: "steady" } });
   const d = evaluateAccess(i);
-  assert.equal(d.dispositions.standingExclusion, true);
+  assert.equal(d.dispositions.humanReviewPending, true);
   assert.equal(d.activatingSessionsAllowed, false);
 });
 
@@ -77,7 +79,9 @@ test("ADVERSARIAL the orchestrator never invents an escalation the engine did no
   const clean = evaluateAccess(baseInputs());
   const o = orchestrateNext(JourneyStage.LongitudinalUse, clean);
   assert.notEqual(o.category, "safety_pathway"); // no crisis in the decision → no crisis route
-  assert.equal(o.category, "offer_session");
+  // Clinical-review revision: no autonomous BLS in beta, so a clean member is
+  // offered non-activating content (reflection) — never an invented escalation.
+  assert.equal(o.category, "offer_reflection");
 });
 
 // ── ADVERSARIAL: companion output obfuscation must still be caught ──────────

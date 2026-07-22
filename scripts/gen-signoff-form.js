@@ -5,7 +5,15 @@ const {
   Header, Footer, PageNumber, LevelFormat,
 } = require("docx");
 
-const CFG_VERSION = "beta-provisional-2026-07";
+const CFG_VERSION = "beta-clinrev-2026-07";
+const PRIOR_VERSION = "beta-provisional-2026-07";
+
+// Pre-filled reviewers (provided by the founder; credentials verified against
+// the state board record). Signature + date + EMDR-cert left blank for them.
+const REVIEWERS = [
+  { name: "Rebecca Altschuler", title: "Licensed Psychologist", license: "Psychologist — PSY-005804 (Active, exp. 02/29/2028; no board actions)", juris: "Arizona (Phoenix)" },
+  { name: "John Allen", title: "Licensed Psychologist", license: "Psychologist — PSY-002055 (Active, exp. 08/31/2027; no board actions)", juris: "Arizona (Tucson)" },
+];
 const PAGE_W = 12240, PAGE_H = 15840;         // US Letter (DXA)
 const CONTENT_W = 12240 - 1440 - 1440;        // 1" margins => 9360 DXA
 
@@ -80,69 +88,73 @@ function blankLine(label, o = {}) {
 }
 
 // ---- data: the numeric conflicts (ledger Section A) ----------------------
+// "Applied" = the clinical-review decision now implemented in the code at this
+// config version. Clinicians confirm or revise each in the right-hand column.
 const SECTION_A = [
-  ["A1", "RED", "Readiness formula", "Weighted 0–100 (main body) vs multiplier-based (Appendix A) — different caps, track names, boundaries", "Multiplier + caps; tracks grounding / cautious / steady (caps are the safety mechanism: <fully-safe → ceiling 30; low pause-capacity → ceiling 60)"],
-  ["A2", "RED", "In-session SUDS rule", "Delta-based (+1 pause / +2 containment) vs absolute (≥8 / ≥9 + rise-of-3, App A)", "Conservative UNION: containment on Δ≥2 OR absolute ≥8 OR rise-≥3-over-start; hard-stop at ≥9"],
-  ["A3", "AMBER", "Session duration", "30 / 40 min (main) vs 35 / 45 min (App A + advisor R4)", "30 min wind-down / 40 min hard-stop (shorter)"],
-  ["A4", "AMBER", "Containment-ending cooldown", "48 h (main + crosswalk) vs 24 h (advisor R21)", "48 h (longer)"],
-  ["A5", "AMBER", "Max stimulation sets", "3 (main) vs 2–3 (advisor) vs 2 (beta)", "2"],
-  ["A6", "AMBER", "Hospitalization exclusion window", "0–90 d / 91–365 review (main) vs 12-mo standing (screener)", "12-month standing (more conservative)"],
-  ["A7", "RED", "BLS speed & closure minimum", "Main lists 1.25 Hz / 120 s; advisor worksheet marks BOTH “none in codebase — nothing ships without this row”", "Beta 1.0 / 1.25 / 1.5 Hz range, 3/s flash ceiling, 120 s closure — PLACEHOLDERS pending this sign-off"],
-  ["A8", "RED", "Program-fit item wording", "Placeholder pending advisor R15", "fit-v1-placeholder — NOT final"],
-  ["A9", "AMBER", "DES-II inclusion & licensing", "Not yet selected (advisor R22); commercial licensing unverified (R10)", "Omitted from beta until adopted + licensed"],
-  ["A10", "AMBER", "State vs trait split on screener items", "Advisor R18", "Beta split per digest — confirm"],
+  ["A1", "RED", "Readiness formula", "Weighted 0–100 (main body) vs multiplier-based (Appendix A)", "Renamed to “Educational Access State”. No composite score represented as clinical readiness; explicit domain gates (current safety, orientation, pause/stop capacity). Score may only rank permitted educational options — never authorizes trauma processing."],
+  ["A2", "RED", "In-session SUDS rule", "Delta-based (+1 / +2) vs absolute (≥8 / ≥9 + rise-of-3)", "Conservative union retained as automatic STOP/closure FAIL-SAFES only (not a substitute for assessment). User-initiated stop any time; loss of orientation overrides SUDS; no further stimulation after a stop in the same session."],
+  ["A3", "AMBER", "Session duration", "30 / 40 min vs 35 / 45 min", "Autonomous reprocessing/BLS DISABLED in beta. 30/40 min retained only as upper operational bounds; set-specific + cumulative exposure limits defined separately only for a future validated protocol."],
+  ["A4", "AMBER", "Containment-ending cooldown", "48 h vs 24 h", "Fixed 48 h not asserted as authoritative. Minimum conservative rest + fresh check-in + human review after containment-ending events; exact interval pending evidence/pilot."],
+  ["A5", "AMBER", "Max stimulation sets", "3 vs 2–3 vs 2", "No autonomous processing sets in beta. Self-tapping remains only as an optional grounding/orienting skill (not memory processing). “2” kept as a future upper bound only."],
+  ["A6", "AMBER", "Hospitalization exclusion window", "0–90 d / 91–365 review vs 12-mo standing", "Blanket 12-month exclusion REMOVED. Recent hospitalization → restricted access pending HUMAN REVIEW (current stability, discharge plan, safety, support), not a universal calendar rule."],
+  ["A7", "RED", "BLS speed & closure minimum", "1.25 Hz / 120 s; advisor: “nothing ships without this row”", "NO autonomous BLS in beta; visual BLS disabled. Speed alone cannot establish safety — set duration, modality, visual safety, consent, stop access, orientation checks, and purpose remain unresolved. Not ratified."],
+  ["A8", "RED", "Program-fit item wording", "fit-v1-placeholder — not final", "Finalized wording applied (fit-v2-clinrev): “Steady provides education, preparation, and grounding-oriented skills. It does not diagnose, determine readiness for trauma processing, or replace a licensed clinician…” Responses: Yes / I am not sure / No, I need urgent or clinical help."],
+  ["A9", "AMBER", "DES-II inclusion & licensing", "Not selected; licensing unverified", "DES-II NOT surfaced/scored in beta (des2SurfaceEnabled = false) until lawful licensing, scoring fidelity, interpretation limits, and clinician workflow are confirmed. If adopted → caution/referral only."],
+  ["A10", "AMBER", "State vs trait split", "Advisor R18", "Current-state reports stored separately from trait/history; history is source-labeled and does not by itself impose a permanent restriction; user correction + clinician review supported. (Full state/trait datastore split is a tracked follow-up.)"],
 ];
 
 // ---- data: deterministic rule register (B/C/D) ---------------------------
 // [id, plain-language threshold to ratify]
 const RULES_GATING = [
-  ["FIT_UNDER_18", "Under 18 → not eligible (adults 18+ only)."],
-  ["FIT_SELFHARM_30D", "Recent self-harm (30 d) → crisis routing, human support first."],
-  ["FIT_UNSAFE_SITUATION", "Current situation not safe → crisis routing."],
-  ["FIT_PSYCHOTIC_DISSOCIATIVE_DX", "Psychotic/dissociative dx → standing restriction (reversible only by support contact)."],
-  ["FIT_HOSPITALIZATION_12M", "Psychiatric hospitalization in 12 mo → standing restriction (ledger A6)."],
-  ["FIT_SUBSTANCE_DEPENDENCE", "Substance dependence → standing restriction."],
-  ["FIT_SEIZURE_PHOTOSENSITIVE", "Seizure / photosensitivity → visual movement disabled for the account."],
-  ["FIT_ACUTE_MEDICAL", "Acute medical concern → gentle pacing + extra resources."],
-  ["ACUTE_TRAUMA_30D", "Trauma within 30 d → grounding/orientation only, no BLS (Vol I A-8)."],
-  ["DAILY_HARM_URGE", "Daily check-in flags harm urge → crisis routing."],
-  ["DAILY_NOT_SAFE", "Daily: cannot keep self safe → crisis routing."],
-  ["CRISIS_PHQ9_ITEM9", "PHQ-9 item 9 ≥ 1 (ANY nonzero) → 72 h stabilization + one binary safety question."],
-  ["CRISIS_PCL5_ITEM16", "PCL-5 item 16 ≥ 3 → 72 h stabilization + safety question."],
-  ["DAILY_DISSOCIATION_7", "Daily dissociation ≥ 7 → grounding only."],
-  ["DAILY_ACTIVATION_8", "Daily activation ≥ 8 → grounding only."],
-  ["DAILY_SHUTDOWN_8", "Daily shutdown ≥ 8 → grounding only."],
-  ["DAILY_INTOXICATION", "Intoxication reported → activating work rests, grounding open."],
-  ["DAILY_DISSOCIATION_4", "Daily dissociation 4–6 → stabilization (activating work waits)."],
-  ["DAILY_SLEEP_LOW", "Sleep ≤ 2 → stabilization."],
-  ["DAILY_SUBSTANCE", "Substance use reported → lower intensity, stabilization open."],
-  ["MISSING_CHECKIN", "No check-in today → grounding only until completed (missing input never favorable)."],
-  ["DES2_HIGH", "DES-II ≥ 30 → grounding-first + imagery restriction + clinician referral."],
-  ["DES2_CAUTION", "DES-II 20–29.99 → gentle, state-dependent imagery (silent caution)."],
-  ["PCL5_WEEKLY_RISE_10", "PCL-5 week-over-week rise ≥ 10 → 14-day cautious ceiling + support."],
-  ["ITQ_COMBINED_RISE_8", "ITQ (PTSD+DSO) weekly rise ≥ 8 → 14-day cautious ceiling + support."],
-  ["READY_RISK_FLAG", "Any active safety flag → route to support before anything else."],
-  ["READY_LESS_THAN_SAFE", "Less-than-fully-safe → readiness capped at stabilization band (ceiling 30)."],
-  ["READY_PAUSE_CAPACITY_LOW", "Low pause-capacity → cautious band (ceiling 60); build pause skill first."],
-  ["REENTRY_PENDING", "Return after a rest → fresh check-in + grounding, access opens gradually."],
+  ["FIT_UNDER_18", "Under 18 → not eligible (adults 18+ only). [unchanged]"],
+  ["FIT_SELFHARM_30D", "REVISED: self-harm HISTORY (30 d) alone → grounding + present-safety clarification + referral (no automatic crisis/refund). Urgent routing only on current intent."],
+  ["FIT_UNSAFE_SITUATION", "REVISED: current-unsafe → crisis floor + present-safety clarification branched by type, with jurisdiction-aware resources (not one generic script)."],
+  ["FIT_PSYCHOTIC_DISSOCIATIVE_DX", "REVISED: diagnosis → restricted access pending HUMAN REVIEW (orientation/stability/support/intended use). No permanent autonomous ban."],
+  ["FIT_HOSPITALIZATION_12M", "REVISED: hospitalization history → restricted pending HUMAN REVIEW (current stability, discharge plan, support). No fixed 12-mo calendar exclusion."],
+  ["FIT_SUBSTANCE_DEPENDENCE", "REVISED: dependence history → HUMAN REVIEW (not permanent exclusion). Current intoxication/withdrawal handled by the daily rules."],
+  ["FIT_SEIZURE_PHOTOSENSITIVE", "Seizure / photosensitivity → visual movement disabled for the account. [unchanged]"],
+  ["FIT_ACUTE_MEDICAL", "REVISED: acute medical → grounding only + urgent MEDICAL referral for red-flags; no activating work while unresolved."],
+  ["ACUTE_TRAUMA_30D", "REVISED: retain no-BLS + grounding; 30 d is a review trigger (current-state/clinician review gates any later activating path), not a universal boundary."],
+  ["DAILY_HARM_URGE", "REVISED: crisis floor + graduated present-safety clarification (current intent / ability to stay safe / action taken) + jurisdiction-aware resources."],
+  ["DAILY_NOT_SAFE", "REVISED: urgent, with a specified pathway — jurisdiction-aware resources + truthful human-notification status (never imply a human was contacted unless confirmed)."],
+  ["CRISIS_PHQ9_ITEM9", "REVISED: nonzero item 9 → stabilization + present-risk clarification + safety question + referral. NO standalone fixed 72 h lockout."],
+  ["PCL5_ITEM16_CONTEXT", "REVISED (was CRISIS_PCL5_ITEM16): item 16 = risk-taking, NOT a suicide proxy. De-scoped from safety routing → context prompt / review trigger only; no lockout."],
+  ["DAILY_DISSOCIATION_7", "REVISED: ≥ 7 → grounding + present-orientation check + clarification (review trigger). Hard stops are loss of orientation / inability to follow a stop, not the number alone."],
+  ["DAILY_ACTIVATION_8", "REVISED: ≥ 8 → grounding-only default (review trigger); scale defined; member may stop at any score."],
+  ["DAILY_SHUTDOWN_8", "REVISED: ≥ 8 → low-demand orientation + clarification (review trigger); “shutdown” + anchors defined."],
+  ["DAILY_INTOXICATION", "Current intoxication → activating work rests, grounding open. [unchanged]"],
+  ["DAILY_DISSOCIATION_4", "REVISED: 4–6 → caution → grounding + present-orientation check (review trigger)."],
+  ["DAILY_SLEEP_LOW", "REVISED: low sleep → cautious pacing + brief current-impairment check (review trigger), not a universal stabilization restriction."],
+  ["DAILY_SUBSTANCE", "REVISED: same-day substance flag → lower intensity + clarification (review trigger); distinguishes current intoxication from historical/prescribed use."],
+  ["MISSING_CHECKIN", "No check-in today → grounding only until completed (missing input never favorable). [unchanged]"],
+  ["DES2_HIGH", "REVISED: INERT in beta — DES-II omitted until licensed + validated (des2SurfaceEnabled = false). If adopted → caution/referral only."],
+  ["DES2_CAUTION", "REVISED: INERT in beta — DES-II omitted until licensed + validated."],
+  ["PCL5_WEEKLY_RISE_10", "REVISED: ≥ 10 rise → REVIEW TRIGGER + fresh check-in + referral; no automatic 14-day ceiling."],
+  ["ITQ_COMBINED_RISE_8", "REVISED: ≥ 8 rise → REVIEW TRIGGER + fresh check-in + referral; no automatic 14-day ceiling."],
+  ["READY_RISK_FLAG", "Any active safety flag → route to support first. [unchanged; now under Educational Access State]"],
+  ["READY_LESS_THAN_SAFE", "REVISED: current-safety domain gate → steadying range. Relabeled Educational Access State (not a readiness score)."],
+  ["READY_PAUSE_CAPACITY_LOW", "REVISED: low pause/stop capacity → practice stop/pause controls first (cautious). Not a permanent trait or clinical-readiness label."],
+  ["REENTRY_PENDING", "Return after a rest → fresh check-in + grounding, access opens gradually. [unchanged]"],
 ];
+// NOTE: beta runs NO autonomous BLS / reprocessing. The rows below are retained
+// as fail-safe stops / upper bounds only; they do not authorize autonomous sets.
 const RULES_SESSION = [
-  ["SESSION_START_SUDS_CEILING", "Deny stimulation if starting SUDS > 5."],
-  ["SESSION_MAX_SETS", "At most 2 stimulation sets per session (beta)."],
-  ["SESSION_CONTAINMENT_DELTA", "Containment if post-set SUDS rises by ≥ 2."],
-  ["SESSION_CONTAINMENT_ABSOLUTE", "Containment if post-set SUDS reaches ≥ 8."],
-  ["SESSION_HARD_STOP_SUDS", "Hard-stop containment if SUDS reaches ≥ 9."],
-  ["SESSION_RISE_OVER_START", "Containment if SUDS rises ≥ 3 over the starting value."],
-  ["SESSION_TWO_RISES", "Containment after two consecutive +1 rises."],
-  ["SESSION_NO_CHANGE", "Close (no more sets) if SUDS unchanged across 2 sets (“stuck is a stop signal”)."],
-  ["SESSION_DISSOCIATION_STOP", "Stop the exercise if in-session dissociation reaches ≥ 4."],
-  ["SESSION_ORIENTATION_STOP", "Stop + re-orient if the member is not oriented to the present."],
-  ["SESSION_WIND_DOWN", "Wind-down (no new sets) at 30 minutes."],
-  ["SESSION_HARD_STOP_TIME", "Force closure at 40 minutes."],
-  ["SESSION_CLOSURE_MIN", "Mandatory closure ≥ 120 s regardless of score."],
-  ["SESSION_GROUND_ME", "Ground-Me: one-tap halt, locks stimulation for the session, no return."],
-  ["BLS_HZ", "Bilateral stimulation 1.0–1.5 Hz (default 1.25); no adaptive speed, no mid-set increase."],
-  ["BLS_NO_VISUAL_BETA", "No visual BLS in beta (auditory + self-tapping only)."],
+  ["SESSION_START_SUDS_CEILING", "[No autonomous BLS in beta] Future protocol only: deny stimulation if starting SUDS > 5, plus orientation/consent/stop-capacity/clinician context."],
+  ["SESSION_MAX_SETS", "[No autonomous sets in beta] Upper bound of 2 is incomplete without per-set duration, modality, purpose, stop checks, aftercare. Self-tapping = grounding only."],
+  ["SESSION_CONTAINMENT_DELTA", "Fail-safe: containment if post-set SUDS rises by ≥ 2."],
+  ["SESSION_CONTAINMENT_ABSOLUTE", "Fail-safe: containment if post-set SUDS reaches ≥ 8."],
+  ["SESSION_HARD_STOP_SUDS", "Fail-safe: hard-stop containment if SUDS reaches ≥ 9."],
+  ["SESSION_RISE_OVER_START", "Fail-safe: containment if SUDS rises ≥ 3 over the starting value."],
+  ["SESSION_TWO_RISES", "Fail-safe: containment after two consecutive +1 rises."],
+  ["SESSION_NO_CHANGE", "Fail-safe: close if SUDS unchanged across 2 sets (“stuck is a stop signal”)."],
+  ["SESSION_DISSOCIATION_STOP", "REVISED: hard stop on a defined dissociation scale (≥ 4) OR loss of orientation OR inability to follow a stop; numeric elevation → reorient, no further sets."],
+  ["SESSION_ORIENTATION_STOP", "Stop + re-orient if not oriented to the present (overrides SUDS)."],
+  ["SESSION_WIND_DOWN", "REVISED: 30 min is an upper operational boundary only — not evidence of safe processing."],
+  ["SESSION_HARD_STOP_TIME", "REVISED: 40 min is an absolute ceiling only; does not authorize activity inside the window."],
+  ["SESSION_CLOSURE_MIN", "REVISED: 120 s is a FLOOR, not sufficient — closure also requires orientation confirmation + member-reported stability + an escalation path if closure fails."],
+  ["SESSION_GROUND_ME", "Ground-Me: one-tap halt, locks stimulation for the session, no return; user stop available any time."],
+  ["BLS_HZ", "REVISED: DISABLED in beta. If later validated, 1.0–1.5 Hz (default 1.25), no adaptive speed; speed alone cannot establish safety."],
+  ["BLS_NO_VISUAL_BETA", "No visual BLS in beta (auditory + self-tapping only); visual stays disabled."],
   ["BLS_FLASH_CEILING", "Visual flashes never exceed 3 / sec (WCAG 2.3.2)."],
   ["BLS_TIMING_FAILURE", "On a timing failure: stop the set; never catch up or resume."],
 ];
@@ -153,7 +165,7 @@ const RULES_EXPERIENCE = [
   ["VOICE_INPUT_SCOPE", "Voice only for free-text reflection — never SUDS, fit-screening, or any safety-gate input."],
   ["VOICE_INPUT_CONSENT", "Distinct versioned voice/biometric consent + counsel review before non-demo use."],
   ["LIVE_SESSION_ENGINE_OWNS_FLOW", "Responder returns words + at most a Ground-me hint; never continues a set / ends closure / overrides a stop."],
-  ["LIVE_SESSION_CRISIS_SCRIPTED", "Crisis checked first; crisis / high-activation replies scripted → Ground-me + 988, never AI."],
+  ["LIVE_SESSION_CRISIS_SCRIPTED", "REVISED: crisis checked first; deterministic (never AI). Response = present-safety clarification + verified jurisdiction-aware resources + emergency guidance for immediate danger + truthful notification status — not one universal 988 script."],
   ["LIVE_SESSION_BOUNDED_RESPONSE", "Never instructs reprocessing, never claims feelings/outcomes; every line passes the output guard."],
   ["LIVE_SESSION_DEMO_GATED", "Off for real members (demo/flag only); needs clinician sign-off + voice consent."],
 ];
@@ -205,7 +217,7 @@ function ruleTable(rows) {
 // Section A table
 function sectionATable() {
   const W = [640, 2100, 3160, 3460]; // #, param, conflict, ruling == 9360
-  const trs = [headRow(["#", "Parameter", "Conflict / beta value", "Authoritative ruling (write value + rationale)"], W)];
+  const trs = [headRow(["#", "Parameter", "Applied clinical-review decision (now in code)", "Confirm / revise"], W)];
   SECTION_A.forEach((r) => {
     const sev = r[1] === "RED" ? REDBG : AMBERBG;
     trs.push(new TableRow({
@@ -213,32 +225,35 @@ function sectionATable() {
         cell([p(txt(r[0], { bold: true, size: 16 }), { after: 0 })], { w: W[0], fill: sev }),
         cell([p(txt(r[2], { bold: true, size: 17 }), { after: 0 })], { w: W[1] }),
         cell([
-          p(txt("Conflict: ", { bold: true, size: 15, color: MUTE }), { after: 0 }),
-          p(txt(r[3], { size: 16 }), { after: 40 }),
-          p([txt("Beta uses: ", { bold: true, size: 15, color: MUTE }), txt(r[4], { size: 16 })], { after: 0 }),
+          p(txt("Was: ", { bold: true, size: 15, color: MUTE }), { after: 0 }),
+          p(txt(r[3], { size: 15, color: MUTE }), { after: 40 }),
+          p([txt("Applied: ", { bold: true, size: 15, color: HEADBG }), txt(r[4], { size: 16 })], { after: 0 }),
         ], { w: W[2] }),
-        cell([p(txt(" ", { size: 16 }), { after: 0 })], { w: W[3], fill: FILLBLANK }),
+        cell([
+          p([new TextRun({ text: CHECK + " Confirm  " + CHECK + " Revise", font: "Calibri", size: 15 })], { after: 20 }),
+          p(txt(" ", { size: 14 }), { after: 0 }),
+        ], { w: W[3], fill: FILLBLANK }),
       ],
     }));
   });
   return table(W, trs);
 }
 
-// Reviewer credential block
-function reviewerBlock(n) {
+// Reviewer credential block. Pass `data` to pre-fill known fields.
+function reviewerBlock(n, data) {
   const W = [2600, 6760];
-  const row = (label) => new TableRow({
+  const row = (label, value) => new TableRow({
     children: [
       cell([p(txt(label, { bold: true, size: 18, color: MUTE }), { after: 0 })], { w: W[0], fill: ZEBRA, valign: "center" }),
-      cell([p(txt(" ", { size: 18 }), { after: 0 })], { w: W[1] }),
+      cell([p(txt(value ?? " ", { size: 18 }), { after: 0 })], { w: W[1] }),
     ],
   });
   return table(W, [
     new TableRow({ children: [cell([p(txt(`Reviewer ${n}`, { bold: true, color: HEADFG, size: 20 }), { after: 0 })], { w: W[0] + W[1], span: 2, fill: HEADBG })] }),
-    row("Full name"),
-    row("Professional title"),
-    row("License type & number"),
-    row("Jurisdiction / state"),
+    row("Full name", data?.name),
+    row("Professional title", data?.title),
+    row("License type & number", data?.license),
+    row("Jurisdiction / state", data?.juris),
     row("EMDR training / certification"),
     row("Trauma-clinical experience"),
     row("Independence attestation"),
@@ -277,7 +292,23 @@ children.push(p([
   txt(CFG_VERSION, { size: 20, color: HEADBG, bold: true }),
 ], { after: 40 }));
 children.push(p([txt("Date of review: ", { bold: true, size: 20 }), txt("__________________        ", { size: 20 }),
-  txt("Review session / ref: ", { bold: true, size: 20 }), txt("__________________", { size: 20 })], { after: 160 }));
+  txt("Review session / ref: ", { bold: true, size: 20 }), txt("__________________", { size: 20 })], { after: 120 }));
+
+// Revision banner
+children.push(new Table({
+  width: { size: CONTENT_W, type: WidthType.DXA }, columnWidths: [CONTENT_W],
+  borders: { top: { style: BorderStyle.SINGLE, size: 8, color: HEADBG }, bottom: { style: BorderStyle.SINGLE, size: 8, color: HEADBG }, left: { style: BorderStyle.SINGLE, size: 8, color: HEADBG }, right: { style: BorderStyle.SINGLE, size: 8, color: HEADBG }, insideHorizontal: noBorder, insideVertical: noBorder },
+  rows: [new TableRow({ children: [cell([
+    p([txt("Revision under review. ", { bold: true, size: 18, color: HEADBG }), txt(`This configuration (${CFG_VERSION}) supersedes ${PRIOR_VERSION} and applies a clinical-review change set. Bumping the config version has reset all prior per-rule sign-offs — every item below is unratified and needs your verdict.`, { size: 18 })], { after: 60 }),
+    p(txt("Key applied changes (detail in Parts 2–3):", { bold: true, size: 17, color: MUTE }), { after: 20 }),
+    p(txt("•  No autonomous bilateral stimulation / trauma-memory reprocessing in beta (self-tapping = grounding only).", { size: 17 }), { after: 10 }),
+    p(txt("•  Diagnosis / hospitalization / substance HISTORY → restricted pending human review (not a standing/permanent exclusion).", { size: 17 }), { after: 10 }),
+    p(txt("•  Numeric daily/worsening scores → review triggers + fresh check-in, not automatic lockouts; present-state crisis inputs keep their floor.", { size: 17 }), { after: 10 }),
+    p(txt("•  PHQ-9 item 9 → present-risk clarification (no standalone fixed 72 h lockout); PCL-5 item 16 de-scoped as a suicide proxy.", { size: 17 }), { after: 10 }),
+    p(txt("•  DES-II omitted until licensed + validated; crisis routing → jurisdiction-aware + truthful notification; “readiness” → Educational Access State; finalized program-fit wording.", { size: 17 }), { after: 0 }),
+  ], { w: CONTENT_W, fill: "F4F7FB" })] })],
+}));
+children.push(p(txt(" ", { size: 10 })));
 
 children.push(p([
   txt("Purpose. ", { bold: true, size: 20 }),
@@ -300,14 +331,14 @@ children.push(p([
 children.push(new Paragraph({ children: [new PageBreak()] }));
 children.push(h("Part 1 — Reviewer identity & credentials", HeadingLevel.HEADING_1));
 children.push(p(txt("The corpus (Vol I App. C) requires named, credentialed, signed reviewers; at least two independent licensed trauma clinicians must sign. Add pages for further reviewers.", { size: 18, color: MUTE, italics: true })));
-children.push(reviewerBlock(1));
+children.push(reviewerBlock(1, REVIEWERS[0]));
 children.push(p(txt(" ", { size: 8 })));
-children.push(reviewerBlock(2));
+children.push(reviewerBlock(2, REVIEWERS[1]));
 
 // ---------- Part 2 ----------
 children.push(new Paragraph({ children: [new PageBreak()] }));
 children.push(h("Part 2 — Numeric conflict resolution (ledger Section A)", HeadingLevel.HEADING_1));
-children.push(p(txt("The specification's main body, Appendix A, and advisor worksheet give different numbers for the parameters below. Beta uses the safest value. Record the authoritative ruling and rationale for each; the four 🔴 items block real-member use until resolved. A7 and A8 are explicit placeholders that “nothing ships without.”", { size: 18, color: MUTE, italics: true })));
+children.push(p(txt("Each conflict the specification left open now has a clinical-review decision applied in code (the “Applied” column). Confirm each decision or mark Revise and state the change; the four 🔴 items block real-member use until you confirm them. A7 (BLS) is explicitly not ratified — no autonomous BLS in beta — and A8 is the finalized program-fit wording for your approval.", { size: 18, color: MUTE, italics: true })));
 children.push(sectionATable());
 
 // ---------- Part 3 ----------

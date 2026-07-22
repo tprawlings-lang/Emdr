@@ -278,18 +278,26 @@ export default async function AutonomousReview({ searchParams }: { searchParams:
 
           {(decision.dispositions.crisis || decision.dispositions.safetyQuestionRequired ||
             decision.dispositions.referralSurfaced || decision.dispositions.standingExclusion ||
+            decision.dispositions.humanReviewPending || decision.dispositions.presentSafetyClarificationRequired ||
+            decision.dispositions.jurisdictionAwareResources || decision.dispositions.reviewTriggered ||
+            decision.dispositions.urgentMedicalReferral ||
             decision.dispositions.autoRefund || decision.dispositions.cooldownUntil ||
             decision.dispositions.forcedStabilizationUntil) && (
             <div className="mt-4">
               <p className="text-xs font-medium text-olive">Dispositions</p>
               <ul className="mt-1 flex flex-wrap gap-1.5 text-xs">
                 {decision.dispositions.crisis && <li className="rounded bg-support/10 px-2 py-0.5 text-support-deep">crisis pathway</li>}
+                {decision.dispositions.presentSafetyClarificationRequired && <li className="rounded bg-support/10 px-2 py-0.5 text-support-deep">present-safety clarification</li>}
+                {decision.dispositions.jurisdictionAwareResources && <li className="rounded bg-linen px-2 py-0.5">jurisdiction-aware resources</li>}
+                {decision.dispositions.humanReviewPending && <li className="rounded bg-linen px-2 py-0.5">human review pending</li>}
+                {decision.dispositions.reviewTriggered && <li className="rounded bg-linen px-2 py-0.5">review trigger</li>}
+                {decision.dispositions.urgentMedicalReferral && <li className="rounded bg-linen px-2 py-0.5">urgent medical referral</li>}
                 {decision.dispositions.safetyQuestionRequired && <li className="rounded bg-linen px-2 py-0.5">safety question</li>}
                 {decision.dispositions.referralSurfaced && <li className="rounded bg-linen px-2 py-0.5">referral</li>}
                 {decision.dispositions.standingExclusion && <li className="rounded bg-linen px-2 py-0.5">standing exclusion</li>}
                 {decision.dispositions.autoRefund && <li className="rounded bg-linen px-2 py-0.5">auto-refund</li>}
                 {decision.dispositions.cooldownUntil && <li className="rounded bg-linen px-2 py-0.5">cooldown</li>}
-                {decision.dispositions.forcedStabilizationUntil && <li className="rounded bg-linen px-2 py-0.5">72h stabilization</li>}
+                {decision.dispositions.forcedStabilizationUntil && <li className="rounded bg-linen px-2 py-0.5">forced stabilization</li>}
               </ul>
             </div>
           )}
