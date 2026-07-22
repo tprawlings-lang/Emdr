@@ -74,7 +74,7 @@ export default async function DashboardPage() {
   const groundingTools: string[] = plan ? JSON.parse(plan.grounding_tools_json) : [];
   const todayTriggerIds: string[] = checkin?.triggers_json ? JSON.parse(checkin.triggers_json) : [];
   const todayTriggers = triggers.filter((t) => todayTriggerIds.includes(t.id));
-  const myTracks = getMemberTracks(user.id);
+  const myTracks = await getMemberTracks(user.id);
   const completed = await completedModuleIds(user.id);
 
   const pcl5 = db

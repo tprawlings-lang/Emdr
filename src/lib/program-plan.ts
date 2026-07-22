@@ -154,7 +154,7 @@ async function aiPlan(userId: string): Promise<ProgramPlan> {
   const prefs = await getCompanionPrefs(userId);
   const focusAreas = await getMemoryItemsByType(userId, "focus_area");
   const tools = parseJsonArray((await getSafetyPlan(userId))?.grounding_tools_json);
-  const tracks = getMemberTracks(userId);
+  const tracks = await getMemberTracks(userId);
 
   const context = {
     chosenPaths: tracks.map((t) => ({

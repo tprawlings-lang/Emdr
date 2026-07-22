@@ -176,7 +176,7 @@ export async function recommendTracks(userId: string, intakeOverride?: TrackInta
     };
   }
 
-  const intake = intakeOverride ?? getTrackIntake(userId);
+  const intake = intakeOverride ?? (await getTrackIntake(userId));
   const tags = intake?.tags ?? [];
 
   // Base scores from the member's intake tags.

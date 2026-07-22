@@ -11,7 +11,6 @@ import {
   TRACKS,
   getMemberTracks,
   getTrackIntake,
-  hasMemberTrack,
   isReferralOnly,
   nextModuleId,
 } from "@/lib/tracks";
@@ -41,10 +40,11 @@ export default async function PathsPage() {
   const user = await requireMember();
   if (!(await subscriptionActive(user.id))) redirect("/subscribe");
 
-  const intake = getTrackIntake(user.id);
+  const intake = await getTrackIntake(user.id);
   const savedTags = new Set(intake?.tags ?? []);
   const rec = await recommendTracks(user.id);
-  const myTracks = getMemberTracks(user.id);
+  const myTracks = await getMemberTracks(user.id);
+  const myTrackIds = new Set(myTracks.map((t) => t.id));
   const completed = await completedModuleIds(user.id);
 
   return (
@@ -121,7 +121,7 @@ export default async function PathsPage() {
           <div className="mt-4 space-y-3">
             {rec.candidates.map((c) => {
               const track = TRACKS.find((t) => t.id === c.trackId)!;
-              const already = hasMemberTrack(user.id, c.trackId);
+              const already = myTrackIds.has(c.trackId);
               return (
                 <div key={c.trackId} className="rounded-3xl border border-ground/10 bg-linen p-6 shadow-soft">
                   <div className="flex flex-wrap items-center gap-2">
@@ -213,7 +213,7 @@ export default async function PathsPage() {
         </p>
         <div className="mt-4 space-y-3">
           {TRACKS.map((track) => {
-            const already = hasMemberTrack(user.id, track.id);
+            const already = myTrackIds.has(track.id);
             return (
               <details key={track.id} className="rounded-3xl border border-ground/10 bg-linen p-6 shadow-soft">
                 <summary className="flex cursor-pointer flex-wrap items-center gap-2 font-semibold">

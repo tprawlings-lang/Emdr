@@ -1,4 +1,5 @@
-import { getDb, newId } from "./db";
+import { newId } from "./db";
+import { data } from "./data";
 import { MODULES } from "./modules";
 
 // Care pathways ("tracks"): a goal-based routing layer over the shared,
@@ -282,43 +283,48 @@ export interface CareTrackRow {
   created_at: string;
 }
 
-export function getMemberTracks(userId: string): CareTrack[] {
-  const rows = getDb()
-    .prepare(
-      "SELECT track_id FROM care_tracks WHERE user_id = ? AND status = 'active' ORDER BY created_at"
-    )
-    .all(userId) as { track_id: string }[];
+export async function getMemberTracks(userId: string): Promise<CareTrack[]> {
+  const c = await data();
+  const rows = (await c.all(
+    "SELECT track_id FROM care_tracks WHERE user_id = ? AND status = 'active' ORDER BY created_at",
+    [userId]
+  )) as { track_id: string }[];
   return rows.map((r) => getTrack(r.track_id)).filter((t): t is CareTrack => Boolean(t));
 }
 
-export function hasMemberTrack(userId: string, trackId: string): boolean {
-  const row = getDb()
-    .prepare(
-      "SELECT 1 FROM care_tracks WHERE user_id = ? AND track_id = ? AND status = 'active' LIMIT 1"
-    )
-    .get(userId, trackId);
+export async function hasMemberTrack(userId: string, trackId: string): Promise<boolean> {
+  const c = await data();
+  const row = await c.get(
+    "SELECT 1 FROM care_tracks WHERE user_id = ? AND track_id = ? AND status = 'active' LIMIT 1",
+    [userId, trackId]
+  );
   return Boolean(row);
 }
 
-export function addMemberTrack(userId: string, trackId: string): void {
+export async function addMemberTrack(userId: string, trackId: string): Promise<void> {
   if (!getTrack(trackId)) return;
-  const db = getDb();
-  const existing = db
-    .prepare("SELECT id FROM care_tracks WHERE user_id = ? AND track_id = ?")
-    .get(userId, trackId) as { id: string } | undefined;
+  const c = await data();
+  const existing = (await c.get("SELECT id FROM care_tracks WHERE user_id = ? AND track_id = ?", [
+    userId,
+    trackId,
+  ])) as { id: string } | undefined;
   if (existing) {
-    db.prepare("UPDATE care_tracks SET status = 'active' WHERE id = ?").run(existing.id);
+    await c.run("UPDATE care_tracks SET status = 'active' WHERE id = ?", [existing.id]);
   } else {
-    db.prepare(
-      "INSERT INTO care_tracks (id, user_id, track_id, status) VALUES (?, ?, ?, 'active')"
-    ).run(newId(), userId, trackId);
+    await c.run("INSERT INTO care_tracks (id, user_id, track_id, status) VALUES (?, ?, ?, 'active')", [
+      newId(),
+      userId,
+      trackId,
+    ]);
   }
 }
 
-export function archiveMemberTrack(userId: string, trackId: string): void {
-  getDb()
-    .prepare("UPDATE care_tracks SET status = 'archived' WHERE user_id = ? AND track_id = ?")
-    .run(userId, trackId);
+export async function archiveMemberTrack(userId: string, trackId: string): Promise<void> {
+  const c = await data();
+  await c.run("UPDATE care_tracks SET status = 'archived' WHERE user_id = ? AND track_id = ?", [
+    userId,
+    trackId,
+  ]);
 }
 
 // ---------- Goal intake (the member's own words + quick tags) ----------
@@ -328,10 +334,11 @@ export interface TrackIntake {
   tags: string[];
 }
 
-export function getTrackIntake(userId: string): TrackIntake | null {
-  const row = getDb()
-    .prepare("SELECT goal_text, tags_json FROM care_track_intake WHERE user_id = ?")
-    .get(userId) as { goal_text: string | null; tags_json: string } | undefined;
+export async function getTrackIntake(userId: string): Promise<TrackIntake | null> {
+  const c = await data();
+  const row = (await c.get("SELECT goal_text, tags_json FROM care_track_intake WHERE user_id = ?", [
+    userId,
+  ])) as { goal_text: string | null; tags_json: string } | undefined;
   if (!row) return null;
   let tags: string[] = [];
   try {
@@ -343,21 +350,22 @@ export function getTrackIntake(userId: string): TrackIntake | null {
   return { goalText: row.goal_text, tags };
 }
 
-export function saveTrackIntake(userId: string, goalText: string | null, tags: string[]): void {
-  const db = getDb();
+export async function saveTrackIntake(userId: string, goalText: string | null, tags: string[]): Promise<void> {
+  const c = await data();
   const clean = goalText?.trim() ? goalText.trim().slice(0, 1000) : null;
   const tagsJson = JSON.stringify(tags.slice(0, 20));
-  const existing = db
-    .prepare("SELECT user_id FROM care_track_intake WHERE user_id = ?")
-    .get(userId);
+  const existing = await c.get("SELECT user_id FROM care_track_intake WHERE user_id = ?", [userId]);
   if (existing) {
-    db.prepare(
-      "UPDATE care_track_intake SET goal_text = ?, tags_json = ?, updated_at = datetime('now') WHERE user_id = ?"
-    ).run(clean, tagsJson, userId);
+    await c.run(
+      "UPDATE care_track_intake SET goal_text = ?, tags_json = ?, updated_at = datetime('now') WHERE user_id = ?",
+      [clean, tagsJson, userId]
+    );
   } else {
-    db.prepare(
-      "INSERT INTO care_track_intake (user_id, goal_text, tags_json) VALUES (?, ?, ?)"
-    ).run(userId, clean, tagsJson);
+    await c.run("INSERT INTO care_track_intake (user_id, goal_text, tags_json) VALUES (?, ?, ?)", [
+      userId,
+      clean,
+      tagsJson,
+    ]);
   }
 }
 
