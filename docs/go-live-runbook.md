@@ -26,9 +26,12 @@ flag, after its own gate is cleared. Never flip everything at once.
 
 These are independent of which capability you turn on.
 
-- [ ] **Infrastructure: Postgres cutover done** — off single-instance SQLite;
-      zero-downtime deploys; can run >1 instance. *(Runbook §4; owner: Eng.)*
-      🔴 **Currently NOT done — this is the top blocker.**
+- [~] **Infrastructure: Postgres cutover** — **CODE-COMPLETE & verified on a
+      local PG16 cluster** (all data access async, dialect-neutral SQL,
+      pg_dump backup; app boots + round-trips + audit chain verify on Postgres).
+      Remaining is OPS: provision Render Postgres, one-time data load, flip
+      `EMDR_DB=postgres`, and add audit-chain `FOR UPDATE` before >1 instance.
+      *(Runbook §4; details in `docs/pg-migration-progress.md`; owner: Eng/Founder.)*
 - [ ] **Outside accounts provisioned** (README §14.1): login/MFA provider,
       email provider (Resend key), Stripe live checkout. *(Owner: Founder.)*
 - [ ] **Off-site backups verified** — `R2_*` + `BACKUP_AGE_RECIPIENT` set,
@@ -100,13 +103,20 @@ everyone at once.
 
 ## 4. Infrastructure: Postgres zero-downtime cutover (pre-flight blocker §1)
 
-Owner: Engineering. Detail in [ADR 0007](adr/0007-scaling-zero-downtime.md).
+Owner: Engineering. Detail in [ADR 0007](adr/0007-scaling-zero-downtime.md) and
+[`docs/pg-migration-progress.md`](pg-migration-progress.md).
 
-- [ ] Port remaining ~157 data-access call sites to the async layer.
-- [ ] Port the backup/restore system to Postgres (`pg_dump` + off-site age).
-- [ ] Provision the managed Postgres (~$7/mo), set `DATABASE_URL`.
-- [ ] Quiet-moment cutover (few minutes), then scale past one instance.
-- [ ] Verify: rolling deploy causes no dropped requests; backups green on PG.
+- [x] Port all data-access call sites to the async layer (done; getDb() gone
+      from app code).
+- [x] Dialect-neutral SQL (no SQLite-only datetime/julianday/INSERT OR IGNORE).
+- [x] Backup pg_dump path.
+- [x] Verified on a real local Postgres 16 cluster (boot + round-trip + audit
+      chain + backup).
+- [ ] **OPS:** provision the managed Render Postgres (~$7/mo), set `DATABASE_URL`
+      + `EMDR_DB=postgres`.
+- [ ] **OPS:** one-time load of existing SQLite data into Postgres, then flip.
+- [ ] **OPS:** add audit-chain `SELECT ... FOR UPDATE` / advisory lock, then
+      scale past one instance and confirm rolling deploys drop no requests.
 
 ---
 
