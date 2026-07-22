@@ -184,7 +184,7 @@ export async function submitFitnessScreening(answersJson: string) {
   } catch {
     answers = {};
   }
-  const { outcome, flags } = recordFitnessScreening(user.id, answers);
+  const { outcome, flags } = await recordFitnessScreening(user.id, answers);
   await audit({
     actorId: user.id,
     actorRole: "member",
@@ -476,7 +476,7 @@ export async function saveTriggers(formData: FormData) {
 export async function saveTriggerDetails(formData: FormData) {
   const user = await requireMember();
   const db = getDb();
-  for (const t of getActiveTriggers(user.id)) {
+  for (const t of await getActiveTriggers(user.id)) {
     const intensity = formData.get(`intensity-${t.id}`);
     const responses = formData.getAll(`resp-${t.id}`).map(String).slice(0, 12);
     if (intensity === null) continue;
@@ -688,7 +688,7 @@ export async function sendCompanionMessage(
   // canned 988/911 reply never depend on a model call succeeding. Otherwise
   // use the Claude-backed companion when configured, with the rules engine
   // as fallback so the demo still works without an API key or network.
-  const ctx = buildCompanionContext(user.id);
+  const ctx = await buildCompanionContext(user.id);
   const isCrisis = detectRisk(trimmed);
   let reply;
   if (isCrisis || !aiCompanionEnabled()) {
@@ -848,7 +848,7 @@ export async function submitCheckin(formData: FormData) {
   };
   const action = evaluateCheckin(values);
   // Known triggers the member says showed up today (trigger watch).
-  const knownIds = new Set(getActiveTriggers(user.id).map((t) => t.id));
+  const knownIds = new Set((await getActiveTriggers(user.id)).map((t) => t.id));
   const triggersToday = formData
     .getAll("trigger_today")
     .map(String)
@@ -880,7 +880,7 @@ export async function submitCheckin(formData: FormData) {
 
   // Readiness recalculates over time: blend today's somatic state with the
   // slower-moving answers from the latest stored assessment.
-  const base = getLatestReadiness(user.id);
+  const base = await getLatestReadiness(user.id);
   if (base) {
     const recalced = readinessFromCheckin(base, values);
     const { score, track } = computeReadiness(recalced);
@@ -966,7 +966,7 @@ export async function startDailyCompanionChat(): Promise<{
     ).run(convId, user.id);
   }
 
-  const ctx = buildCompanionContext(user.id);
+  const ctx = await buildCompanionContext(user.id);
   let opening;
   if (!aiCompanionEnabled()) {
     opening = generateCheckinOpening(ctx);
@@ -1490,7 +1490,7 @@ export async function speakInSession(args: {
   }
 
   // Memory (exposure-policy enforced) + KB techniques cleared for state.
-  const memories = memoryEnabled(user.id) ? getModelExposableMemoryItems(user.id) : [];
+  const memories = (await memoryEnabled(user.id)) ? await getModelExposableMemoryItems(user.id) : [];
   const signalText = [transcript, ...memories.map((m) => `${m.memory_key} ${m.memory_value}`)].join(" ");
   const techniques = selectTechniques({
     tier,

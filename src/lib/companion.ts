@@ -1,4 +1,5 @@
-import { getDb, newId } from "./db";
+import { newId } from "./db";
+import { data } from "./data";
 import { decryptField, encryptField } from "./crypto";
 import {
   CompanionPrefs,
@@ -41,22 +42,21 @@ export interface CompanionContext {
   } | null;
 }
 
-export function buildCompanionContext(userId: string): CompanionContext {
-  const db = getDb();
-  const lastSession = db
-    .prepare(
-      `SELECT module_id, status, pre_suds, post_suds, started_at
-       FROM therapy_sessions WHERE user_id = ? ORDER BY started_at DESC LIMIT 1`
-    )
-    .get(userId) as CompanionContext["lastSession"];
+export async function buildCompanionContext(userId: string): Promise<CompanionContext> {
+  const c = await data();
+  const lastSession = (await c.get(
+    `SELECT module_id, status, pre_suds, post_suds, started_at
+       FROM therapy_sessions WHERE user_id = ? ORDER BY started_at DESC LIMIT 1`,
+    [userId]
+  )) as CompanionContext["lastSession"];
   return {
     userId,
-    prefs: getCompanionPrefs(userId),
-    triggers: getActiveTriggers(userId),
-    warningSigns: getWarningSigns(userId),
-    plan: getSafetyPlan(userId),
-    checkin: getTodayCheckin(userId),
-    readiness: getLatestReadiness(userId),
+    prefs: await getCompanionPrefs(userId),
+    triggers: await getActiveTriggers(userId),
+    warningSigns: await getWarningSigns(userId),
+    plan: await getSafetyPlan(userId),
+    checkin: await getTodayCheckin(userId),
+    readiness: await getLatestReadiness(userId),
     lastSession: lastSession ?? null,
   };
 }
@@ -93,11 +93,11 @@ export interface MemoryItem {
   created_at: string;
 }
 
-export function memoryEnabled(userId: string): boolean {
-  return (getCompanionPrefs(userId)?.memory_enabled ?? "yes") === "yes";
+export async function memoryEnabled(userId: string): Promise<boolean> {
+  return ((await getCompanionPrefs(userId))?.memory_enabled ?? "yes") === "yes";
 }
 
-export function writeMemory(args: {
+export async function writeMemory(args: {
   userId: string;
   type: MemoryType;
   key: string;
@@ -105,31 +105,32 @@ export function writeMemory(args: {
   source: MemorySource;
   sourceId?: string;
 }) {
-  if (!memoryEnabled(args.userId)) return;
-  const db = getDb();
-  const existing = db
-    .prepare(
-      "SELECT id FROM ai_memory_items WHERE user_id = ? AND memory_type = ? AND memory_key = ? AND active = 1"
-    )
-    .get(args.userId, args.type, args.key) as { id: string } | undefined;
+  if (!(await memoryEnabled(args.userId))) return;
+  const c = await data();
+  const existing = (await c.get(
+    "SELECT id FROM ai_memory_items WHERE user_id = ? AND memory_type = ? AND memory_key = ? AND active = 1",
+    [args.userId, args.type, args.key]
+  )) as { id: string } | undefined;
   if (existing) {
-    db.prepare(
-      "UPDATE ai_memory_items SET memory_value = ?, source_type = ?, source_id = ?, updated_at = datetime('now') WHERE id = ?"
-    ).run(encryptField(args.value), args.source, args.sourceId ?? null, existing.id);
+    await c.run(
+      "UPDATE ai_memory_items SET memory_value = ?, source_type = ?, source_id = ?, updated_at = datetime('now') WHERE id = ?",
+      [encryptField(args.value), args.source, args.sourceId ?? null, existing.id]
+    );
   } else {
-    db.prepare(
+    await c.run(
       `INSERT INTO ai_memory_items (id, user_id, memory_type, memory_key, memory_value, source_type, source_id)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`
-    ).run(newId(), args.userId, args.type, args.key, encryptField(args.value), args.source, args.sourceId ?? null);
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [newId(), args.userId, args.type, args.key, encryptField(args.value), args.source, args.sourceId ?? null]
+    );
   }
 }
 
-export function getMemoryItems(userId: string): MemoryItem[] {
-  const rows = getDb()
-    .prepare(
-      "SELECT * FROM ai_memory_items WHERE user_id = ? AND active = 1 ORDER BY memory_type, memory_key"
-    )
-    .all(userId) as MemoryItem[];
+export async function getMemoryItems(userId: string): Promise<MemoryItem[]> {
+  const c = await data();
+  const rows = (await c.all(
+    "SELECT * FROM ai_memory_items WHERE user_id = ? AND active = 1 ORDER BY memory_type, memory_key",
+    [userId]
+  )) as MemoryItem[];
   return rows.map((r) => ({ ...r, memory_value: decryptField(r.memory_value) }));
 }
 
@@ -137,8 +138,8 @@ export function getMemoryItems(userId: string): MemoryItem[] {
  *  site (audit finding): Account/SafetyAudit classes never reach a prompt
  *  (canExposeToModel) and gracefully-forgotten items are dropped (decayState).
  *  The member still sees everything via getMemoryItems in Settings → Memory. */
-export function getModelExposableMemoryItems(userId: string, nowMs = Date.now()): MemoryItem[] {
-  return getMemoryItems(userId).filter((m) => {
+export async function getModelExposableMemoryItems(userId: string, nowMs = Date.now()): Promise<MemoryItem[]> {
+  return (await getMemoryItems(userId)).filter((m) => {
     const c = classifyMemory(m.memory_type, m.source_type);
     if (!canExposeToModel(c.memoryClass)) return false;
     // created_at is SQLite datetime('now') UTC: "YYYY-MM-DD HH:MM:SS".
@@ -157,16 +158,16 @@ export function getModelExposableMemoryItems(userId: string, nowMs = Date.now())
   });
 }
 
-export function getMemoryItemsByType(userId: string, type: MemoryType): MemoryItem[] {
-  return getMemoryItems(userId).filter((m) => m.memory_type === type);
+export async function getMemoryItemsByType(userId: string, type: MemoryType): Promise<MemoryItem[]> {
+  return (await getMemoryItems(userId)).filter((m) => m.memory_type === type);
 }
 
-export function hasOnboardingConversation(userId: string): boolean {
-  const row = getDb()
-    .prepare(
-      "SELECT 1 AS one FROM ai_conversations WHERE user_id = ? AND context_type = 'onboarding' LIMIT 1"
-    )
-    .get(userId);
+export async function hasOnboardingConversation(userId: string): Promise<boolean> {
+  const c = await data();
+  const row = await c.get(
+    "SELECT 1 AS one FROM ai_conversations WHERE user_id = ? AND context_type = 'onboarding' LIMIT 1",
+    [userId]
+  );
   return Boolean(row);
 }
 

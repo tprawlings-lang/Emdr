@@ -11,8 +11,8 @@ import { VOICE_CONSENT_SECTIONS, VOICE_CONSENT_VERSION, voiceConsentRequired } f
 // granting here (enforced by voiceAvailableFor / liveAvailableFor).
 export default async function VoiceSettingsPage() {
   const user = await requireMember();
-  if (!hasConsent(user.id)) redirect("/onboarding");
-  const granted = hasVoiceConsent(user.id);
+  if (!(await hasConsent(user.id))) redirect("/onboarding");
+  const granted = await hasVoiceConsent(user.id);
 
   return (
     <main className="mx-auto max-w-2xl px-6 py-12">

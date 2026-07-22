@@ -14,12 +14,12 @@ export default async function CompanionPage({
 }) {
   const user = await requireMember();
   if (!(await subscriptionActive(user.id))) redirect("/subscribe");
-  if (!hasConsent(user.id)) redirect("/onboarding");
+  if (!(await hasConsent(user.id))) redirect("/onboarding");
   if (!screeningComplete(user.id)) redirect("/screening");
   if (!profileComplete(user.id)) redirect("/onboarding/profile");
 
   const { from } = await searchParams;
-  const ctx = buildCompanionContext(user.id);
+  const ctx = await buildCompanionContext(user.id);
   // Arriving fresh from a check-in opens today's daily chat: the companion
   // speaks first, prompted by the numbers just submitted and stored history.
   const dailyChat = from === "checkin" && !!ctx.checkin;

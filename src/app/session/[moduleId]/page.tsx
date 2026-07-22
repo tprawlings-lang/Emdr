@@ -27,18 +27,25 @@ export default async function SessionPage({
   // Offer everything Steady already knows — triggers, calm place, resources,
   // focus areas from companion conversations — as the session's focus.
   const preferredName =
-    getCompanionPrefs(user.id)?.preferred_user_name?.trim() ||
+    (await getCompanionPrefs(user.id))?.preferred_user_name?.trim() ||
     user.name?.trim().split(/\s+/)[0] ||
     null;
+  const [focus, calmPlace, audioOnlyDefault, voiceEnabled, liveEnabled] = await Promise.all([
+    getSessionFocus(user.id, mod.id),
+    getSavedCalmPlace(user.id),
+    hasSeizureFlag(user.id),
+    voiceAvailableFor(user.id),
+    liveAvailableFor(user.id),
+  ]);
   return (
     <SessionPlayer
       module={mod}
-      focus={await getSessionFocus(user.id, mod.id)}
-      calmPlace={getSavedCalmPlace(user.id)}
-      audioOnlyDefault={hasSeizureFlag(user.id)}
-      voiceEnabled={voiceAvailableFor(user.id)}
+      focus={focus}
+      calmPlace={calmPlace}
+      audioOnlyDefault={audioOnlyDefault}
+      voiceEnabled={voiceEnabled}
       memberName={preferredName}
-      liveEnabled={liveAvailableFor(user.id)}
+      liveEnabled={liveEnabled}
     />
   );
 }

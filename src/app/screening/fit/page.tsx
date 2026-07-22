@@ -12,7 +12,7 @@ import {
 // payment already refunded automatically, 24h retake cooldown.
 export default async function FitPausePage() {
   const user = await requireMember();
-  const fitness = getFitnessState(user.id);
+  const fitness = await getFitnessState(user.id);
   if (fitness.status !== "cooldown") redirect("/screening");
 
   const us = CRISIS_REGIONS.find((r) => r.code === "US")!;

@@ -20,8 +20,8 @@ enable multi-instance/Postgres. Tracking to zero remaining `getDb()`.
       companion-ai).
 - [x] 2 — Auth + audit (audit has 56 fire-and-forget call sites; convert with a
       grep sweep to ensure every call is awaited).
-- [ ] 3 — Profile / gating / fitness-screener / instruments.
-- [ ] 4 — Companion (companion.ts, companion-ai.ts) + program-plan + tracks.
+- [x] 3 — Profile / gating / fitness-screener / instruments.
+- [x] 4 — Companion (companion.ts, companion-ai.ts, program-plan, track-recommender) (companion.ts, companion-ai.ts) + program-plan + tracks.
 - [x] 5 — Billing (billing done; session-focus done) + session-focus.
 - [ ] 6 — actions.ts residual sites + pages (dashboard, screening, measures,
       clinician, session complete).

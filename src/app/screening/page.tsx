@@ -12,11 +12,11 @@ import FitnessScreener from "@/components/FitnessScreener";
 export default async function ScreeningPage() {
   const user = await requireMember();
   if (!(await subscriptionActive(user.id))) redirect("/subscribe");
-  if (!hasConsent(user.id)) redirect("/onboarding");
+  if (!(await hasConsent(user.id))) redirect("/onboarding");
 
   // Program-fit questions come before any baseline instrument (compliance
   // 4A): mandatory, unskippable, with a 24h cooldown after a hard stop.
-  const fitness = getFitnessState(user.id);
+  const fitness = await getFitnessState(user.id);
   if (fitness.status === "cooldown") redirect("/screening/fit");
   if (fitness.status === "none") {
     return (

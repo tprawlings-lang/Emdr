@@ -1,4 +1,4 @@
-import { getDb } from "./db";
+import { data } from "./data";
 import { MODULES, TherapyModule } from "./modules";
 import { getLatestReadiness, getSafetyPlan, profileComplete } from "./profile";
 import { subscriptionActive } from "./billing";
@@ -53,33 +53,33 @@ export function todayISO(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
-export function getTodayCheckin(userId: string): CheckinRow | null {
-  const db = getDb();
-  const row = db
-    .prepare("SELECT * FROM checkins WHERE user_id = ? AND checkin_date = ?")
-    .get(userId, todayISO()) as CheckinRow | undefined;
+export async function getTodayCheckin(userId: string): Promise<CheckinRow | null> {
+  const c = await data();
+  const row = (await c.get("SELECT * FROM checkins WHERE user_id = ? AND checkin_date = ?", [
+    userId,
+    todayISO(),
+  ])) as CheckinRow | undefined;
   return row ?? null;
 }
 
-export function hasConsent(userId: string): boolean {
-  const db = getDb();
+export async function hasConsent(userId: string): Promise<boolean> {
+  const c = await data();
   // Scope-specific: the wellness acknowledgment recorded at signup is a
   // separate consent and must not satisfy the informed-consent gate.
-  const row = db
-    .prepare(
-      "SELECT id FROM consents WHERE user_id = ? AND scope = 'care_program_full' AND revoked_at IS NULL LIMIT 1"
-    )
-    .get(userId);
+  const row = await c.get(
+    "SELECT id FROM consents WHERE user_id = ? AND scope = 'care_program_full' AND revoked_at IS NULL LIMIT 1",
+    [userId]
+  );
   return !!row;
 }
 
 /** Whether the member has an active voice/biometric consent on file. */
-export function hasVoiceConsent(userId: string): boolean {
-  const row = getDb()
-    .prepare(
-      "SELECT id FROM consents WHERE user_id = ? AND scope = 'voice_biometric' AND revoked_at IS NULL LIMIT 1"
-    )
-    .get(userId);
+export async function hasVoiceConsent(userId: string): Promise<boolean> {
+  const c = await data();
+  const row = await c.get(
+    "SELECT id FROM consents WHERE user_id = ? AND scope = 'voice_biometric' AND revoked_at IS NULL LIMIT 1",
+    [userId]
+  );
   return !!row;
 }
 
@@ -96,28 +96,28 @@ export function decideVoiceAvailability(env: {
 }
 
 /** Is voice INPUT available for this member right now (env + consent)? */
-export function voiceAvailableFor(userId: string): boolean {
+export async function voiceAvailableFor(userId: string): Promise<boolean> {
   return decideVoiceAvailability({
     demo: process.env.EMDR_DEMO === "1",
     flagOn: process.env.EMDR_VOICE_INPUT === "1",
-    hasConsent: hasVoiceConsent(userId),
+    hasConsent: await hasVoiceConsent(userId),
   });
 }
 
 /** Are LIVE spoken sessions available for this member right now? */
-export function liveAvailableFor(userId: string): boolean {
+export async function liveAvailableFor(userId: string): Promise<boolean> {
   return decideVoiceAvailability({
     demo: process.env.EMDR_DEMO === "1",
     flagOn: process.env.EMDR_LIVE_SESSION === "1",
-    hasConsent: hasVoiceConsent(userId),
+    hasConsent: await hasVoiceConsent(userId),
   });
 }
 
-export function screeningComplete(userId: string): boolean {
-  const db = getDb();
-  const rows = db
-    .prepare("SELECT DISTINCT instrument FROM screenings WHERE user_id = ?")
-    .all(userId) as { instrument: string }[];
+export async function screeningComplete(userId: string): Promise<boolean> {
+  const c = await data();
+  const rows = (await c.all("SELECT DISTINCT instrument FROM screenings WHERE user_id = ?", [
+    userId,
+  ])) as { instrument: string }[];
   const done = new Set(rows.map((r) => r.instrument));
   return ["pc-ptsd-5", "pcl-5", "itq", "phq-9", "gad-7"].every((i) => done.has(i));
 }
@@ -135,21 +135,21 @@ export interface UnlockRow {
   decided_at: string | null;
 }
 
-export function getUnlock(userId: string, moduleId: string): UnlockRow | null {
-  const db = getDb();
-  const row = db
-    .prepare("SELECT * FROM module_unlocks WHERE user_id = ? AND module_id = ?")
-    .get(userId, moduleId) as UnlockRow | undefined;
+export async function getUnlock(userId: string, moduleId: string): Promise<UnlockRow | null> {
+  const c = await data();
+  const row = (await c.get("SELECT * FROM module_unlocks WHERE user_id = ? AND module_id = ?", [
+    userId,
+    moduleId,
+  ])) as UnlockRow | undefined;
   return row ?? null;
 }
 
-export function completedModuleIds(userId: string): Set<string> {
-  const db = getDb();
-  const rows = db
-    .prepare(
-      "SELECT DISTINCT module_id FROM therapy_sessions WHERE user_id = ? AND status = 'completed'"
-    )
-    .all(userId) as { module_id: string }[];
+export async function completedModuleIds(userId: string): Promise<Set<string>> {
+  const c = await data();
+  const rows = (await c.all(
+    "SELECT DISTINCT module_id FROM therapy_sessions WHERE user_id = ? AND status = 'completed'",
+    [userId]
+  )) as { module_id: string }[];
   return new Set(rows.map((r) => r.module_id));
 }
 
@@ -174,11 +174,11 @@ export async function checkModuleAccess(userId: string, mod: TherapyModule): Pro
     };
   if (!(await subscriptionActive(userId)))
     return { allowed: false, reason: "An active membership is needed for sessions.", action: "subscribe" };
-  if (!hasConsent(userId))
+  if (!(await hasConsent(userId)))
     return { allowed: false, reason: "Please review and complete consent first.", action: "consent" };
 
   // Fitness screener (compliance 4A) gates everything session-shaped.
-  const fitness = getFitnessState(userId);
+  const fitness = await getFitnessState(userId);
   if (fitness.status === "none")
     return { allowed: false, reason: "Please complete the program-fit questions first.", action: "screening" };
   if (fitness.status === "cooldown")
@@ -188,12 +188,12 @@ export async function checkModuleAccess(userId: string, mod: TherapyModule): Pro
       action: "crisis",
     };
 
-  if (!screeningComplete(userId))
+  if (!(await screeningComplete(userId)))
     return { allowed: false, reason: "Please complete your baseline screening first.", action: "screening" };
-  if (!profileComplete(userId))
+  if (!(await profileComplete(userId)))
     return { allowed: false, reason: "Finish getting set up first — triggers, readiness, and your safety plan.", action: "profile" };
 
-  const checkin = getTodayCheckin(userId);
+  const checkin = await getTodayCheckin(userId);
   if (!checkin)
     return { allowed: false, reason: "Complete today's check-in before starting a session.", action: "checkin" };
 
@@ -222,16 +222,12 @@ export async function checkModuleAccess(userId: string, mod: TherapyModule): Pro
   // It relaxes only the pacing gates below (readiness track + prerequisites) —
   // never the daily safety read above (check-in crisis/grounding/stabilization)
   // or the cooldown/cap checks further down.
-  const override =
-    mod.tier === "gated" &&
-    (() => {
-      const u = getUnlock(userId, mod.id);
-      return !!u && u.status === "unlocked" && u.override === 1;
-    })();
+  const unlockRow = mod.tier === "gated" ? await getUnlock(userId, mod.id) : null;
+  const override = !!unlockRow && unlockRow.status === "unlocked" && unlockRow.override === 1;
 
   // Readiness track gating (feature spec section 5). The language never
   // implies failure: today may simply be better for grounding.
-  const readiness = getLatestReadiness(userId);
+  const readiness = await getLatestReadiness(userId);
   if (readiness && !override) {
     if (readiness.recommended_track === "stabilization" && !GROUNDING_MODULES.has(mod.id))
       return {
@@ -248,14 +244,14 @@ export async function checkModuleAccess(userId: string, mod: TherapyModule): Pro
   }
 
   // Deeper work requires a completed safety plan (spec section 18).
-  if (mod.tier === "gated" && !getSafetyPlan(userId))
+  if (mod.tier === "gated" && !(await getSafetyPlan(userId)))
     return {
       allowed: false,
       reason: "Before deeper work, Steady needs your safety plan — grounding tools, a support contact, and your stop signs.",
       action: "safety_plan",
     };
 
-  const completed = completedModuleIds(userId);
+  const completed = await completedModuleIds(userId);
   const missing = override ? [] : mod.prerequisiteIds.filter((p) => !completed.has(p));
   if (missing.length > 0) {
     const names = missing
@@ -265,7 +261,7 @@ export async function checkModuleAccess(userId: string, mod: TherapyModule): Pro
   }
 
   if (mod.tier === "gated") {
-    const unlock = getUnlock(userId, mod.id);
+    const unlock = unlockRow;
     if (!unlock || unlock.status !== "unlocked")
       return {
         allowed: false,
@@ -278,15 +274,14 @@ export async function checkModuleAccess(userId: string, mod: TherapyModule): Pro
         action: "unlock",
       };
 
-    const db = getDb();
+    const c = await data();
     // Hard cap: at most N processing sessions per 24 hours (compliance 4B.3).
-    const recent = db
-      .prepare(
-        `SELECT COUNT(*) AS n FROM therapy_sessions
+    const recent = (await c.get(
+      `SELECT COUNT(*) AS n FROM therapy_sessions
          WHERE user_id = ? AND started_at > datetime('now', '-1 day')
-           AND module_id IN (${MODULES.filter((m) => m.tier === "gated").map(() => "?").join(",")})`
-      )
-      .get(userId, ...MODULES.filter((m) => m.tier === "gated").map((m) => m.id)) as { n: number };
+           AND module_id IN (${MODULES.filter((m) => m.tier === "gated").map(() => "?").join(",")})`,
+      [userId, ...MODULES.filter((m) => m.tier === "gated").map((m) => m.id)]
+    )) as { n: number };
     if (recent.n >= MAX_PROCESSING_PER_24H)
       return {
         allowed: false,
@@ -296,12 +291,11 @@ export async function checkModuleAccess(userId: string, mod: TherapyModule): Pro
 
     // High distress at the end of a recent session puts processing on a 24h
     // cooldown (compliance 4B.2); stabilization modules remain available.
-    const hot = db
-      .prepare(
-        `SELECT COUNT(*) AS n FROM therapy_sessions
-         WHERE user_id = ? AND ended_at > datetime('now', '-1 day') AND post_suds >= ?`
-      )
-      .get(userId, SUDS_COOLDOWN_AT) as { n: number };
+    const hot = (await c.get(
+      `SELECT COUNT(*) AS n FROM therapy_sessions
+         WHERE user_id = ? AND ended_at > datetime('now', '-1 day') AND post_suds >= ?`,
+      [userId, SUDS_COOLDOWN_AT]
+    )) as { n: number };
     if (hot.n > 0)
       return {
         allowed: false,

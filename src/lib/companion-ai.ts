@@ -1,5 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
-import { getDb, newId } from "./db";
+import { newId } from "./db";
+import { data } from "./data";
 import { decryptField, encryptField } from "./crypto";
 import {
   CompanionContext,
@@ -145,14 +146,14 @@ function tools(memoryOn: boolean): Anthropic.Tool[] {
   return list;
 }
 
-function executeTool(
+async function executeTool(
   userId: string,
   convId: string,
   name: string,
   input: Record<string, unknown>,
   state: { riskFlag: boolean }
-): string {
-  const db = getDb();
+): Promise<string> {
+  const c = await data();
   if (name === "record_trigger") {
     const triggerName = String(input.trigger_name ?? "").trim().slice(0, 120);
     if (!triggerName) return "Ignored: trigger_name was empty.";
@@ -167,29 +168,32 @@ function executeTool(
       ? (input.common_responses as unknown[]).map(String).slice(0, 12)
       : null;
     const notes = input.notes ? String(input.notes).slice(0, 2000) : null;
-    const existing = db
-      .prepare("SELECT id, common_responses_json, notes FROM user_triggers WHERE user_id = ? AND trigger_name = ?")
-      .get(userId, triggerName) as { id: string; common_responses_json: string; notes: string | null } | undefined;
+    const existing = (await c.get(
+      "SELECT id, common_responses_json, notes FROM user_triggers WHERE user_id = ? AND trigger_name = ?",
+      [userId, triggerName]
+    )) as { id: string; common_responses_json: string; notes: string | null } | undefined;
     if (existing) {
-      db.prepare(
+      await c.run(
         `UPDATE user_triggers SET trigger_category = ?, intensity_score = COALESCE(?, intensity_score),
          common_responses_json = COALESCE(?, common_responses_json), notes = COALESCE(?, notes),
-         active = 1, updated_at = datetime('now') WHERE id = ?`
-      ).run(category, intensity, responses ? JSON.stringify(responses) : null, encryptField(notes), existing.id);
+         active = 1, updated_at = datetime('now') WHERE id = ?`,
+        [category, intensity, responses ? JSON.stringify(responses) : null, encryptField(notes), existing.id]
+      );
       return `Updated trigger "${triggerName}".`;
     }
-    db.prepare(
+    await c.run(
       `INSERT INTO user_triggers (id, user_id, trigger_name, trigger_category, intensity_score, common_responses_json, notes)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`
-    ).run(newId(), userId, triggerName, category, intensity, JSON.stringify(responses ?? []), encryptField(notes));
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [newId(), userId, triggerName, category, intensity, JSON.stringify(responses ?? []), encryptField(notes)]
+    );
     return `Saved new trigger "${triggerName}".`;
   }
   if (name === "remember") {
-    if (!memoryEnabled(userId)) return "Memory is turned off for this member; nothing stored.";
+    if (!(await memoryEnabled(userId))) return "Memory is turned off for this member; nothing stored.";
     const key = String(input.key ?? "").trim().slice(0, 120);
     const value = String(input.value ?? "").trim().slice(0, 1000);
     if (!key || !value) return "Ignored: key and value are required.";
-    writeMemory({
+    await writeMemory({
       userId,
       type: input.memory_type as MemoryType,
       key,
@@ -223,8 +227,8 @@ async function buildSystemPrompt(ctx: CompanionContext, contextType: string, lat
   // when the member disabled memory nothing is injected at all, and the
   // taxonomy's exposure policy + graceful forgetting are enforced at
   // retrieval (never SafetyAudit/Account classes, never expired items).
-  const memories = memoryEnabled(ctx.userId) ? getModelExposableMemoryItems(ctx.userId) : [];
-  const profile = getProfile(ctx.userId);
+  const memories = (await memoryEnabled(ctx.userId)) ? await getModelExposableMemoryItems(ctx.userId) : [];
+  const profile = await getProfile(ctx.userId);
   const goals = parseJsonArray(profile?.goals_json);
   const traumaAreas = parseJsonArray(profile?.trauma_areas_json);
   const restricted = parseJsonArray(profile?.restricted_topics_json);
@@ -422,14 +426,14 @@ Use this to give direction: when they ask what to work on or prepare for, anchor
 
 // ---------- Conversation ----------
 
-function loadHistory(convId: string, userId: string): Anthropic.MessageParam[] {
-  const rows = getDb()
-    .prepare(
-      `SELECT sender, message_text FROM ai_messages
+async function loadHistory(convId: string, userId: string): Promise<Anthropic.MessageParam[]> {
+  const c = await data();
+  const rows = (await c.all(
+    `SELECT sender, message_text FROM ai_messages
        WHERE conversation_id = ? AND user_id = ?
-       ORDER BY created_at DESC, rowid DESC LIMIT 40`
-    )
-    .all(convId, userId) as { sender: "member" | "companion"; message_text: string }[];
+       ORDER BY created_at DESC, rowid DESC LIMIT 40`,
+    [convId, userId]
+  )) as { sender: "member" | "companion"; message_text: string }[];
   return rows
     .reverse()
     .map((r) => ({
@@ -469,13 +473,11 @@ export async function generateAiReply(
   // The SDK retries transient errors (429/5xx/network) with exponential
   // backoff; set it explicitly rather than relying on the default (2).
   const client = new Anthropic({ maxRetries: 3 });
-  const memoryOn = memoryEnabled(ctx.userId);
-  const conv = getDb()
-    .prepare("SELECT context_type FROM ai_conversations WHERE id = ?")
-    .get(convId) as { context_type: string } | undefined;
+  const memoryOn = await memoryEnabled(ctx.userId);
+  const conv = (await (await data()).get("SELECT context_type FROM ai_conversations WHERE id = ?", [convId])) as { context_type: string } | undefined;
   const system = await buildSystemPrompt(ctx, conv?.context_type ?? "general", userText);
   const toolSet = tools(memoryOn);
-  const messages: Anthropic.MessageParam[] = [...loadHistory(convId, ctx.userId), { role: "user", content: userText }];
+  const messages: Anthropic.MessageParam[] = [...(await loadHistory(convId, ctx.userId)), { role: "user", content: userText }];
   const state = { riskFlag: false };
 
   for (let turn = 0; turn < 5; turn++) {
@@ -512,11 +514,16 @@ export async function generateAiReply(
     }
 
     messages.push({ role: "assistant", content: response.content });
-    const results: Anthropic.ToolResultBlockParam[] = toolUses.map((t) => ({
-      type: "tool_result",
-      tool_use_id: t.id,
-      content: executeTool(ctx.userId, convId, t.name, t.input as Record<string, unknown>, state),
-    }));
+    // Tools run sequentially so their DB writes and the hash-chained audits
+    // stay ordered (no concurrent transactions).
+    const results: Anthropic.ToolResultBlockParam[] = [];
+    for (const t of toolUses) {
+      results.push({
+        type: "tool_result",
+        tool_use_id: t.id,
+        content: await executeTool(ctx.userId, convId, t.name, t.input as Record<string, unknown>, state),
+      });
+    }
     messages.push({ role: "user", content: results });
   }
 

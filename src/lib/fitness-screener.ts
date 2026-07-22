@@ -1,4 +1,5 @@
-import { getDb, newId } from "./db";
+import { newId } from "./db";
+import { data } from "./data";
 import { encryptField } from "./crypto";
 
 // Onboarding fitness screener (compliance packet 4A): gatekeeping for a
@@ -97,15 +98,13 @@ export interface FitnessState {
 
 // Latest screener result for gating. Responses are stored as coded values
 // only (item id -> 0/1), never free text (packet 4A.2).
-export function getFitnessState(userId: string): FitnessState {
-  const row = getDb()
-    .prepare(
-      `SELECT total_score, risk_flags_json, created_at FROM screenings
-       WHERE user_id = ? AND instrument = ? ORDER BY created_at DESC, rowid DESC LIMIT 1`
-    )
-    .get(userId, FITNESS_SCREENER_ID) as
-    | { total_score: number; risk_flags_json: string; created_at: string }
-    | undefined;
+export async function getFitnessState(userId: string): Promise<FitnessState> {
+  const c = await data();
+  const row = (await c.get(
+    `SELECT total_score, risk_flags_json, created_at FROM screenings
+       WHERE user_id = ? AND instrument = ? ORDER BY created_at DESC, rowid DESC LIMIT 1`,
+    [userId, FITNESS_SCREENER_ID]
+  )) as { total_score: number; risk_flags_json: string; created_at: string } | undefined;
   if (!row) return { status: "none", flags: [] };
   let flags: string[] = [];
   try {
@@ -130,28 +129,28 @@ export function getFitnessState(userId: string): FitnessState {
   return { status: flags.length > 0 ? "soft_flag" : "pass", flags };
 }
 
-export function hasSeizureFlag(userId: string): boolean {
-  return getFitnessState(userId).flags.includes("soft_flag:seizure_disorder");
+export async function hasSeizureFlag(userId: string): Promise<boolean> {
+  return (await getFitnessState(userId)).flags.includes("soft_flag:seizure_disorder");
 }
 
-export function recordFitnessScreening(userId: string, answers: Record<string, boolean>) {
+export async function recordFitnessScreening(userId: string, answers: Record<string, boolean>) {
   const { outcome, flags } = classifyFitness(answers);
   // Coded values only — item id to 0/1.
   const coded: Record<string, number> = {};
   for (const item of FITNESS_ITEMS) coded[item.id] = answers[item.id] ? 1 : 0;
-  getDb()
-    .prepare(
-      `INSERT INTO screenings (id, user_id, instrument, instrument_version, total_score, answers_json, risk_flags_json)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`
-    )
-    .run(
+  const c = await data();
+  await c.run(
+    `INSERT INTO screenings (id, user_id, instrument, instrument_version, total_score, answers_json, risk_flags_json)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    [
       newId(),
       userId,
       FITNESS_SCREENER_ID,
       FITNESS_SCREENER_VERSION,
       flags.length,
       encryptField(JSON.stringify(coded)),
-      JSON.stringify(flags)
-    );
+      JSON.stringify(flags),
+    ]
+  );
   return { outcome, flags };
 }

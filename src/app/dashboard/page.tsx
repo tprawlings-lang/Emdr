@@ -60,22 +60,22 @@ const ACTION_LINKS: Record<string, { href: string; label: string }> = {
 export default async function DashboardPage() {
   const user = await requireMember();
   if (!(await subscriptionActive(user.id))) redirect("/subscribe");
-  if (!hasConsent(user.id)) redirect("/onboarding");
-  if (!screeningComplete(user.id)) redirect("/screening");
-  if (!profileComplete(user.id)) redirect("/onboarding/profile");
+  if (!(await hasConsent(user.id))) redirect("/onboarding");
+  if (!(await screeningComplete(user.id))) redirect("/screening");
+  if (!(await profileComplete(user.id))) redirect("/onboarding/profile");
 
   const db = getDb();
-  const checkin = getTodayCheckin(user.id);
-  const fitness = getFitnessState(user.id);
+  const checkin = await getTodayCheckin(user.id);
+  const fitness = await getFitnessState(user.id);
   const planRow = await getProgramPlan(user.id);
-  const readiness = getLatestReadiness(user.id);
-  const triggers = getActiveTriggers(user.id);
-  const plan = getSafetyPlan(user.id);
+  const readiness = await getLatestReadiness(user.id);
+  const triggers = await getActiveTriggers(user.id);
+  const plan = await getSafetyPlan(user.id);
   const groundingTools: string[] = plan ? JSON.parse(plan.grounding_tools_json) : [];
   const todayTriggerIds: string[] = checkin?.triggers_json ? JSON.parse(checkin.triggers_json) : [];
   const todayTriggers = triggers.filter((t) => todayTriggerIds.includes(t.id));
   const myTracks = getMemberTracks(user.id);
-  const completed = completedModuleIds(user.id);
+  const completed = await completedModuleIds(user.id);
 
   const pcl5 = db
     .prepare(
@@ -115,9 +115,17 @@ export default async function DashboardPage() {
 
   // Precompute module access (checkModuleAccess is async now) so the JSX map
   // below stays synchronous.
-  const modulesWithAccess: { mod: (typeof MODULES)[number]; access: Awaited<ReturnType<typeof checkModuleAccess>> }[] = [];
+  const modulesWithAccess: {
+    mod: (typeof MODULES)[number];
+    access: Awaited<ReturnType<typeof checkModuleAccess>>;
+    unlock: Awaited<ReturnType<typeof getUnlock>>;
+  }[] = [];
   for (const mod of MODULES) {
-    modulesWithAccess.push({ mod, access: await checkModuleAccess(user.id, mod) });
+    modulesWithAccess.push({
+      mod,
+      access: await checkModuleAccess(user.id, mod),
+      unlock: mod.tier === "gated" ? await getUnlock(user.id, mod.id) : null,
+    });
   }
 
   return (
@@ -420,8 +428,7 @@ export default async function DashboardPage() {
       </p>
 
       <div className="mt-4 space-y-3">
-        {modulesWithAccess.map(({ mod, access }) => {
-          const unlock = mod.tier === "gated" ? getUnlock(user.id, mod.id) : null;
+        {modulesWithAccess.map(({ mod, access, unlock }) => {
           return (
             <div key={mod.id} className="rounded-3xl border border-ground/10 bg-linen p-6 shadow-soft">
               <div className="flex flex-wrap items-center justify-between gap-3">

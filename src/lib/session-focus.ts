@@ -39,8 +39,8 @@ function parseJsonArray(json: string | null | undefined): string[] {
   }
 }
 
-function triggerOptions(userId: string, opts: { capIntensity?: boolean } = {}): FocusOption[] {
-  return getActiveTriggers(userId)
+async function triggerOptions(userId: string, opts: { capIntensity?: boolean } = {}): Promise<FocusOption[]> {
+  return (await getActiveTriggers(userId))
     .sort((a, b) => (a.intensity_score ?? 11) - (b.intensity_score ?? 11))
     .map((t) => {
       const tooIntense =
@@ -59,16 +59,16 @@ function triggerOptions(userId: string, opts: { capIntensity?: boolean } = {}): 
     });
 }
 
-function focusAreaOptions(userId: string): FocusOption[] {
-  return getMemoryItemsByType(userId, "focus_area").map((m) => ({
+async function focusAreaOptions(userId: string): Promise<FocusOption[]> {
+  return (await getMemoryItemsByType(userId, "focus_area")).map((m) => ({
     id: `focus:${m.id}`,
     label: m.memory_key,
     detail: m.memory_value,
   }));
 }
 
-export function getSavedCalmPlace(userId: string): string | null {
-  const item = getMemoryItemsByType(userId, "grounding_tool").find((m) =>
+export async function getSavedCalmPlace(userId: string): Promise<string | null> {
+  const item = (await getMemoryItemsByType(userId, "grounding_tool")).find((m) =>
     /calm place/i.test(m.memory_key)
   );
   return item ? item.memory_value : null;
@@ -99,7 +99,7 @@ async function withPlanFirst(userId: string, moduleId: string, options: FocusOpt
 export async function getSessionFocus(userId: string, moduleId: string): Promise<SessionFocus | null> {
   switch (moduleId) {
     case "calm-place": {
-      const saved = getSavedCalmPlace(userId);
+      const saved = await getSavedCalmPlace(userId);
       return {
         prompt: "Where is your calm place today?",
         helper: saved
@@ -112,11 +112,11 @@ export async function getSessionFocus(userId: string, moduleId: string): Promise
       };
     }
     case "resourcing": {
-      const remembered = getMemoryItemsByType(userId, "grounding_tool").filter(
+      const remembered = (await getMemoryItemsByType(userId, "grounding_tool")).filter(
         (m) => !/calm place/i.test(m.memory_key)
       );
       const seen = new Set(remembered.map((m) => m.memory_key.toLowerCase()));
-      const tools = parseJsonArray(getSafetyPlan(userId)?.grounding_tools_json).filter(
+      const tools = parseJsonArray((await getSafetyPlan(userId))?.grounding_tools_json).filter(
         (t) => !seen.has(t.toLowerCase())
       );
       return {
@@ -137,7 +137,7 @@ export async function getSessionFocus(userId: string, moduleId: string): Promise
       return {
         prompt: "Which trigger from your map do you want to work on today?",
         helper: "Choose one recent, low-to-medium trigger — not a core memory.",
-        options: await withPlanFirst(userId, moduleId, triggerOptions(userId, { capIntensity: true })),
+        options: await withPlanFirst(userId, moduleId, await triggerOptions(userId, { capIntensity: true })),
         customPlaceholder: "A recent trigger that isn't on your map yet",
       };
     case "safe-target":
@@ -145,8 +145,8 @@ export async function getSessionFocus(userId: string, moduleId: string): Promise
         prompt: "Which target are you working on today?",
         helper: "Choose the target your specialist approved with you.",
         options: await withPlanFirst(userId, moduleId, [
-          ...triggerOptions(userId),
-          ...focusAreaOptions(userId),
+          ...(await triggerOptions(userId)),
+          ...(await focusAreaOptions(userId)),
         ]),
         customPlaceholder: "Name the approved target in a few words",
       };
@@ -154,20 +154,20 @@ export async function getSessionFocus(userId: string, moduleId: string): Promise
       return {
         prompt: "Which processed target are you reinforcing?",
         helper: "Pick the target whose distress already came down in earlier work.",
-        options: await withPlanFirst(userId, moduleId, triggerOptions(userId)),
+        options: await withPlanFirst(userId, moduleId, await triggerOptions(userId)),
         customPlaceholder: "Name the processed target",
       };
     case "future-template":
       return {
         prompt: "Which upcoming situation do you want to rehearse?",
         helper: "Something you expect to be hard — rehearse yourself coping with it.",
-        options: await withPlanFirst(userId, moduleId, focusAreaOptions(userId)),
+        options: await withPlanFirst(userId, moduleId, await focusAreaOptions(userId)),
         customPlaceholder: "e.g. the custody hearing next month, visiting my parents",
       };
     case "relational":
       return {
         prompt: "What would you like today's focus to be?",
-        options: focusAreaOptions(userId),
+        options: await focusAreaOptions(userId),
         customPlaceholder: "e.g. the way I talk to myself after mistakes",
       };
     default:

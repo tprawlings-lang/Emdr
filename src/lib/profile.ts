@@ -1,4 +1,4 @@
-import { getDb } from "./db";
+import { data } from "./data";
 import { decryptField } from "./crypto";
 
 // Onboarding profile system: trigger mapping, early warning signs, readiness
@@ -239,37 +239,41 @@ export interface ReadinessAssessment {
 
 // ---------- Lookups ----------
 
-export function getProfile(userId: string): UserProfile | null {
-  const row = getDb()
-    .prepare("SELECT * FROM user_profiles WHERE user_id = ?")
-    .get(userId) as UserProfile | undefined;
+export async function getProfile(userId: string): Promise<UserProfile | null> {
+  const c = await data();
+  const row = (await c.get("SELECT * FROM user_profiles WHERE user_id = ?", [userId])) as
+    | UserProfile
+    | undefined;
   return row ?? null;
 }
 
-export function profileComplete(userId: string): boolean {
-  return (getProfile(userId)?.profile_complete ?? 0) === 1;
+export async function profileComplete(userId: string): Promise<boolean> {
+  return ((await getProfile(userId))?.profile_complete ?? 0) === 1;
 }
 
-export function getActiveTriggers(userId: string): UserTrigger[] {
-  const rows = getDb()
-    .prepare(
-      "SELECT * FROM user_triggers WHERE user_id = ? AND active = 1 ORDER BY intensity_score DESC, trigger_name"
-    )
-    .all(userId) as UserTrigger[];
+export async function getActiveTriggers(userId: string): Promise<UserTrigger[]> {
+  const c = await data();
+  const rows = (await c.all(
+    "SELECT * FROM user_triggers WHERE user_id = ? AND active = 1 ORDER BY intensity_score DESC, trigger_name",
+    [userId]
+  )) as UserTrigger[];
   return rows.map((r) => ({ ...r, notes: decryptField(r.notes) }));
 }
 
-export function getWarningSigns(userId: string): string[] {
-  const rows = getDb()
-    .prepare("SELECT sign_name FROM early_warning_signs WHERE user_id = ? AND active = 1")
-    .all(userId) as { sign_name: string }[];
+export async function getWarningSigns(userId: string): Promise<string[]> {
+  const c = await data();
+  const rows = (await c.all(
+    "SELECT sign_name FROM early_warning_signs WHERE user_id = ? AND active = 1",
+    [userId]
+  )) as { sign_name: string }[];
   return rows.map((r) => r.sign_name);
 }
 
-export function getSafetyPlan(userId: string): SafetyPlan | null {
-  const row = getDb()
-    .prepare("SELECT * FROM safety_plans WHERE user_id = ?")
-    .get(userId) as SafetyPlan | undefined;
+export async function getSafetyPlan(userId: string): Promise<SafetyPlan | null> {
+  const c = await data();
+  const row = (await c.get("SELECT * FROM safety_plans WHERE user_id = ?", [userId])) as
+    | SafetyPlan
+    | undefined;
   if (!row) return null;
   return {
     ...row,
@@ -279,19 +283,20 @@ export function getSafetyPlan(userId: string): SafetyPlan | null {
   };
 }
 
-export function getCompanionPrefs(userId: string): CompanionPrefs | null {
-  const row = getDb()
-    .prepare("SELECT * FROM ai_companion_preferences WHERE user_id = ?")
-    .get(userId) as CompanionPrefs | undefined;
+export async function getCompanionPrefs(userId: string): Promise<CompanionPrefs | null> {
+  const c = await data();
+  const row = (await c.get("SELECT * FROM ai_companion_preferences WHERE user_id = ?", [userId])) as
+    | CompanionPrefs
+    | undefined;
   return row ?? null;
 }
 
-export function getLatestReadiness(userId: string): ReadinessAssessment | null {
-  const row = getDb()
-    .prepare(
-      "SELECT * FROM readiness_assessments WHERE user_id = ? ORDER BY created_at DESC, rowid DESC LIMIT 1"
-    )
-    .get(userId) as ReadinessAssessment | undefined;
+export async function getLatestReadiness(userId: string): Promise<ReadinessAssessment | null> {
+  const c = await data();
+  const row = (await c.get(
+    "SELECT * FROM readiness_assessments WHERE user_id = ? ORDER BY created_at DESC, rowid DESC LIMIT 1",
+    [userId]
+  )) as ReadinessAssessment | undefined;
   return row ?? null;
 }
 

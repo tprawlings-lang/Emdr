@@ -33,12 +33,12 @@ const SOURCE_LABELS: Record<string, string> = {
 
 export default async function MemoryControlsPage() {
   const user = await requireMember();
-  if (!hasConsent(user.id)) redirect("/onboarding");
+  if (!(await hasConsent(user.id))) redirect("/onboarding");
 
-  const prefs = getCompanionPrefs(user.id);
+  const prefs = await getCompanionPrefs(user.id);
   const memoryEnabled = prefs?.memory_enabled ?? "yes";
-  const items = getMemoryItems(user.id);
-  const triggers = getActiveTriggers(user.id);
+  const items = await getMemoryItems(user.id);
+  const triggers = await getActiveTriggers(user.id);
 
   const grouped = new Map<string, typeof items>();
   for (const item of items) {

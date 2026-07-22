@@ -55,11 +55,11 @@ function YesNo({ name }: { name: string }) {
 export default async function CheckinPage() {
   const user = await requireMember();
   if (!(await subscriptionActive(user.id))) redirect("/subscribe");
-  if (!hasConsent(user.id)) redirect("/onboarding");
+  if (!(await hasConsent(user.id))) redirect("/onboarding");
   if (!screeningComplete(user.id)) redirect("/screening");
   if (!profileComplete(user.id)) redirect("/onboarding/profile");
 
-  const triggers = getActiveTriggers(user.id);
+  const triggers = await getActiveTriggers(user.id);
 
   return (
     <main className="mx-auto max-w-2xl px-6 py-12">

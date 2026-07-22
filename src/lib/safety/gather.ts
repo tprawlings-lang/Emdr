@@ -78,7 +78,7 @@ export async function gatherSafetyInputs(userId: string, nowMs: number): Promise
 
   // ── Today's check-in ──────────────────────────────────────────────────────
   inputs.dailyCheckin = await safe(async () => {
-    const chk = getTodayCheckin(userId);
+    const chk = await getTodayCheckin(userId);
     if (!chk) return undefined;
     return {
       activation: chk.activation,
@@ -103,7 +103,7 @@ export async function gatherSafetyInputs(userId: string, nowMs: number): Promise
 
   // ── Readiness (approximate mapping from the readiness assessment) ─────────
   inputs.readiness = await safe(async () => {
-    const r = getLatestReadiness(userId);
+    const r = await getLatestReadiness(userId);
     if (!r) return undefined;
     const domains: ReadinessDomains = {
       stability: r.stability_score,

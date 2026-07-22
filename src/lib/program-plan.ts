@@ -92,11 +92,11 @@ function parseJsonArray(json: string | null | undefined): string[] {
 
 // Deterministic fallback: low-to-medium intensity triggers first, the
 // specialist-gated sequence in module order, grounding from the safety plan.
-function rulesPlan(userId: string): ProgramPlan {
-  const triggers = getActiveTriggers(userId).sort(
+async function rulesPlan(userId: string): Promise<ProgramPlan> {
+  const triggers = (await getActiveTriggers(userId)).sort(
     (a, b) => (a.intensity_score ?? 11) - (b.intensity_score ?? 11)
   );
-  const tools = parseJsonArray(getSafetyPlan(userId)?.grounding_tools_json);
+  const tools = parseJsonArray((await getSafetyPlan(userId))?.grounding_tools_json);
   const workable = triggers.filter((t) => (t.intensity_score ?? 11) < 7);
   const deferred = triggers.filter((t) => (t.intensity_score ?? 0) >= 7);
 
@@ -148,12 +148,12 @@ function rulesPlan(userId: string): ProgramPlan {
 const PLAN_MODEL = process.env.EMDR_COMPANION_MODEL ?? "claude-opus-4-8";
 
 async function aiPlan(userId: string): Promise<ProgramPlan> {
-  const triggers = getActiveTriggers(userId);
-  const readiness = getLatestReadiness(userId);
-  const profile = getProfile(userId);
-  const prefs = getCompanionPrefs(userId);
-  const focusAreas = getMemoryItemsByType(userId, "focus_area");
-  const tools = parseJsonArray(getSafetyPlan(userId)?.grounding_tools_json);
+  const triggers = await getActiveTriggers(userId);
+  const readiness = await getLatestReadiness(userId);
+  const profile = await getProfile(userId);
+  const prefs = await getCompanionPrefs(userId);
+  const focusAreas = await getMemoryItemsByType(userId, "focus_area");
+  const tools = parseJsonArray((await getSafetyPlan(userId))?.grounding_tools_json);
   const tracks = getMemberTracks(userId);
 
   const context = {
@@ -236,10 +236,10 @@ export async function generateProgramPlan(
       generatedBy = "ai";
     } catch (err) {
       console.error("Program plan AI generation failed; using rules fallback:", err);
-      plan = rulesPlan(userId);
+      plan = await rulesPlan(userId);
     }
   } else {
-    plan = rulesPlan(userId);
+    plan = await rulesPlan(userId);
   }
 
   const id = newId();

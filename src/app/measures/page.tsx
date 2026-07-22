@@ -19,7 +19,7 @@ export default async function MeasuresPage({
 }) {
   const user = await requireMember();
   if (!(await subscriptionActive(user.id))) redirect("/subscribe");
-  if (!hasConsent(user.id)) redirect("/onboarding");
+  if (!(await hasConsent(user.id))) redirect("/onboarding");
   if (!screeningComplete(user.id)) redirect("/screening");
   const { submitted } = await searchParams;
 

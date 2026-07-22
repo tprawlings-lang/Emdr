@@ -7,7 +7,7 @@ import { getSafetyPlan } from "@/lib/profile";
 // the controls the member must always have (feature spec section 18).
 export default async function GroundPage() {
   const user = await getCurrentUser();
-  const plan = user ? getSafetyPlan(user.id) : null;
+  const plan = user ? await getSafetyPlan(user.id) : null;
   const tools: string[] = plan ? JSON.parse(plan.grounding_tools_json) : [];
 
   return (

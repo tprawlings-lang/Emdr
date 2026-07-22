@@ -43,9 +43,9 @@ export default async function PathsPage() {
 
   const intake = getTrackIntake(user.id);
   const savedTags = new Set(intake?.tags ?? []);
-  const rec = recommendTracks(user.id);
+  const rec = await recommendTracks(user.id);
   const myTracks = getMemberTracks(user.id);
-  const completed = completedModuleIds(user.id);
+  const completed = await completedModuleIds(user.id);
 
   return (
     <main className="mx-auto max-w-3xl px-6 py-12">

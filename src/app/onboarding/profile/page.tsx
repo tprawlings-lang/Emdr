@@ -129,18 +129,20 @@ export default async function ProfileOnboardingPage({
 }) {
   const user = await requireMember();
   if (!(await subscriptionActive(user.id))) redirect("/subscribe");
-  if (!hasConsent(user.id)) redirect("/onboarding");
-  if (!screeningComplete(user.id)) redirect("/screening");
-  if (profileComplete(user.id)) redirect("/dashboard");
+  if (!(await hasConsent(user.id))) redirect("/onboarding");
+  if (!(await screeningComplete(user.id))) redirect("/screening");
+  if (await profileComplete(user.id)) redirect("/dashboard");
 
   const { step: stepParam } = await searchParams;
-  const profile = getProfile(user.id);
-  const triggers = getActiveTriggers(user.id);
-  const signs = getWarningSigns(user.id);
-  const readiness = getLatestReadiness(user.id);
-  const plan = getSafetyPlan(user.id);
-  const prefs = getCompanionPrefs(user.id);
-  const focusAreas = getMemoryItemsByType(user.id, "focus_area");
+  const [profile, triggers, signs, readiness, plan, prefs, focusAreas] = await Promise.all([
+    getProfile(user.id),
+    getActiveTriggers(user.id),
+    getWarningSigns(user.id),
+    getLatestReadiness(user.id),
+    getSafetyPlan(user.id),
+    getCompanionPrefs(user.id),
+    getMemoryItemsByType(user.id, "focus_area"),
+  ]);
 
   // Resume where the member left off unless a step is explicitly requested.
   const inferred: Step = !profile?.therapist_status
@@ -157,7 +159,7 @@ export default async function ProfileOnboardingPage({
               ? "safety-plan"
               : !prefs
                 ? "companion"
-                : !hasOnboardingConversation(user.id)
+                : !(await hasOnboardingConversation(user.id))
                   ? "focus-chat"
                   : "summary";
   const step: Step = STEPS.includes(stepParam as Step) ? (stepParam as Step) : inferred;

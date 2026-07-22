@@ -160,11 +160,11 @@ function buildCandidates(scores: Map<string, number>, reasons: Map<string, strin
  * mapped triggers. Never returns a pathway when the safety screen is incomplete
  * or a current safety flag is present (handoff §6.3, §8.2, §12.2).
  */
-export function recommendTracks(userId: string, intakeOverride?: TrackIntake): TrackRecommendation {
+export async function recommendTracks(userId: string, intakeOverride?: TrackIntake): Promise<TrackRecommendation> {
   const gate = trackSafetyGate({
-    fitnessStatus: getFitnessState(userId).status,
-    screeningComplete: screeningComplete(userId),
-    checkinAction: getTodayCheckin(userId)?.recommended_action ?? null,
+    fitnessStatus: (await getFitnessState(userId)).status,
+    screeningComplete: await screeningComplete(userId),
+    checkinAction: (await getTodayCheckin(userId))?.recommended_action ?? null,
   });
   if (!gate.proceed) {
     return {
@@ -196,7 +196,7 @@ export function recommendTracks(userId: string, intakeOverride?: TrackIntake): T
 
   // A high-dissociation readiness reading steers toward the readiness lane even
   // if the member didn't pick the "numb / losing time" tag.
-  const readiness = getLatestReadiness(userId);
+  const readiness = await getLatestReadiness(userId);
   if (readiness && readiness.recommended_track === "stabilization") {
     scores.set("complex_readiness", (scores.get("complex_readiness") ?? 0) + 1);
     const list = reasons.get("complex_readiness") ?? [];
@@ -205,7 +205,7 @@ export function recommendTracks(userId: string, intakeOverride?: TrackIntake): T
   }
 
   // Triggers already on the map gently reinforce the trauma pathway.
-  if (getActiveTriggers(userId).length >= 3 && scores.has("ptsd_trauma")) {
+  if ((await getActiveTriggers(userId)).length >= 3 && scores.has("ptsd_trauma")) {
     scores.set("ptsd_trauma", (scores.get("ptsd_trauma") ?? 0) + 1);
     const list = reasons.get("ptsd_trauma") ?? [];
     list.push("You've already mapped several triggers.");
