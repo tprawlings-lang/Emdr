@@ -40,6 +40,14 @@ This clears the **clinical-sign-off** launch gate (runbook §2 / README §14.4);
 the conditions above remain as separate gates. The engine stays in shadow mode
 until the founder deliberately flips the flag after the conditions are met.
 
+**Deployment-evidence package** for the conditions is drafted at
+[`evidence/`](evidence/) (README with per-gate status). Gates 2/3/6/8/9 are
+drafted from the code + test suite and ready to accept; gate 8 raised one finding
+(F-1: reconcile the counsel-approved consent copy "processing difficult
+memories" with the no-reprocessing scope). Gates 4 (independent privacy/security
+review) and 5 (human-factors testing) are **scoped but require outside
+execution** and are the primary remaining blockers before Phase-2 activation.
+
 ## Changelog — config `beta-clinrev-2026-07` (supersedes `beta-provisional-2026-07`)
 
 A clinical-review change set has been **applied to the deterministic core** and
