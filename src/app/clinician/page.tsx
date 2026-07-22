@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { requireClinician } from "@/lib/auth";
-import { getDb } from "@/lib/db";
+import { data } from "@/lib/data";
 import { decideUnlock, logout, reviewAlert } from "@/lib/actions";
 import { MODULES } from "@/lib/modules";
 
@@ -18,17 +18,13 @@ export default async function ClinicianDashboard({
 }) {
   const clinician = await requireClinician();
   const { error } = await searchParams;
-  const db = getDb();
+  const c = await data();
 
-  const alerts = db
-    .prepare(
-      `SELECT a.*, u.name AS member_name FROM alerts a
+  const alerts = await c.all(`SELECT a.*, u.name AS member_name FROM alerts a
        JOIN users u ON u.id = a.user_id
        WHERE a.status = 'open'
        ORDER BY CASE a.severity WHEN 'urgent' THEN 0 WHEN 'high' THEN 1 WHEN 'moderate' THEN 2 ELSE 3 END,
-                a.created_at ASC`
-    )
-    .all() as {
+                a.created_at ASC`, []) as {
     id: string;
     user_id: string;
     alert_type: string;
@@ -38,14 +34,10 @@ export default async function ClinicianDashboard({
     member_name: string;
   }[];
 
-  const unlockRequests = db
-    .prepare(
-      `SELECT mu.*, u.name AS member_name FROM module_unlocks mu
+  const unlockRequests = await c.all(`SELECT mu.*, u.name AS member_name FROM module_unlocks mu
        JOIN users u ON u.id = mu.user_id
        WHERE mu.status = 'requested'
-       ORDER BY mu.requested_at ASC`
-    )
-    .all() as {
+       ORDER BY mu.requested_at ASC`, []) as {
     id: string;
     user_id: string;
     module_id: string;
@@ -54,15 +46,11 @@ export default async function ClinicianDashboard({
     member_name: string;
   }[];
 
-  const members = db
-    .prepare(
-      `SELECT u.id, u.name, u.email,
+  const members = await c.all(`SELECT u.id, u.name, u.email,
         (SELECT total_score FROM screenings s WHERE s.user_id = u.id AND s.instrument = 'pcl-5' ORDER BY s.created_at DESC LIMIT 1) AS pcl5,
         (SELECT checkin_date FROM checkins c WHERE c.user_id = u.id ORDER BY c.checkin_date DESC LIMIT 1) AS last_checkin,
         (SELECT COUNT(*) FROM alerts a WHERE a.user_id = u.id AND a.status = 'open') AS open_alerts
-       FROM users u WHERE u.role = 'member' ORDER BY open_alerts DESC, u.name`
-    )
-    .all() as {
+       FROM users u WHERE u.role = 'member' ORDER BY open_alerts DESC, u.name`, []) as {
     id: string;
     name: string;
     email: string;

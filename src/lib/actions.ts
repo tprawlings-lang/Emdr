@@ -2,7 +2,8 @@
 
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { getDb, hashPassword, newId, verifyPassword } from "./db";
+import { hashPassword, newId, verifyPassword } from "./db";
+import { data } from "./data";
 import { safetyRefundAndCancel, setCancelAtPeriodEnd, startDemoSubscription, subscriptionActive } from "./billing";
 import { recordFitnessScreening } from "./fitness-screener";
 import { decryptField, encryptField } from "./crypto";
@@ -51,16 +52,20 @@ import { rateLimit } from "./rate-limit";
 const COMPANION_MSG_LIMIT = Number(process.env.EMDR_COMPANION_RATE_LIMIT ?? 20);
 const COMPANION_WINDOW_MS = 60_000;
 
-function createAlert(args: {
+async function createAlert(args: {
   userId: string;
   type: string;
   severity: "urgent" | "high" | "moderate" | "info";
   detail: string;
 }) {
-  const db = getDb();
-  db.prepare(
-    "INSERT INTO alerts (id, user_id, alert_type, severity, detail) VALUES (?, ?, ?, ?, ?)"
-  ).run(newId(), args.userId, args.type, args.severity, args.detail);
+  const c = await data();
+  await c.run("INSERT INTO alerts (id, user_id, alert_type, severity, detail) VALUES (?, ?, ?, ?, ?)", [
+    newId(),
+    args.userId,
+    args.type,
+    args.severity,
+    args.detail,
+  ]);
 }
 
 // ---------- Identity ----------
@@ -68,25 +73,25 @@ function createAlert(args: {
 export async function login(formData: FormData) {
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
   const password = String(formData.get("password") ?? "");
-  const db = getDb();
+  const c = await data();
 
   // Lockout (compliance 1.5): 10 failed attempts in 15 minutes locks the
   // account for 15 minutes. Counted from the append-only audit trail.
-  const recentFailures = db
-    .prepare(
-      `SELECT COUNT(*) AS n FROM audit_log
+  const recentFailures = (await c.get(
+    `SELECT COUNT(*) AS n FROM audit_log
        WHERE event_type = 'login_failed' AND target = ?
-         AND created_at > datetime('now', '-15 minutes')`
-    )
-    .get(email) as { n: number };
+         AND created_at > datetime('now', '-15 minutes')`,
+    [email]
+  )) as { n: number };
   if (recentFailures.n >= 10) {
     await audit({ family: "identity", type: "login_locked", target: email });
     redirect("/login?error=locked");
   }
 
-  const user = db
-    .prepare("SELECT id, role, password_hash FROM users WHERE email = ? AND status = 'active'")
-    .get(email) as { id: string; role: string; password_hash: string } | undefined;
+  const user = (await c.get(
+    "SELECT id, role, password_hash FROM users WHERE email = ? AND status = 'active'",
+    [email]
+  )) as { id: string; role: string; password_hash: string } | undefined;
 
   if (!user || !verifyPassword(password, user.password_hash)) {
     await audit({ family: "identity", type: "login_failed", target: email });
@@ -107,7 +112,7 @@ export async function logout() {
 // cookie too. Cheap, stateless revocation (auth.ts checks the epoch).
 export async function signOutEverywhere() {
   const user = await requireUser();
-  getDb().prepare("UPDATE users SET token_epoch = token_epoch + 1 WHERE id = ?").run(user.id);
+  await (await data()).run("UPDATE users SET token_epoch = token_epoch + 1 WHERE id = ?", [user.id]);
   await audit({ actorId: user.id, actorRole: user.role, family: "identity", type: "sign_out_everywhere" });
   await clearSessionCookie();
   redirect("/login?signedout=1");
@@ -147,19 +152,16 @@ export async function signup(formData: FormData) {
       redirect("/signup?error=code");
   }
 
-  const db = getDb();
-  const existing = db.prepare("SELECT id FROM users WHERE email = ?").get(email);
+  const c = await data();
+  const existing = await c.get("SELECT id FROM users WHERE email = ?", [email]);
   if (existing) redirect("/signup?error=exists");
 
   const userId = newId();
-  db.prepare(
-    "INSERT INTO users (id, email, name, role, password_hash, dob) VALUES (?, ?, ?, ?, ?, ?)"
-  ).run(userId, email, name, wantsClinician ? "clinician" : "member", hashPassword(password), dob);
-  const insertConsent = db.prepare(
-    "INSERT INTO consents (id, user_id, policy_version, scope) VALUES (?, ?, ?, ?)"
-  );
-  insertConsent.run(newId(), userId, "wellness-ack-v1", "wellness_acknowledgment");
-  insertConsent.run(newId(), userId, currentTermsVersion(), "terms_acceptance");
+  await c.run("INSERT INTO users (id, email, name, role, password_hash, dob) VALUES (?, ?, ?, ?, ?, ?)", [userId, email, name, wantsClinician ? "clinician" : "member", hashPassword(password), dob]);
+  const insertConsentSql =
+    "INSERT INTO consents (id, user_id, policy_version, scope) VALUES (?, ?, ?, ?)";
+  await c.run(insertConsentSql, [newId(), userId, "wellness-ack-v1", "wellness_acknowledgment"]);
+  await c.run(insertConsentSql, [newId(), userId, currentTermsVersion(), "terms_acceptance"]);
   await setSessionCookie(userId);
   await audit({
     actorId: userId,
@@ -196,7 +198,7 @@ export async function submitFitnessScreening(answersJson: string) {
     // Warm exit: no payment kept, resources shown, care team notified,
     // 24h retake cooldown enforced by getFitnessState.
     safetyRefundAndCancel(user.id);
-    createAlert({
+    await createAlert({
       userId: user.id,
       type: "fitness_screening_stop",
       severity: "high",
@@ -220,10 +222,8 @@ export async function recordSessionTrigger(args: {
   disruption: number;
 }): Promise<{ ok: boolean; error?: string }> {
   const user = await requireMember();
-  const db = getDb();
-  const owned = db
-    .prepare("SELECT id FROM therapy_sessions WHERE id = ? AND user_id = ?")
-    .get(args.sessionId, user.id);
+  const c = await data();
+  const owned = await c.get("SELECT id FROM therapy_sessions WHERE id = ? AND user_id = ?", [args.sessionId, user.id]);
   if (!owned) return { ok: false, error: "Session not found." };
 
   const name = args.name.trim().slice(0, 120);
@@ -242,19 +242,13 @@ export async function recordSessionTrigger(args: {
       .filter(Boolean)
       .join(" ") || null;
 
-  const existing = db
-    .prepare("SELECT id FROM user_triggers WHERE user_id = ? AND trigger_name = ?")
-    .get(user.id, name) as { id: string } | undefined;
+  const existing = await c.get("SELECT id FROM user_triggers WHERE user_id = ? AND trigger_name = ?", [user.id, name]) as { id: string } | undefined;
   if (existing) {
-    db.prepare(
-      `UPDATE user_triggers SET trigger_category = ?, intensity_score = ?, notes = ?,
-         active = 1, updated_at = datetime('now') WHERE id = ?`
-    ).run(category, disruption, encryptField(notes), existing.id);
+    await c.run(`UPDATE user_triggers SET trigger_category = ?, intensity_score = ?, notes = ?,
+         active = 1, updated_at = datetime('now') WHERE id = ?`, [category, disruption, encryptField(notes), existing.id]);
   } else {
-    db.prepare(
-      `INSERT INTO user_triggers (id, user_id, trigger_name, trigger_category, intensity_score, common_responses_json, notes)
-       VALUES (?, ?, ?, ?, ?, '[]', ?)`
-    ).run(newId(), user.id, name, category, disruption, encryptField(notes));
+    await c.run(`INSERT INTO user_triggers (id, user_id, trigger_name, trigger_category, intensity_score, common_responses_json, notes)
+       VALUES (?, ?, ?, ?, ?, '[]', ?)`, [newId(), user.id, name, category, disruption, encryptField(notes)]);
   }
   await audit({
     actorId: user.id,
@@ -316,16 +310,10 @@ export async function restartSubscription() {
 
 export async function grantConsent() {
   const user = await requireMember();
-  const db = getDb();
-  const existing = db
-    .prepare(
-      "SELECT id FROM consents WHERE user_id = ? AND scope = 'care_program_full' AND revoked_at IS NULL"
-    )
-    .get(user.id);
+  const c = await data();
+  const existing = await c.get("SELECT id FROM consents WHERE user_id = ? AND scope = 'care_program_full' AND revoked_at IS NULL", [user.id]);
   if (!existing) {
-    db.prepare(
-      "INSERT INTO consents (id, user_id, policy_version, scope) VALUES (?, ?, ?, ?)"
-    ).run(newId(), user.id, currentConsentVersion(), "care_program_full");
+    await c.run("INSERT INTO consents (id, user_id, policy_version, scope) VALUES (?, ?, ?, ?)", [newId(), user.id, currentConsentVersion(), "care_program_full"]);
     await audit({
       actorId: user.id,
       actorRole: "member",
@@ -356,18 +344,12 @@ export async function submitScreening(formData: FormData) {
   if (answers.some((a) => a < 0)) redirect(`${returnPath}?incomplete=${instrumentId}`);
 
   const { total, riskFlags } = scoreInstrument(instrument, answers);
-  const db = getDb();
+  const c = await data();
 
-  const previous = db
-    .prepare(
-      "SELECT total_score FROM screenings WHERE user_id = ? AND instrument = ? ORDER BY created_at DESC LIMIT 1"
-    )
-    .get(user.id, instrument.id) as { total_score: number } | undefined;
+  const previous = await c.get("SELECT total_score FROM screenings WHERE user_id = ? AND instrument = ? ORDER BY created_at DESC LIMIT 1", [user.id, instrument.id]) as { total_score: number } | undefined;
 
-  db.prepare(
-    `INSERT INTO screenings (id, user_id, instrument, instrument_version, total_score, answers_json, risk_flags_json)
-     VALUES (?, ?, ?, ?, ?, ?, ?)`
-  ).run(newId(), user.id, instrument.id, instrument.version, total, encryptField(JSON.stringify(answers)), JSON.stringify(riskFlags));
+  await c.run(`INSERT INTO screenings (id, user_id, instrument, instrument_version, total_score, answers_json, risk_flags_json)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`, [newId(), user.id, instrument.id, instrument.version, total, encryptField(JSON.stringify(answers)), JSON.stringify(riskFlags)]);
 
   await audit({
     actorId: user.id,
@@ -380,7 +362,7 @@ export async function submitScreening(formData: FormData) {
 
   const worsenBy = WORSENING_THRESHOLDS[instrument.id];
   if (previous && worsenBy !== undefined && total - previous.total_score >= worsenBy) {
-    createAlert({
+    await createAlert({
       userId: user.id,
       type: "symptom_worsening",
       severity: "high",
@@ -391,7 +373,7 @@ export async function submitScreening(formData: FormData) {
   // Risk items (e.g., PHQ-9 item 9) never get an autonomous assessment —
   // they route to the crisis screen and queue same-day specialist review.
   if (riskFlags.length > 0) {
-    createAlert({
+    await createAlert({
       userId: user.id,
       type: "screening_risk_item",
       severity: "urgent",
@@ -404,21 +386,19 @@ export async function submitScreening(formData: FormData) {
 
 // ---------- Onboarding profile (feature spec sections 3–7) ----------
 
-function upsertProfile(userId: string, fields: Record<string, string>) {
-  const db = getDb();
-  db.prepare("INSERT OR IGNORE INTO user_profiles (user_id) VALUES (?)").run(userId);
+async function upsertProfile(userId: string, fields: Record<string, string>) {
+  const c = await data();
+  await c.run("INSERT OR IGNORE INTO user_profiles (user_id) VALUES (?)", [userId]);
   for (const [col, value] of Object.entries(fields)) {
     // Column names are fixed by the call sites below, never user input.
-    db.prepare(`UPDATE user_profiles SET ${col} = ?, updated_at = datetime('now') WHERE user_id = ?`).run(
-      value,
-      userId
-    );
+    await c.run(`UPDATE user_profiles SET ${col} = ?, updated_at = datetime('now') WHERE user_id = ?`, [value,
+      userId]);
   }
 }
 
 export async function saveSupportStatus(formData: FormData) {
   const user = await requireMember();
-  upsertProfile(user.id, {
+  await upsertProfile(user.id, {
     therapist_status: String(formData.get("therapist_status") ?? "prefer_not_to_say"),
     emdr_experience: String(formData.get("emdr_experience") ?? "not_sure"),
     goals_json: JSON.stringify(formData.getAll("goal").map(String).slice(0, 10)),
@@ -431,7 +411,7 @@ export async function saveTraumaContext(formData: FormData) {
   const user = await requireMember();
   const restricted =
     formData.get("restrict") === "yes" ? formData.getAll("restricted_topic").map(String) : [];
-  upsertProfile(user.id, {
+  await upsertProfile(user.id, {
     trauma_areas_json: JSON.stringify(formData.getAll("area").map(String).slice(0, 20)),
     restricted_topics_json: JSON.stringify(restricted.slice(0, 20)),
   });
@@ -444,7 +424,7 @@ export async function saveTraumaContext(formData: FormData) {
 
 export async function saveTriggers(formData: FormData) {
   const user = await requireMember();
-  const db = getDb();
+  const c = await data();
   const selected = formData.getAll("trigger").map(String);
   const custom = String(formData.get("custom_triggers") ?? "")
     .split(",")
@@ -452,16 +432,15 @@ export async function saveTriggers(formData: FormData) {
     .filter(Boolean)
     .slice(0, 10);
 
-  const insert = db.prepare(
-    `INSERT INTO user_triggers (id, user_id, trigger_name, trigger_category)
+  const insertTriggerSql = `INSERT INTO user_triggers (id, user_id, trigger_name, trigger_category)
      VALUES (?, ?, ?, ?)
-     ON CONFLICT(user_id, trigger_name) DO UPDATE SET active = 1, updated_at = datetime('now')`
-  );
+     ON CONFLICT(user_id, trigger_name) DO UPDATE SET active = 1, updated_at = datetime('now')`;
   for (const entry of selected.slice(0, 60)) {
     const [category, name] = entry.split("|");
-    if (category && name) insert.run(newId(), user.id, name.slice(0, 100), category.slice(0, 30));
+    if (category && name)
+      await c.run(insertTriggerSql, [newId(), user.id, name.slice(0, 100), category.slice(0, 30)]);
   }
-  for (const name of custom) insert.run(newId(), user.id, name.slice(0, 100), "custom");
+  for (const name of custom) await c.run(insertTriggerSql, [newId(), user.id, name.slice(0, 100), "custom"]);
 
   await audit({
     actorId: user.id,
@@ -475,15 +454,13 @@ export async function saveTriggers(formData: FormData) {
 
 export async function saveTriggerDetails(formData: FormData) {
   const user = await requireMember();
-  const db = getDb();
+  const c = await data();
   for (const t of await getActiveTriggers(user.id)) {
     const intensity = formData.get(`intensity-${t.id}`);
     const responses = formData.getAll(`resp-${t.id}`).map(String).slice(0, 12);
     if (intensity === null) continue;
-    db.prepare(
-      `UPDATE user_triggers SET intensity_score = ?, common_responses_json = ?, updated_at = datetime('now')
-       WHERE id = ? AND user_id = ?`
-    ).run(Number(intensity), JSON.stringify(responses), t.id, user.id);
+    await c.run(`UPDATE user_triggers SET intensity_score = ?, common_responses_json = ?, updated_at = datetime('now')
+       WHERE id = ? AND user_id = ?`, [Number(intensity), JSON.stringify(responses), t.id, user.id]);
     writeMemory({
       userId: user.id,
       type: "trigger",
@@ -499,13 +476,11 @@ export async function saveTriggerDetails(formData: FormData) {
 
 export async function saveWarningSigns(formData: FormData) {
   const user = await requireMember();
-  const db = getDb();
+  const c = await data();
   const signs = formData.getAll("sign").map(String).slice(0, 20);
-  const insert = db.prepare(
-    `INSERT INTO early_warning_signs (id, user_id, sign_name) VALUES (?, ?, ?)
-     ON CONFLICT(user_id, sign_name) DO UPDATE SET active = 1`
-  );
-  for (const s of signs) insert.run(newId(), user.id, s.slice(0, 100));
+  const insertSignSql = `INSERT INTO early_warning_signs (id, user_id, sign_name) VALUES (?, ?, ?)
+     ON CONFLICT(user_id, sign_name) DO UPDATE SET active = 1`;
+  for (const s of signs) await c.run(insertSignSql, [newId(), user.id, s.slice(0, 100)]);
   if (signs.length > 0) {
     writeMemory({
       userId: user.id,
@@ -526,7 +501,7 @@ export async function saveReadinessAssessment(formData: FormData) {
   // "Yes, and I may not be safe" routes straight to crisis support. Onboarding
   // stays incomplete until safety is confirmed (spec screen 8).
   if (riskFlag === "not_safe") {
-    createAlert({
+    await createAlert({
       userId: user.id,
       type: "onboarding_risk_disclosure",
       severity: "urgent",
@@ -548,19 +523,15 @@ export async function saveReadinessAssessment(formData: FormData) {
     riskFlag,
   };
   const { score, track } = computeReadiness(answers);
-  const db = getDb();
-  db.prepare(
-    `INSERT INTO readiness_assessments
+  const c = await data();
+  await c.run(`INSERT INTO readiness_assessments
        (id, user_id, stability_score, body_safety_score, present_connection_score, symptom_intensity_score,
         sleep_quality, support_available, processing_readiness, pause_capacity, pace_preference,
         risk_flag, calculated_readiness_score, recommended_track, source)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'onboarding')`
-  ).run(
-    newId(), user.id, answers.stability, answers.bodySafety, answers.presentConnection,
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'onboarding')`, [newId(), user.id, answers.stability, answers.bodySafety, answers.presentConnection,
     answers.symptomIntensity, answers.sleepQuality, answers.supportAvailable,
     answers.processingReadiness, answers.pauseCapacity,
-    String(formData.get("pace") ?? "not_sure"), riskFlag, score, track
-  );
+    String(formData.get("pace") ?? "not_sure"), riskFlag, score, track]);
   writeMemory({
     userId: user.id,
     type: "readiness",
@@ -569,7 +540,7 @@ export async function saveReadinessAssessment(formData: FormData) {
     source: "onboarding",
   });
   if (riskFlag === "safe_now") {
-    createAlert({
+    await createAlert({
       userId: user.id,
       type: "onboarding_risk_disclosure",
       severity: "high",
@@ -591,9 +562,8 @@ export async function saveSafetyPlan(formData: FormData) {
   const tools = formData.getAll("tool").map(String).slice(0, 15);
   const custom = String(formData.get("custom_tool") ?? "").trim();
   if (custom) tools.push(custom.slice(0, 100));
-  const db = getDb();
-  db.prepare(
-    `INSERT INTO safety_plans
+  const c = await data();
+  await c.run(`INSERT INTO safety_plans
        (user_id, grounding_tools_json, support_contact_name, support_contact_method, reminder_phrase, stop_signs, careful_topics)
      VALUES (?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT(user_id) DO UPDATE SET
@@ -603,16 +573,13 @@ export async function saveSafetyPlan(formData: FormData) {
        reminder_phrase=excluded.reminder_phrase,
        stop_signs=excluded.stop_signs,
        careful_topics=excluded.careful_topics,
-       updated_at=datetime('now')`
-  ).run(
-    user.id,
+       updated_at=datetime('now')`, [user.id,
     JSON.stringify(tools),
     String(formData.get("contact_name") ?? "").slice(0, 100) || null,
     String(formData.get("contact_method") ?? "").slice(0, 100) || null,
     encryptField(String(formData.get("reminder") ?? "").slice(0, 300) || null),
     encryptField(String(formData.get("stop_signs") ?? "").slice(0, 500) || null),
-    encryptField(String(formData.get("careful_topics") ?? "").slice(0, 500) || null)
-  );
+    encryptField(String(formData.get("careful_topics") ?? "").slice(0, 500) || null)]);
   for (const tool of tools) {
     writeMemory({ userId: user.id, type: "grounding_tool", key: tool, value: "Chosen in safety plan.", source: "onboarding" });
   }
@@ -626,30 +593,26 @@ export async function saveSafetyPlan(formData: FormData) {
 
 export async function saveCompanionPrefs(formData: FormData) {
   const user = await requireMember();
-  const db = getDb();
-  db.prepare(
-    `INSERT INTO ai_companion_preferences
+  const c = await data();
+  await c.run(`INSERT INTO ai_companion_preferences
        (user_id, preferred_user_name, tone, support_modes_json, avoidances_json, memory_enabled)
      VALUES (?, ?, ?, ?, ?, ?)
      ON CONFLICT(user_id) DO UPDATE SET
        preferred_user_name=excluded.preferred_user_name, tone=excluded.tone,
        support_modes_json=excluded.support_modes_json, avoidances_json=excluded.avoidances_json,
-       memory_enabled=excluded.memory_enabled, updated_at=datetime('now')`
-  ).run(
-    user.id,
+       memory_enabled=excluded.memory_enabled, updated_at=datetime('now')`, [user.id,
     String(formData.get("preferred_name") ?? "").slice(0, 60) || null,
     String(formData.get("tone") ?? "Gentle").slice(0, 30),
     JSON.stringify(formData.getAll("mode").map(String).slice(0, 10)),
     JSON.stringify(formData.getAll("avoid").map(String).slice(0, 10)),
-    ["yes", "no", "ask"].includes(String(formData.get("memory"))) ? String(formData.get("memory")) : "yes"
-  );
+    ["yes", "no", "ask"].includes(String(formData.get("memory"))) ? String(formData.get("memory")) : "yes"]);
   await audit({ actorId: user.id, actorRole: "member", family: "clinical", type: "companion_preferences_saved" });
   redirect("/onboarding/profile?step=summary");
 }
 
 export async function completeOnboardingProfile() {
   const user = await requireMember();
-  upsertProfile(user.id, { profile_complete: "1" });
+  await upsertProfile(user.id, { profile_complete: "1" });
   await audit({ actorId: user.id, actorRole: "member", family: "clinical", type: "onboarding_profile_complete" });
   redirect("/dashboard");
 }
@@ -663,25 +626,21 @@ export async function sendCompanionMessage(
 ): Promise<{ conversationId: string; reply: string; riskFlag: boolean }> {
   const user = await requireMember();
   const trimmed = text.trim().slice(0, 2000);
-  const db = getDb();
+  const c = await data();
   const context = ["general", "onboarding"].includes(contextType ?? "")
     ? (contextType as string)
     : "general";
 
   let convId = conversationId;
   if (convId) {
-    const owned = db
-      .prepare("SELECT id FROM ai_conversations WHERE id = ? AND user_id = ?")
-      .get(convId, user.id);
+    const owned = await c.get("SELECT id FROM ai_conversations WHERE id = ? AND user_id = ?", [convId, user.id]);
     if (!owned) convId = null;
   }
   if (!convId) {
     convId = newId();
-    db.prepare("INSERT INTO ai_conversations (id, user_id, context_type) VALUES (?, ?, ?)").run(
-      convId,
+    await c.run("INSERT INTO ai_conversations (id, user_id, context_type) VALUES (?, ?, ?)", [convId,
       user.id,
-      context
-    );
+      context]);
   }
 
   // Deterministic crisis routing always runs first — the regex gate and its
@@ -712,15 +671,14 @@ export async function sendCompanionMessage(
     }
   }
 
-  const insertMsg = db.prepare(
-    "INSERT INTO ai_messages (id, conversation_id, user_id, sender, message_text, risk_flag) VALUES (?, ?, ?, ?, ?, ?)"
-  );
-  insertMsg.run(newId(), convId, user.id, "member", encryptField(trimmed), reply.riskFlag ? 1 : 0);
-  insertMsg.run(newId(), convId, user.id, "companion", encryptField(reply.text), reply.riskFlag ? 1 : 0);
+  const insertMsgSql =
+    "INSERT INTO ai_messages (id, conversation_id, user_id, sender, message_text, risk_flag) VALUES (?, ?, ?, ?, ?, ?)";
+  await c.run(insertMsgSql, [newId(), convId, user.id, "member", encryptField(trimmed), reply.riskFlag ? 1 : 0]);
+  await c.run(insertMsgSql, [newId(), convId, user.id, "companion", encryptField(reply.text), reply.riskFlag ? 1 : 0]);
 
   if (reply.riskFlag) {
-    db.prepare("UPDATE ai_conversations SET risk_level = 'urgent' WHERE id = ?").run(convId);
-    createAlert({
+    await c.run("UPDATE ai_conversations SET risk_level = 'urgent' WHERE id = ?", [convId]);
+    await createAlert({
       userId: user.id,
       type: "companion_risk_language",
       severity: "urgent",
@@ -748,35 +706,29 @@ export async function sendCompanionMessage(
 export async function deleteAccount(formData: FormData) {
   const user = await requireUser();
   if (formData.get("confirm") !== "DELETE") redirect("/settings/account?error=confirm");
-  const db = getDb();
-  db.transaction(() => {
+  const c = await data();
+  await c.tx(async (t) => {
     const byUser = (table: string, col = "user_id") =>
-      db.prepare(`DELETE FROM ${table} WHERE ${col} = ?`).run(user.id);
-    db.prepare(
-      "DELETE FROM post_session_checks WHERE session_id IN (SELECT id FROM therapy_sessions WHERE user_id = ?)"
-    ).run(user.id);
-    byUser("therapy_sessions");
-    byUser("ai_messages");
-    byUser("ai_conversations");
-    byUser("ai_memory_items");
-    byUser("ai_companion_preferences");
-    byUser("user_triggers");
-    byUser("early_warning_signs");
-    byUser("safety_plans");
-    byUser("user_profiles");
-    byUser("readiness_assessments");
-    byUser("checkins");
-    byUser("screenings");
-    byUser("module_unlocks");
-    byUser("alerts");
-    db.prepare(
-      `UPDATE users SET email = ?, name = 'Deleted member', password_hash = '!', dob = NULL,
-         status = 'deleted' WHERE id = ?`
-    ).run(`deleted-${user.id}@deleted.invalid`, user.id);
-    db.prepare(
-      "UPDATE subscriptions SET status = 'canceled', cancel_at_period_end = 0, updated_at = datetime('now') WHERE user_id = ?"
-    ).run(user.id);
-  })();
+      t.run(`DELETE FROM ${table} WHERE ${col} = ?`, [user.id]);
+    await t.run("DELETE FROM post_session_checks WHERE session_id IN (SELECT id FROM therapy_sessions WHERE user_id = ?)", [user.id]);
+    await byUser("therapy_sessions");
+    await byUser("ai_messages");
+    await byUser("ai_conversations");
+    await byUser("ai_memory_items");
+    await byUser("ai_companion_preferences");
+    await byUser("user_triggers");
+    await byUser("early_warning_signs");
+    await byUser("safety_plans");
+    await byUser("user_profiles");
+    await byUser("readiness_assessments");
+    await byUser("checkins");
+    await byUser("screenings");
+    await byUser("module_unlocks");
+    await byUser("alerts");
+    await t.run(`UPDATE users SET email = ?, name = 'Deleted member', password_hash = '!', dob = NULL,
+         status = 'deleted' WHERE id = ?`, [`deleted-${user.id}@deleted.invalid`, user.id]);
+    await t.run("UPDATE subscriptions SET status = 'canceled', cancel_at_period_end = 0, updated_at = datetime('now') WHERE user_id = ?", [user.id]);
+  });
   await audit({ actorId: user.id, actorRole: user.role, family: "identity", type: "account_deleted" });
   await clearSessionCookie();
   redirect("/?deleted=1");
@@ -786,15 +738,12 @@ export async function deleteAccount(formData: FormData) {
 
 export async function setMemoryEnabled(formData: FormData) {
   const user = await requireMember();
+  const c = await data();
   const value = ["yes", "no", "ask"].includes(String(formData.get("memory")))
     ? String(formData.get("memory"))
     : "yes";
-  getDb()
-    .prepare(
-      `INSERT INTO ai_companion_preferences (user_id, memory_enabled) VALUES (?, ?)
-       ON CONFLICT(user_id) DO UPDATE SET memory_enabled = excluded.memory_enabled, updated_at = datetime('now')`
-    )
-    .run(user.id, value);
+  await c.run(`INSERT INTO ai_companion_preferences (user_id, memory_enabled) VALUES (?, ?)
+       ON CONFLICT(user_id) DO UPDATE SET memory_enabled = excluded.memory_enabled, updated_at = datetime('now')`, [user.id, value]);
   await audit({ actorId: user.id, actorRole: "member", family: "clinical", type: "companion_memory_setting", detail: { value } });
   revalidatePath("/settings/memory");
   redirect("/settings/memory");
@@ -802,10 +751,9 @@ export async function setMemoryEnabled(formData: FormData) {
 
 export async function deleteMemoryItem(formData: FormData) {
   const user = await requireMember();
+  const c = await data();
   const id = String(formData.get("id") ?? "");
-  getDb()
-    .prepare("UPDATE ai_memory_items SET active = 0, updated_at = datetime('now') WHERE id = ? AND user_id = ?")
-    .run(id, user.id);
+  await c.run("UPDATE ai_memory_items SET active = 0, updated_at = datetime('now') WHERE id = ? AND user_id = ?", [id, user.id]);
   await audit({ actorId: user.id, actorRole: "member", family: "clinical", type: "companion_memory_deleted", target: id });
   revalidatePath("/settings/memory");
   redirect("/settings/memory");
@@ -813,9 +761,8 @@ export async function deleteMemoryItem(formData: FormData) {
 
 export async function clearCompanionMemory() {
   const user = await requireMember();
-  getDb()
-    .prepare("UPDATE ai_memory_items SET active = 0, updated_at = datetime('now') WHERE user_id = ?")
-    .run(user.id);
+  const c = await data();
+  await c.run("UPDATE ai_memory_items SET active = 0, updated_at = datetime('now') WHERE user_id = ?", [user.id]);
   await audit({ actorId: user.id, actorRole: "member", family: "clinical", type: "companion_memory_cleared" });
   revalidatePath("/settings/memory");
   redirect("/settings/memory");
@@ -823,11 +770,10 @@ export async function clearCompanionMemory() {
 
 export async function setTriggerActive(formData: FormData) {
   const user = await requireMember();
+  const c = await data();
   const id = String(formData.get("id") ?? "");
   const active = formData.get("active") === "1" ? 1 : 0;
-  getDb()
-    .prepare("UPDATE user_triggers SET active = ?, updated_at = datetime('now') WHERE id = ? AND user_id = ?")
-    .run(active, id, user.id);
+  await c.run("UPDATE user_triggers SET active = ?, updated_at = datetime('now') WHERE id = ? AND user_id = ?", [active, id, user.id]);
   await audit({ actorId: user.id, actorRole: "member", family: "clinical", type: "trigger_updated", target: id, detail: { active } });
   revalidatePath("/settings/memory");
   redirect("/settings/memory");
@@ -853,18 +799,15 @@ export async function submitCheckin(formData: FormData) {
     .getAll("trigger_today")
     .map(String)
     .filter((id) => knownIds.has(id));
-  const db = getDb();
-  db.prepare(
-    `INSERT INTO checkins (id, user_id, checkin_date, activation, shutdown, harm_urge, feels_safe,
+  const c = await data();
+  await c.run(`INSERT INTO checkins (id, user_id, checkin_date, activation, shutdown, harm_urge, feels_safe,
        dissociation, sleep_quality, substance_flag, recommended_action, triggers_json)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT(user_id, checkin_date) DO UPDATE SET
        activation=excluded.activation, shutdown=excluded.shutdown, harm_urge=excluded.harm_urge,
        feels_safe=excluded.feels_safe, dissociation=excluded.dissociation,
        sleep_quality=excluded.sleep_quality, substance_flag=excluded.substance_flag,
-       recommended_action=excluded.recommended_action, triggers_json=excluded.triggers_json`
-  ).run(
-    newId(),
+       recommended_action=excluded.recommended_action, triggers_json=excluded.triggers_json`, [newId(),
     user.id,
     todayISO(),
     values.activation,
@@ -875,8 +818,7 @@ export async function submitCheckin(formData: FormData) {
     values.sleep_quality,
     values.substance_flag ? 1 : 0,
     action,
-    JSON.stringify(triggersToday)
-  );
+    JSON.stringify(triggersToday)]);
 
   // Readiness recalculates over time: blend today's somatic state with the
   // slower-moving answers from the latest stored assessment.
@@ -884,18 +826,14 @@ export async function submitCheckin(formData: FormData) {
   if (base) {
     const recalced = readinessFromCheckin(base, values);
     const { score, track } = computeReadiness(recalced);
-    db.prepare(
-      `INSERT INTO readiness_assessments
+    await c.run(`INSERT INTO readiness_assessments
          (id, user_id, stability_score, body_safety_score, present_connection_score, symptom_intensity_score,
           sleep_quality, support_available, processing_readiness, pause_capacity, pace_preference,
           risk_flag, calculated_readiness_score, recommended_track, source)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'checkin')`
-    ).run(
-      newId(), user.id, recalced.stability, recalced.bodySafety, recalced.presentConnection,
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'checkin')`, [newId(), user.id, recalced.stability, recalced.bodySafety, recalced.presentConnection,
       recalced.symptomIntensity, recalced.sleepQuality, recalced.supportAvailable,
       recalced.processingReadiness, recalced.pauseCapacity, base.pace_preference,
-      recalced.riskFlag, score, track
-    );
+      recalced.riskFlag, score, track]);
   }
 
   await audit({
@@ -907,7 +845,7 @@ export async function submitCheckin(formData: FormData) {
   });
 
   if (action === "crisis") {
-    createAlert({
+    await createAlert({
       userId: user.id,
       type: "checkin_safety_positive",
       severity: "urgent",
@@ -931,22 +869,14 @@ export async function startDailyCompanionChat(): Promise<{
   messages: { sender: "member" | "companion"; text: string; riskFlag: boolean }[];
 }> {
   const user = await requireMember();
-  const db = getDb();
+  const c = await data();
 
-  const existing = db
-    .prepare(
-      `SELECT id FROM ai_conversations
+  const existing = await c.get(`SELECT id FROM ai_conversations
        WHERE user_id = ? AND context_type = 'daily_checkin' AND date(started_at) = date('now')
-       ORDER BY started_at DESC LIMIT 1`
-    )
-    .get(user.id) as { id: string } | undefined;
+       ORDER BY started_at DESC LIMIT 1`, [user.id]) as { id: string } | undefined;
   if (existing) {
-    const messages = db
-      .prepare(
-        `SELECT sender, message_text, risk_flag FROM ai_messages
-         WHERE conversation_id = ? ORDER BY created_at, rowid`
-      )
-      .all(existing.id) as { sender: "member" | "companion"; message_text: string; risk_flag: number }[];
+    const messages = await c.all(`SELECT sender, message_text, risk_flag FROM ai_messages
+         WHERE conversation_id = ? ORDER BY created_at, rowid`, [existing.id]) as { sender: "member" | "companion"; message_text: string; risk_flag: number }[];
     if (messages.length > 0) {
       return {
         conversationId: existing.id,
@@ -961,9 +891,7 @@ export async function startDailyCompanionChat(): Promise<{
 
   const convId = existing?.id ?? newId();
   if (!existing) {
-    db.prepare(
-      "INSERT INTO ai_conversations (id, user_id, context_type) VALUES (?, ?, 'daily_checkin')"
-    ).run(convId, user.id);
+    await c.run("INSERT INTO ai_conversations (id, user_id, context_type) VALUES (?, ?, 'daily_checkin')", [convId, user.id]);
   }
 
   const ctx = await buildCompanionContext(user.id);
@@ -979,12 +907,10 @@ export async function startDailyCompanionChat(): Promise<{
     }
   }
 
-  db.prepare(
-    "INSERT INTO ai_messages (id, conversation_id, user_id, sender, message_text, risk_flag) VALUES (?, ?, ?, 'companion', ?, ?)"
-  ).run(newId(), convId, user.id, encryptField(opening.text), opening.riskFlag ? 1 : 0);
+  await c.run("INSERT INTO ai_messages (id, conversation_id, user_id, sender, message_text, risk_flag) VALUES (?, ?, ?, 'companion', ?, ?)", [newId(), convId, user.id, encryptField(opening.text), opening.riskFlag ? 1 : 0]);
   if (opening.riskFlag) {
-    db.prepare("UPDATE ai_conversations SET risk_level = 'urgent' WHERE id = ?").run(convId);
-    createAlert({
+    await c.run("UPDATE ai_conversations SET risk_level = 'urgent' WHERE id = ?", [convId]);
+    await createAlert({
       userId: user.id,
       type: "companion_risk_language",
       severity: "urgent",
@@ -1020,11 +946,9 @@ export async function startSession(moduleId: string, focus?: string) {
   void shadowDecide(user.id, "session_start", Date.now());
 
   const chosenFocus = focus?.trim().slice(0, 200) || null;
-  const db = getDb();
+  const c = await data();
   const id = newId();
-  db.prepare(
-    "INSERT INTO therapy_sessions (id, user_id, module_id, detail_json) VALUES (?, ?, ?, ?)"
-  ).run(id, user.id, mod.id, JSON.stringify(chosenFocus ? { focus: chosenFocus } : {}));
+  await c.run("INSERT INTO therapy_sessions (id, user_id, module_id, detail_json) VALUES (?, ?, ?, ?)", [id, user.id, mod.id, JSON.stringify(chosenFocus ? { focus: chosenFocus } : {})]);
 
   if (chosenFocus) {
     // The chosen focus feeds the companion's memory so chat can pick up
@@ -1071,10 +995,8 @@ export async function finishSession(args: {
   sudsTrail: number[];
 }) {
   const user = await requireMember();
-  const db = getDb();
-  const session = db
-    .prepare("SELECT id, module_id, detail_json FROM therapy_sessions WHERE id = ? AND user_id = ?")
-    .get(args.sessionId, user.id) as
+  const c = await data();
+  const session = await c.get("SELECT id, module_id, detail_json FROM therapy_sessions WHERE id = ? AND user_id = ?", [args.sessionId, user.id]) as
     | { id: string; module_id: string; detail_json: string }
     | undefined;
   if (!session) return;
@@ -1088,19 +1010,15 @@ export async function finishSession(args: {
   }
   detail.sudsTrail = args.sudsTrail;
 
-  db.prepare(
-    `UPDATE therapy_sessions SET status = ?, pre_suds = ?, post_suds = ?, peak_suds = ?,
+  await c.run(`UPDATE therapy_sessions SET status = ?, pre_suds = ?, post_suds = ?, peak_suds = ?,
        hard_stop_reason = ?, detail_json = ?, ended_at = datetime('now')
-     WHERE id = ?`
-  ).run(
-    args.outcome,
+     WHERE id = ?`, [args.outcome,
     args.preSuds,
     args.postSuds,
     args.peakSuds,
     args.hardStopReason ?? null,
     JSON.stringify(detail),
-    args.sessionId
-  );
+    args.sessionId]);
 
   await audit({
     actorId: user.id,
@@ -1118,7 +1036,7 @@ export async function finishSession(args: {
   });
 
   if (args.outcome === "hard_stop") {
-    createAlert({
+    await createAlert({
       userId: user.id,
       type: "session_hard_stop",
       severity: "high",
@@ -1148,13 +1066,10 @@ export async function submitPostSessionCheck(formData: FormData) {
 
   const needsEscalation = !oriented || !safeTonight || distress >= 8 || delayedRisk >= 8;
 
-  const db = getDb();
-  db.prepare(
-    `INSERT INTO post_session_checks
+  const c = await data();
+  await c.run(`INSERT INTO post_session_checks
        (id, session_id, user_id, distress, oriented, safe_tonight, delayed_risk, recovery_confirmed, escalated)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
-  ).run(
-    newId(),
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`, [newId(),
     sessionId,
     user.id,
     distress,
@@ -1162,8 +1077,7 @@ export async function submitPostSessionCheck(formData: FormData) {
     safeTonight ? 1 : 0,
     delayedRisk,
     recoveryConfirmed ? 1 : 0,
-    needsEscalation ? 1 : 0
-  );
+    needsEscalation ? 1 : 0]);
 
   await audit({
     actorId: user.id,
@@ -1175,7 +1089,7 @@ export async function submitPostSessionCheck(formData: FormData) {
   });
 
   if (!safeTonight) {
-    createAlert({
+    await createAlert({
       userId: user.id,
       type: "post_session_unsafe",
       severity: "urgent",
@@ -1184,7 +1098,7 @@ export async function submitPostSessionCheck(formData: FormData) {
     redirect("/crisis?from=post-session");
   }
   if (needsEscalation) {
-    createAlert({
+    await createAlert({
       userId: user.id,
       type: "post_session_review",
       severity: "high",
@@ -1203,16 +1117,14 @@ export async function requestUnlock(formData: FormData) {
   const mod = getModule(moduleId);
   if (!mod || mod.tier !== "gated") redirect("/dashboard");
 
-  const db = getDb();
-  db.prepare(
-    `INSERT INTO module_unlocks (id, user_id, module_id, member_note)
+  const c = await data();
+  await c.run(`INSERT INTO module_unlocks (id, user_id, module_id, member_note)
      VALUES (?, ?, ?, ?)
      ON CONFLICT(user_id, module_id) DO UPDATE SET
        status = 'requested', member_note = excluded.member_note,
-       requested_at = datetime('now'), decided_at = NULL, decision_reason = NULL`
-  ).run(newId(), user.id, moduleId, note || null);
+       requested_at = datetime('now'), decided_at = NULL, decision_reason = NULL`, [newId(), user.id, moduleId, note || null]);
 
-  createAlert({
+  await createAlert({
     userId: user.id,
     type: "unlock_requested",
     severity: "moderate",
@@ -1238,16 +1150,12 @@ export async function decideUnlock(formData: FormData) {
   if (decision !== "unlocked" && decision !== "denied") return;
   if (!reason.trim()) redirect("/clinician?error=reason_required");
 
-  const db = getDb();
-  const unlock = db
-    .prepare("SELECT id, user_id, module_id FROM module_unlocks WHERE id = ?")
-    .get(unlockId) as { id: string; user_id: string; module_id: string } | undefined;
+  const c = await data();
+  const unlock = await c.get("SELECT id, user_id, module_id FROM module_unlocks WHERE id = ?", [unlockId]) as { id: string; user_id: string; module_id: string } | undefined;
   if (!unlock) return;
 
-  db.prepare(
-    `UPDATE module_unlocks SET status = ?, clinician_id = ?, decision_reason = ?, decided_at = datetime('now')
-     WHERE id = ?`
-  ).run(decision, clinician.id, reason, unlockId);
+  await c.run(`UPDATE module_unlocks SET status = ?, clinician_id = ?, decision_reason = ?, decided_at = datetime('now')
+     WHERE id = ?`, [decision, clinician.id, reason, unlockId]);
 
   await audit({
     actorId: clinician.id,
@@ -1275,20 +1183,16 @@ export async function clinicianOpenModule(formData: FormData) {
   if (!mod || mod.tier !== "gated") redirect(`/clinician/member/${memberId}?error=not_gated`);
   if (!reason.trim()) redirect(`/clinician/member/${memberId}?error=reason_required`);
 
-  const db = getDb();
-  const member = db
-    .prepare("SELECT id FROM users WHERE id = ? AND role = 'member'")
-    .get(memberId) as { id: string } | undefined;
+  const c = await data();
+  const member = await c.get("SELECT id FROM users WHERE id = ? AND role = 'member'", [memberId]) as { id: string } | undefined;
   if (!member) redirect("/clinician");
 
-  db.prepare(
-    `INSERT INTO module_unlocks (id, user_id, module_id, status, clinician_id, decision_reason, override, decided_at)
+  await c.run(`INSERT INTO module_unlocks (id, user_id, module_id, status, clinician_id, decision_reason, override, decided_at)
      VALUES (?, ?, ?, 'unlocked', ?, ?, 1, datetime('now'))
      ON CONFLICT(user_id, module_id) DO UPDATE SET
        status = 'unlocked', clinician_id = excluded.clinician_id,
        decision_reason = excluded.decision_reason, override = 1,
-       decided_at = datetime('now')`
-  ).run(newId(), memberId, moduleId, clinician.id, reason);
+       decided_at = datetime('now')`, [newId(), memberId, moduleId, clinician.id, reason]);
 
   await audit({
     actorId: clinician.id,
@@ -1310,12 +1214,10 @@ export async function clinicianCloseModule(formData: FormData) {
   const reason = String(formData.get("reason") ?? "").slice(0, 1000);
   if (!reason.trim()) redirect(`/clinician/member/${memberId}?error=reason_required`);
 
-  const db = getDb();
-  db.prepare(
-    `UPDATE module_unlocks SET status = 'revoked', clinician_id = ?, decision_reason = ?,
+  const c = await data();
+  await c.run(`UPDATE module_unlocks SET status = 'revoked', clinician_id = ?, decision_reason = ?,
        override = 0, decided_at = datetime('now')
-     WHERE user_id = ? AND module_id = ?`
-  ).run(clinician.id, reason, memberId, moduleId);
+     WHERE user_id = ? AND module_id = ?`, [clinician.id, reason, memberId, moduleId]);
 
   await audit({
     actorId: clinician.id,
@@ -1335,16 +1237,12 @@ export async function reviewAlert(formData: FormData) {
   const note = String(formData.get("note") ?? "").slice(0, 1000);
   if (!note.trim()) redirect("/clinician?error=note_required");
 
-  const db = getDb();
-  const alert = db
-    .prepare("SELECT id, user_id, alert_type FROM alerts WHERE id = ? AND status = 'open'")
-    .get(alertId) as { id: string; user_id: string; alert_type: string } | undefined;
+  const c = await data();
+  const alert = await c.get("SELECT id, user_id, alert_type FROM alerts WHERE id = ? AND status = 'open'", [alertId]) as { id: string; user_id: string; alert_type: string } | undefined;
   if (!alert) return;
 
-  db.prepare(
-    `UPDATE alerts SET status = 'reviewed', reviewed_by = ?, review_note = ?, reviewed_at = datetime('now')
-     WHERE id = ?`
-  ).run(clinician.id, note, alertId);
+  await c.run(`UPDATE alerts SET status = 'reviewed', reviewed_by = ?, review_note = ?, reviewed_at = datetime('now')
+     WHERE id = ?`, [clinician.id, note, alertId]);
 
   await audit({
     actorId: clinician.id,
@@ -1426,17 +1324,14 @@ export async function removeCareTrack(formData: FormData) {
 
 export async function recordRuleSignoff(formData: FormData) {
   const clinician = await requireClinician();
+  const c = await data();
   const ruleId = String(formData.get("rule_id") ?? "").trim().slice(0, 80);
   const verdict = String(formData.get("verdict") ?? "");
   const note = String(formData.get("note") ?? "").trim().slice(0, 500) || null;
   if (!ruleId || (verdict !== "agree" && verdict !== "needs_change")) redirect("/clinician/autonomous");
 
   const { SAFETY_CONFIG_VERSION } = await import("./safety/governance");
-  getDb()
-    .prepare(
-      "INSERT INTO autonomous_signoffs (id, rule_id, config_version, verdict, note, clinician_id) VALUES (?, ?, ?, ?, ?, ?)"
-    )
-    .run(newId(), ruleId, SAFETY_CONFIG_VERSION, verdict, note ? encryptField(note) : null, clinician.id);
+  await c.run("INSERT INTO autonomous_signoffs (id, rule_id, config_version, verdict, note, clinician_id) VALUES (?, ?, ?, ?, ?, ?)", [newId(), ruleId, SAFETY_CONFIG_VERSION, verdict, note ? encryptField(note) : null, clinician.id]);
 
   await audit({
     actorId: clinician.id,
@@ -1469,10 +1364,8 @@ export async function speakInSession(args: {
   const user = await requireMember();
   if (!liveAvailableFor(user.id)) return { ok: false, error: "Live sessions are not enabled." };
 
-  const db = getDb();
-  const owned = db
-    .prepare("SELECT id FROM therapy_sessions WHERE id = ? AND user_id = ?")
-    .get(args.sessionId, user.id);
+  const c = await data();
+  const owned = await c.get("SELECT id FROM therapy_sessions WHERE id = ? AND user_id = ?", [args.sessionId, user.id]);
   if (!owned) return { ok: false, error: "Session not found." };
 
   const transcript = String(args.transcript ?? "").trim().slice(0, 1000);
@@ -1565,14 +1458,10 @@ export async function speakInSession(args: {
 export async function grantVoiceConsent(): Promise<void> {
   const user = await requireMember();
   const { VOICE_CONSENT_VERSION } = await import("./policy");
-  const db = getDb();
-  const active = db
-    .prepare("SELECT id FROM consents WHERE user_id = ? AND scope = 'voice_biometric' AND revoked_at IS NULL LIMIT 1")
-    .get(user.id);
+  const c = await data();
+  const active = await c.get("SELECT id FROM consents WHERE user_id = ? AND scope = 'voice_biometric' AND revoked_at IS NULL LIMIT 1", [user.id]);
   if (!active) {
-    db.prepare(
-      "INSERT INTO consents (id, user_id, policy_version, scope) VALUES (?, ?, ?, ?)"
-    ).run(newId(), user.id, VOICE_CONSENT_VERSION, "voice_biometric");
+    await c.run("INSERT INTO consents (id, user_id, policy_version, scope) VALUES (?, ?, ?, ?)", [newId(), user.id, VOICE_CONSENT_VERSION, "voice_biometric"]);
     await audit({
       actorId: user.id,
       actorRole: "member",
@@ -1588,10 +1477,8 @@ export async function grantVoiceConsent(): Promise<void> {
 // active voice consents are revoked; the mic path stops being offered at once.
 export async function withdrawVoiceConsent(): Promise<void> {
   const user = await requireMember();
-  const db = getDb();
-  db.prepare(
-    "UPDATE consents SET revoked_at = datetime('now') WHERE user_id = ? AND scope = 'voice_biometric' AND revoked_at IS NULL"
-  ).run(user.id);
+  const c = await data();
+  await c.run("UPDATE consents SET revoked_at = datetime('now') WHERE user_id = ? AND scope = 'voice_biometric' AND revoked_at IS NULL", [user.id]);
   await audit({
     actorId: user.id,
     actorRole: "member",

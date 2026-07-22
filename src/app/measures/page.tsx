@@ -2,7 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { requireMember } from "@/lib/auth";
 import { subscriptionActive } from "@/lib/billing";
-import { getDb } from "@/lib/db";
+import { data } from "@/lib/data";
 import { hasConsent, screeningComplete } from "@/lib/gating";
 import { getInstrument, scoreItq } from "@/lib/instruments";
 import { decryptField } from "@/lib/crypto";
@@ -20,26 +20,25 @@ export default async function MeasuresPage({
   const user = await requireMember();
   if (!(await subscriptionActive(user.id))) redirect("/subscribe");
   if (!(await hasConsent(user.id))) redirect("/onboarding");
-  if (!screeningComplete(user.id)) redirect("/screening");
+  if (!(await screeningComplete(user.id))) redirect("/screening");
   const { submitted } = await searchParams;
 
-  const db = getDb();
+  const c = await data();
 
-  const rows = TRACKED.map((t) => {
-    const last = db
-      .prepare(
+  const rows = await Promise.all(
+    TRACKED.map(async (t) => {
+      const last = (await c.get(
         `SELECT total_score, answers_json, created_at,
            CAST(julianday('now') - julianday(created_at) AS INTEGER) AS age
          FROM screenings WHERE user_id = ? AND instrument = ?
-         ORDER BY created_at DESC LIMIT 1`
-      )
-      .get(user.id, t.id) as
-      | { total_score: number; answers_json: string; created_at: string; age: number }
-      | undefined;
-    const instrument = getInstrument(t.id)!;
-    const age = last ? last.age : Infinity;
-    return { ...t, instrument, last, age, due: age >= t.cadenceDays };
-  });
+         ORDER BY created_at DESC LIMIT 1`,
+        [user.id, t.id]
+      )) as { total_score: number; answers_json: string; created_at: string; age: number } | undefined;
+      const instrument = getInstrument(t.id)!;
+      const age = last ? last.age : Infinity;
+      return { ...t, instrument, last, age, due: age >= t.cadenceDays };
+    })
+  );
 
   return (
     <main className="mx-auto max-w-2xl px-6 py-12">

@@ -1,6 +1,6 @@
 import { requireMember } from "@/lib/auth";
 import { hasConsent } from "@/lib/gating";
-import { getDb } from "@/lib/db";
+import { data } from "@/lib/data";
 import { INSTRUMENTS } from "@/lib/instruments";
 import { redirect } from "next/navigation";
 import { subscriptionActive } from "@/lib/billing";
@@ -37,12 +37,10 @@ export default async function ScreeningPage() {
     );
   }
 
-  const db = getDb();
+  const c = await data();
   const done = new Set(
     (
-      db
-        .prepare("SELECT DISTINCT instrument FROM screenings WHERE user_id = ?")
-        .all(user.id) as { instrument: string }[]
+      await c.all("SELECT DISTINCT instrument FROM screenings WHERE user_id = ?", [user.id]) as { instrument: string }[]
     ).map((r) => r.instrument)
   );
 

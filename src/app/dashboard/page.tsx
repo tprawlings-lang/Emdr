@@ -2,7 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { requireMember } from "@/lib/auth";
 import { subscriptionActive } from "@/lib/billing";
-import { getDb } from "@/lib/db";
+import { data } from "@/lib/data";
 import { MODULES } from "@/lib/modules";
 import {
   checkModuleAccess,
@@ -64,7 +64,7 @@ export default async function DashboardPage() {
   if (!(await screeningComplete(user.id))) redirect("/screening");
   if (!(await profileComplete(user.id))) redirect("/onboarding/profile");
 
-  const db = getDb();
+  const c = await data();
   const checkin = await getTodayCheckin(user.id);
   const fitness = await getFitnessState(user.id);
   const planRow = await getProgramPlan(user.id);
@@ -77,41 +77,23 @@ export default async function DashboardPage() {
   const myTracks = await getMemberTracks(user.id);
   const completed = await completedModuleIds(user.id);
 
-  const pcl5 = db
-    .prepare(
-      "SELECT total_score, created_at FROM screenings WHERE user_id = ? AND instrument = 'pcl-5' ORDER BY created_at ASC"
-    )
-    .all(user.id) as { total_score: number; created_at: string }[];
+  const pcl5 = await c.all("SELECT total_score, created_at FROM screenings WHERE user_id = ? AND instrument = 'pcl-5' ORDER BY created_at ASC", [user.id]) as { total_score: number; created_at: string }[];
 
-  const itqRows = db
-    .prepare(
-      "SELECT answers_json, created_at FROM screenings WHERE user_id = ? AND instrument = 'itq' ORDER BY created_at ASC"
-    )
-    .all(user.id) as { answers_json: string; created_at: string }[];
+  const itqRows = await c.all("SELECT answers_json, created_at FROM screenings WHERE user_id = ? AND instrument = 'itq' ORDER BY created_at ASC", [user.id]) as { answers_json: string; created_at: string }[];
   const itqScores = itqRows.map((r) => ({
     date: r.created_at.slice(0, 10),
     ...scoreItq(JSON.parse(decryptField(r.answers_json))),
   }));
 
-  const recentMeasures = db
-    .prepare(
-      `SELECT COUNT(*) AS n FROM screenings
+  const recentMeasures = await c.get(`SELECT COUNT(*) AS n FROM screenings
        WHERE user_id = ? AND instrument IN ('pcl-5','itq')
-         AND created_at >= datetime('now', '-7 days')`
-    )
-    .get(user.id) as { n: number };
+         AND created_at >= datetime('now', '-7 days')`, [user.id]) as { n: number };
   const measureDue = recentMeasures.n === 0;
 
-  const lastReview = db
-    .prepare(
-      `SELECT reviewed_at FROM alerts WHERE user_id = ? AND status = 'reviewed'
-       ORDER BY reviewed_at DESC LIMIT 1`
-    )
-    .get(user.id) as { reviewed_at: string } | undefined;
+  const lastReview = await c.get(`SELECT reviewed_at FROM alerts WHERE user_id = ? AND status = 'reviewed'
+       ORDER BY reviewed_at DESC LIMIT 1`, [user.id]) as { reviewed_at: string } | undefined;
 
-  const streak = db
-    .prepare("SELECT COUNT(*) AS n FROM checkins WHERE user_id = ?")
-    .get(user.id) as { n: number };
+  const streak = await c.get("SELECT COUNT(*) AS n FROM checkins WHERE user_id = ?", [user.id]) as { n: number };
 
   // Precompute module access (checkModuleAccess is async now) so the JSX map
   // below stays synchronous.

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireClinician } from "@/lib/auth";
-import { getDb } from "@/lib/db";
+import { data } from "@/lib/data";
 import { MODULES } from "@/lib/modules";
 import { audit } from "@/lib/audit";
 import { scoreItq } from "@/lib/instruments";
@@ -17,11 +17,9 @@ export default async function MemberDetailPage({
 }) {
   const clinician = await requireClinician();
   const { id } = await params;
-  const db = getDb();
+  const c = await data();
 
-  const member = db
-    .prepare("SELECT id, name, email, created_at FROM users WHERE id = ? AND role = 'member'")
-    .get(id) as { id: string; name: string; email: string; created_at: string } | undefined;
+  const member = await c.get("SELECT id, name, email, created_at FROM users WHERE id = ? AND role = 'member'", [id]) as { id: string; name: string; email: string; created_at: string } | undefined;
   if (!member) notFound();
 
   // Record-access events belong in the audit trail too.
@@ -33,11 +31,7 @@ export default async function MemberDetailPage({
     target: member.id,
   });
 
-  const screenings = db
-    .prepare(
-      "SELECT instrument, total_score, answers_json, risk_flags_json, created_at FROM screenings WHERE user_id = ? ORDER BY created_at DESC"
-    )
-    .all(id) as {
+  const screenings = await c.all("SELECT instrument, total_score, answers_json, risk_flags_json, created_at FROM screenings WHERE user_id = ? ORDER BY created_at DESC", [id]) as {
     instrument: string;
     total_score: number;
     answers_json: string;
@@ -57,11 +51,7 @@ export default async function MemberDetailPage({
       ...scoreItq(JSON.parse(decryptField(s.answers_json))),
     }));
 
-  const checkins = db
-    .prepare(
-      "SELECT * FROM checkins WHERE user_id = ? ORDER BY checkin_date DESC LIMIT 14"
-    )
-    .all(id) as {
+  const checkins = await c.all("SELECT * FROM checkins WHERE user_id = ? ORDER BY checkin_date DESC LIMIT 14", [id]) as {
     checkin_date: string;
     activation: number;
     shutdown: number;
@@ -70,11 +60,7 @@ export default async function MemberDetailPage({
     recommended_action: string;
   }[];
 
-  const sessions = db
-    .prepare(
-      "SELECT * FROM therapy_sessions WHERE user_id = ? ORDER BY started_at DESC LIMIT 20"
-    )
-    .all(id) as {
+  const sessions = await c.all("SELECT * FROM therapy_sessions WHERE user_id = ? ORDER BY started_at DESC LIMIT 20", [id]) as {
     id: string;
     module_id: string;
     status: string;
@@ -85,9 +71,7 @@ export default async function MemberDetailPage({
     started_at: string;
   }[];
 
-  const unlocks = db
-    .prepare("SELECT * FROM module_unlocks WHERE user_id = ? ORDER BY requested_at DESC")
-    .all(id) as {
+  const unlocks = await c.all("SELECT * FROM module_unlocks WHERE user_id = ? ORDER BY requested_at DESC", [id]) as {
     module_id: string;
     status: string;
     decision_reason: string | null;
@@ -96,9 +80,7 @@ export default async function MemberDetailPage({
     decided_at: string | null;
   }[];
 
-  const consents = db
-    .prepare("SELECT policy_version, scope, granted_at, revoked_at FROM consents WHERE user_id = ?")
-    .all(id) as { policy_version: string; scope: string; granted_at: string; revoked_at: string | null }[];
+  const consents = await c.all("SELECT policy_version, scope, granted_at, revoked_at FROM consents WHERE user_id = ?", [id]) as { policy_version: string; scope: string; granted_at: string; revoked_at: string | null }[];
 
   const moduleName = (mid: string) => MODULES.find((m) => m.id === mid)?.name ?? mid;
   const planRow = await getProgramPlan(member.id);

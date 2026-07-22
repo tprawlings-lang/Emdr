@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { requireMember } from "@/lib/auth";
-import { getDb } from "@/lib/db";
+import { data } from "@/lib/data";
 import { submitPostSessionCheck } from "@/lib/actions";
 
 function YesNo({ name }: { name: string }) {
@@ -47,15 +47,11 @@ export default async function PostSessionPage({
   const user = await requireMember();
   if (!sid) redirect("/dashboard");
 
-  const db = getDb();
-  const session = db
-    .prepare("SELECT id FROM therapy_sessions WHERE id = ? AND user_id = ?")
-    .get(sid, user.id);
+  const c = await data();
+  const session = await c.get("SELECT id FROM therapy_sessions WHERE id = ? AND user_id = ?", [sid, user.id]);
   if (!session) redirect("/dashboard");
 
-  const alreadyChecked = db
-    .prepare("SELECT id FROM post_session_checks WHERE session_id = ?")
-    .get(sid);
+  const alreadyChecked = await c.get("SELECT id FROM post_session_checks WHERE session_id = ?", [sid]);
   if (alreadyChecked) redirect("/dashboard");
 
   return (
