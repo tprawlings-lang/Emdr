@@ -11,7 +11,8 @@ scripts is the one meaningful residual XSS vector — any injected inline
 `<script>` would execute.
 
 ## Decision
-Set the CSP per request in `src/middleware.ts` with a fresh nonce:
+Set the CSP per request in `src/proxy.ts` (Next 16's renamed `middleware`
+convention) with a fresh nonce:
 `script-src 'self' 'nonce-<random>' 'strict-dynamic'`, dropping
 `'unsafe-inline'` from scripts. Next.js reads the CSP from the request header
 and stamps the nonce onto the scripts it renders; `'strict-dynamic'` lets those
@@ -26,12 +27,13 @@ inline-`<script>` vector is what the nonce closes.
 ## Consequences
 - Injected inline scripts no longer execute — the primary reflected/stored-XSS
   payload shape is blocked even if an escaping bug slipped through.
-- CSP is now computed in middleware (runs in Next's edge/proxy layer and is
+- CSP is now computed in the proxy layer (runs in Next's edge/proxy layer and is
   bundled into the standalone server, so it applies on Render too).
 - Regression guard: the e2e security-headers test asserts a nonce is present and
   `'unsafe-inline'` is absent from `script-src`; the authenticated + signup e2e
   flows exercise real hydration, so a broken nonce (which would block scripts)
   fails CI.
-- Note: Next 16 renames the `middleware` file convention to `proxy`; the current
-  file still works and emits a deprecation warning. Rename is a tracked
-  follow-up, not a behaviour change.
+- Migrated to Next 16's `proxy` file convention (2026-07-22): `src/middleware.ts`
+  → `src/proxy.ts`, `export function middleware` → `export function proxy`;
+  `config`/`matcher` unchanged. Same per-request behaviour; deprecation warning
+  gone. Build shows the route as `ƒ Proxy`.

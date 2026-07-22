@@ -16,6 +16,7 @@ Add a Permissions-Policy disabling camera/mic/geo/payment/usb.
 ## Consequences
 - Residual XSS surface is small: no third-party scripts, no user-authored HTML,
   React auto-escaping, no `dangerouslySetInnerHTML`.
-- **Upgrade path:** move to a nonce-based `script-src` via `middleware.ts`
+- **Upgrade path:** move to a nonce-based `script-src` via request-time code
   (generate a per-request nonce, drop `'unsafe-inline'`). Deferred to avoid
-  destabilizing the App Router streaming/render path pre-launch.
+  destabilizing the App Router streaming/render path pre-launch. *(Done in
+  ADR 0008 — implemented in `src/proxy.ts`.)*

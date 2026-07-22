@@ -10,7 +10,11 @@ import { NextRequest, NextResponse } from "next/server";
 // style-src keeps 'unsafe-inline' deliberately: React/Next inject small inline
 // styles and there is no script-execution risk from styles. The meaningful XSS
 // vector (inline <script>) is what the nonce closes.
-export function middleware(request: NextRequest) {
+//
+// File convention: this is Next.js 16's `proxy` (the renamed `middleware`
+// convention; see https://nextjs.org/docs/messages/middleware-to-proxy). Same
+// per-request behavior — only the file + function names changed.
+export function proxy(request: NextRequest) {
   const nonce = btoa(crypto.randomUUID());
   const csp = [
     "default-src 'self'",
