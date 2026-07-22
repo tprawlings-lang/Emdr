@@ -275,12 +275,13 @@ export async function checkModuleAccess(userId: string, mod: TherapyModule): Pro
       };
 
     const c = await data();
+    const dayAgo = new Date(Date.now() - 86400000).toISOString().slice(0, 19).replace("T", " ");
     // Hard cap: at most N processing sessions per 24 hours (compliance 4B.3).
     const recent = (await c.get(
       `SELECT COUNT(*) AS n FROM therapy_sessions
-         WHERE user_id = ? AND started_at > datetime('now', '-1 day')
+         WHERE user_id = ? AND started_at > ?
            AND module_id IN (${MODULES.filter((m) => m.tier === "gated").map(() => "?").join(",")})`,
-      [userId, ...MODULES.filter((m) => m.tier === "gated").map((m) => m.id)]
+      [userId, dayAgo, ...MODULES.filter((m) => m.tier === "gated").map((m) => m.id)]
     )) as { n: number };
     if (recent.n >= MAX_PROCESSING_PER_24H)
       return {
@@ -293,8 +294,8 @@ export async function checkModuleAccess(userId: string, mod: TherapyModule): Pro
     // cooldown (compliance 4B.2); stabilization modules remain available.
     const hot = (await c.get(
       `SELECT COUNT(*) AS n FROM therapy_sessions
-         WHERE user_id = ? AND ended_at > datetime('now', '-1 day') AND post_suds >= ?`,
-      [userId, SUDS_COOLDOWN_AT]
+         WHERE user_id = ? AND ended_at > ? AND post_suds >= ?`,
+      [userId, dayAgo, SUDS_COOLDOWN_AT]
     )) as { n: number };
     if (hot.n > 0)
       return {

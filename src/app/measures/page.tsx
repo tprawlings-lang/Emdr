@@ -28,14 +28,16 @@ export default async function MeasuresPage({
   const rows = await Promise.all(
     TRACKED.map(async (t) => {
       const last = (await c.get(
-        `SELECT total_score, answers_json, created_at,
-           CAST(julianday('now') - julianday(created_at) AS INTEGER) AS age
+        `SELECT total_score, answers_json, created_at
          FROM screenings WHERE user_id = ? AND instrument = ?
          ORDER BY created_at DESC LIMIT 1`,
         [user.id, t.id]
-      )) as { total_score: number; answers_json: string; created_at: string; age: number } | undefined;
+      )) as { total_score: number; answers_json: string; created_at: string } | undefined;
       const instrument = getInstrument(t.id)!;
-      const age = last ? last.age : Infinity;
+      // Age in days computed in JS (was SQLite julianday) — dialect-neutral.
+      const age = last
+        ? Math.floor((Date.now() - new Date(last.created_at.replace(" ", "T") + "Z").getTime()) / 86400000)
+        : Infinity;
       return { ...t, instrument, last, age, due: age >= t.cadenceDays };
     })
   );

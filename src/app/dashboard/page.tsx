@@ -85,9 +85,10 @@ export default async function DashboardPage() {
     ...scoreItq(JSON.parse(decryptField(r.answers_json))),
   }));
 
+  const weekAgo = new Date(Date.now() - 7 * 86400000).toISOString().slice(0, 19).replace("T", " ");
   const recentMeasures = await c.get(`SELECT COUNT(*) AS n FROM screenings
        WHERE user_id = ? AND instrument IN ('pcl-5','itq')
-         AND created_at >= datetime('now', '-7 days')`, [user.id]) as { n: number };
+         AND created_at >= ?`, [user.id, weekAgo]) as { n: number };
   const measureDue = recentMeasures.n === 0;
 
   const lastReview = await c.get(`SELECT reviewed_at FROM alerts WHERE user_id = ? AND status = 'reviewed'

@@ -176,7 +176,7 @@ async function executeTool(
       await c.run(
         `UPDATE user_triggers SET trigger_category = ?, intensity_score = COALESCE(?, intensity_score),
          common_responses_json = COALESCE(?, common_responses_json), notes = COALESCE(?, notes),
-         active = 1, updated_at = datetime('now') WHERE id = ?`,
+         active = 1, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
         [category, intensity, responses ? JSON.stringify(responses) : null, encryptField(notes), existing.id]
       );
       return `Updated trigger "${triggerName}".`;

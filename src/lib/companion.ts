@@ -113,7 +113,7 @@ export async function writeMemory(args: {
   )) as { id: string } | undefined;
   if (existing) {
     await c.run(
-      "UPDATE ai_memory_items SET memory_value = ?, source_type = ?, source_id = ?, updated_at = datetime('now') WHERE id = ?",
+      "UPDATE ai_memory_items SET memory_value = ?, source_type = ?, source_id = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
       [encryptField(args.value), args.source, args.sourceId ?? null, existing.id]
     );
   } else {
@@ -142,7 +142,7 @@ export async function getModelExposableMemoryItems(userId: string, nowMs = Date.
   return (await getMemoryItems(userId)).filter((m) => {
     const c = classifyMemory(m.memory_type, m.source_type);
     if (!canExposeToModel(c.memoryClass)) return false;
-    // created_at is SQLite datetime('now') UTC: "YYYY-MM-DD HH:MM:SS".
+    // created_at is SQLite CURRENT_TIMESTAMP UTC: "YYYY-MM-DD HH:MM:SS".
     const createdAtMs = new Date(m.created_at.replace(" ", "T") + "Z").getTime();
     return (
       decayState(

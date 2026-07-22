@@ -80,14 +80,14 @@ export async function getCurrentSubscription(userId: string): Promise<Subscripti
     if (sub.status === "canceled") break;
     if (sub.cancel_at_period_end) {
       await c.run(
-        "UPDATE subscriptions SET status = 'canceled', updated_at = datetime('now') WHERE user_id = ?",
+        "UPDATE subscriptions SET status = 'canceled', updated_at = CURRENT_TIMESTAMP WHERE user_id = ?",
         [userId]
       );
       await audit({ actorId: userId, actorRole: "member", family: "billing", type: "subscription_ended" });
     } else {
       const periodEnd = addMonth(new Date(sub.current_period_end.replace(" ", "T") + "Z"));
       await c.run(
-        "UPDATE subscriptions SET status = 'active', current_period_end = ?, updated_at = datetime('now') WHERE user_id = ?",
+        "UPDATE subscriptions SET status = 'active', current_period_end = ?, updated_at = CURRENT_TIMESTAMP WHERE user_id = ?",
         [periodEnd, userId]
       );
       await recordPayment(
@@ -114,7 +114,7 @@ export async function startDemoSubscription(userId: string) {
     // Re-subscribe after cancellation: a fresh paid period starts now.
     await c.run(
       `UPDATE subscriptions SET status = 'active', cancel_at_period_end = 0,
-         current_period_end = ?, updated_at = datetime('now') WHERE user_id = ?`,
+         current_period_end = ?, updated_at = CURRENT_TIMESTAMP WHERE user_id = ?`,
       [addMonth(now), userId]
     );
     await recordPayment(userId, "Membership restarted (simulated)");
@@ -143,7 +143,7 @@ export async function safetyRefundAndCancel(userId: string) {
   const sub = await getSubscription(userId);
   if (sub && sub.status !== "canceled") {
     await c.run(
-      "UPDATE subscriptions SET status = 'canceled', cancel_at_period_end = 0, updated_at = datetime('now') WHERE user_id = ?",
+      "UPDATE subscriptions SET status = 'canceled', cancel_at_period_end = 0, updated_at = CURRENT_TIMESTAMP WHERE user_id = ?",
       [userId]
     );
   }
@@ -170,7 +170,7 @@ export async function safetyRefundAndCancel(userId: string) {
 export async function setCancelAtPeriodEnd(userId: string, cancel: boolean) {
   const c = await data();
   await c.run(
-    "UPDATE subscriptions SET cancel_at_period_end = ?, updated_at = datetime('now') WHERE user_id = ?",
+    "UPDATE subscriptions SET cancel_at_period_end = ?, updated_at = CURRENT_TIMESTAMP WHERE user_id = ?",
     [cancel ? 1 : 0, userId]
   );
   await audit({

@@ -77,11 +77,12 @@ export async function login(formData: FormData) {
 
   // Lockout (compliance 1.5): 10 failed attempts in 15 minutes locks the
   // account for 15 minutes. Counted from the append-only audit trail.
+  const lockoutCutoff = new Date(Date.now() - 15 * 60 * 1000).toISOString().slice(0, 19).replace("T", " ");
   const recentFailures = (await c.get(
     `SELECT COUNT(*) AS n FROM audit_log
        WHERE event_type = 'login_failed' AND target = ?
-         AND created_at > datetime('now', '-15 minutes')`,
-    [email]
+         AND created_at > ?`,
+    [email, lockoutCutoff]
   )) as { n: number };
   if (recentFailures.n >= 10) {
     await audit({ family: "identity", type: "login_locked", target: email });
@@ -245,7 +246,7 @@ export async function recordSessionTrigger(args: {
   const existing = await c.get("SELECT id FROM user_triggers WHERE user_id = ? AND trigger_name = ?", [user.id, name]) as { id: string } | undefined;
   if (existing) {
     await c.run(`UPDATE user_triggers SET trigger_category = ?, intensity_score = ?, notes = ?,
-         active = 1, updated_at = datetime('now') WHERE id = ?`, [category, disruption, encryptField(notes), existing.id]);
+         active = 1, updated_at = CURRENT_TIMESTAMP WHERE id = ?`, [category, disruption, encryptField(notes), existing.id]);
   } else {
     await c.run(`INSERT INTO user_triggers (id, user_id, trigger_name, trigger_category, intensity_score, common_responses_json, notes)
        VALUES (?, ?, ?, ?, ?, '[]', ?)`, [newId(), user.id, name, category, disruption, encryptField(notes)]);
@@ -388,10 +389,10 @@ export async function submitScreening(formData: FormData) {
 
 async function upsertProfile(userId: string, fields: Record<string, string>) {
   const c = await data();
-  await c.run("INSERT OR IGNORE INTO user_profiles (user_id) VALUES (?)", [userId]);
+  await c.run("INSERT INTO user_profiles (user_id) VALUES (?) ON CONFLICT (user_id) DO NOTHING", [userId]);
   for (const [col, value] of Object.entries(fields)) {
     // Column names are fixed by the call sites below, never user input.
-    await c.run(`UPDATE user_profiles SET ${col} = ?, updated_at = datetime('now') WHERE user_id = ?`, [value,
+    await c.run(`UPDATE user_profiles SET ${col} = ?, updated_at = CURRENT_TIMESTAMP WHERE user_id = ?`, [value,
       userId]);
   }
 }
@@ -434,7 +435,7 @@ export async function saveTriggers(formData: FormData) {
 
   const insertTriggerSql = `INSERT INTO user_triggers (id, user_id, trigger_name, trigger_category)
      VALUES (?, ?, ?, ?)
-     ON CONFLICT(user_id, trigger_name) DO UPDATE SET active = 1, updated_at = datetime('now')`;
+     ON CONFLICT(user_id, trigger_name) DO UPDATE SET active = 1, updated_at = CURRENT_TIMESTAMP`;
   for (const entry of selected.slice(0, 60)) {
     const [category, name] = entry.split("|");
     if (category && name)
@@ -459,7 +460,7 @@ export async function saveTriggerDetails(formData: FormData) {
     const intensity = formData.get(`intensity-${t.id}`);
     const responses = formData.getAll(`resp-${t.id}`).map(String).slice(0, 12);
     if (intensity === null) continue;
-    await c.run(`UPDATE user_triggers SET intensity_score = ?, common_responses_json = ?, updated_at = datetime('now')
+    await c.run(`UPDATE user_triggers SET intensity_score = ?, common_responses_json = ?, updated_at = CURRENT_TIMESTAMP
        WHERE id = ? AND user_id = ?`, [Number(intensity), JSON.stringify(responses), t.id, user.id]);
     writeMemory({
       userId: user.id,
@@ -573,7 +574,7 @@ export async function saveSafetyPlan(formData: FormData) {
        reminder_phrase=excluded.reminder_phrase,
        stop_signs=excluded.stop_signs,
        careful_topics=excluded.careful_topics,
-       updated_at=datetime('now')`, [user.id,
+       updated_at=CURRENT_TIMESTAMP`, [user.id,
     JSON.stringify(tools),
     String(formData.get("contact_name") ?? "").slice(0, 100) || null,
     String(formData.get("contact_method") ?? "").slice(0, 100) || null,
@@ -600,7 +601,7 @@ export async function saveCompanionPrefs(formData: FormData) {
      ON CONFLICT(user_id) DO UPDATE SET
        preferred_user_name=excluded.preferred_user_name, tone=excluded.tone,
        support_modes_json=excluded.support_modes_json, avoidances_json=excluded.avoidances_json,
-       memory_enabled=excluded.memory_enabled, updated_at=datetime('now')`, [user.id,
+       memory_enabled=excluded.memory_enabled, updated_at=CURRENT_TIMESTAMP`, [user.id,
     String(formData.get("preferred_name") ?? "").slice(0, 60) || null,
     String(formData.get("tone") ?? "Gentle").slice(0, 30),
     JSON.stringify(formData.getAll("mode").map(String).slice(0, 10)),
@@ -727,7 +728,7 @@ export async function deleteAccount(formData: FormData) {
     await byUser("alerts");
     await t.run(`UPDATE users SET email = ?, name = 'Deleted member', password_hash = '!', dob = NULL,
          status = 'deleted' WHERE id = ?`, [`deleted-${user.id}@deleted.invalid`, user.id]);
-    await t.run("UPDATE subscriptions SET status = 'canceled', cancel_at_period_end = 0, updated_at = datetime('now') WHERE user_id = ?", [user.id]);
+    await t.run("UPDATE subscriptions SET status = 'canceled', cancel_at_period_end = 0, updated_at = CURRENT_TIMESTAMP WHERE user_id = ?", [user.id]);
   });
   await audit({ actorId: user.id, actorRole: user.role, family: "identity", type: "account_deleted" });
   await clearSessionCookie();
@@ -743,7 +744,7 @@ export async function setMemoryEnabled(formData: FormData) {
     ? String(formData.get("memory"))
     : "yes";
   await c.run(`INSERT INTO ai_companion_preferences (user_id, memory_enabled) VALUES (?, ?)
-       ON CONFLICT(user_id) DO UPDATE SET memory_enabled = excluded.memory_enabled, updated_at = datetime('now')`, [user.id, value]);
+       ON CONFLICT(user_id) DO UPDATE SET memory_enabled = excluded.memory_enabled, updated_at = CURRENT_TIMESTAMP`, [user.id, value]);
   await audit({ actorId: user.id, actorRole: "member", family: "clinical", type: "companion_memory_setting", detail: { value } });
   revalidatePath("/settings/memory");
   redirect("/settings/memory");
@@ -753,7 +754,7 @@ export async function deleteMemoryItem(formData: FormData) {
   const user = await requireMember();
   const c = await data();
   const id = String(formData.get("id") ?? "");
-  await c.run("UPDATE ai_memory_items SET active = 0, updated_at = datetime('now') WHERE id = ? AND user_id = ?", [id, user.id]);
+  await c.run("UPDATE ai_memory_items SET active = 0, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND user_id = ?", [id, user.id]);
   await audit({ actorId: user.id, actorRole: "member", family: "clinical", type: "companion_memory_deleted", target: id });
   revalidatePath("/settings/memory");
   redirect("/settings/memory");
@@ -762,7 +763,7 @@ export async function deleteMemoryItem(formData: FormData) {
 export async function clearCompanionMemory() {
   const user = await requireMember();
   const c = await data();
-  await c.run("UPDATE ai_memory_items SET active = 0, updated_at = datetime('now') WHERE user_id = ?", [user.id]);
+  await c.run("UPDATE ai_memory_items SET active = 0, updated_at = CURRENT_TIMESTAMP WHERE user_id = ?", [user.id]);
   await audit({ actorId: user.id, actorRole: "member", family: "clinical", type: "companion_memory_cleared" });
   revalidatePath("/settings/memory");
   redirect("/settings/memory");
@@ -773,7 +774,7 @@ export async function setTriggerActive(formData: FormData) {
   const c = await data();
   const id = String(formData.get("id") ?? "");
   const active = formData.get("active") === "1" ? 1 : 0;
-  await c.run("UPDATE user_triggers SET active = ?, updated_at = datetime('now') WHERE id = ? AND user_id = ?", [active, id, user.id]);
+  await c.run("UPDATE user_triggers SET active = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND user_id = ?", [active, id, user.id]);
   await audit({ actorId: user.id, actorRole: "member", family: "clinical", type: "trigger_updated", target: id, detail: { active } });
   revalidatePath("/settings/memory");
   redirect("/settings/memory");
@@ -1011,7 +1012,7 @@ export async function finishSession(args: {
   detail.sudsTrail = args.sudsTrail;
 
   await c.run(`UPDATE therapy_sessions SET status = ?, pre_suds = ?, post_suds = ?, peak_suds = ?,
-       hard_stop_reason = ?, detail_json = ?, ended_at = datetime('now')
+       hard_stop_reason = ?, detail_json = ?, ended_at = CURRENT_TIMESTAMP
      WHERE id = ?`, [args.outcome,
     args.preSuds,
     args.postSuds,
@@ -1122,7 +1123,7 @@ export async function requestUnlock(formData: FormData) {
      VALUES (?, ?, ?, ?)
      ON CONFLICT(user_id, module_id) DO UPDATE SET
        status = 'requested', member_note = excluded.member_note,
-       requested_at = datetime('now'), decided_at = NULL, decision_reason = NULL`, [newId(), user.id, moduleId, note || null]);
+       requested_at = CURRENT_TIMESTAMP, decided_at = NULL, decision_reason = NULL`, [newId(), user.id, moduleId, note || null]);
 
   await createAlert({
     userId: user.id,
@@ -1154,7 +1155,7 @@ export async function decideUnlock(formData: FormData) {
   const unlock = await c.get("SELECT id, user_id, module_id FROM module_unlocks WHERE id = ?", [unlockId]) as { id: string; user_id: string; module_id: string } | undefined;
   if (!unlock) return;
 
-  await c.run(`UPDATE module_unlocks SET status = ?, clinician_id = ?, decision_reason = ?, decided_at = datetime('now')
+  await c.run(`UPDATE module_unlocks SET status = ?, clinician_id = ?, decision_reason = ?, decided_at = CURRENT_TIMESTAMP
      WHERE id = ?`, [decision, clinician.id, reason, unlockId]);
 
   await audit({
@@ -1188,11 +1189,11 @@ export async function clinicianOpenModule(formData: FormData) {
   if (!member) redirect("/clinician");
 
   await c.run(`INSERT INTO module_unlocks (id, user_id, module_id, status, clinician_id, decision_reason, override, decided_at)
-     VALUES (?, ?, ?, 'unlocked', ?, ?, 1, datetime('now'))
+     VALUES (?, ?, ?, 'unlocked', ?, ?, 1, CURRENT_TIMESTAMP)
      ON CONFLICT(user_id, module_id) DO UPDATE SET
        status = 'unlocked', clinician_id = excluded.clinician_id,
        decision_reason = excluded.decision_reason, override = 1,
-       decided_at = datetime('now')`, [newId(), memberId, moduleId, clinician.id, reason]);
+       decided_at = CURRENT_TIMESTAMP`, [newId(), memberId, moduleId, clinician.id, reason]);
 
   await audit({
     actorId: clinician.id,
@@ -1216,7 +1217,7 @@ export async function clinicianCloseModule(formData: FormData) {
 
   const c = await data();
   await c.run(`UPDATE module_unlocks SET status = 'revoked', clinician_id = ?, decision_reason = ?,
-       override = 0, decided_at = datetime('now')
+       override = 0, decided_at = CURRENT_TIMESTAMP
      WHERE user_id = ? AND module_id = ?`, [clinician.id, reason, memberId, moduleId]);
 
   await audit({
@@ -1241,7 +1242,7 @@ export async function reviewAlert(formData: FormData) {
   const alert = await c.get("SELECT id, user_id, alert_type FROM alerts WHERE id = ? AND status = 'open'", [alertId]) as { id: string; user_id: string; alert_type: string } | undefined;
   if (!alert) return;
 
-  await c.run(`UPDATE alerts SET status = 'reviewed', reviewed_by = ?, review_note = ?, reviewed_at = datetime('now')
+  await c.run(`UPDATE alerts SET status = 'reviewed', reviewed_by = ?, review_note = ?, reviewed_at = CURRENT_TIMESTAMP
      WHERE id = ?`, [clinician.id, note, alertId]);
 
   await audit({
@@ -1478,7 +1479,7 @@ export async function grantVoiceConsent(): Promise<void> {
 export async function withdrawVoiceConsent(): Promise<void> {
   const user = await requireMember();
   const c = await data();
-  await c.run("UPDATE consents SET revoked_at = datetime('now') WHERE user_id = ? AND scope = 'voice_biometric' AND revoked_at IS NULL", [user.id]);
+  await c.run("UPDATE consents SET revoked_at = CURRENT_TIMESTAMP WHERE user_id = ? AND scope = 'voice_biometric' AND revoked_at IS NULL", [user.id]);
   await audit({
     actorId: user.id,
     actorRole: "member",

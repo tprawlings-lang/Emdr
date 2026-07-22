@@ -357,7 +357,7 @@ export async function saveTrackIntake(userId: string, goalText: string | null, t
   const existing = await c.get("SELECT user_id FROM care_track_intake WHERE user_id = ?", [userId]);
   if (existing) {
     await c.run(
-      "UPDATE care_track_intake SET goal_text = ?, tags_json = ?, updated_at = datetime('now') WHERE user_id = ?",
+      "UPDATE care_track_intake SET goal_text = ?, tags_json = ?, updated_at = CURRENT_TIMESTAMP WHERE user_id = ?",
       [clean, tagsJson, userId]
     );
   } else {
