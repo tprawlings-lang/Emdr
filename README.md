@@ -543,6 +543,11 @@ zero-downtime and the app can run more than one instance (ADR 0007):
   guard, journey orchestration, governance) — pure, ~112 tests, red-team harness.
 - [x] Deployed in **shadow mode** (governs nothing) + clinician review console with
   per-rule Agree / Needs-change sign-off and CSV export.
+- [x] **Therapy knowledge base** — file-based, clinician-reviewable technique library
+  (8 modalities, deterministic tier/activation/dissociation-gated retrieval; crisis tier
+  gets none; output guard still validates every reply). Browsable + sign-offable at
+  `/clinician/autonomous#therapy-kb` (`KB_*` rows). Modality list provisional pending the
+  founder's reference sheet. 🔴
 - [x] **Voice responses** (member answers a free-text reflection by speaking) — live in
   demo (`EMDR_VOICE_INPUT` / on with `EMDR_DEMO`), off by default for real members. Typing
   is always available; recognition is confirm-before-submit; free-text only (never SUDS or
