@@ -554,14 +554,17 @@ zero-downtime and the app can run more than one instance (ADR 0007):
   deterministic session engine still owns every clinical decision (the responder returns
   words + at most a Ground-me hint, never moves a set); crisis/high-activation replies are
   scripted (→ Ground-me + 988, never AI); every line passes the output guard with a
-  deterministic fallback. Demo/flag-gated (`EMDR_LIVE_SESSION`), off for real members;
-  needs clinician sign-off (`LIVE_SESSION_*`) + voice consent before non-demo. 🔴
+  deterministic fallback. Demo/flag-gated (`EMDR_LIVE_SESSION`), off for real members.
+  Voice/biometric consent is **counsel-approved** (`voice-consent-v1.0`) and the gate is
+  wired (`/settings/voice` → `liveAvailableFor`): flag on + member consent = available.
+  Remaining: clinician sign-off (`LIVE_SESSION_*`) + the flag flip. 🔴
 - [x] **Voice responses** (member answers a free-text reflection by speaking) — live in
   demo (`EMDR_VOICE_INPUT` / on with `EMDR_DEMO`), off by default for real members. Typing
   is always available; recognition is confirm-before-submit; free-text only (never SUDS or
   safety gates); on-device in the shipped app. Reviewable + sign-offable on the clinician
-  console (`/clinician/autonomous#voice`, `VOICE_INPUT_*` in the register). Needs a distinct
-  versioned voice/biometric consent + counsel review before non-demo use. 🔴
+  console (`/clinician/autonomous#voice`, `VOICE_INPUT_*` in the register). Voice/biometric
+  consent is **counsel-approved** (`voice-consent-v1.0`) and the gate is wired
+  (`/settings/voice` → `voiceAvailableFor`); remaining before non-demo: the flag flip. 🔴
 - [ ] **Clinician sign-off** on the rules + Volume II conflict resolution (via the console
   + [`docs/autonomous/01-signoff-ledger.md`](docs/autonomous/01-signoff-ledger.md)). 🔴
 - [x] **Legal copy (ToS / Privacy / consent)** — counsel-approved autonomous rewrite is

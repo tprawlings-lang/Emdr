@@ -95,15 +95,16 @@ export function currentConsentSections(): { title: string; body: string }[] {
   return autonomousCopyActive() ? CONSENT_SECTIONS_AUTONOMOUS : CONSENT_SECTIONS;
 }
 
-// ── Voice / biometric consent (DRAFT — counsel review pending) ──────────────
+// ── Voice / biometric consent (counsel-approved 2026-07-22, per founder) ────
 // A DISTINCT, explicit opt-in required before voice input or live spoken
-// sessions may be offered to a real member (they are demo-only until then).
-// Voice can be "biometric" information under some laws (e.g. Illinois BIPA,
-// Washington My Health My Data, Texas CUBI), so it is not folded into the main
-// care-program consent — it is its own gate, recorded under scope
-// "voice_biometric". NOT wired into a live gate yet; ships with the voice/live
-// flags after counsel sign-off. Bump the version on any wording change.
-export const VOICE_CONSENT_VERSION = "voice-consent-v1.0-draft";
+// sessions may be offered to a real member (they are demo-only until the flags
+// flip). Voice can be "biometric" information under some laws (e.g. Illinois
+// BIPA, Washington My Health My Data, Texas CUBI), so it is not folded into the
+// main care-program consent — it is its own gate, recorded under scope
+// "voice_biometric" (see gating.ts hasVoiceConsent / decideVoiceAvailability and
+// the /settings/voice opt-in). Any wording change requires counsel re-review
+// and a version bump.
+export const VOICE_CONSENT_VERSION = "voice-consent-v1.0";
 
 export const VOICE_CONSENT_SECTIONS: { title: string; body: string }[] = [
   {

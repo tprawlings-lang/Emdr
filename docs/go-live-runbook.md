@@ -74,9 +74,9 @@ Currently: **demo-only** (`voiceAvailableFor`/`liveAvailableFor` return true onl
 in demo). Gate wired — see Task 1.
 
 Gate:
-- [ ] **Counsel approves the voice/biometric consent** (draft delivered:
-      `voice-consent-v1.0-draft` in `policy.ts`; BIPA/MHMD/CUBI note included).
-      Drop the `-draft` suffix on approval. *(Owner: Counsel.)*
+- [x] **Counsel approved the voice/biometric consent** (2026-07-22, per founder's
+      attorney) — finalized as `voice-consent-v1.0` in `policy.ts`; gate wired
+      (`/settings/voice`, `decideVoiceAvailability`). *(Owner: Counsel — done.)*
 - [ ] **Clinician sign-off** on `LIVE_SESSION_*` + `VOICE_INPUT_*` rows (in the
       console). *(Owner: Clinician.)*
 - [ ] Confirm the **on-device recognition** story for the shipped app if/when
@@ -127,6 +127,7 @@ kill switches and per-flag rollback exist precisely for this.
 - Autonomous engine: **shadow mode**, flag off.
 - Voice / live sessions: **demo-only**, consent gate wired, flags off.
 - Legal copy: current human-in-loop copy live; autonomous copy staged behind
-  the flag; voice consent drafted, counsel-pending.
+  the flag; voice/biometric consent **counsel-approved** (`voice-consent-v1.0`),
+  gate wired — enforced automatically when the voice/live flag flips.
 - Database: **single-instance SQLite** (Postgres migration outstanding).
 - No real members are governed by, or exposed to, any of the above.
