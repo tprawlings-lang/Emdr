@@ -19,7 +19,7 @@ in shadow mode until the founder acts on a satisfied gate set.
 | 1 | Independent review by ≥2 licensed trauma clinicians | ✅ **Done** | Signed PDF; [ledger](../01-signoff-ledger.md) |
 | 2 | Evidence matrix (every parameter → supporting/absent evidence) | ✅ **Drafted** | [`02-evidence-matrix.md`](02-evidence-matrix.md) |
 | 3 | Clinical implementation spec (decision tables, transitions, pseudocode, tests) | ✅ **Drafted** | [`01-clinical-implementation-spec.md`](01-clinical-implementation-spec.md) |
-| 4 | Privacy/security review by qualified professionals | ⏳ **Scoped — needs external party** | [`07-privacy-security-and-human-factors-plan.md`](07-privacy-security-and-human-factors-plan.md) |
+| 4 | Privacy/security review by qualified professionals | ⏳ **Handoff packet ready — needs external party** | [`08-security-review-handoff-packet.md`](08-security-review-handoff-packet.md) · [plan](07-privacy-security-and-human-factors-plan.md) |
 | 5 | Human-factors testing | ⏳ **Scoped — needs external execution** | [`07-privacy-security-and-human-factors-plan.md`](07-privacy-security-and-human-factors-plan.md) |
 | 6 | Technical verification (deterministic routing, logging, crash recovery, regression) | ✅ **Drafted** | [`03-technical-verification.md`](03-technical-verification.md) |
 | 7 | Staged validation Phases 1→4 with progression/stopping criteria | ✅ **Drafted (protocol)** | [`05-staged-validation-protocol.md`](05-staged-validation-protocol.md) |

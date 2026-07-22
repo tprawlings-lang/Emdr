@@ -12,6 +12,12 @@ a result. Nothing here should be read as a completed review.
 
 ## Gate 4 — Independent privacy/security review (needs external party)
 
+> **Ready to send:** the full reviewer handoff — scope, data inventory,
+> subprocessor list, secrets inventory, module pointer sheet, and access
+> checklist — is assembled in
+> [`08-security-review-handoff-packet.md`](08-security-review-handoff-packet.md).
+> Hand that to the consultant; the scope notes below are the summary.
+
 **Objective:** an independent, qualified professional attests to the privacy and
 security posture, separate from the people who designed the clinical system.
 
