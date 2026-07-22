@@ -1,10 +1,9 @@
 import { redirect } from "next/navigation";
 import { requireMember } from "@/lib/auth";
 import { getModule } from "@/lib/modules";
-import { checkModuleAccess } from "@/lib/gating";
+import { checkModuleAccess, voiceAvailableFor, liveAvailableFor } from "@/lib/gating";
 import { getSavedCalmPlace, getSessionFocus } from "@/lib/session-focus";
 import { hasSeizureFlag } from "@/lib/fitness-screener";
-import { voiceInputEnabled, liveSessionEnabled } from "@/lib/safety/config";
 import { getCompanionPrefs } from "@/lib/profile";
 import SessionPlayer from "@/components/SessionPlayer";
 
@@ -37,9 +36,9 @@ export default async function SessionPage({
       focus={getSessionFocus(user.id, mod.id)}
       calmPlace={getSavedCalmPlace(user.id)}
       audioOnlyDefault={hasSeizureFlag(user.id)}
-      voiceEnabled={voiceInputEnabled()}
+      voiceEnabled={voiceAvailableFor(user.id)}
       memberName={preferredName}
-      liveEnabled={liveSessionEnabled()}
+      liveEnabled={liveAvailableFor(user.id)}
     />
   );
 }

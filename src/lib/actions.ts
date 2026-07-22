@@ -16,7 +16,7 @@ import {
 } from "./auth";
 import { getInstrument, scoreInstrument } from "./instruments";
 import { getModule } from "./modules";
-import { checkModuleAccess, evaluateCheckin, todayISO } from "./gating";
+import { checkModuleAccess, evaluateCheckin, todayISO, liveAvailableFor } from "./gating";
 import { shadowDecide, decideAccess } from "./safety/decide";
 import { currentConsentVersion, currentTermsVersion } from "./policy";
 import {
@@ -37,7 +37,6 @@ import {
 } from "./companion";
 import { aiCompanionEnabled, generateAiOpening, generateAiReply } from "./companion-ai";
 import { selectTechniques } from "./therapy-kb";
-import { liveSessionEnabled } from "./safety/config";
 import { validateCompanionOutput, SAFE_FALLBACK } from "./safety/companion-guard";
 import {
   composeSessionResponse,
@@ -1468,7 +1467,7 @@ export async function speakInSession(args: {
   name: string | null;
 }): Promise<{ ok: boolean; error?: string; response?: SessionResponse }> {
   const user = await requireMember();
-  if (!liveSessionEnabled()) return { ok: false, error: "Live sessions are not enabled." };
+  if (!liveAvailableFor(user.id)) return { ok: false, error: "Live sessions are not enabled." };
 
   const db = getDb();
   const owned = db
@@ -1555,4 +1554,50 @@ export async function speakInSession(args: {
   });
 
   return { ok: true, response };
+}
+
+// ---------- Voice / biometric consent (distinct opt-in) ----------
+
+// Record the standalone voice/biometric consent (scope "voice_biometric").
+// Required before voice input or live spoken sessions may be offered to a real
+// member; demo is exempt. Idempotent — re-granting after a withdrawal inserts a
+// fresh active row.
+export async function grantVoiceConsent(): Promise<void> {
+  const user = await requireMember();
+  const { VOICE_CONSENT_VERSION } = await import("./policy");
+  const db = getDb();
+  const active = db
+    .prepare("SELECT id FROM consents WHERE user_id = ? AND scope = 'voice_biometric' AND revoked_at IS NULL LIMIT 1")
+    .get(user.id);
+  if (!active) {
+    db.prepare(
+      "INSERT INTO consents (id, user_id, policy_version, scope) VALUES (?, ?, ?, ?)"
+    ).run(newId(), user.id, VOICE_CONSENT_VERSION, "voice_biometric");
+    audit({
+      actorId: user.id,
+      actorRole: "member",
+      family: "consent",
+      type: "voice_consent_granted",
+      detail: { policy_version: VOICE_CONSENT_VERSION, scope: "voice_biometric" },
+    });
+  }
+  revalidatePath("/settings/voice");
+}
+
+// Withdraw voice/biometric consent — one action, effective immediately. All
+// active voice consents are revoked; the mic path stops being offered at once.
+export async function withdrawVoiceConsent(): Promise<void> {
+  const user = await requireMember();
+  const db = getDb();
+  db.prepare(
+    "UPDATE consents SET revoked_at = datetime('now') WHERE user_id = ? AND scope = 'voice_biometric' AND revoked_at IS NULL"
+  ).run(user.id);
+  audit({
+    actorId: user.id,
+    actorRole: "member",
+    family: "consent",
+    type: "voice_consent_withdrawn",
+    detail: { scope: "voice_biometric" },
+  });
+  revalidatePath("/settings/voice");
 }

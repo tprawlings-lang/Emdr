@@ -73,6 +73,46 @@ export function hasConsent(userId: string): boolean {
   return !!row;
 }
 
+/** Whether the member has an active voice/biometric consent on file. */
+export function hasVoiceConsent(userId: string): boolean {
+  const row = getDb()
+    .prepare(
+      "SELECT id FROM consents WHERE user_id = ? AND scope = 'voice_biometric' AND revoked_at IS NULL LIMIT 1"
+    )
+    .get(userId);
+  return !!row;
+}
+
+// Pure availability decision (audit-friendly, testable): voice/live is
+// available in demo (for reviewers) OR when the feature flag is on AND the
+// member has granted the distinct voice/biometric consent. Never on flag alone.
+export function decideVoiceAvailability(env: {
+  demo: boolean;
+  flagOn: boolean;
+  hasConsent: boolean;
+}): boolean {
+  if (env.demo) return true;
+  return env.flagOn && env.hasConsent;
+}
+
+/** Is voice INPUT available for this member right now (env + consent)? */
+export function voiceAvailableFor(userId: string): boolean {
+  return decideVoiceAvailability({
+    demo: process.env.EMDR_DEMO === "1",
+    flagOn: process.env.EMDR_VOICE_INPUT === "1",
+    hasConsent: hasVoiceConsent(userId),
+  });
+}
+
+/** Are LIVE spoken sessions available for this member right now? */
+export function liveAvailableFor(userId: string): boolean {
+  return decideVoiceAvailability({
+    demo: process.env.EMDR_DEMO === "1",
+    flagOn: process.env.EMDR_LIVE_SESSION === "1",
+    hasConsent: hasVoiceConsent(userId),
+  });
+}
+
 export function screeningComplete(userId: string): boolean {
   const db = getDb();
   const rows = db
