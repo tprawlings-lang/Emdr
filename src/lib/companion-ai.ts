@@ -14,6 +14,9 @@ import { audit } from "./audit";
 import { validateCompanionOutput, SAFE_FALLBACK } from "./safety/companion-guard";
 import { autonomousSafetyEnabled } from "./safety/config";
 import { generativeConversationDisabled } from "./safety/governance";
+import { decideAccess } from "./safety/decide";
+import { AccessTier } from "./safety/types";
+import { selectTechniques, buildTechniqueBlock } from "./therapy-kb";
 
 // Deterministic output guard (Autonomous Step 4). The model only proposes; this
 // backstop validates the candidate against the corpus's "never say" rules. In
@@ -211,7 +214,7 @@ function parseJsonArray(json: string | null | undefined): string[] {
   }
 }
 
-function buildSystemPrompt(ctx: CompanionContext, contextType: string): string {
+function buildSystemPrompt(ctx: CompanionContext, contextType: string, latestUserText = ""): string {
   const prefs = ctx.prefs;
   const memories = getMemoryItems(ctx.userId);
   const profile = getProfile(ctx.userId);
@@ -374,6 +377,38 @@ Use this to give direction: when they ask what to work on or prepare for, anchor
     );
   }
 
+  // Dynamic technique retrieval (therapy KB): deterministically select the
+  // approaches cleared for this member's CURRENT gated state and weave them in
+  // as advisory vocabulary. Additive and best-effort — a failure here must
+  // never block a reply, and the output guard still validates whatever the
+  // model says. Conservative default on error: grounding-only selection.
+  try {
+    let tier = AccessTier.GROUNDING_ONLY;
+    try {
+      tier = decideAccess(ctx.userId, Date.now()).tier;
+    } catch {
+      /* keep conservative default */
+    }
+    const c = ctx.checkin;
+    const signalText = [
+      latestUserText,
+      ...ctx.triggers.map((t) => `${t.trigger_name} ${t.notes ?? ""}`),
+      ...memories.map((m) => `${m.memory_key} ${m.memory_value}`),
+    ].join(" ");
+    const block = buildTechniqueBlock(
+      selectTechniques({
+        tier,
+        activation: c ? c.activation : null,
+        dissociation: c ? c.dissociation : null,
+        text: signalText,
+        restrictedTopics: restricted,
+      })
+    );
+    if (block) lines.push(block);
+  } catch {
+    /* KB is optional context — never fail the prompt build */
+  }
+
   return lines.join("\n\n");
 }
 
@@ -430,7 +465,7 @@ export async function generateAiReply(
   const conv = getDb()
     .prepare("SELECT context_type FROM ai_conversations WHERE id = ?")
     .get(convId) as { context_type: string } | undefined;
-  const system = buildSystemPrompt(ctx, conv?.context_type ?? "general");
+  const system = buildSystemPrompt(ctx, conv?.context_type ?? "general", userText);
   const toolSet = tools(memoryOn);
   const messages: Anthropic.MessageParam[] = [...loadHistory(convId, ctx.userId), { role: "user", content: userText }];
   const state = { riskFlag: false };

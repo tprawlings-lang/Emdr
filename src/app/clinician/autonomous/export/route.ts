@@ -1,5 +1,6 @@
 import { requireClinician } from "@/lib/auth";
 import { RULES, SESSION_RULES, EXPERIENCE_RULES, SAFETY_CONFIG_VERSION } from "@/lib/safety";
+import { THERAPY_KB_RULES } from "@/lib/therapy-kb";
 import { getRuleSignoffs } from "@/lib/safety/signoff";
 
 // CSV export of the rule sign-off register for the clinician's records.
@@ -17,7 +18,7 @@ export async function GET() {
   const signoffs = getRuleSignoffs();
   const header = ["rule_id", "category", "config_version", "verdict", "note", "clinician_id", "reviewed_at"];
   const lines = [header.join(",")];
-  for (const r of [...RULES, ...SESSION_RULES, ...EXPERIENCE_RULES]) {
+  for (const r of [...RULES, ...SESSION_RULES, ...EXPERIENCE_RULES, ...THERAPY_KB_RULES]) {
     const s = signoffs.get(r.id);
     lines.push(
       [

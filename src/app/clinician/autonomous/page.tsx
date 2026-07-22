@@ -21,6 +21,8 @@ import {
 import { getRuleSignoffs, signoffProgress } from "@/lib/safety/signoff";
 import { recordRuleSignoff } from "@/lib/actions";
 import VoiceReviewDemo from "@/components/VoiceReviewDemo";
+import { MODALITIES, TECHNIQUES, THERAPY_KB_RULES } from "@/lib/therapy-kb";
+import { TIER_LABEL } from "@/lib/safety";
 
 // Clinician "Autonomous Review" console (beta sign-off workbench). Lets a
 // clinician (a) simulate any scenario and see exactly what the deterministic
@@ -120,7 +122,7 @@ export default async function AutonomousReview({ searchParams }: { searchParams:
   );
 
   const signoffs = getRuleSignoffs();
-  const allRules = [...RULES, ...SESSION_RULES, ...EXPERIENCE_RULES];
+  const allRules = [...RULES, ...SESSION_RULES, ...EXPERIENCE_RULES, ...THERAPY_KB_RULES];
   const progress = signoffProgress(allRules.map((r) => r.id), signoffs);
   const verdictBadge = (ruleId: string) => {
     const v = signoffs.get(ruleId)?.verdict;
@@ -487,6 +489,56 @@ export default async function AutonomousReview({ searchParams }: { searchParams:
           (e.g. voice responses). Same Agree / Needs-change record; included in the CSV export.
         </p>
         <div className="mt-4 space-y-2">{EXPERIENCE_RULES.map(registerRow)}</div>
+      </section>
+
+      {/* ── Therapy knowledge base ─────────────────────────────────────── */}
+      <section id="therapy-kb" className="mt-8 rounded-2xl border border-ground/15 bg-white p-5">
+        <h2 className="font-serif text-xl">Therapy knowledge base</h2>
+        <p className="mt-1 text-sm text-ground/80">
+          The companion&apos;s technique library — {TECHNIQUES.length} techniques across{" "}
+          {MODALITIES.length} modalities, each gated by minimum tier and an activation ceiling.
+          Retrieval is deterministic (same member state → same selection); everything the model
+          says still passes the output guard. Review each modality&apos;s techniques below, then
+          record verdicts in the register.
+        </p>
+
+        <div className="mt-4 space-y-3">
+          {MODALITIES.map((m) => {
+            const techs = TECHNIQUES.filter((t) => t.modality === m.id);
+            return (
+              <details key={m.id} className="rounded-xl border border-ground/10 bg-linen/40 p-3">
+                <summary className="cursor-pointer text-sm font-medium">
+                  {m.name} <span className="ml-1 text-xs text-olive">({techs.length} technique{techs.length === 1 ? "" : "s"})</span>
+                </summary>
+                <p className="mt-2 text-xs text-ground/70">{m.rationale}</p>
+                <div className="mt-2 space-y-2">
+                  {techs.map((t) => (
+                    <div key={t.id} className="rounded-lg border border-ground/10 bg-ivory px-3 py-2 text-xs">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <code className="font-medium">{t.id}</code>
+                        <span className="rounded bg-linen px-1.5 py-0.5 text-[10px] text-olive">{t.category}</span>
+                        <span className="rounded bg-pause-soft px-1.5 py-0.5 text-[10px]">min tier: {TIER_LABEL[t.minTier]}</span>
+                        <span className="rounded bg-pause-soft px-1.5 py-0.5 text-[10px]">max activation: {t.maxActivation}/10</span>
+                      </div>
+                      <p className="mt-1 text-ground/80"><span className="font-medium">{t.name}</span> — {t.purpose}</p>
+                      <p className="mt-1 text-ground/70">{t.guidance}</p>
+                      {t.avoidWhen.length > 0 && (
+                        <p className="mt-1 text-support-deep">Avoid when: {t.avoidWhen.join("; ")}</p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </details>
+            );
+          })}
+        </div>
+
+        <h3 className="mt-6 font-serif text-lg">Knowledge-base sign-off register</h3>
+        <p className="mt-1 text-xs text-olive">
+          Global constraints first, then one verdict per modality (covering its techniques as a
+          set). Same Agree / Needs-change record; included in the CSV export.
+        </p>
+        <div className="mt-3 space-y-2">{THERAPY_KB_RULES.map(registerRow)}</div>
       </section>
     </main>
   );
