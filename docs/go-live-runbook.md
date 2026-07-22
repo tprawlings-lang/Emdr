@@ -30,7 +30,8 @@ These are independent of which capability you turn on.
       local PG16 cluster** (all data access async, dialect-neutral SQL,
       pg_dump backup; app boots + round-trips + audit chain verify on Postgres).
       Remaining is OPS: provision Render Postgres, one-time data load, flip
-      `EMDR_DB=postgres`, and add audit-chain `FOR UPDATE` before >1 instance.
+      `EMDR_DB=postgres`, then scale to >1 instance (audit-chain serialization
+      is already in code — advisory lock).
       *(Runbook §4; details in `docs/pg-migration-progress.md`; owner: Eng/Founder.)*
 - [ ] **Outside accounts provisioned** (README §14.1): login/MFA provider,
       email provider (Resend key), Stripe live checkout. *(Owner: Founder.)*
@@ -115,8 +116,10 @@ Owner: Engineering. Detail in [ADR 0007](adr/0007-scaling-zero-downtime.md) and
 - [ ] **OPS:** provision the managed Render Postgres (~$7/mo), set `DATABASE_URL`
       + `EMDR_DB=postgres`.
 - [ ] **OPS:** one-time load of existing SQLite data into Postgres, then flip.
-- [ ] **OPS:** add audit-chain `SELECT ... FOR UPDATE` / advisory lock, then
-      scale past one instance and confirm rolling deploys drop no requests.
+- [x] Audit-chain serialization for concurrent writers — **done in code**
+      (transaction-scoped Postgres advisory lock in `audit()`; empty-table safe).
+- [ ] **OPS:** scale past one instance and confirm rolling deploys drop no
+      requests (no code change left — set `numInstances ≥ 2`).
 
 ---
 

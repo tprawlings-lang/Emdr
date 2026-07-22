@@ -539,8 +539,10 @@ detail in [`docs/go-live-runbook.md`](docs/go-live-runbook.md) §4 and
   hash-chain transaction verifies, relative-date queries work, `pg_dump` archive restorable.
 - [ ] **OPS — provision Render Postgres** (~$7/mo), set `DATABASE_URL` + `EMDR_DB=postgres`. 🔴
 - [ ] **OPS — one-time load** of existing SQLite data into Postgres, then flip. 🔴
-- [ ] **OPS — audit-chain serialization** (`SELECT … FOR UPDATE` / advisory lock) before
-  scaling past one instance, then set `numInstances ≥ 2` for automatic rolling deploys. 🔴
+- [x] Audit-chain serialization for concurrent writers — **done in code**
+  (transaction-scoped Postgres advisory lock in `audit()`; covers the genesis case).
+- [ ] **OPS — scale past one instance**: set `numInstances ≥ 2` for automatic rolling,
+  zero-downtime deploys (no code change left). 🔴
 
 ### 14.4 Autonomous safety system (§10) — status
 

@@ -84,7 +84,9 @@ gets its own go-ahead before flipping.
   in-memory limiter so limits hold across instances.
 - [ ] **Step 3 — externalize the backup scheduler** (Render Cron or leader
   election) so it fires once across instances.
-- [ ] **Step 4 — concurrency-safe audit append** (advisory lock / single-writer
-  path) so the hash chain stays intact with multiple writers.
+- [x] **Step 4 — concurrency-safe audit append** — **done.** `audit()` takes a
+  transaction-scoped Postgres advisory lock before reading the chain tip, so the
+  hash chain stays intact under multiple concurrent writers (empty-table/genesis
+  case covered; SQLite unaffected — single-writer).
 - [ ] **Step 5 — set `numInstances ≥ 2`** → Render does rolling, zero-downtime
   deploys automatically.
