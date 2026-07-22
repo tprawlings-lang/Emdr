@@ -44,6 +44,9 @@ that scope and could read as a treatment/reprocessing claim.
   `privacy-v1.0`); per COMPLIANCE.md any wording change **requires counsel
   re-review and a version bump**. So this is a **founder + counsel** action, not
   an engineering edit. Flagged here rather than changed unilaterally.
+- **Drafted rewrite:** a counsel-facing redline (before/after, two options,
+  version + re-consent notes) is at
+  [`06a-F1-consent-copy-proposal.md`](06a-F1-consent-copy-proposal.md).
 - **Related:** the broader "waiting for your specialist's review" microcopy and
   the "specialist review" claims across marketing/dashboard/ToS are already
   tracked as a separate founder handoff (README §14.4 / §10) and must flip to
