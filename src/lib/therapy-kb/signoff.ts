@@ -36,6 +36,18 @@ const GLOBAL_RULES: CatalogRule[] = [
     reason:
       "Retrieval is deterministic keyword/state scoring in reviewable code — same inputs, same selection — with no embeddings or network calls, so every selection is reproducible and auditable.",
   },
+  {
+    id: "KB_AVOIDWHEN_ADVISORY",
+    category: "therapy_kb",
+    reason:
+      "HONESTY ROW (audit): the enforced gates are minTier, maxActivation, dissociation→grounding-only, imagery capability, and restricted topics. The per-entry 'avoid when' notes are NOT mechanically enforced — they are visible to the model inside the guidance and reviewed by you here. Sign off knowing that distinction, or mark needs-change to demand mechanical enforcement.",
+  },
+  {
+    id: "KB_UNKNOWN_STATE_CONSERVATIVE",
+    category: "therapy_kb",
+    reason:
+      "Missing data is a stop signal: unknown activation is treated as high, unknown dissociation restricts to grounding-class entries and blocks imagery, and if the access engine cannot be evaluated the companion gets no KB content at all for that reply.",
+  },
 ];
 
 /** One sign-off row per modality (verdict covers its techniques as a set). */

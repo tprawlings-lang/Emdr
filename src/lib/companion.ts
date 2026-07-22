@@ -13,6 +13,7 @@ import {
   getWarningSigns,
 } from "./profile";
 import { CheckinRow, getTodayCheckin } from "./gating";
+import { canExposeToModel, classifyMemory, decayState } from "./safety/memory";
 
 // The Steady companion. It is not a therapist, doctor, or emergency
 // responder; it provides grounding guidance, reflection prompts, and session
@@ -130,6 +131,30 @@ export function getMemoryItems(userId: string): MemoryItem[] {
     )
     .all(userId) as MemoryItem[];
   return rows.map((r) => ({ ...r, memory_value: decryptField(r.memory_value) }));
+}
+
+/** Memories the MODEL may see. Enforces the memory taxonomy at the retrieval
+ *  site (audit finding): Account/SafetyAudit classes never reach a prompt
+ *  (canExposeToModel) and gracefully-forgotten items are dropped (decayState).
+ *  The member still sees everything via getMemoryItems in Settings → Memory. */
+export function getModelExposableMemoryItems(userId: string, nowMs = Date.now()): MemoryItem[] {
+  return getMemoryItems(userId).filter((m) => {
+    const c = classifyMemory(m.memory_type, m.source_type);
+    if (!canExposeToModel(c.memoryClass)) return false;
+    // created_at is SQLite datetime('now') UTC: "YYYY-MM-DD HH:MM:SS".
+    const createdAtMs = new Date(m.created_at.replace(" ", "T") + "Z").getTime();
+    return (
+      decayState(
+        {
+          memoryClass: c.memoryClass,
+          sensitive: c.sensitive,
+          createdAtMs: Number.isFinite(createdAtMs) ? createdAtMs : nowMs,
+          providerActive: true,
+        },
+        nowMs
+      ) === "active"
+    );
+  });
 }
 
 export function getMemoryItemsByType(userId: string, type: MemoryType): MemoryItem[] {

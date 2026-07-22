@@ -692,6 +692,7 @@ export async function sendCompanionMessage(
     reply = {
       text: "Let's take this a little slower — I'm still here. Give it a moment and send that again in a minute.",
       riskFlag: false,
+      mode: "general" as const,
     };
   } else {
     try {

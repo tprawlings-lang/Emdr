@@ -16,6 +16,17 @@ export function autonomousSafetyEnabled(): boolean {
   return process.env.EMDR_AUTONOMOUS_SAFETY === "1";
 }
 
+/** Companion output-guard ENFORCEMENT (audit finding). Blocking a violating
+ *  candidate must not wait for full autonomous governance: in demo (where the
+ *  clinician reviews) and whenever the master flag is on, a violation is
+ *  replaced with the safe fallback instead of merely logged. Only a
+ *  no-flag production deploy still runs the guard in shadow (log-only) —
+ *  and that configuration predates autonomy and keeps its current
+ *  counsel-approved behavior. */
+export function companionGuardEnforced(): boolean {
+  return autonomousSafetyEnabled() || process.env.EMDR_DEMO === "1";
+}
+
 /** Voice responses (member answers a free-text reflection by speaking instead
  *  of typing). On automatically in demo so the clinician can experience it and
  *  review it; off for real members until explicitly flagged AND signed off.

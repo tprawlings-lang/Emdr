@@ -18,10 +18,14 @@ import { TECHNIQUES, type TherapyTechnique } from "./catalog";
 export interface SelectionInputs {
   /** The member's current deterministic access tier (shadow or governing). */
   tier: AccessTier;
-  /** Current distress 0–10 (latest SUDS / check-in activation), if known. */
+  /** Current distress 0–10 (latest SUDS / check-in activation), if known.
+   *  UNKNOWN IS TREATED AS HIGH (Vol II §11: missing data is a stop signal). */
   activation: number | null;
-  /** Current dissociation 0–10, if known. */
+  /** Current dissociation 0–10, if known. Unknown restricts to grounding. */
   dissociation: number | null;
+  /** Engine capability: guided imagery allowed? (false under high
+   *  dissociation per the access engine's capability removals). */
+  imageryAllowed?: boolean;
   /** Lowercased free text to match signals against (message + trigger names). */
   text: string;
   /** Member's restricted topics (never surface entries that touch them). */
@@ -63,9 +67,15 @@ function touchesRestricted(t: TherapyTechnique, restricted: string[]): boolean {
   });
 }
 
-/** Deterministically select the techniques the companion may draw on now. */
+/** Deterministically select the techniques the companion may draw on now.
+ *  Missing safety inputs default CONSERVATIVELY (audit): unknown activation is
+ *  treated as high (7), unknown dissociation restricts to grounding-class, and
+ *  imagery entries require the imagery capability AND a known-low dissociation. */
 export function selectTechniques(inputs: SelectionInputs): SelectedTechnique[] {
-  const { tier, activation, dissociation } = inputs;
+  const { tier } = inputs;
+  const activation = inputs.activation ?? 7;
+  const dissociation = inputs.dissociation ?? SESSION.dissociationStop;
+  const imageryOk = (inputs.imageryAllowed ?? true) && inputs.dissociation !== null;
   const restricted = inputs.restrictedTopics ?? [];
   const limit = Math.max(0, Math.min(inputs.limit ?? 3, 5));
   const text = inputs.text.toLowerCase();
@@ -73,6 +83,7 @@ export function selectTechniques(inputs: SelectionInputs): SelectedTechnique[] {
   const scored: SelectedTechnique[] = [];
   for (const t of TECHNIQUES) {
     if (!techniqueAllowed(t, tier, activation, dissociation)) continue;
+    if (t.imagery && !imageryOk) continue;
     if (touchesRestricted(t, restricted)) continue;
     let score = 0;
     for (const s of t.signals) if (text.includes(s)) score++;
@@ -83,11 +94,12 @@ export function selectTechniques(inputs: SelectionInputs): SelectedTechnique[] {
   scored.sort((a, b) => b.score - a.score || a.technique.id.localeCompare(b.technique.id));
   const top = scored.slice(0, limit);
 
-  // Nothing matched but the member is activated → fall back to the safest
-  // applicable grounding entry so the companion always has a cleared move.
-  if (top.length === 0 && activation !== null && activation >= 6) {
+  // Nothing matched but the member is activated (or state is unknown, which
+  // resolves conservatively high) → fall back to the safest applicable
+  // grounding entry so the companion always has a cleared move.
+  if (top.length === 0 && activation >= 6) {
     const grounding = TECHNIQUES.filter(
-      (t) => t.category === "grounding" && techniqueAllowed(t, tier, activation, dissociation)
+      (t) => t.category === "grounding" && !t.imagery && techniqueAllowed(t, tier, activation, dissociation)
     ).sort((a, b) => a.id.localeCompare(b.id));
     if (grounding.length > 0) return [{ technique: grounding[0], score: 0 }];
   }
