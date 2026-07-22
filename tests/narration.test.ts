@@ -40,9 +40,24 @@ test("slot fill: known values substitute; missing values degrade gently", () => 
   assert.doesNotMatch(fillNarrationSlots("{name}hi {calmPlace}", {}), /\{|\}/);
 });
 
-test("calm-place module actually carries narration (regression: it was static)", () => {
-  const calm = MODULES.find((m) => m.id === "calm-place");
-  assert.ok(calm, "calm-place module exists");
-  const narratedSteps = calm.steps.filter((s) => (s.beats?.length ?? 0) > 0);
-  assert.ok(narratedSteps.length >= 2, "calm-place has guided narration on multiple steps");
+test("EVERY module talks the member through it (all instruction/grounding steps narrated)", () => {
+  // The talk-through must be built into all EMDR sessions, not just calm-place.
+  // Every instruction and grounding/closure step should carry narration beats;
+  // suds/bls/trigger-entry steps have their own interactive UI and are exempt.
+  for (const mod of MODULES) {
+    const narratable = mod.steps.filter(
+      (s) => s.kind === "instruction" || s.kind === "grounding"
+    );
+    for (const step of narratable) {
+      assert.ok(
+        (step.beats?.length ?? 0) > 0,
+        `${mod.id} step "${step.title}" (${step.kind}) has no guided narration`
+      );
+    }
+    // And each module has at least one narrated step overall.
+    assert.ok(
+      mod.steps.some((s) => (s.beats?.length ?? 0) > 0),
+      `${mod.id} carries no narration at all`
+    );
+  }
 });
