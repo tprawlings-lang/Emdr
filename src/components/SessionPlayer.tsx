@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import type { SessionStep, TherapyModule } from "@/lib/modules";
 import type { SessionFocus } from "@/lib/session-focus";
 import { finishSession, logSafetyEvent, recordSessionTrigger, startSession } from "@/lib/actions";
+import VoiceInput from "@/components/VoiceInput";
 import {
   SESSION_CAP_MIN,
   SESSION_WINDDOWN_MIN,
@@ -26,6 +27,9 @@ interface Props {
   calmPlace?: string | null;
   /** Default to audio-only bilateral stimulation (photosensitivity flag). */
   audioOnlyDefault?: boolean;
+  /** Offer voice answers on free-text reflections (demo/flagged; typing stays
+   *  the full path either way). */
+  voiceEnabled?: boolean;
 }
 
 function BlsVisual({
@@ -174,10 +178,12 @@ function TriggerEntryStep({
   sessionId,
   text,
   onDone,
+  voiceEnabled = false,
 }: {
   sessionId: string | null;
   text?: string;
   onDone: () => void;
+  voiceEnabled?: boolean;
 }) {
   const [saved, setSaved] = useState<string[]>([]);
   const [name, setName] = useState("");
@@ -237,6 +243,15 @@ function TriggerEntryStep({
             placeholder="e.g. Raised voices, hospital smells, Sunday evenings"
             className="mt-1 w-full rounded-2xl border border-ground/15 bg-ivory px-4 py-2.5 text-sm focus:border-sage focus:outline-none"
           />
+          {voiceEnabled && (
+            <VoiceInput
+              className="mt-2"
+              label="Answer by voice"
+              onTranscript={(t) =>
+                setName((prev) => (prev.trim() ? `${prev} ${t}` : t).slice(0, 120))
+              }
+            />
+          )}
         </label>
         <fieldset className="mt-4">
           <legend className="text-sm font-medium">Where does it belong?</legend>
@@ -325,7 +340,7 @@ const GROUNDING_STEPS = [
   "Look around the room. Notice where you are, today's date, that you are here now.",
 ];
 
-export default function SessionPlayer({ module: mod, focus, calmPlace, audioOnlyDefault }: Props) {
+export default function SessionPlayer({ module: mod, focus, calmPlace, audioOnlyDefault, voiceEnabled = false }: Props) {
   const router = useRouter();
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [phase, setPhase] = useState<Phase>("intro");
@@ -753,7 +768,7 @@ export default function SessionPlayer({ module: mod, focus, calmPlace, audioOnly
       </div>
 
       {step?.kind === "trigger-entry" ? (
-        <TriggerEntryStep sessionId={sessionId} text={step.text} onDone={advance} />
+        <TriggerEntryStep sessionId={sessionId} text={step.text} onDone={advance} voiceEnabled={voiceEnabled} />
       ) : step?.kind === "instruction" || step?.kind === "grounding" ? (
         <div className="mt-8">
           <h2 className="font-serif text-2xl font-medium">{step.title}</h2>

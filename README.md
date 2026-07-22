@@ -543,6 +543,12 @@ zero-downtime and the app can run more than one instance (ADR 0007):
   guard, journey orchestration, governance) — pure, ~112 tests, red-team harness.
 - [x] Deployed in **shadow mode** (governs nothing) + clinician review console with
   per-rule Agree / Needs-change sign-off and CSV export.
+- [x] **Voice responses** (member answers a free-text reflection by speaking) — live in
+  demo (`EMDR_VOICE_INPUT` / on with `EMDR_DEMO`), off by default for real members. Typing
+  is always available; recognition is confirm-before-submit; free-text only (never SUDS or
+  safety gates); on-device in the shipped app. Reviewable + sign-offable on the clinician
+  console (`/clinician/autonomous#voice`, `VOICE_INPUT_*` in the register). Needs a distinct
+  versioned voice/biometric consent + counsel review before non-demo use. 🔴
 - [ ] **Clinician sign-off** on the rules + Volume II conflict resolution (via the console
   + [`docs/autonomous/01-signoff-ledger.md`](docs/autonomous/01-signoff-ledger.md)). 🔴
 - [x] **Legal copy (ToS / Privacy / consent)** — counsel-approved autonomous rewrite is

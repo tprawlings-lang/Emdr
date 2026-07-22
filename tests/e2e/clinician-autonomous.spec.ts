@@ -46,6 +46,13 @@ test("clinician can open the autonomous review console and see gated decisions",
   await expect(page.getByText(/1 needs change/)).toBeVisible();
   await expect(page.getByText(/1 agreed/)).toBeVisible();
 
+  // Voice-response review: the section renders and its guardrails are sign-offable.
+  await page.goto("/clinician/autonomous");
+  await expect(page.getByRole("heading", { name: /voice responses/i })).toBeVisible();
+  const voiceForm = page.locator('form:has(input[name="rule_id"][value="VOICE_INPUT_CONFIRM"])');
+  await voiceForm.getByRole("button", { name: "Agree" }).click();
+  await expect(page.getByText(/agreed/).first()).toBeVisible();
+
   // CSV export (fetched in-page so it carries the clinician session cookie).
   const out = await page.evaluate(async () => {
     const r = await fetch("/clinician/autonomous/export");
@@ -56,4 +63,5 @@ test("clinician can open the autonomous review console and see gated decisions",
   expect(out.text).toContain("rule_id,category,config_version,verdict,note");
   expect(out.text).toMatch(/FIT_UNDER_18,[^,]*,[^,]*,agree/);
   expect(out.text).toMatch(/SESSION_MAX_SETS,[^,]*,[^,]*,needs_change/);
+  expect(out.text).toMatch(/VOICE_INPUT_CONFIRM,[^,]*,[^,]*,agree/);
 });

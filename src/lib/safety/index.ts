@@ -20,9 +20,9 @@ export type {
   RuleCategory,
 } from "./types";
 export { RULES } from "./rules";
-export { SESSION_RULES } from "./rule-catalog";
+export { SESSION_RULES, EXPERIENCE_RULES } from "./rule-catalog";
 export type { CatalogRule } from "./rule-catalog";
-export { BETA_CONFIG, SESSION, BLS, autonomousSafetyEnabled } from "./config";
+export { BETA_CONFIG, SESSION, BLS, autonomousSafetyEnabled, voiceInputEnabled } from "./config";
 export {
   newSession,
   preSessionCheck,

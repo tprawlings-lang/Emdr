@@ -33,3 +33,42 @@ export const SESSION_RULES: CatalogRule[] = [
   { id: "BLS_FLASH_CEILING", category: "bls", reason: `Visual flashes/traverses never exceed ${BLS.maxFlashesPerSecond}/sec (WCAG 2.3.2).` },
   { id: "BLS_TIMING_FAILURE", category: "bls", reason: "On a stimulation timing failure: stop the set; never catch up or resume." },
 ];
+
+// Experience & input features (for clinician sign-off). These are member-facing
+// interaction features — how the session is delivered and how the member can
+// respond — that carry safety, privacy, or accessibility weight and therefore
+// need a clinician verdict before they may govern a real member. Same
+// {id, category, reason} shape and same autonomous_signoffs storage as the
+// rules above. Pure.
+export const EXPERIENCE_RULES: CatalogRule[] = [
+  {
+    id: "VOICE_INPUT_ENABLED",
+    category: "voice_input",
+    reason:
+      "Members may answer a free-text reflection by speaking. Typing is always available and never required — voice is an accessibility option, not a replacement (deaf and hard-of-hearing members keep a fully equivalent typed path).",
+  },
+  {
+    id: "VOICE_INPUT_ON_DEVICE",
+    category: "voice_input",
+    reason:
+      "Production commitment: speech is transcribed on the member's own device (native on-device recognition); raw audio is never uploaded or stored. Only the transcript the member confirms is kept, encrypted like any typed free text. (The in-browser demo uses the browser's built-in recognition and is labeled as a preview.)",
+  },
+  {
+    id: "VOICE_INPUT_CONFIRM",
+    category: "voice_input",
+    reason:
+      "The recognized text is shown in an editable field for the member to read, correct, and confirm before it is submitted or drives anything — recognition errors can never silently enter the record.",
+  },
+  {
+    id: "VOICE_INPUT_SCOPE",
+    category: "voice_input",
+    reason:
+      "Voice is offered only for free-text reflection entries — never for distress (SUDS) ratings, fit-screening answers, or any safety-gate input, which stay explicit taps/selections.",
+  },
+  {
+    id: "VOICE_INPUT_CONSENT",
+    category: "voice_input",
+    reason:
+      "Voice may be treated as biometric data in some jurisdictions. Before non-demo use it requires a distinct, versioned voice-input consent and counsel review; it is disabled by default outside demo.",
+  },
+];

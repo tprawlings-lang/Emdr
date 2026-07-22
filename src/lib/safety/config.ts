@@ -16,6 +16,16 @@ export function autonomousSafetyEnabled(): boolean {
   return process.env.EMDR_AUTONOMOUS_SAFETY === "1";
 }
 
+/** Voice responses (member answers a free-text reflection by speaking instead
+ *  of typing). On automatically in demo so the clinician can experience it and
+ *  review it; off for real members until explicitly flagged AND signed off.
+ *  Typing is always available and never required — voice is an accessibility
+ *  option, not a replacement. See EXPERIENCE_RULES for the guardrails under
+ *  clinician review. */
+export function voiceInputEnabled(): boolean {
+  return process.env.EMDR_VOICE_INPUT === "1" || process.env.EMDR_DEMO === "1";
+}
+
 // ── Conservative Initial Beta Configuration (Vol II §12) ────────────────────
 export const BETA_CONFIG = {
   /** Beta ships 3 tracks; "expanded" is disabled. */

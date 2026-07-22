@@ -10,6 +10,8 @@ import {
   AccessTier,
   RULES,
   SESSION_RULES,
+  EXPERIENCE_RULES,
+  voiceInputEnabled,
   newSession,
   preSessionCheck,
   postSet,
@@ -18,6 +20,7 @@ import {
 } from "@/lib/safety";
 import { getRuleSignoffs, signoffProgress } from "@/lib/safety/signoff";
 import { recordRuleSignoff } from "@/lib/actions";
+import VoiceReviewDemo from "@/components/VoiceReviewDemo";
 
 // Clinician "Autonomous Review" console (beta sign-off workbench). Lets a
 // clinician (a) simulate any scenario and see exactly what the deterministic
@@ -117,7 +120,7 @@ export default async function AutonomousReview({ searchParams }: { searchParams:
   );
 
   const signoffs = getRuleSignoffs();
-  const allRules = [...RULES, ...SESSION_RULES];
+  const allRules = [...RULES, ...SESSION_RULES, ...EXPERIENCE_RULES];
   const progress = signoffProgress(allRules.map((r) => r.id), signoffs);
   const verdictBadge = (ruleId: string) => {
     const v = signoffs.get(ruleId)?.verdict;
@@ -419,6 +422,38 @@ export default async function AutonomousReview({ searchParams }: { searchParams:
         </div>
       </section>
 
+      {/* ── Voice responses (hear the member) ──────────────────────────── */}
+      <section id="voice" className="mt-8 rounded-2xl border border-ground/15 bg-white p-5">
+        <div className="flex items-center justify-between gap-3">
+          <h2 className="font-serif text-xl">Voice responses — hear the member</h2>
+          <span className={`rounded-full px-3 py-1 text-xs ${voiceInputEnabled() ? "bg-safe/20 text-ground" : "bg-linen text-olive"}`}>
+            {voiceInputEnabled() ? "on in this demo" : "off"}
+          </span>
+        </div>
+        <p className="mt-1 text-sm text-ground/80">
+          Members can answer a free-text reflection by speaking instead of typing — the human
+          feel of being heard. Below is exactly what a member sees, for you to try and sign off.
+        </p>
+
+        <div className="mt-4 grid gap-4 md:grid-cols-2">
+          <VoiceReviewDemo />
+          <div className="rounded-xl border border-ground/10 bg-linen/40 p-4 text-xs leading-relaxed text-ground/80">
+            <p className="text-sm font-medium text-ground">How it works &amp; where it stops</p>
+            <ul className="mt-2 list-disc space-y-1.5 pl-4">
+              <li><strong>Typing always works.</strong> Voice is an accessibility option, never required; deaf and hard-of-hearing members keep a fully equivalent typed path.</li>
+              <li><strong>Confirm before it counts.</strong> Recognized text lands in an editable box the member reads and corrects — recognition errors can’t silently enter the record.</li>
+              <li><strong>Free-text only.</strong> Never distress (SUDS) ratings, fit-screening, or any safety-gate answer — those stay explicit taps.</li>
+              <li><strong>Audio never leaves the device</strong> in the shipped app (on-device recognition); Steady keeps only the confirmed transcript, encrypted like typed text. This in-browser preview uses the browser’s recognizer.</li>
+              <li><strong>Consent-gated &amp; off by default</strong> outside demo — voice can be biometric data; needs a distinct versioned consent + counsel review first.</li>
+            </ul>
+            <p className="mt-2 text-olive">
+              Record your verdict on each of these guardrails in the register below
+              (<code>VOICE_INPUT_*</code>).
+            </p>
+          </div>
+        </div>
+      </section>
+
       {/* ── Rule sign-off register ─────────────────────────────────────── */}
       <section id="register" className="mt-8 rounded-2xl border border-ground/15 bg-white p-5">
         <div className="flex items-center justify-between gap-3">
@@ -442,6 +477,16 @@ export default async function AutonomousReview({ searchParams }: { searchParams:
           Agree / Needs-change record as the access rules; verdicts reset if a threshold changes.
         </p>
         <div className="mt-4 space-y-2">{SESSION_RULES.map(registerRow)}</div>
+      </section>
+
+      {/* ── Experience & input feature sign-off register ───────────────── */}
+      <section id="experience-register" className="mt-8 rounded-2xl border border-ground/15 bg-white p-5">
+        <h2 className="font-serif text-xl">Experience &amp; input feature sign-off</h2>
+        <p className="mt-1 text-xs text-olive">
+          Member-facing interaction features that carry safety, privacy, or accessibility weight
+          (e.g. voice responses). Same Agree / Needs-change record; included in the CSV export.
+        </p>
+        <div className="mt-4 space-y-2">{EXPERIENCE_RULES.map(registerRow)}</div>
       </section>
     </main>
   );

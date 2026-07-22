@@ -4,6 +4,7 @@ import { getModule } from "@/lib/modules";
 import { checkModuleAccess } from "@/lib/gating";
 import { getSavedCalmPlace, getSessionFocus } from "@/lib/session-focus";
 import { hasSeizureFlag } from "@/lib/fitness-screener";
+import { voiceInputEnabled } from "@/lib/safety/config";
 import SessionPlayer from "@/components/SessionPlayer";
 
 export default async function SessionPage({
@@ -31,6 +32,7 @@ export default async function SessionPage({
       focus={getSessionFocus(user.id, mod.id)}
       calmPlace={getSavedCalmPlace(user.id)}
       audioOnlyDefault={hasSeizureFlag(user.id)}
+      voiceEnabled={voiceInputEnabled()}
     />
   );
 }
