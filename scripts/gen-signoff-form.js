@@ -183,15 +183,19 @@ const SECTION_E = [
 // ==========================================================================
 // Build a rule-ratification table for a group
 function ruleTable(rows) {
-  const W = [1900, 4560, 2900]; // id, threshold, verdict  == 9360
-  const trs = [headRow(["Rule ID", "Threshold / behavior to ratify", "Verdict (mark one)"], W)];
+  const W = [1560, 3560, 1440, 2800]; // id, threshold, verdict, required-change == 9360
+  const trs = [headRow(["Rule ID", "Threshold / behavior to ratify", "Verdict", "If Needs-change: state the required change"], W)];
   rows.forEach((r, i) => {
     const fill = i % 2 ? ZEBRA : undefined;
     trs.push(new TableRow({
       children: [
         cell([p(txt(r[0], { bold: true, size: 16 }), { after: 0 })], { w: W[0], fill }),
         cell([p(txt(r[1], { size: 18 }), { after: 0 })], { w: W[1], fill }),
-        cell([p(verdictRuns(), { after: 0 })], { w: W[2], fill }),
+        cell([
+          p(new TextRun({ text: CHECK + " Agree", font: "Calibri", size: 18 }), { after: 30 }),
+          p(new TextRun({ text: CHECK + " Needs-change", font: "Calibri", size: 18 }), { after: 0 }),
+        ], { w: W[2], fill }),
+        cell([p(txt(" ", { size: 18 }), { after: 0 })], { w: W[3], fill: FILLBLANK }),
       ],
     }));
   });
@@ -309,28 +313,28 @@ children.push(sectionATable());
 // ---------- Part 3 ----------
 children.push(new Paragraph({ children: [new PageBreak()] }));
 children.push(h("Part 3 — Deterministic rule ratification (ledger Sections B–D)", HeadingLevel.HEADING_1));
-children.push(p(txt("Confirm each immutable rule's threshold/behavior is clinically correct. Mark Agree or Needs-change; use the notes area at the end of each group for any required change. Rule IDs match the console register and CSV export at the config version above.", { size: 18, color: MUTE, italics: true })));
+children.push(p(txt("Confirm each immutable rule's threshold/behavior is clinically correct. Mark Agree or Needs-change for every rule; when you mark Needs-change, state the specific required change inline in the last column (add a page if you need more room). Rule IDs match the console register and CSV export at the config version above.", { size: 18, color: MUTE, italics: true })));
 
 children.push(h("3.1  Access & gating rules (program-fit, daily routing, instruments, readiness)", HeadingLevel.HEADING_2));
 children.push(ruleTable(RULES_GATING));
-children.push(p([txt("Group notes / required changes: ", { bold: true, size: 18, color: MUTE }), txt("_".repeat(70), { color: RULE })], { before: 80 }));
+children.push(p([txt("Additional notes for this group (optional): ", { bold: true, size: 18, color: MUTE }), txt("_".repeat(70), { color: RULE })], { before: 80 }));
 children.push(p(txt("_".repeat(96), { color: RULE })));
 
 children.push(new Paragraph({ children: [new PageBreak()] }));
 children.push(h("3.2  In-session runtime & bilateral-stimulation rules", HeadingLevel.HEADING_2));
 children.push(ruleTable(RULES_SESSION));
-children.push(p([txt("Group notes / required changes: ", { bold: true, size: 18, color: MUTE }), txt("_".repeat(70), { color: RULE })], { before: 80 }));
+children.push(p([txt("Additional notes for this group (optional): ", { bold: true, size: 18, color: MUTE }), txt("_".repeat(70), { color: RULE })], { before: 80 }));
 children.push(p(txt("_".repeat(96), { color: RULE })));
 
 children.push(h("3.3  Voice input & live spoken-session guardrails", HeadingLevel.HEADING_2));
 children.push(ruleTable(RULES_EXPERIENCE));
-children.push(p([txt("Group notes / required changes: ", { bold: true, size: 18, color: MUTE }), txt("_".repeat(70), { color: RULE })], { before: 80 }));
+children.push(p([txt("Additional notes for this group (optional): ", { bold: true, size: 18, color: MUTE }), txt("_".repeat(70), { color: RULE })], { before: 80 }));
 children.push(p(txt("_".repeat(96), { color: RULE })));
 
 children.push(new Paragraph({ children: [new PageBreak()] }));
 children.push(h("3.4  Therapy knowledge-base retrieval guardrails", HeadingLevel.HEADING_2));
 children.push(ruleTable(RULES_KB));
-children.push(p([txt("Group notes / required changes: ", { bold: true, size: 18, color: MUTE }), txt("_".repeat(70), { color: RULE })], { before: 80 }));
+children.push(p([txt("Additional notes for this group (optional): ", { bold: true, size: 18, color: MUTE }), txt("_".repeat(70), { color: RULE })], { before: 80 }));
 children.push(p(txt("_".repeat(96), { color: RULE })));
 
 // Human-in-loop confirmations (Section C narrative confirmations)
