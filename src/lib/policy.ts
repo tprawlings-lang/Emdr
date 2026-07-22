@@ -94,3 +94,47 @@ export function currentPrivacyVersion(): string {
 export function currentConsentSections(): { title: string; body: string }[] {
   return autonomousCopyActive() ? CONSENT_SECTIONS_AUTONOMOUS : CONSENT_SECTIONS;
 }
+
+// ── Voice / biometric consent (DRAFT — counsel review pending) ──────────────
+// A DISTINCT, explicit opt-in required before voice input or live spoken
+// sessions may be offered to a real member (they are demo-only until then).
+// Voice can be "biometric" information under some laws (e.g. Illinois BIPA,
+// Washington My Health My Data, Texas CUBI), so it is not folded into the main
+// care-program consent — it is its own gate, recorded under scope
+// "voice_biometric". NOT wired into a live gate yet; ships with the voice/live
+// flags after counsel sign-off. Bump the version on any wording change.
+export const VOICE_CONSENT_VERSION = "voice-consent-v1.0-draft";
+
+export const VOICE_CONSENT_SECTIONS: { title: string; body: string }[] = [
+  {
+    title: "What you're turning on",
+    body: "Voice lets you speak instead of type. In guided sessions, you can also turn on hands-free listening, and Steady will respond to what you say out loud. This is completely optional — typing and tapping always work exactly the same, and nothing here is required to use the program.",
+  },
+  {
+    title: "Your voice, and how it is handled",
+    body: "When you speak, your device turns your speech into text. In the shipped mobile app that transcription happens on your device and the audio never leaves your phone — Steady receives only the text. (In the web preview, your browser's built-in speech recognition may process the audio; Steady still receives only text, never a recording.) We keep only the text, encrypted like anything else you write. We do NOT create a voiceprint, we do NOT use your voice to identify you, and we do NOT use your voice or its text to train anyone's AI.",
+  },
+  {
+    title: "This may count as biometric information",
+    body: "Some laws treat your voice as sensitive biometric information. That is why this is a separate, explicit choice rather than part of the main agreement — so you can say yes to Steady without ever saying yes to voice. You can use every part of the program without it.",
+  },
+  {
+    title: "You stay in control",
+    body: "You can turn voice off at any time, in the moment or in settings — one tap, no reason needed, and no penalty. Deleting your account or your data removes the transcripts along with everything else. Withdrawing here stops any further voice capture immediately.",
+  },
+  {
+    title: "Where it goes — and where it doesn't",
+    body: "Your voice is never sold, never shared with advertisers, and never used for marketing. Crisis detection during a session runs on our own servers, and crisis responses are scripted, not AI. The live session responder can suggest grounding but can never make a safety or treatment decision — those stay with the program's fixed rules and, when needed, human support.",
+  },
+  {
+    title: "What we keep, and for how long",
+    body: "We keep only the transcript text that you confirm or that the session uses — never the audio. It is encrypted at rest and deleted when you delete your data. Coded, content-free records that voice was used may remain in the audit log for safety review, but they contain no recording and none of what you said.",
+  },
+];
+
+/** Voice/biometric consent is required before voice or live sessions may be
+ *  offered to a real member. Off (demo-only) until counsel signs off and the
+ *  gate is wired; this reports whether that consent should be enforced. */
+export function voiceConsentRequired(): boolean {
+  return process.env.EMDR_VOICE_INPUT === "1" || process.env.EMDR_LIVE_SESSION === "1";
+}

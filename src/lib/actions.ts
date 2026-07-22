@@ -1513,10 +1513,11 @@ export async function speakInSession(args: {
 
   let response = base;
 
-  // Optional AI phrasing — ONLY reword an already-safe, non-crisis, non-ground
-  // line, and only when the model is available. Guarded; falls back to the
-  // deterministic text on any violation or error.
-  if (base.kind === "acknowledge" && aiCompanionEnabled()) {
+  // Optional AI phrasing — ONLY reword an already-safe line the responder marked
+  // aiEligible (attunement + cleared techniques; never crisis/grounding), and
+  // only when the model is available. Guarded; falls back to the deterministic
+  // text on any violation or error.
+  if (base.aiEligible && aiCompanionEnabled()) {
     try {
       const Anthropic = (await import("@anthropic-ai/sdk")).default;
       const client = new Anthropic({ maxRetries: 2 });

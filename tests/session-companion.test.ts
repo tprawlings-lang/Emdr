@@ -77,10 +77,20 @@ test("EVERY response path is output-guard clean across many inputs", () => {
   }
 });
 
-test("response carries no field that could move the engine (words + hint only)", () => {
+test("response carries no field that could move the engine (words + hints only)", () => {
   const r = composeSessionResponse({ ...base, transcript: "ok" });
   assert.deepEqual(
     Object.keys(r).sort(),
-    ["crisis", "kind", "source", "suggestGroundMe", "text"].sort()
+    ["aiEligible", "crisis", "kind", "source", "suggestGroundMe", "text"].sort()
   );
+});
+
+test("AI phrasing eligibility: crisis and grounding are NEVER AI-eligible", () => {
+  const crisis = composeSessionResponse({ ...base, transcript: "I want to end my life" });
+  assert.equal(crisis.aiEligible, false);
+  const ground = composeSessionResponse({ ...base, currentSuds: 9, transcript: "panic" });
+  assert.equal(ground.aiEligible, false);
+  // Attunement is eligible for the warm rewrite.
+  const attune = composeSessionResponse({ ...base, transcript: "the light is nice here" });
+  assert.equal(attune.aiEligible, true);
 });

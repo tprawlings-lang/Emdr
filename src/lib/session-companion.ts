@@ -45,6 +45,11 @@ export interface SessionResponse {
    *  instruction to the engine; the engine's stop rules are independent. */
   suggestGroundMe: boolean;
   crisis: boolean;
+  /** Whether an optional AI warmth pass may reword this line. Set HERE (not in
+   *  the caller) so the safety rule lives in one tested place: crisis and
+   *  high-activation grounding are NEVER AI-eligible (signed-off invariant);
+   *  attunement and cleared-technique lines are. */
+  aiEligible: boolean;
   source: "deterministic" | "ai";
 }
 
@@ -72,7 +77,7 @@ export function composeSessionResponse(inputs: SessionResponseInputs): SessionRe
 
   // 1. Crisis — scripted, always first, never AI, always surfaces Ground-me.
   if (detectRisk(transcript)) {
-    return { text: CRISIS_LINE, kind: "crisis", suggestGroundMe: true, crisis: true, source: "deterministic" };
+    return { text: CRISIS_LINE, kind: "crisis", suggestGroundMe: true, crisis: true, aiEligible: false, source: "deterministic" };
   }
 
   // 2. High activation or high distress → ground. Prefer a cleared grounding
@@ -88,6 +93,7 @@ export function composeSessionResponse(inputs: SessionResponseInputs): SessionRe
       kind: "ground",
       suggestGroundMe: true,
       crisis: false,
+      aiEligible: false, // high-activation grounding stays scripted (signed-off)
       source: "deterministic",
     };
   }
@@ -99,6 +105,7 @@ export function composeSessionResponse(inputs: SessionResponseInputs): SessionRe
       kind: "technique",
       suggestGroundMe: false,
       crisis: false,
+      aiEligible: true, // may be reworded warmly; meaning preserved + re-guarded
       source: "deterministic",
     };
   }
@@ -112,6 +119,7 @@ export function composeSessionResponse(inputs: SessionResponseInputs): SessionRe
     kind: "acknowledge",
     suggestGroundMe: false,
     crisis: false,
+    aiEligible: true,
     source: "deterministic",
   };
 }
@@ -123,7 +131,7 @@ export function buildSessionRephrasePrompt(base: SessionResponse, calmPlace: str
     "You are a calm, warm presence speaking to someone DURING a live, gentle EMDR preparation exercise.",
     "You will be given an intended message. Reword it in one or two short, natural sentences, in a warm human voice.",
     "HARD RULES:",
-    "- Keep the exact meaning and any safety guidance. Do not add new instructions.",
+    "- Keep the exact meaning and any safety guidance. Do not add new instructions, and do not drop or alter any step the message suggests — only make the wording warmer and more natural.",
     "- Never tell them to continue, do another set, bring up or stay with a memory, or that anything is cured or will be fixed.",
     "- Never claim feelings ('I care', 'I'm proud'), never diagnose, never imply a human is watching.",
     "- Always leave stopping and grounding as safe, welcome options.",
