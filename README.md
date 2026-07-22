@@ -13,13 +13,16 @@ treatment claims. Membership is **$34.99/month** after a 7-day free trial.
 **Who this document is for.** This README is the handoff spec for anyone building
 skills/automation on top of Steady. It documents the **entire member workflow**, every
 **instrument and questionnaire**, exactly **how each is scored**, and **how ongoing scores
-open and close modules**. Everything described in §1–§9 is implemented and live. §10
-describes the **autonomous direction**: the clinician-designed deterministic safety
-architecture is now **built and deployed in shadow mode** — it computes and audit-logs
-every decision but **governs nothing a member sees**, and stays that way until an
-independent licensed clinician signs off (flag `EMDR_AUTONOMOUS_SAFETY`, default off).
-Skills must **not** assume it is governing yet. Build docs live in
-[`docs/autonomous/`](docs/autonomous/).
+open and close modules**. §1–§9 document the member workflow (some details pre-date the
+2026-07 clinical-review revision — see §10). §10 describes the **autonomous safety
+engine**: as of config `beta-clinrev-2026-07` it has been **ratified by two independent
+licensed clinicians (2026-07-22, approved *with conditions*)** and **governs access
+wherever `EMDR_AUTONOMOUS_SAFETY=1`** (the demo/dogfood deployment runs with it on). The
+default remains **off** (shadow mode: computes + audit-logs, governs nothing), and
+**real-member launch is still gated** on the reviewers' remaining conditions (independent
+privacy/security review + human-factors testing; no autonomous BLS in beta). Skills must
+read `/api/safety-status` for the live `mode` rather than assume. Build docs + the signed
+sign-off live in [`docs/autonomous/`](docs/autonomous/).
 
 ---
 
@@ -89,7 +92,7 @@ skipped.** Answers are stored as coded 0/1 only, never free text.
 `soft_flag`; otherwise `pass`. **Effect of hard stop:** all sessions closed, member routed
 to crisis resources, **24-hour cooldown** before retake (`RETAKE_COOLDOWN_HOURS = 24`),
 and the current billing period is auto-refunded. After cooldown the screener may be
-retaken. Wording/thresholds are placeholders pending EMDR-trained advisor sign-off.
+retaken. Wording finalized as `fit-v2-clinrev` and clinician-ratified (2026-07-22).
 
 ### 2.2 Baseline & ongoing measures
 
@@ -352,15 +355,21 @@ the recommender — is **already deterministic and autonomous**.
 
 ---
 
-## 10. Autonomous direction — BUILT in shadow mode, pending clinician sign-off
+## 10. Autonomous safety engine — clinician-ratified (with conditions); governs when enabled
 
-**Status: the deterministic safety architecture is built and deployed, but runs in
-SHADOW MODE — it computes and audit-logs every decision and governs NOTHING a member
-experiences.** It is gated behind `EMDR_AUTONOMOUS_SAFETY` (default off) and stays in
-shadow until an independent licensed clinician signs off. Skills must **not** assume it is
-governing. It was built faithfully from the five-volume clinician-authored corpus; the
-mapping, the build sequence, and the sign-off ledger are in
-[`docs/autonomous/`](docs/autonomous/).
+**Status (config `beta-clinrev-2026-07`): the deterministic safety architecture is built,
+deployed, and — as of 2026-07-22 — clinically ratified by two independent licensed
+psychologists (approved *with conditions*; signed record in
+[`docs/autonomous/`](docs/autonomous/)).** It is gated behind `EMDR_AUTONOMOUS_SAFETY`:
+**default off = shadow** (computes + audit-logs, governs nothing); **`=1` = governing**
+(the demo/dogfood deployment runs governing). **Real-member launch remains gated** on the
+reviewers' conditions — the deployment-evidence gates (independent privacy/security review
++ human-factors testing) and no autonomous BLS in beta
+([`docs/autonomous/evidence/`](docs/autonomous/evidence/)). Skills must read
+`/api/safety-status` for the live `mode`, not assume. Built faithfully from the
+five-volume corpus; the clinical-review change set (no autonomous BLS, diagnosis/history →
+human review, numeric scores → review triggers, DES-II omitted, PCL-5 item 16 de-scoped as
+a suicide proxy, "readiness" → Educational Access State) is in the ledger changelog.
 
 **The one architectural rule (all five volumes agree):** safety decisions are deterministic
 and verified; the AI companion is advisory only and is *structurally prevented* from making,
@@ -550,8 +559,9 @@ detail in [`docs/go-live-runbook.md`](docs/go-live-runbook.md) §4 and
 
 - [x] Built from the clinician corpus (safety core, scoring, session engine, companion
   guard, journey orchestration, governance) — pure, ~112 tests, red-team harness.
-- [x] Deployed in **shadow mode** (governs nothing) + clinician review console with
-  per-rule Agree / Needs-change sign-off and CSV export.
+- [x] Deployed + clinician review console with per-rule Agree / Needs-change sign-off and
+  CSV export. **Ratified (with conditions) 2026-07-22**; governs when `EMDR_AUTONOMOUS_SAFETY=1`,
+  else shadow. Default off; real-member launch gated on the §14.2 evidence gates.
 - [x] **Therapy knowledge base** — file-based, clinician-reviewable technique library
   (8 modalities, deterministic tier/activation/dissociation-gated retrieval; crisis tier
   gets none; output guard still validates every reply). Browsable + sign-offable at
