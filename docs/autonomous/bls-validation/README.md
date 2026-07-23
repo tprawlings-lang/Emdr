@@ -14,7 +14,8 @@ Signed by Altschuler (PSY-005804) + Allen (PSY-002055):
 - **Scope: Desensitization permitted, *staged & supervised*** (not resourcing-only).
 - **Overall: Part-6 plans + consent approved to proceed to execution**, no conditions.
 - Consent (clinical), human-factors plan, red-team scenario set, and Phase-4 rollout
-  **all approved**; nothing added to the red-team set.
+  **all four explicitly approved** (Part A ☒, Part B ☒, Part C ☒, Part D ☒);
+  nothing added to the red-team set.
 - **Pre-registered thresholds:** 4a cohort **12**; window before 4b **14 days +
   review**; stop-for-worsening = **any protocol-related clinically meaningful
   worsening (>0%)**; 4b/4c cohorts **6 / 12**; **AE ceiling: 0 serious, any SAE
