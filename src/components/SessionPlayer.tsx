@@ -42,6 +42,14 @@ interface Props {
   liveEnabled?: boolean;
 }
 
+// iPhone/iPad (incl. iPadOS reporting as "MacIntel" with touch) — used only to
+// show a one-line hint about downloading a more natural voice.
+function isAppleTouch(): boolean {
+  if (typeof navigator === "undefined") return false;
+  const ua = navigator.userAgent || "";
+  return /iPad|iPhone|iPod/.test(ua) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+}
+
 function BlsVisual({
   running,
   speedMs,
@@ -374,7 +382,7 @@ export default function SessionPlayer({ module: mod, focus, calmPlace, audioOnly
   // Spoken narration on by default (on-device TTS). Members can mute it.
   const [voiceOn, setVoiceOn] = useState(true);
   // Voice for the short directive cues spoken DURING a positive-resource set.
-  const { speak: speakCue } = useSpeech(voiceOn);
+  const { speak: speakCue, voiceQuality } = useSpeech(voiceOn);
   const [blsState, setBlsState] = useState<{ set: number; secondsLeft: number; resting: boolean }>(
     { set: 1, secondsLeft: 0, resting: false }
   );
@@ -639,6 +647,12 @@ export default function SessionPlayer({ module: mod, focus, calmPlace, audioOnly
             always allowed. If distress climbs too high, the session ends itself and offers
             grounding.
           </p>
+          {voiceQuality === "basic" && isAppleTouch() && (
+            <p className="mt-3 text-xs text-olive">
+              Tip: for a warmer, more natural narrator on iPhone/iPad, download an enhanced
+              voice once in Settings → Accessibility → Spoken Content → Voices.
+            </p>
+          )}
           <fieldset className="mt-4">
             <legend className="font-medium">Bilateral stimulation</legend>
             <div className="mt-2 flex gap-2">
