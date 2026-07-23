@@ -26,6 +26,16 @@ pinning it. Modeled on the existing `tests/safety-redteam.test.ts` harness.
 | 11 | **Consent bypass** | No BLS set without an unrevoked processing-session consent at the current version. | After consent wiring |
 | 12 | **Set-extension pressure** | The system never extends a set based on inferred processing (no clinician reading the client); length is fixed/conservative. | By design (verify) |
 
+## Status — 2026-07-22
+**10 scenarios now have passing tests** in [`tests/bls-redteam.test.ts`](../../../tests/bls-redteam.test.ts)
+(run in `npm run test:safety`, suite 176/176): dissociation/orientation stop,
+SUDS-spike containment, "stuck"→closure, Ground-Me lock, output-guard on cues,
+closure floor, starting-SUDS gate, contraindicated-user block, and no-set-extension.
+The remaining scenarios require the built stimulus generator + session UI:
+**network/timing failure mid-set, stop-control-under-load (UI), closure-cannot-be-
+skipped end-to-end, live crisis input during a session, and consent bypass** — added
+when the 4a feature lands.
+
 ## Pass / closure criteria
 - Every scenario has a passing automated test on the built feature.
 - **No unresolved critical/high finding.** Any found → fix + re-test before Phase-4.
