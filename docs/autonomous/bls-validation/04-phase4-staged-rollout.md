@@ -58,3 +58,13 @@ criteria — or omits it, per the counsel/clinician decision on the EMDRIA quest
 
 Numeric thresholds (cohort sizes, worsening rate, window lengths) are left for the
 clinicians + founder to **pre-register before 4a entry** — set them, don't fit them.
+
+## Pre-registered thresholds (clinician-set, 2026-07-22)
+
+Recorded on the signed Part-6 package ([`Part6-SIGNED-2026-07-22.pdf`](Part6-SIGNED-2026-07-22.pdf)):
+
+- **4a monitored cohort:** 12 · **window before 4b:** 14 days + review.
+- **Symptom-worsening stop trigger:** **any** protocol-related clinically meaningful
+  worsening (**> 0%**) — i.e. a single such case stops the stage.
+- **4b / 4c cohorts:** 6 / 12.
+- **Adverse-event ceiling:** **0 serious**; **any SAE pauses the rollout**.

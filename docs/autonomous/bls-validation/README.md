@@ -6,6 +6,32 @@ licensed psychologists on 2026-07-22
 member** until the four Part-6 gates below are complete + documented, and
 `autonomousStimulationEnabled` stays `false` until then. This folder is that work.
 
+## ✅ Part-6 review determination — SIGNED 2026-07-22
+
+Signed by Altschuler (PSY-005804) + Allen (PSY-002055):
+[`Part6-SIGNED-2026-07-22.pdf`](Part6-SIGNED-2026-07-22.pdf).
+
+- **Scope: Desensitization permitted, *staged & supervised*** (not resourcing-only).
+- **Overall: Part-6 plans + consent approved to proceed to execution**, no conditions.
+- Consent (clinical), human-factors plan, red-team scenario set, and Phase-4 rollout
+  **all approved**; nothing added to the red-team set.
+- **Pre-registered thresholds:** 4a cohort **12**; window before 4b **14 days +
+  review**; stop-for-worsening = **any protocol-related clinically meaningful
+  worsening (>0%)**; 4b/4c cohorts **6 / 12**; **AE ceiling: 0 serious, any SAE
+  pauses rollout**.
+
+**What this authorizes:** *executing* the plans + advancing the consent (counsel
+legal pass still required). **What it does NOT do:** it does not complete the
+human-factors or red-team gates (they require execution), and **no real-member BLS
+session** may run until every Part-6 gate is executed, documented, and closed.
+`autonomousStimulationEnabled` stays `false`.
+
+> **Still open (not resolved by this clinical determination):** the EMDRIA-policy /
+> "EMDR" trademark & claims question, and the reviewers' own EMDRIA standing re:
+> self-administered processing — these belong in the **counsel** review, not the
+> clinical sign-off. The clinicians made the clinical call to proceed staged;
+> counsel still needs to weigh the policy/legal exposure.
+
 ## Gate status
 
 | # | Part-6 gate | Deliverable | Approvable now? | Still needs |

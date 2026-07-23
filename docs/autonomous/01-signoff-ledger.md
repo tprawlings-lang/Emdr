@@ -71,6 +71,18 @@ artifact: [`bls-protocol-SIGNED-2026-07-22.pdf`](bls-protocol-SIGNED-2026-07-22.
 > be addressed explicitly in the Part-6 counsel review, not treated as resolved by this
 > sign-off. See the research brief.
 
+**Part-6 review — SIGNED 2026-07-22** ([`bls-validation/Part6-SIGNED-2026-07-22.pdf`](bls-validation/Part6-SIGNED-2026-07-22.pdf)):
+the reviewers determined **scope = desensitization permitted, staged & supervised**,
+and **approved the Part-6 plans + consent to proceed to execution** (no conditions),
+with pre-registered stopping thresholds (4a cohort 12 / 14-day window; worsening stop
+> 0%; 4b/4c 6/12; 0 serious AEs, any SAE pauses). This authorizes *executing* the
+validation plans and advancing the consent (counsel legal pass still required); it does
+**not** complete the human-factors or red-team gates, and no real-member BLS may run
+until all Part-6 gates are executed, documented, and closed. `autonomousStimulationEnabled`
+stays `false`. Package + status: [`bls-validation/`](bls-validation/). **The EMDRIA /
+"EMDR"-claims question above remains for counsel** — the clinical determination does not
+settle it.
+
 **Deployment-evidence package** for the conditions is drafted at
 [`evidence/`](evidence/) (README with per-gate status). Gates 2/3/6/8/9 are
 drafted from the code + test suite and ready to accept; gate 8 raised one finding
