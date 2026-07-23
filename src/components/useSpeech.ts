@@ -22,13 +22,15 @@ export function useSpeech(enabled: boolean) {
   }, [supported]);
 
   const speak = useCallback(
-    (text: string) => {
+    (text: string, opts?: { queue?: boolean }) => {
       if (!supported || !enabledRef.current || !text) return;
       try {
         const synth = window.speechSynthesis;
-        // Only cancel when something is actually queued/playing. On iOS a cancel
-        // fired immediately before speak() can drop the new utterance entirely.
-        if (synth.speaking || synth.pending) synth.cancel();
+        // Queue mode (narration): append without cancelling, so multiple beats
+        // play in sequence. Otherwise replace whatever's speaking. On iOS a cancel
+        // fired immediately before speak() can drop the new utterance entirely, so
+        // only cancel when something is actually queued/playing.
+        if (!opts?.queue && (synth.speaking || synth.pending)) synth.cancel();
         synth.resume(); // iOS sometimes leaves the queue paused
         const u = new SpeechSynthesisUtterance(text);
         u.rate = 0.9; // calm, unhurried
