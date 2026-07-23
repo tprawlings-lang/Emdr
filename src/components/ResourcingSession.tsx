@@ -21,6 +21,7 @@ import {
 } from "@/lib/safety/resourcing";
 import { recordResourcingEvent } from "@/lib/actions";
 import { useSpeech } from "./useSpeech";
+import { unlockMedia } from "./media-unlock";
 
 const CLOSURE_TEXT =
   "Come back to the room at your own pace. Notice your breath, your feet on the floor. Your word and your calm place are yours to return to any time.";
@@ -131,6 +132,7 @@ export default function ResourcingSession({ borderline = false }: { borderline?:
           <button
             type="button"
             onClick={() => {
+              unlockMedia(); // iOS: unlock audio + speech inside the tap
               setS(begin);
               void recordResourcingEvent("start");
             }}
@@ -169,7 +171,10 @@ export default function ResourcingSession({ borderline = false }: { borderline?:
           )}
           <button
             type="button"
-            onClick={() => setS((st) => advancePrep(st))}
+            onClick={() => {
+              unlockMedia(); // keep media unlocked as we approach the first set (iOS)
+              setS((st) => advancePrep(st));
+            }}
             className="w-full rounded-full bg-sage px-6 py-3.5 font-medium text-ground transition-colors hover:bg-sage-deep"
           >
             Continue
@@ -201,7 +206,10 @@ export default function ResourcingSession({ borderline = false }: { borderline?:
           <div className="space-y-3">
             <button
               type="button"
-              onClick={() => setS((st) => answerBetween(st, true))}
+              onClick={() => {
+                unlockMedia(); // next set starts after this tap — keep iOS audio alive
+                setS((st) => answerBetween(st, true));
+              }}
               className="w-full rounded-full bg-sage px-6 py-3.5 font-medium text-ground transition-colors hover:bg-sage-deep"
             >
               Calmer / about the same — stay with it

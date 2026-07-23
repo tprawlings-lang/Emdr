@@ -25,12 +25,16 @@ export function useSpeech(enabled: boolean) {
     (text: string) => {
       if (!supported || !enabledRef.current || !text) return;
       try {
-        window.speechSynthesis.cancel(); // don't stack utterances
+        const synth = window.speechSynthesis;
+        // Only cancel when something is actually queued/playing. On iOS a cancel
+        // fired immediately before speak() can drop the new utterance entirely.
+        if (synth.speaking || synth.pending) synth.cancel();
+        synth.resume(); // iOS sometimes leaves the queue paused
         const u = new SpeechSynthesisUtterance(text);
         u.rate = 0.9; // calm, unhurried
         u.pitch = 1.0;
         u.volume = 1.0;
-        window.speechSynthesis.speak(u);
+        synth.speak(u);
       } catch {
         /* no-op — text remains on screen */
       }

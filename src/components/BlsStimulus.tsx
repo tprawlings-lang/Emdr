@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useRef } from "react";
+import { getAudioContext } from "./media-unlock";
 
 // Bilateral-stimulation generator — auditory (alternating left/right panned tones)
 // + haptic (device vibration). Audio + touch only; NO visual BLS (config /
@@ -24,7 +25,6 @@ export default function BlsStimulus({
   failRef.current = onFailure;
 
   useEffect(() => {
-    let ctx: AudioContext | null = null;
     let interval: ReturnType<typeof setInterval> | null = null;
     let count = 0;
     let finished = false;
@@ -34,8 +34,8 @@ export default function BlsStimulus({
         clearInterval(interval);
         interval = null;
       }
-      if (ctx && ctx.state !== "closed") ctx.close().catch(() => {});
-      ctx = null;
+      // The context is shared (unlocked in a tap handler for iOS) — do NOT close
+      // it here; the next set reuses it. Only stop this set's interval.
     };
 
     const fail = (reason: string) => {
@@ -45,12 +45,10 @@ export default function BlsStimulus({
       failRef.current(reason);
     };
 
-    try {
-      const AC: typeof AudioContext =
-        window.AudioContext ||
-        (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-      ctx = new AC();
-    } catch {
+    // Reuse the shared context that was unlocked inside a tap handler. Creating a
+    // fresh one here (post-render) would stay suspended on iOS and never sound.
+    const ctx = getAudioContext();
+    if (!ctx) {
       fail("audio_init");
       return;
     }
@@ -98,12 +96,11 @@ export default function BlsStimulus({
       interval = setInterval(beat, periodMs);
     };
 
-    // Browsers require a user gesture to start audio; resume if suspended.
-    if (ctx.state === "suspended") {
-      ctx.resume().then(start).catch(() => fail("audio_resume"));
-    } else {
-      start();
-    }
+    // The context should already be running (unlocked in a tap handler). If it's
+    // still suspended, nudge resume() but START THE SET ANYWAY — never hang waiting
+    // on iOS audio unlock, so the set always progresses to the between-set check.
+    if (ctx.state === "suspended") ctx.resume().catch(() => {});
+    start();
 
     return cleanup;
   }, [hz, passes]);
