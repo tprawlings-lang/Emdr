@@ -6,6 +6,8 @@ import type { SessionStep, TherapyModule } from "@/lib/modules";
 import { fillNarrationSlots } from "@/lib/modules";
 import NarrationView from "@/components/NarrationView";
 import { getAudioContext, unlockMedia } from "@/components/media-unlock";
+import { useSpeech } from "@/components/useSpeech";
+import { personalizedCues } from "@/lib/safety/resourcing";
 import type { SessionFocus } from "@/lib/session-focus";
 import { finishSession, logSafetyEvent, recordSessionTrigger, speakInSession, startSession } from "@/lib/actions";
 import VoiceInput from "@/components/VoiceInput";
@@ -371,6 +373,8 @@ export default function SessionPlayer({ module: mod, focus, calmPlace, audioOnly
   const [soundOn, setSoundOn] = useState(true);
   // Spoken narration on by default (on-device TTS). Members can mute it.
   const [voiceOn, setVoiceOn] = useState(true);
+  // Voice for the short directive cues spoken DURING a positive-resource set.
+  const { speak: speakCue } = useSpeech(voiceOn);
   const [blsState, setBlsState] = useState<{ set: number; secondsLeft: number; resting: boolean }>(
     { set: 1, secondsLeft: 0, resting: false }
   );
@@ -552,6 +556,21 @@ export default function SessionPlayer({ module: mod, focus, calmPlace, audioOnly
     customFocus.trim() ||
     focus?.options.find((o) => o.id === selectedFocusId)?.label ||
     "";
+
+  // Light directive cues spoken DURING a set — only for positive-resource
+  // (autonomous-tier) modules like the calm place. NOT for gated trauma-processing
+  // sets, where "notice what's pleasant" would be clinically wrong. Personalized
+  // to the member's calm place / focus; deterministic + output-guard-clean.
+  const resourcingModule = mod.tier === "autonomous";
+  const blsCues = personalizedCues(calmPlace || chosenFocus);
+  const setActive =
+    step?.kind === "bls" && blsStarted && !blsState.resting && blsState.secondsLeft > 0;
+  const currentCue = blsCues[(blsState.set - 1) % blsCues.length];
+  useEffect(() => {
+    if (!resourcingModule || !setActive) return;
+    speakCue(currentCue); // fires once per set start (deps don't include the ticking clock)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [resourcingModule, setActive, blsState.set]);
 
   if (phase === "intro") {
     return (
@@ -925,6 +944,11 @@ export default function SessionPlayer({ module: mod, focus, calmPlace, audioOnly
               />
             )}
           </div>
+          {resourcingModule && setActive && (
+            <p className="mt-5 text-center font-serif text-2xl text-ground" aria-live="polite">
+              {currentCue}
+            </p>
+          )}
           {!blsStarted ? (
             <button
               onClick={startBls}
