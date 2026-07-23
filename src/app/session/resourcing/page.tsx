@@ -3,6 +3,7 @@ import { requireMember } from "@/lib/auth";
 import { hasConsent, resourcingBlsAvailable } from "@/lib/gating";
 import { decideAccess } from "@/lib/safety/decide";
 import { resourcingClinicallyBlocked } from "@/lib/safety/resourcing";
+import { AccessTier } from "@/lib/safety/types";
 import ResourcingSession from "@/components/ResourcingSession";
 
 // Phase-4a resourcing (calm-place BLS) session route. Gated on: care-program
@@ -23,5 +24,10 @@ export default async function ResourcingSessionPage() {
     redirect(decision.dispositions.crisis ? "/crisis" : "/dashboard");
   }
 
-  return <ResourcingSession />;
+  // "Borderline but approved": cleared for resourcing, but on a lower tier than
+  // the top steady band. These members get an extra, explicit permission-to-stop
+  // reminder in case a set becomes too stimulating.
+  const borderline = decision.tier <= AccessTier.CAUTIOUS;
+
+  return <ResourcingSession borderline={borderline} />;
 }

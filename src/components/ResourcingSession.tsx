@@ -1,5 +1,5 @@
 "use client";
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import Link from "next/link";
 import BlsStimulus from "./BlsStimulus";
 import {
@@ -13,7 +13,12 @@ import {
   RESOURCING_PREP_STEPS,
   type ResourcingState,
 } from "@/lib/safety/resourcing-session";
-import { RESOURCING_CUES, RESOURCING_BETWEEN, RESOURCING_PARAMS } from "@/lib/safety/resourcing";
+import {
+  personalizedCues,
+  personalizedBetween,
+  BORDERLINE_STOP_REMINDER,
+  RESOURCING_PARAMS,
+} from "@/lib/safety/resourcing";
 import { recordResourcingEvent } from "@/lib/actions";
 import { useSpeech } from "./useSpeech";
 
@@ -23,18 +28,31 @@ const COMPLETED_TEXT = "Closed and complete. Well done for taking care of yourse
 
 // Phase-4a resourcing session (Calm/Safe Place). Client flow only; every clinical
 // decision (stop/closure) is the pure reducer. Directive cues are deterministic
-// and spoken aloud on-device (no generative text runs during a set). Ground-Me is
-// always reachable.
-export default function ResourcingSession() {
+// and spoken aloud on-device (no generative text runs during a set). They are
+// personalized to the member's OWN place + cue word (their words, in fixed
+// templates). Ground-Me is always reachable. `borderline` members (approved on a
+// lower tier) get an extra, explicit permission-to-stop reminder.
+export default function ResourcingSession({ borderline = false }: { borderline?: boolean }) {
   const [s, setS] = useState<ResourcingState>(newResourcing);
+  const [place, setPlace] = useState("");
   const [cueWord, setCueWord] = useState("");
   const [closureSecs, setClosureSecs] = useState(0);
   const [muted, setMuted] = useState(false);
   const { speak, cancel, supported: speechSupported } = useSpeech(!muted);
 
-  // Rotate a directive cue per set (deterministic, not reactive).
-  const cue = RESOURCING_CUES[s.setsCompleted % RESOURCING_CUES.length];
-  const betweenPrompt = RESOURCING_BETWEEN[s.setsCompleted % RESOURCING_BETWEEN.length];
+  // Personalized, deterministic cues + prompts (the member's own place/word woven
+  // into fixed templates; generic fallback when they named nothing).
+  const cues = personalizedCues(place, cueWord);
+  const betweens = personalizedBetween(place);
+  const cue = cues[s.setsCompleted % cues.length];
+  const betweenPrompt = betweens[s.setsCompleted % betweens.length];
+
+  // Latest place/word for the speech effect, so it reads current values without
+  // re-speaking a prompt on every keystroke (effect keys on flow transitions only).
+  const placeRef = useRef(place);
+  placeRef.current = place;
+  const wordRef = useRef(cueWord);
+  wordRef.current = cueWord;
 
   const stop = useCallback(() => {
     cancel();
@@ -48,12 +66,20 @@ export default function ResourcingSession() {
   // directive cue DURING a set, the between-set prompt, closure). Deterministic
   // content only; re-runs only on flow transitions, not on the closure timer.
   useEffect(() => {
-    if (s.phase === "prep") speak(RESOURCING_PREP_STEPS[s.stepIndex]?.prompt ?? "");
-    else if (s.phase === "set") speak(RESOURCING_CUES[s.setsCompleted % RESOURCING_CUES.length]);
-    else if (s.phase === "between") speak(RESOURCING_BETWEEN[s.setsCompleted % RESOURCING_BETWEEN.length]);
-    else if (s.phase === "closure") speak(CLOSURE_TEXT);
+    if (s.phase === "prep") {
+      const prompt = RESOURCING_PREP_STEPS[s.stepIndex]?.prompt ?? "";
+      // Speak the extra permission-to-stop reminder once, up front, for borderline
+      // members — spoken here (not during a set) to keep during-set audio light.
+      speak(borderline && s.stepIndex === 0 ? `${prompt} ${BORDERLINE_STOP_REMINDER}` : prompt);
+    } else if (s.phase === "set") {
+      const c = personalizedCues(placeRef.current, wordRef.current);
+      speak(c[s.setsCompleted % c.length]);
+    } else if (s.phase === "between") {
+      const b = personalizedBetween(placeRef.current);
+      speak(b[s.setsCompleted % b.length]);
+    } else if (s.phase === "closure") speak(CLOSURE_TEXT);
     else if (s.phase === "completed") speak(COMPLETED_TEXT);
-  }, [s.phase, s.stepIndex, s.setsCompleted, speak]);
+  }, [s.phase, s.stepIndex, s.setsCompleted, speak, borderline]);
 
   // Closure timer: enforce the mandatory minimum before "complete" is allowed.
   useEffect(() => {
@@ -90,6 +116,11 @@ export default function ResourcingSession() {
           </button>
         </div>
       )}
+      {borderline && (s.phase === "prep" || s.phase === "set" || s.phase === "between") && (
+        <div className="mb-6 rounded-2xl border border-support/40 bg-support/5 px-5 py-3 text-center text-sm text-support-deep">
+          {BORDERLINE_STOP_REMINDER}
+        </div>
+      )}
       {s.phase === "intro" && (
         <div className="space-y-5 text-center">
           <h1 className="font-serif text-3xl font-medium">A calm-place session</h1>
@@ -115,6 +146,19 @@ export default function ResourcingSession() {
           <p className="text-center font-serif text-2xl leading-relaxed">
             {RESOURCING_PREP_STEPS[s.stepIndex]?.prompt}
           </p>
+          {RESOURCING_PREP_STEPS[s.stepIndex]?.phase === "choose_place" && (
+            <div className="space-y-2">
+              <input
+                value={place}
+                onChange={(e) => setPlace(e.target.value.slice(0, 40))}
+                placeholder="name your place — e.g. the beach"
+                className="w-full rounded-full border border-ground/15 bg-white px-5 py-3 text-center"
+              />
+              <p className="text-center text-sm text-olive">
+                We&apos;ll use your own words to guide you.
+              </p>
+            </div>
+          )}
           {RESOURCING_PREP_STEPS[s.stepIndex]?.phase === "cue_word" && (
             <input
               value={cueWord}

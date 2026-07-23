@@ -7,6 +7,10 @@ import {
   RESOURCING_BETWEEN,
   RESOURCING_PARAMS,
   resourceTurnedUnpleasant,
+  personalizedCues,
+  personalizedBetween,
+  sanitizeResource,
+  BORDERLINE_STOP_REMINDER,
 } from "../src/lib/safety/resourcing.ts";
 import { resourcingBlsAvailable } from "../src/lib/gating.ts";
 import { validateCompanionOutput } from "../src/lib/safety/companion-guard.ts";
@@ -24,6 +28,39 @@ test("resourcing: every cue, between-set prompt, and step prompt passes the outp
   for (const line of lines) {
     assert.equal(validateCompanionOutput(line).ok, true, `blocked: ${line}`);
   }
+});
+
+// Personalized cues weave the member's OWN words into fixed templates and must
+// STILL pass the output guard (incl. the borderline stop reminder), and must fall
+// back to the generic wording when nothing (or only junk) is provided.
+test("resourcing: personalized cues + prompts + reminder pass the output guard", () => {
+  const samples = ["the beach", "my grandmother's garden", "a quiet forest", "home"];
+  const words = ["calm", "safe", "here"];
+  const lines: string[] = [BORDERLINE_STOP_REMINDER];
+  for (const place of samples) {
+    for (const word of words) {
+      lines.push(...personalizedCues(place, word), ...personalizedBetween(place));
+    }
+  }
+  lines.push(...personalizedCues(), ...personalizedBetween()); // generic fallback
+  for (const line of lines) {
+    assert.equal(validateCompanionOutput(line).ok, true, `blocked: ${line}`);
+  }
+});
+
+test("resourcing: personalization uses the member's place, falls back when empty", () => {
+  assert.ok(personalizedCues("the beach")[0].includes("the beach"));
+  assert.equal(personalizedCues("")[0], RESOURCING_CUES[0]); // empty → generic
+  assert.equal(personalizedCues("   ")[0], RESOURCING_CUES[0]); // whitespace → generic
+  assert.equal(personalizedBetween("the beach")[0], "How does the beach feel now?");
+});
+
+test("resourcing: sanitizeResource strips control chars/markup and caps length", () => {
+  assert.equal(sanitizeResource("the\nbeach"), "the beach");
+  assert.equal(sanitizeResource("  a   quiet  place  "), "a quiet place");
+  assert.equal(sanitizeResource("<script>x</script>"), "script x /script");
+  assert.equal(sanitizeResource("x".repeat(100)).length, 40);
+  assert.equal(sanitizeResource(null), "");
 });
 
 test("resourcing: params are short + slow (resourcing, not desensitization)", () => {
