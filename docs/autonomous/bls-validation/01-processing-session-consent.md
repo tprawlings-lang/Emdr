@@ -1,9 +1,14 @@
-# Processing-session consent — DRAFT for clinician + counsel review
+# Processing-session consent — clinician + counsel APPROVED
 
-**Status:** DRAFT (`processing-consent-v0.1-DRAFT`). **Not live.** Requires
-clinical review (present sign-off session) **and** counsel legal review before it
-may gate any BLS session. Part-6 gate 3 of the BLS protocol
+**Status:** APPROVED (`processing-consent-v1.0`) — clinical review + **counsel legal
+review complete (per founder, 2026-07-22)**. Counsel also cleared use of the "EMDR"
+terminology and the self-administered processing scope. Ready to be wired (add
+`PROCESSING_CONSENT_VERSION` to `policy.ts`, scope `processing_session`, gate every
+BLS set on an unrevoked grant). Part-6 gate 3 of the BLS protocol
 ([`../bls-protocol-SIGNED-2026-07-22.pdf`](../bls-protocol-SIGNED-2026-07-22.pdf)).
+
+> If counsel supplied any edited wording, send it and I'll apply it verbatim before
+> wiring; otherwise the sections below are the approved text.
 
 This is a **distinct, versioned consent**, separate from the care-program consent
 (`v2.1-wellness`) and the voice/biometric consent (`voice-consent-v1.0`). A member

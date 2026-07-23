@@ -79,9 +79,15 @@ with pre-registered stopping thresholds (4a cohort 12 / 14-day window; worsening
 validation plans and advancing the consent (counsel legal pass still required); it does
 **not** complete the human-factors or red-team gates, and no real-member BLS may run
 until all Part-6 gates are executed, documented, and closed. `autonomousStimulationEnabled`
-stays `false`. Package + status: [`bls-validation/`](bls-validation/). **The EMDRIA /
-"EMDR"-claims question above remains for counsel** — the clinical determination does not
-settle it.
+stays `false`. Package + status: [`bls-validation/`](bls-validation/).
+
+**Counsel review — COMPLETE (per founder, 2026-07-22).** Counsel approved the
+processing-session consent (`processing-consent-v1.0`) and **cleared use of the "EMDR"
+terminology and the self-administered processing scope** — resolving the EMDRIA/claims
+question flagged above (it was a legal call for counsel, now made). This closes the last
+**review** gate; remaining Part-6 work is execution only (human-factors testing, red-team
+closure, the 4a resourcing build) before any real-member BLS. Any counsel-edited consent
+wording, once supplied, is applied verbatim before the consent is wired.
 
 **Deployment-evidence package** for the conditions is drafted at
 [`evidence/`](evidence/) (README with per-gate status). Gates 2/3/6/8/9 are

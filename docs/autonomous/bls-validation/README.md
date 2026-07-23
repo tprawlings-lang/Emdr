@@ -39,7 +39,7 @@ session** may run until every Part-6 gate is executed, documented, and closed.
 |---|---|---|---|---|
 | 1 | Human-factors testing on the BLS flow | [`02-human-factors-test-plan.md`](02-human-factors-test-plan.md) | **Plan — yes** | Real participants; a UX researcher; results report |
 | 2 | Red-team closure on BLS paths | [`03-red-team-plan.md`](03-red-team-plan.md) | **Scenarios — yes** | Built feature to close all; ~6 runnable now vs the FSM |
-| 3 | Processing-session consent + counsel review | [`01-processing-session-consent.md`](01-processing-session-consent.md) | **Draft — clinical yes** | Counsel legal review; version + wiring |
+| 3 | Processing-session consent + counsel review | [`01-processing-session-consent.md`](01-processing-session-consent.md) | ✅ **Clinical + counsel approved (2026-07-22)** | Wire it (`processing-consent-v1.0`) |
 | 4 | Staged Phase-4 rollout + stopping criteria + kill switch | [`04-phase4-staged-rollout.md`](04-phase4-staged-rollout.md) | **Protocol — yes** | Pre-registered numeric thresholds; kill switch built |
 
 ## What the clinicians can approve *today* (with you, now)
