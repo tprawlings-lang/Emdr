@@ -10,6 +10,7 @@ import {
   getTodayCheckin,
   getUnlock,
   hasConsent,
+  resourcingBlsAvailable,
   screeningComplete,
 } from "@/lib/gating";
 import { logout, requestUnlock } from "@/lib/actions";
@@ -111,6 +112,11 @@ export default async function DashboardPage() {
     });
   }
 
+  // Phase-4a: offer the calm-place (resourcing BLS) session only when the feature
+  // is on + consented and today's check-in is complete (the route re-checks the
+  // same-day clinical exclusion before rendering any set).
+  const resourcingAvail = checkin ? await resourcingBlsAvailable(user.id) : false;
+
   return (
     <main className="mx-auto max-w-4xl px-6 py-12">
       {fitness.status === "none" && (
@@ -205,6 +211,22 @@ export default async function DashboardPage() {
           <p className="font-medium">
             Today&apos;s check-in: {actionLabel(checkin.recommended_action).label}
           </p>
+        </div>
+      )}
+
+      {resourcingAvail && (
+        <div className="mt-4 rounded-3xl border border-sage/50 bg-sage/10 p-5">
+          <p className="font-medium">A calm-place session is open today</p>
+          <p className="mt-1 text-sm text-ground/90">
+            Settle into your calm place with a few short, gentle rounds of sound and tapping. You
+            can stop any time.
+          </p>
+          <Link
+            href="/session/resourcing"
+            className="mt-3 inline-block rounded-full bg-sage px-6 py-2.5 text-sm font-medium text-ground transition-colors hover:bg-sage-deep"
+          >
+            Start calm-place session
+          </Link>
         </div>
       )}
 

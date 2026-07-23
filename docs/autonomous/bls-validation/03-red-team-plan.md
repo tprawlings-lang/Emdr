@@ -26,15 +26,28 @@ pinning it. Modeled on the existing `tests/safety-redteam.test.ts` harness.
 | 11 | **Consent bypass** | No BLS set without an unrevoked processing-session consent at the current version. | After consent wiring |
 | 12 | **Set-extension pressure** | The system never extends a set based on inferred processing (no clinician reading the client); length is fixed/conservative. | By design (verify) |
 
-## Status — 2026-07-22
-**10 scenarios now have passing tests** in [`tests/bls-redteam.test.ts`](../../../tests/bls-redteam.test.ts)
-(run in `npm run test:safety`, suite 176/176): dissociation/orientation stop,
-SUDS-spike containment, "stuck"→closure, Ground-Me lock, output-guard on cues,
-closure floor, starting-SUDS gate, contraindicated-user block, and no-set-extension.
-The remaining scenarios require the built stimulus generator + session UI:
-**network/timing failure mid-set, stop-control-under-load (UI), closure-cannot-be-
-skipped end-to-end, live crisis input during a session, and consent bypass** — added
-when the 4a feature lands.
+## Status — 2026-07-22 (updated after the 4a build)
+**Now covered by passing tests** (`tests/bls-redteam.test.ts` +
+`tests/bls-resourcing-session.test.ts`; suite 190/190):
+- dissociation/orientation stop, SUDS-spike containment, "stuck"→closure,
+  Ground-Me lock, output-guard on cues, closure floor, starting-SUDS gate,
+  no-set-extension (engine/FSM);
+- **resourcing clinical-exclusion gate** — crisis / human-review / grounding-only /
+  missing-checkin all blocked, steady day allowed (`resourcingClinicallyBlocked`);
+- **closure-cannot-be-skipped** — `completed` is reachable ONLY through the enforced
+  ≥120 s closure; no other reducer transition yields it;
+- **timing/failure-stops** — `BlsStimulus.onFailure` routes to Ground-Me → closure
+  (wired in `ResourcingSession`; reducer path tested).
+
+**Remaining — verified in human-factors testing (browser), not node-testable:**
+- **stop-control salience under load** — the one-tap stop is always rendered during
+  set/prep/between; "reachable under stress" is a UX property for the human-factors
+  pass.
+- **consent bypass** — the `/session/resourcing` route requires
+  `resourcingBlsAvailable` (flag + kill switch + processing consent); a DB-integration
+  check confirms the consent requirement end-to-end.
+- **live crisis input during a set** — N/A to 4a: resourcing takes no voice/free-text
+  input during a set (directive cues only). This is a 4b/live-session scenario.
 
 ## Pass / closure criteria
 - Every scenario has a passing automated test on the built feature.

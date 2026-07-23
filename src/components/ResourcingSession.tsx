@@ -14,6 +14,7 @@ import {
   type ResourcingState,
 } from "@/lib/safety/resourcing-session";
 import { RESOURCING_CUES, RESOURCING_BETWEEN, RESOURCING_PARAMS } from "@/lib/safety/resourcing";
+import { recordResourcingEvent } from "@/lib/actions";
 
 // Phase-4a resourcing session (Calm/Safe Place). Client flow only; every clinical
 // decision (stop/closure) is the pure reducer. Directive cues are deterministic;
@@ -27,8 +28,12 @@ export default function ResourcingSession() {
   const cue = RESOURCING_CUES[s.setsCompleted % RESOURCING_CUES.length];
   const betweenPrompt = RESOURCING_BETWEEN[s.setsCompleted % RESOURCING_BETWEEN.length];
 
+  const stop = useCallback(() => {
+    setS((st) => groundMe(st));
+    void recordResourcingEvent("stop");
+  }, []);
   const onSetComplete = useCallback(() => setS((st) => completeSet(st)), []);
-  const onSetFailure = useCallback(() => setS((st) => groundMe(st)), []); // fail-safe → closure
+  const onSetFailure = useCallback(() => stop(), [stop]); // fail-safe → closure
 
   // Closure timer: enforce the mandatory minimum before "complete" is allowed.
   useEffect(() => {
@@ -41,7 +46,7 @@ export default function ResourcingSession() {
   const StopButton = (
     <button
       type="button"
-      onClick={() => setS((st) => groundMe(st))}
+      onClick={stop}
       className="w-full rounded-full border border-support px-6 py-3 font-medium text-support-deep transition-colors hover:bg-support/10"
     >
       Stop &amp; ground me
@@ -59,7 +64,10 @@ export default function ResourcingSession() {
           </p>
           <button
             type="button"
-            onClick={() => setS(begin)}
+            onClick={() => {
+              setS(begin);
+              void recordResourcingEvent("start");
+            }}
             className="w-full rounded-full bg-sage px-6 py-3.5 font-medium text-ground transition-colors hover:bg-sage-deep"
           >
             Begin
@@ -121,7 +129,10 @@ export default function ResourcingSession() {
             </button>
             <button
               type="button"
-              onClick={() => setS((st) => answerBetween(st, false))}
+              onClick={() => {
+                setS((st) => answerBetween(st, false));
+                void recordResourcingEvent("stop");
+              }}
               className="w-full rounded-full border border-ground/20 px-6 py-3 font-medium transition-colors hover:bg-linen"
             >
               Less pleasant — let&apos;s stop and ground
@@ -140,7 +151,13 @@ export default function ResourcingSession() {
           <button
             type="button"
             disabled={closureSecs < 120}
-            onClick={() => setS((st) => completeClosure(st, closureSecs))}
+            onClick={() =>
+              setS((st) => {
+                const next = completeClosure(st, closureSecs);
+                if (next.phase === "completed") void recordResourcingEvent("closed");
+                return next;
+              })
+            }
             className="w-full rounded-full bg-sage px-6 py-3.5 font-medium text-ground transition-colors hover:bg-sage-deep disabled:cursor-not-allowed disabled:opacity-50"
           >
             {closureSecs < 120 ? `A little longer… (${Math.max(0, 120 - closureSecs)}s)` : "I'm back — finish"}

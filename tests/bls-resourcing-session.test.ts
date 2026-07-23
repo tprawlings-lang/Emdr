@@ -51,3 +51,18 @@ test("resourcing session: closure enforces the mandatory minimum duration", () =
   assert.equal(completeClosure(closing, SESSION.closureMinSeconds - 1).phase, "closure");
   assert.equal(completeClosure(closing, SESSION.closureMinSeconds).phase, "completed");
 });
+
+test("resourcing session: 'completed' is reachable ONLY through the enforced closure (no skip)", () => {
+  const s0 = afterPrep();
+  // No ordinary transition yields "completed".
+  assert.notEqual(begin(newResourcing()).phase, "completed");
+  assert.notEqual(advancePrep(begin(newResourcing())).phase, "completed");
+  assert.notEqual(completeSet(s0).phase, "completed");
+  assert.notEqual(answerBetween(completeSet(s0), true).phase, "completed");
+  assert.notEqual(answerBetween(completeSet(s0), false).phase, "completed");
+  assert.notEqual(groundMe(s0).phase, "completed");
+  // Only completeClosure at/above the minimum yields completed.
+  const closing = { ...s0, phase: "closure" as const };
+  assert.notEqual(completeClosure(closing, SESSION.closureMinSeconds - 1).phase, "completed");
+  assert.equal(completeClosure(closing, SESSION.closureMinSeconds).phase, "completed");
+});

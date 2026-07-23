@@ -16,6 +16,7 @@ import {
 } from "../src/lib/safety/session.ts";
 import { SESSION } from "../src/lib/safety/config.ts";
 import { evaluateAccess } from "../src/lib/safety/engine.ts";
+import { resourcingClinicallyBlocked } from "../src/lib/safety/resourcing.ts";
 import { validateCompanionOutput } from "../src/lib/safety/companion-guard.ts";
 import type { SafetyInputs } from "../src/lib/safety/types.ts";
 import { AccessTier } from "../src/lib/safety/types.ts";
@@ -120,6 +121,28 @@ test("BLS RED: contraindicated inputs never yield an activating session", () => 
   const ddiss = evaluateAccess(diss);
   assert.equal(ddiss.tier, AccessTier.GROUNDING_ONLY);
   assert.equal(ddiss.activatingSessionsAllowed, false);
+});
+
+// ── 10b. Resourcing (4a) clinical exclusion gate ────────────────────────────
+test("BLS RED: resourcing is clinically blocked for contraindicated states", () => {
+  const crisis = clearInputs();
+  crisis.dailyCheckin!.harmUrge = true;
+  assert.equal(resourcingClinicallyBlocked(evaluateAccess(crisis)), true);
+
+  const dx = clearInputs();
+  dx.programFit!.psychoticOrDissociativeDx = true; // human-review pending
+  assert.equal(resourcingClinicallyBlocked(evaluateAccess(dx)), true);
+
+  const diss = clearInputs();
+  diss.dailyCheckin!.dissociation = 8; // grounding-only day
+  assert.equal(resourcingClinicallyBlocked(evaluateAccess(diss)), true);
+
+  const missing = clearInputs();
+  delete missing.dailyCheckin; // no check-in → grounding only
+  assert.equal(resourcingClinicallyBlocked(evaluateAccess(missing)), true);
+
+  // A steady, clear day is allowed (stabilization+ tier, no exclusion).
+  assert.equal(resourcingClinicallyBlocked(evaluateAccess(clearInputs())), false);
 });
 
 // ── 12. No adaptive set extension beyond the fixed maximum ───────────────────

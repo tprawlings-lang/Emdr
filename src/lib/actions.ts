@@ -1503,6 +1503,26 @@ export async function revokeProcessingConsent(): Promise<void> {
   revalidatePath("/settings/sessions");
 }
 
+// Content-free audit of resourcing-session lifecycle events (start / stop /
+// closed) for the Phase-4a pilot's adverse-event tracking. No member content —
+// coded event ids only. Best-effort: never blocks the session UI.
+export async function recordResourcingEvent(event: "start" | "stop" | "closed"): Promise<void> {
+  if (event !== "start" && event !== "stop" && event !== "closed") return;
+  try {
+    const user = await requireMember();
+    await audit({
+      actorId: user.id,
+      actorRole: "member",
+      family: "module_runtime",
+      type: `resourcing_${event}`,
+      target: "resourcing",
+      detail: {},
+    });
+  } catch {
+    // best-effort — a logging failure must never interrupt a session
+  }
+}
+
 // Withdraw voice/biometric consent — one action, effective immediately. All
 // active voice consents are revoked; the mic path stops being offered at once.
 export async function withdrawVoiceConsent(): Promise<void> {
