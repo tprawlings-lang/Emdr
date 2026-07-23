@@ -85,6 +85,33 @@ export const BETA_CONFIG = {
   maxActivatingSessionsPerDay: 1,
 } as const;
 
+// ── Resourcing BLS (Phase 4a — Calm/Safe Place installation) ────────────────
+// The clinician-approved BLS protocol (bls-protocol-v1) staged rollout begins
+// with RESOURCING ONLY: short, slow bilateral stimulation paired with a positive
+// resource + cue word (docs/autonomous/bls-validation). This is NOT trauma-memory
+// desensitization — that stays disabled (`autonomousStimulationEnabled = false`).
+// Resourcing is gated separately so 4a can be piloted without enabling 4b/4c.
+export const BLS_RESOURCING = {
+  /** Slow speed for resourcing (research: short, slow sets). */
+  hz: 1.0,
+  /** Short sets so installation does NOT open processing (~4–8 passes). */
+  passesPerSet: 6,
+  /** Approximate seconds per set at the above (short by design). */
+  approxSecondsPerSet: 8,
+  /** A few short sets to install the resource. */
+  maxSets: 4,
+  /** Member chooses a cue word paired with the resource. */
+  cueWordRequired: true,
+} as const;
+
+/** Phase-4a resourcing BLS gate. OFF by default; enabled explicitly for the
+ *  monitored pilot. Desensitization stays governed by autonomousStimulationEnabled
+ *  (which remains false) — this flag never enables trauma-memory processing. The
+ *  `EMDR_KILL_BLS` kill switch (governance) overrides this to false. */
+export function blsResourcingEnabled(): boolean {
+  return process.env.EMDR_BLS_RESOURCING === "1";
+}
+
 // ── Finalized program-fit gate wording (ledger A8) ──────────────────────────
 // Replaces the `fit-v1-placeholder` item. Preparation-only scope stated plainly;
 // no diagnosis, no readiness-for-processing determination, no clinician

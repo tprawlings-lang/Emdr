@@ -83,6 +83,17 @@ export async function hasVoiceConsent(userId: string): Promise<boolean> {
   return !!row;
 }
 
+// Processing-session (BLS) consent — a distinct opt-in required before any
+// bilateral-stimulation session (docs/autonomous/bls-validation).
+export async function hasProcessingConsent(userId: string): Promise<boolean> {
+  const c = await data();
+  const row = await c.get(
+    "SELECT id FROM consents WHERE user_id = ? AND scope = 'processing_session' AND revoked_at IS NULL LIMIT 1",
+    [userId]
+  );
+  return !!row;
+}
+
 // Pure availability decision (audit-friendly, testable): voice/live is
 // available in demo (for reviewers) OR when the feature flag is on AND the
 // member has granted the distinct voice/biometric consent. Never on flag alone.

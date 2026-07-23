@@ -114,6 +114,47 @@ export function currentConsentSections(): { title: string; body: string }[] {
 // and a version bump.
 export const VOICE_CONSENT_VERSION = "voice-consent-v1.0";
 
+// ── Processing-session consent (BLS) — clinician + counsel approved 2026-07-22 ─
+// A DISTINCT, explicit opt-in required before any bilateral-stimulation session
+// (starting with resourcing / Calm-Safe-Place, Phase 4a). Separate from the
+// care-program and voice consents because it discloses that no live clinician is
+// present and processing carries real risk (docs/autonomous/bls-validation).
+// Recorded under scope "processing_session". Counsel cleared the wording + the
+// EMDR terminology + self-administered scope. Any wording change requires counsel
+// re-review and a version bump.
+export const PROCESSING_CONSENT_VERSION = "processing-consent-v1.0";
+
+export const PROCESSING_CONSENT_SECTIONS: { title: string; body: string }[] = [
+  {
+    title: "What this is — and is not",
+    body: "This is a self-guided EMDR-based exercise that uses left–right (bilateral) stimulation while you focus on a chosen mental image. It is software, used by you, on your own. No therapist is present, and no one is watching in real time. It is not therapy, not a medical treatment, and not a substitute for working with a licensed clinician. Trauma processing is normally done with a trained clinician; many clinicians and professional bodies recommend against doing that kind of memory work alone.",
+  },
+  {
+    title: "What happens in a session",
+    body: "You'll be guided through short sets of stimulation with brief check-ins between them, and the session always ends with a calming, grounding close — whether or not the exercise feels 'finished.' You set the pace by answering the check-ins honestly.",
+  },
+  {
+    title: "Risks — please read",
+    body: "Focusing on difficult material can raise distress during a session. It's possible to feel more activated, to have something feel unfinished, or to notice it again afterward. If you become disconnected from the present, or can't follow a prompt to stop, the session will end itself and move you to grounding. This tool cannot judge, the way a therapist would, whether continuing is safe — so it errs toward stopping. It is not for a crisis: if you are in danger or thinking of harming yourself, stop and use the crisis resources shown.",
+  },
+  {
+    title: "Automated decisions, no live monitoring",
+    body: "The decisions to pause, stop, contain, or close a session are made automatically by fixed safety rules — not by a person, and not in real time. No human is notified during your session unless you use a crisis resource yourself.",
+  },
+  {
+    title: "Your controls",
+    body: "You can stop at any moment — a one-tap stop is always on screen, and stopping is never penalized. Once you stop, stimulation stays off for the rest of that session. Every session ends with a required grounding close.",
+  },
+  {
+    title: "Who should not use this",
+    body: "This exercise is not offered if your answers indicate high dissociation, a recent trauma within the exclusion window, certain standing restrictions (such as a psychotic or dissociative diagnosis, recent hospitalization, or substance dependence pending review), or that you don't feel safe today. In those cases you'll be routed to grounding, resources, or support instead.",
+  },
+  {
+    title: "Your agreement",
+    body: "I have read the above. I understand that no therapist is present, that this is not therapy, the risks including possible increased distress or an unfinished session, and that I can stop at any time. I consent to a self-guided bilateral-stimulation session.",
+  },
+];
+
 export const VOICE_CONSENT_SECTIONS: { title: string; body: string }[] = [
   {
     title: "What you're turning on",

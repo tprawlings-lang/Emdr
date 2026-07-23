@@ -1474,6 +1474,35 @@ export async function grantVoiceConsent(): Promise<void> {
   revalidatePath("/settings/voice");
 }
 
+// Processing-session (BLS) consent grant — mirrors voice consent; recorded under
+// scope "processing_session" (docs/autonomous/bls-validation).
+export async function grantProcessingConsent(): Promise<void> {
+  const user = await requireMember();
+  const { PROCESSING_CONSENT_VERSION } = await import("./policy");
+  const c = await data();
+  const active = await c.get("SELECT id FROM consents WHERE user_id = ? AND scope = 'processing_session' AND revoked_at IS NULL LIMIT 1", [user.id]);
+  if (!active) {
+    await c.run("INSERT INTO consents (id, user_id, policy_version, scope) VALUES (?, ?, ?, ?)", [newId(), user.id, PROCESSING_CONSENT_VERSION, "processing_session"]);
+    await audit({
+      actorId: user.id,
+      actorRole: "member",
+      family: "consent",
+      type: "processing_consent_granted",
+      detail: { policy_version: PROCESSING_CONSENT_VERSION, scope: "processing_session" },
+    });
+  }
+  revalidatePath("/settings/sessions");
+}
+
+export async function revokeProcessingConsent(): Promise<void> {
+  const user = await requireMember();
+  const c = await data();
+  const nowIso = new Date().toISOString();
+  await c.run("UPDATE consents SET revoked_at = ? WHERE user_id = ? AND scope = 'processing_session' AND revoked_at IS NULL", [nowIso, user.id]);
+  await audit({ actorId: user.id, actorRole: "member", family: "consent", type: "processing_consent_revoked", detail: { scope: "processing_session" } });
+  revalidatePath("/settings/sessions");
+}
+
 // Withdraw voice/biometric consent — one action, effective immediately. All
 // active voice consents are revoked; the mic path stops being offered at once.
 export async function withdrawVoiceConsent(): Promise<void> {

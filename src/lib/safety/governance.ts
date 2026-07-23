@@ -39,7 +39,15 @@ export function killSwitches() {
     escalationAutomation: process.env.EMDR_KILL_ESCALATION === "1",
     /** Existing session kill switch (compliance 4D). */
     newSessions: process.env.EMDR_DISABLE_NEW_SESSIONS === "1",
+    /** Disable all bilateral stimulation (resourcing + any future processing)
+     *  globally without a deploy — the BLS-protocol Phase-4 kill switch. */
+    bls: process.env.EMDR_KILL_BLS === "1",
   };
+}
+
+/** BLS globally disabled by the kill switch (docs/autonomous/bls-validation). */
+export function blsDisabled(): boolean {
+  return killSwitches().bls;
 }
 
 export function generativeConversationDisabled(): boolean {
