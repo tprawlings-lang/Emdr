@@ -401,7 +401,8 @@ intensity." Autonomy here means *more deterministic automation of clinician-vali
 6. **Governance** — kill switches (generative conversation / provider sharing / escalation
    automation), config-as-code snapshot, and `/api/safety-status` (mode, version, stages).
 
-~112 dedicated safety unit tests plus an end-to-end red-team harness (`tests/safety-*.ts`).
+~197 tests across the safety suite (`tests/*.test.ts`, run by `npm run test:safety`),
+including end-to-end red-team harnesses (`tests/safety-redteam.test.ts`, `tests/bls-redteam.test.ts`).
 
 ### How a clinician validates and signs off
 The clinician-only **Autonomous Review console** (`/clinician/autonomous`) is the sign-off
@@ -465,9 +466,9 @@ With `EMDR_DEMO=1` a rich fictional dataset seeds instead.
 
 **Tests & CI:** `npm run test:safety` runs the CI-blocking `@safety` suite (screener
 hard stops, SUDS rules, check-in routing, crisis regex, track-recommender safety gate)
-plus the **autonomous safety-core suite** (~112 tests: the deterministic engine, scoring,
-session runtime, companion guard, journey orchestration, governance, and a red-team
-harness — §10).
+plus the **autonomous safety-core suite** (the deterministic engine, scoring, session
+runtime, companion guard, journey orchestration, governance, resourcing/BLS, and a
+red-team harness — §10). ~197 tests total across `tests/*.test.ts`.
 `npm run test:e2e` runs the Playwright smoke suite (critical unauthenticated surfaces +
 security headers; hermetic by default, or point at a deploy with `E2E_BASE_URL`).
 CI (`.github/workflows/safety.yml`) blocks on `@safety` + build + `npm audit`
@@ -492,7 +493,7 @@ after clinician sign-off), and the emergency kill switches `EMDR_KILL_GENERATIVE
 Next.js (App Router, server actions, standalone output) · TypeScript · Tailwind CSS ·
 better-sqlite3 · Anthropic SDK. No ad-tech, no analytics pixels, no third-party
 trackers — by design. The clinician-designed **deterministic safety core** lives in
-[`src/lib/safety/`](src/lib/safety/) (pure, ~112 tests, shadow-mode, flag-gated — §10),
+[`src/lib/safety/`](src/lib/safety/) (pure, ~197-test suite, shadow-mode, flag-gated — §10),
 surfaced for review at `/clinician/autonomous` and `/api/safety-status`.
 
 ## 14. Before any real-world use (wellness-lane launch gates)
@@ -563,7 +564,7 @@ detail in [`docs/go-live-runbook.md`](docs/go-live-runbook.md) §4 and
 ### 14.4 Autonomous safety system (§10) — status
 
 - [x] Built from the clinician corpus (safety core, scoring, session engine, companion
-  guard, journey orchestration, governance) — pure, ~112 tests, red-team harness.
+  guard, journey orchestration, governance) — pure, ~197 tests, red-team harness.
 - [x] Deployed + clinician review console with per-rule Agree / Needs-change sign-off and
   CSV export. **Ratified (with conditions) 2026-07-22.** Still shadow — the flag swaps legal
   copy + audit label only; the engine is **not yet wired to govern module gating** (see below).
