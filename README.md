@@ -590,6 +590,15 @@ detail in [`docs/go-live-runbook.md`](docs/go-live-runbook.md) §4 and
   console (`/clinician/autonomous#voice`, `VOICE_INPUT_*` in the register). Voice/biometric
   consent is **counsel-approved** (`voice-consent-v1.0`) and the gate is wired
   (`/settings/voice` → `voiceAvailableFor`); remaining before non-demo: the flag flip. 🔴
+- [x] **Spoken session guidance (on-device TTS)** — the calm-place / resourcing sessions now
+  *speak* the deterministic narration and a short directive cue at the start of each set
+  (personalized to the member's place, shown on screen too), on top of the text. Every spoken
+  line is the same output-guard-clean deterministic copy — no generative speech during a set.
+  On-device only (Web Speech API; nothing uploaded) → no consent impact; a Voice on/off toggle
+  mutes it. The most natural installed voice is auto-selected (not the robotic default), audio
+  + speech unlock in a tap for iOS/iPadOS, and BLS tones play by default. Both stimulation
+  modes (moving dot / audio-only) remain a member choice. Truly-natural (human/neural) voice is
+  the next step — plan in **§14.6**.
 - [x] **Clinician sign-off** on the rules + Volume II conflict resolution — ✅ **DONE
   (with conditions), 2026-07-22.** Two independent licensed psychologists (Altschuler
   PSY-005804, Allen PSY-002055) ratified config `beta-clinrev-2026-07`: all rules Agree,
@@ -607,3 +616,68 @@ detail in [`docs/go-live-runbook.md`](docs/go-live-runbook.md) §4 and
   flip + session-UI wiring (deferred until auto-unlock is wired). 🔴
 - [ ] **Flip `EMDR_AUTONOMOUS_SAFETY=1`** (one stage at a time) + wire the session UI /
   dashboard to the engine — only after sign-off. 🔴
+
+### 14.6 Natural (human / neural) session voice — plan
+
+Today's spoken guidance uses **on-device TTS** with the best installed voice auto-selected.
+For a genuinely soothing, meditation-grade narrator, the plan is to **pre-render the fixed
+lines once and ship them as static audio**, played in place of TTS, with on-device TTS as the
+fallback for any line that has no clip.
+
+**Why pre-render fits this app:** the narration beats and cue templates are **deterministic**
+(clinician-authored, fixed). Generating the audio at build time gives studio quality with
+**zero runtime cost, zero latency, offline playback, and nothing leaving the device** — so no
+change to the privacy/consent posture (the audio is made from fixed text at build, not from
+any member data).
+
+**Voice source (pick one):**
+- **Human voice actor** — record the fixed scripts. Most authentic/soothing, strongest brand;
+  ~$few-hundred–$2k, ~1–2 weeks lead time, re-record on copy change.
+- **Neural TTS, pre-rendered** (ElevenLabs / OpenAI / Azure) — near-human, ~$5–30 in credits,
+  regenerate in minutes on copy change; commercial rights included with stock voices.
+
+**The personalized word ("the beach"):** a pre-rendered clip can't contain a member-typed
+word. Options, best first:
+- speak a generic line ("your calm place") in the natural voice and keep the typed place
+  **on screen** — full natural voice + full privacy (**recommended**);
+- pre-render a small library of common places (beach, forest, lake, garden, home…);
+- synthesize the personalized line at runtime via cloud TTS — most flexible, but the member's
+  word then leaves the device → needs a consent-language update + vendor DPA first.
+
+**Engineering (vendor-independent):** a thin audio layer — a manifest mapping each known line
+to a clip + a `playLine()` that plays the clip or falls back to `useSpeech`, plus a generation
+script if neural. Boundary kept: a warm voice must never imply a live person is monitoring —
+copy stays honestly "a guide" (companion-guard enforced). **Decision pending founder:** voice
+source + personalization handling. 🔴
+
+### 14.7 Going fully autonomous — the ordered next steps
+
+"Fully autonomous" = the deterministic safety engine (§10) **governs** module access and
+session flow for real members without waiting on a human touchpoint. Today the engine is
+**built + ratified (with conditions) but SHADOW only**: `shadowDecide()` logs its decision and
+`checkModuleAccess` (§5) still governs. The ordered path to flip that:
+
+1. **Complete the Part-4 evidence gates (§14.2)** — the reviewers' explicit condition:
+   independent privacy/security review (ZAP, SSL Labs, companion red-team) **plus** human-factors
+   testing of the session UI (stop-control salience under stress). No governance before these. 🔴
+2. **Rewrite every "specialist review" claim** (§10 step 1, §14.4 microcopy, §14.3 decision) —
+   marketing/FAQ/dashboard/module copy, `gating.ts` unlock strings, ToS/consent, `COMPLIANCE.md`.
+   Shipping autonomy without this makes live claims false. The `*-autonomous` legal copy is
+   already staged to serve on the flag flip; the **product microcopy is not**. 🔴
+3. **Counsel re-confirms the wellness-lane posture with the human gate removed** — the June 2026
+   handoff named a live-clinician gate as non-negotiable, so it must be explicitly lifted, in
+   writing, before autonomy governs. 🔴
+4. **Wire the engine to govern** — replace the `shadowDecide()` void call with the engine as the
+   live gate for module auto-unlock + session-UI transitions (the one remaining implementation
+   step). Every kill switch stays available per capability. 🔴
+5. **Flip `EMDR_AUTONOMOUS_SAFETY=1` one stage at a time** — gating first, then session-runtime,
+   watching the shadow-vs-governing audit deltas at each stage; roll back per capability on any
+   divergence. 🔴
+6. **Autonomous BLS stays OFF through all of the above** (an explicit sign-off condition).
+   Member-initiated resourcing (4a) is live and flag-gated, but *autonomous* stimulation /
+   reprocessing is a separate, later gate that needs its own clinician sign-off + evidence. 🔴
+
+Non-negotiable substrate that stays green throughout: the `@safety` + safety-core suites, the
+kill switch, the fitness screener, and the SUDS stop rules. The one architectural rule never
+changes — **autonomy means more deterministic automation of clinician-validated rules, never
+the AI deciding more** (§10).
