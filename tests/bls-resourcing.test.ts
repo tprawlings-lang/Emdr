@@ -7,8 +7,8 @@ import {
   RESOURCING_BETWEEN,
   RESOURCING_PARAMS,
   resourceTurnedUnpleasant,
-  resourcingBlsAvailable,
 } from "../src/lib/safety/resourcing.ts";
+import { resourcingBlsAvailable } from "../src/lib/gating.ts";
 import { validateCompanionOutput } from "../src/lib/safety/companion-guard.ts";
 import { blsResourcingEnabled } from "../src/lib/safety/config.ts";
 import { blsDisabled } from "../src/lib/safety/governance.ts";

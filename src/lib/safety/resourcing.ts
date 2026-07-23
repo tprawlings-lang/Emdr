@@ -7,9 +7,12 @@
 // a POSITIVE resource with short slow BLS), NOT trauma-memory desensitization,
 // which stays disabled. docs/autonomous/bls-validation.
 
-import { BLS_RESOURCING, blsResourcingEnabled } from "./config";
-import { blsDisabled } from "./governance";
-import { hasProcessingConsent } from "../gating";
+// Pure content module — safe to import from client components. The server-gated
+// availability check (`resourcingBlsAvailable`) lives in gating.ts to keep this
+// free of DB/server imports.
+import { BLS_RESOURCING } from "./config";
+import { AccessTier } from "./types";
+import type { AccessDecision } from "./types";
 
 export type ResourcingPhase =
   | "settle"
@@ -59,12 +62,12 @@ export function resourceTurnedUnpleasant(feltBetter: boolean): boolean {
   return !feltBetter;
 }
 
-/** Whether a self-guided resourcing (Calm/Safe Place) BLS session may be offered
- *  to this member right now: the Phase-4a flag is on, the BLS kill switch is off,
- *  and the member has granted the processing-session consent. Clinical exclusions
- *  (dissociation, acute trauma, standing restrictions, not-safe-today) are
- *  enforced separately by the access gate chain — this is the feature/consent gate. */
-export async function resourcingBlsAvailable(userId: string): Promise<boolean> {
-  if (!blsResourcingEnabled() || blsDisabled()) return false;
-  return hasProcessingConsent(userId);
+/** Clinical exclusion for resourcing BLS, computed from the deterministic access
+ *  decision: blocked on crisis, human-review-pending, standing restriction, or a
+ *  low-tier day (crisis / grounding-only — e.g. high dissociation, acute-trauma
+ *  window, missing check-in). Stabilization+ steady days qualify. Pairs with the
+ *  feature/consent gate (`resourcingBlsAvailable`, in gating.ts). */
+export function resourcingClinicallyBlocked(d: AccessDecision): boolean {
+  const dp = d.dispositions;
+  return dp.crisis || dp.humanReviewPending || dp.standingExclusion || d.tier < AccessTier.STABILIZATION;
 }
