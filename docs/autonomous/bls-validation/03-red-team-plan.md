@@ -39,15 +39,21 @@ pinning it. Modeled on the existing `tests/safety-redteam.test.ts` harness.
 - **timing/failure-stops** — `BlsStimulus.onFailure` routes to Ground-Me → closure
   (wired in `ResourcingSession`; reducer path tested).
 
+- **consent bypass** — CLOSED. `tests/bls-consent-gate.test.ts` (hermetic temp DB):
+  no unrevoked processing consent → resourcing unavailable even with the flag on;
+  grant → available; revoke → unavailable; BLS kill switch overrides a granted consent.
+
 **Remaining — verified in human-factors testing (browser), not node-testable:**
 - **stop-control salience under load** — the one-tap stop is always rendered during
   set/prep/between; "reachable under stress" is a UX property for the human-factors
   pass.
-- **consent bypass** — the `/session/resourcing` route requires
-  `resourcingBlsAvailable` (flag + kill switch + processing consent); a DB-integration
-  check confirms the consent requirement end-to-end.
 - **live crisis input during a set** — N/A to 4a: resourcing takes no voice/free-text
   input during a set (directive cues only). This is a 4b/live-session scenario.
+
+**Net:** every BLS red-team scenario that can be closed in code is closed
+(`tests/bls-redteam.test.ts`, `bls-resourcing-session.test.ts`, `bls-consent-gate.test.ts`);
+the only open items are the UX-salience check (human-factors) and the N/A live-input
+scenario.
 
 ## Pass / closure criteria
 - Every scenario has a passing automated test on the built feature.
