@@ -15,25 +15,45 @@ import {
 } from "@/lib/safety/resourcing-session";
 import { RESOURCING_CUES, RESOURCING_BETWEEN, RESOURCING_PARAMS } from "@/lib/safety/resourcing";
 import { recordResourcingEvent } from "@/lib/actions";
+import { useSpeech } from "./useSpeech";
+
+const CLOSURE_TEXT =
+  "Come back to the room at your own pace. Notice your breath, your feet on the floor. Your word and your calm place are yours to return to any time.";
+const COMPLETED_TEXT = "Closed and complete. Well done for taking care of yourself today.";
 
 // Phase-4a resourcing session (Calm/Safe Place). Client flow only; every clinical
-// decision (stop/closure) is the pure reducer. Directive cues are deterministic;
-// no generative text runs during a set. Ground-Me is always reachable.
+// decision (stop/closure) is the pure reducer. Directive cues are deterministic
+// and spoken aloud on-device (no generative text runs during a set). Ground-Me is
+// always reachable.
 export default function ResourcingSession() {
   const [s, setS] = useState<ResourcingState>(newResourcing);
   const [cueWord, setCueWord] = useState("");
   const [closureSecs, setClosureSecs] = useState(0);
+  const [muted, setMuted] = useState(false);
+  const { speak, cancel, supported: speechSupported } = useSpeech(!muted);
 
   // Rotate a directive cue per set (deterministic, not reactive).
   const cue = RESOURCING_CUES[s.setsCompleted % RESOURCING_CUES.length];
   const betweenPrompt = RESOURCING_BETWEEN[s.setsCompleted % RESOURCING_BETWEEN.length];
 
   const stop = useCallback(() => {
+    cancel();
     setS((st) => groundMe(st));
     void recordResourcingEvent("stop");
-  }, []);
+  }, [cancel]);
   const onSetComplete = useCallback(() => setS((st) => completeSet(st)), []);
   const onSetFailure = useCallback(() => stop(), [stop]); // fail-safe → closure
+
+  // Speak the current line aloud whenever the flow advances (prep prompt, the
+  // directive cue DURING a set, the between-set prompt, closure). Deterministic
+  // content only; re-runs only on flow transitions, not on the closure timer.
+  useEffect(() => {
+    if (s.phase === "prep") speak(RESOURCING_PREP_STEPS[s.stepIndex]?.prompt ?? "");
+    else if (s.phase === "set") speak(RESOURCING_CUES[s.setsCompleted % RESOURCING_CUES.length]);
+    else if (s.phase === "between") speak(RESOURCING_BETWEEN[s.setsCompleted % RESOURCING_BETWEEN.length]);
+    else if (s.phase === "closure") speak(CLOSURE_TEXT);
+    else if (s.phase === "completed") speak(COMPLETED_TEXT);
+  }, [s.phase, s.stepIndex, s.setsCompleted, speak]);
 
   // Closure timer: enforce the mandatory minimum before "complete" is allowed.
   useEffect(() => {
@@ -55,6 +75,21 @@ export default function ResourcingSession() {
 
   return (
     <main className="mx-auto flex min-h-[70vh] max-w-xl flex-col justify-center px-6 py-12">
+      {speechSupported && s.phase !== "completed" && (
+        <div className="mb-6 flex justify-end">
+          <button
+            type="button"
+            onClick={() => {
+              if (!muted) cancel();
+              setMuted((m) => !m);
+            }}
+            aria-pressed={muted}
+            className="rounded-full border border-ground/15 px-4 py-1.5 text-sm text-olive transition-colors hover:bg-linen"
+          >
+            {muted ? "🔇 Voice off — tap for spoken guidance" : "🔊 Voice on"}
+          </button>
+        </div>
+      )}
       {s.phase === "intro" && (
         <div className="space-y-5 text-center">
           <h1 className="font-serif text-3xl font-medium">A calm-place session</h1>
@@ -144,10 +179,7 @@ export default function ResourcingSession() {
       {s.phase === "closure" && (
         <div className="space-y-6 text-center">
           <h2 className="font-serif text-2xl font-medium">Let&apos;s close gently</h2>
-          <p className="text-olive">
-            Come back to the room at your own pace. Notice your breath, your feet on the floor.
-            Your word and your calm place are yours to return to any time.
-          </p>
+          <p className="text-olive">{CLOSURE_TEXT}</p>
           <button
             type="button"
             disabled={closureSecs < 120}
