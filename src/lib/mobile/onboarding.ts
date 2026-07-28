@@ -207,7 +207,7 @@ export async function saveTriggersMobile(userId: string, b: {
       await c.run(
         `UPDATE user_triggers SET intensity_score = ?, common_responses_json = ?, updated_at = CURRENT_TIMESTAMP
          WHERE user_id = ? AND trigger_name = ?`,
-        [Number(t.intensity), JSON.stringify((t.responses ?? []).slice(0, 12)), userId, t.name.slice(0, 100)]
+        [Math.round(Number(t.intensity)), JSON.stringify((t.responses ?? []).slice(0, 12)), userId, t.name.slice(0, 100)]
       );
       await writeMemory({
         userId, type: "trigger", key: t.name.slice(0, 100),
@@ -362,7 +362,11 @@ export async function savedProfileMobile(userId: string) {
       : null,
     restrictedTopics: restricted.map((m) => m.memory_key),
     triggers: (triggers as Array<Record<string, unknown>>).map((t) => ({
-      name: t.trigger_name as string, category: t.trigger_category as string, intensity: t.intensity_score as number,
+      name: t.trigger_name as string,
+      category: t.trigger_category as string,
+      // intensity_score is a nullable column — coerce to an integer or null so
+      // the client never has to decode a null/float into a non-optional Int.
+      intensity: t.intensity_score == null ? null : Math.round(Number(t.intensity_score)),
     })),
     warningSigns: (warnings as Array<Record<string, unknown>>).map((w) => w.sign_name as string),
     companion: comp

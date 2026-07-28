@@ -36,6 +36,21 @@ test("updating the calm place replaces the slot (upsert, not duplicate)", async 
   assert.equal(await getSavedCalmPlace(USER), "a quiet forest");
 });
 
+test("savedProfileMobile coerces trigger intensity (null stays null, float rounds) — iOS decode safety", async () => {
+  const c = await data();
+  // A trigger with NO intensity (nullable column) and one with a float.
+  await c.run("INSERT INTO user_triggers (id, user_id, trigger_name, trigger_category, common_responses_json) VALUES (?, ?, ?, ?, '[]')", [
+    "trg-null", USER, "loud noises", "environmental",
+  ]);
+  await c.run("INSERT INTO user_triggers (id, user_id, trigger_name, trigger_category, intensity_score, common_responses_json) VALUES (?, ?, ?, ?, ?, '[]')", [
+    "trg-float", USER, "crowds", "environmental", 6.7,
+  ]);
+  const saved = await savedProfileMobile(USER);
+  const byName = Object.fromEntries(saved.triggers.map((t) => [t.name, t.intensity]));
+  assert.equal(byName["loud noises"], null); // null → null (not a decode-breaking value)
+  assert.equal(byName["crowds"], 7); // float → rounded integer
+});
+
 test("check-in persists 'triggers today' instead of an empty array", async () => {
   await submitCheckinMobile(USER, {
     activation: 3, shutdown: 1, harm_urge: false, feels_safe: true,
