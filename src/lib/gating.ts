@@ -4,6 +4,7 @@ import { getLatestReadiness, getSafetyPlan, profileComplete } from "./profile";
 import { subscriptionActive } from "./billing";
 import { getFitnessState } from "./fitness-screener";
 import { MAX_PROCESSING_PER_24H, SUDS_COOLDOWN_AT, sessionsKilled } from "./session-safety";
+import { GROUNDING_MODULE_IDS as GROUNDING_MODULES, engineModuleVerdict } from "./safety/module-verdict";
 
 // Gating rules from the executive plan: every session entry point routes
 // through consent -> screening -> today's check-in -> tier/unlock checks.
@@ -184,7 +185,7 @@ export type ModuleAccess =
       action: "subscribe" | "consent" | "screening" | "profile" | "checkin" | "crisis" | "grounding" | "unlock" | "prereq" | "readiness" | "safety_plan" | "paused" | "cooldown";
     };
 
-export const GROUNDING_MODULES = new Set(["calm-place", "containment"]);
+// GROUNDING_MODULES is imported from safety/module-verdict (single source of truth).
 
 // TEST/DEMO ONLY. EMDR_OPEN_GATED=1 (honored only when EMDR_DEMO=1) opens the
 // gated modules without a per-member clinician unlock, so the full module set
@@ -261,6 +262,31 @@ export async function checkModuleAccess(userId: string, mod: TherapyModule): Pro
     (!!unlockRow && unlockRow.status === "unlocked" && unlockRow.override === 1) ||
     (mod.tier === "gated" && testOpenGated());
 
+  // Engine-to-govern (README §14.7 step 4). When EMDR_AUTONOMOUS_SAFETY is on,
+  // the deterministic engine governs — MOST-RESTRICTIVE-WINS. It can AUTO-UNLOCK
+  // a gated module it has deterministically cleared (replacing the manual
+  // clinician unlock) and can additionally CLOSE any module it deems unsafe. It
+  // relaxes NOTHING else: every deterministic safety + pacing gate (daily
+  // check-in read, readiness track, safety plan, prerequisites, cooldown, cap,
+  // kill switch) still holds. Default OFF → this block is inert and the human
+  // gate governs exactly as today, so the flip is config-only. (decideAccess is
+  // dynamically imported to avoid a static gating↔safety cycle.)
+  const governed = process.env.EMDR_AUTONOMOUS_SAFETY === "1";
+  let engineAllows = true;
+  let engineReason: string | null = null;
+  if (governed) {
+    const { decideAccess } = await import("./safety/decide");
+    const nowMs = Date.now();
+    const decision = await decideAccess(userId, nowMs);
+    engineAllows = engineModuleVerdict(decision, mod, nowMs);
+    engineReason = decision.primaryReason;
+  }
+
+  // A human decision to open a gated module (clinician override, or a granted
+  // unlock) stands in both governed and human-in-the-loop modes.
+  const humanCleared =
+    override || (mod.tier === "gated" && !!unlockRow && unlockRow.status === "unlocked");
+
   // Readiness track gating (feature spec section 5). The language never
   // implies failure: today may simply be better for grounding.
   const readiness = await getLatestReadiness(userId);
@@ -298,7 +324,20 @@ export async function checkModuleAccess(userId: string, mod: TherapyModule): Pro
 
   if (mod.tier === "gated") {
     const unlock = unlockRow;
-    if (!override && (!unlock || unlock.status !== "unlocked"))
+    // Otherwise: when governed, the engine decides (below); when
+    // human-in-the-loop, a specialist unlock is required.
+    if (!humanCleared && !(governed && engineAllows)) {
+      if (governed) {
+        // Autonomy governs — there is no specialist to "wait for". The engine is
+        // holding this module (in the beta config, all processing is held).
+        return {
+          allowed: false,
+          reason:
+            engineReason ??
+            "This isn't available right now based on today's safety read and readiness. Grounding and your companion stay open.",
+          action: "readiness",
+        };
+      }
       return {
         allowed: false,
         reason:
@@ -309,6 +348,7 @@ export async function checkModuleAccess(userId: string, mod: TherapyModule): Pro
               : "This module requires specialist review and unlock.",
         action: "unlock",
       };
+    }
 
     const c = await data();
     const dayAgo = new Date(Date.now() - 86400000).toISOString().slice(0, 19).replace("T", " ");
@@ -339,6 +379,23 @@ export async function checkModuleAccess(userId: string, mod: TherapyModule): Pro
         reason: "Your last session ended with distress still high, so processing is resting for 24 hours. Grounding and stabilization are open, and your companion is here.",
         action: "cooldown",
       };
+  }
+
+  // Engine backstop (governed only): even if every human-gate check passed, the
+  // governing engine can still hold the module (most-restrictive-wins). This can
+  // only make access MORE conservative, never less. An explicit clinician
+  // override (override===1) remains a human safety valve and is left to stand —
+  // it is an audited manual decision, not the autonomous path. NOTE: because the
+  // signed beta config keeps autonomous stimulation OFF, the engine holds every
+  // *processing* module here, so flipping the flag never auto-opens processing.
+  if (governed && !engineAllows && !humanCleared) {
+    return {
+      allowed: false,
+      reason:
+        engineReason ??
+        "This isn't available right now based on today's safety read and readiness. Grounding and your companion stay open.",
+      action: "readiness",
+    };
   }
 
   return { allowed: true };

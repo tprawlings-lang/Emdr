@@ -13,36 +13,15 @@
 // "engine-more-permissive" is the safety-critical set (the engine would open
 // something the human gate blocks) and is flagged for review.
 
-import { AccessTier, type AccessDecision } from "../safety/types";
 import { decideAccess } from "../safety/decide";
-import { checkModuleAccess, GROUNDING_MODULES } from "../gating";
-import { MODULES, type TherapyModule } from "../modules";
+import { checkModuleAccess } from "../gating";
+import { engineModuleVerdict } from "../safety/module-verdict";
+import { MODULES } from "../modules";
 import { data } from "../data";
 
-/** The engine's per-module allow, derived purely from its AccessDecision. It
- *  intentionally does NOT require a clinician unlock (the human artifact the
- *  engine would replace) — so on gated modules it may be more permissive than
- *  the live gate, which is precisely what the report exists to surface. */
-export function engineModuleVerdict(d: AccessDecision, mod: TherapyModule, nowMs: number): boolean {
-  // Crisis: nothing but crisis resources.
-  if (d.dispositions.crisis || d.tier === AccessTier.CRISIS) return false;
-
-  const grounding = GROUNDING_MODULES.has(mod.id);
-
-  // Grounding-only day: only grounding modules.
-  if (d.groundingOnly) return grounding;
-
-  // Autonomous (non-gated) stabilization/resourcing content: available from the
-  // stabilization tier up; grounding is always available above crisis.
-  if (mod.tier !== "gated") return grounding || d.tier >= AccessTier.STABILIZATION;
-
-  // Gated = activating/processing work.
-  if (!d.activatingSessionsAllowed) return false;
-  if (d.dispositions.humanReviewPending || d.dispositions.standingExclusion) return false;
-  if (d.dispositions.cooldownUntil && d.dispositions.cooldownUntil > nowMs) return false;
-  if (d.dispositions.forcedStabilizationUntil && d.dispositions.forcedStabilizationUntil > nowMs) return false;
-  return d.tier >= AccessTier.CAUTIOUS;
-}
+// The engine's per-module verdict lives in safety/module-verdict.ts (shared with
+// the live gate). Re-exported here for callers/tests that reach it via this file.
+export { engineModuleVerdict } from "../safety/module-verdict";
 
 export type DivergenceVerdict = "agree" | "engine_more_permissive" | "engine_more_restrictive";
 

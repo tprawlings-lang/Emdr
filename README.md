@@ -671,9 +671,16 @@ session flow for real members without waiting on a human touchpoint. Today the e
 3. **Counsel re-confirms the wellness-lane posture with the human gate removed** — the June 2026
    handoff named a live-clinician gate as non-negotiable, so it must be explicitly lifted, in
    writing, before autonomy governs. 🔴
-4. **Wire the engine to govern** — replace the `shadowDecide()` void call with the engine as the
-   live gate for module auto-unlock + session-UI transitions (the one remaining implementation
-   step). Every kill switch stays available per capability. 🔴
+4. **Wire the engine to govern** — ✅ **DONE (behind the flag).** `checkModuleAccess`
+   (`src/lib/gating.ts`) now consults the deterministic engine when
+   `EMDR_AUTONOMOUS_SAFETY=1`, **most-restrictive-wins**: it can auto-unlock a gated module the
+   engine has deterministically cleared (replacing the manual clinician unlock) and can
+   additionally hold any module it deems unsafe — but relaxes nothing else (daily check-in read,
+   readiness, safety plan, prerequisites, cooldown, cap, kill switch all still hold). An explicit
+   clinician override remains a human safety valve. Default OFF → inert, so the flip is
+   config-only. **Because the signed beta config keeps autonomous stimulation OFF, flipping the
+   flag never auto-opens a processing module** (verified: `tests/autonomous-governance.test.ts`).
+   Session-runtime/session-UI transitions remain to be wired the same way.
 5. **Flip `EMDR_AUTONOMOUS_SAFETY=1` one stage at a time** — gating first, then session-runtime,
    watching the shadow-vs-governing audit deltas at each stage; roll back per capability on any
    divergence. 🔴
