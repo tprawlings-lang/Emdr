@@ -260,6 +260,16 @@ export default async function DashboardPage() {
           </p>
         </Link>
         <Link
+          href="/practices/meditate"
+          className="rounded-3xl border border-ground/10 bg-linen p-5 shadow-soft transition-colors hover:bg-moss"
+        >
+          <p className="text-sm text-olive">Prepare &amp; regulate</p>
+          <p className="mt-1 font-serif text-2xl font-medium">Meditate</p>
+          <p className="mt-2 text-sm leading-relaxed text-olive">
+            Short guided practices — grounding, calm-place, self-compassion. Read aloud or as text.
+          </p>
+        </Link>
+        <Link
           href="/learn"
           className="rounded-3xl border border-ground/10 bg-linen p-5 shadow-soft transition-colors hover:bg-moss"
         >

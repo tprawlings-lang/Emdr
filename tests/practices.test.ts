@@ -7,7 +7,7 @@ import { strict as assert } from "node:assert";
 import test from "node:test";
 import { data } from "../src/lib/data";
 import {
-  BREATHWORK, listPractices, getPractice, recordPracticeCompletion, practiceCompletionCount,
+  BREATHWORK, MEDITATIONS, listPractices, getPractice, recordPracticeCompletion, practiceCompletionCount,
 } from "../src/lib/practices";
 
 const USER = "practices-user";
@@ -30,6 +30,45 @@ test("breathwork catalog is internally consistent", () => {
   }
   // At least one no-hold option must always exist (roadmap §9).
   assert.ok(BREATHWORK.some((p) => !p.hasHold), "a no-breath-hold variant exists");
+});
+
+test("meditation catalog is internally consistent (roadmap F2)", () => {
+  assert.ok(MEDITATIONS.length >= 5);
+  const ids = new Set<string>();
+  for (const p of MEDITATIONS) {
+    assert.equal(p.type, "meditation");
+    assert.equal(p.hasHold, false, `${p.id} is not a breath-hold practice`);
+    assert.ok(!p.phases, `${p.id} has no breath phases`);
+    assert.ok(p.segments && p.segments.length >= 5, `${p.id} has a real script`);
+    for (const s of p.segments!) {
+      assert.ok(s.text.length > 10 && s.seconds > 0, `${p.id} segment well-formed`);
+    }
+    // durationSec is the on-screen pacing: the sum of its segments.
+    const scripted = p.segments!.reduce((n, s) => n + s.seconds, 0);
+    assert.equal(p.durationSec, scripted, `${p.id} durationSec equals script length`);
+    assert.ok(!ids.has(p.id), `unique id ${p.id}`);
+    ids.add(p.id);
+  }
+  // A gentle, orienting entry point must always exist.
+  assert.ok(MEDITATIONS.some((p) => p.intensity === 1), "an intensity-1 meditation exists");
+});
+
+test("listPractices('meditation'): gentlest (intensity 1) first", async () => {
+  const list = await listPractices(USER, "meditation");
+  assert.ok(list.length >= 5);
+  assert.equal(list[0].intensity, 1);
+  assert.ok(list.every((p) => p.type === "meditation"));
+});
+
+test("recordPracticeCompletion works for a meditation too", async () => {
+  const c = await data();
+  const u = "meditation-user";
+  await c.run("INSERT INTO users (id, email, name, role, password_hash) VALUES (?, ?, ?, ?, ?)", [
+    u, "med@test.local", "Med Tester", "member", "x",
+  ]);
+  const med = MEDITATIONS[0];
+  assert.equal((await recordPracticeCompletion(u, med.id, 120)).ok, true);
+  assert.equal(await practiceCompletionCount(u), 1);
 });
 
 test("listPractices: normal day → gentlest (intensity 1) first", async () => {

@@ -23,6 +23,13 @@ export interface BreathPhase {
   seconds: number;
 }
 
+/** One spoken/shown beat of a guided meditation. `seconds` is how long the beat
+ *  stays on screen (and the pause after it's read aloud) before the next. */
+export interface MeditationSegment {
+  text: string;
+  seconds: number;
+}
+
 export interface Practice {
   id: string;
   type: PracticeType;
@@ -35,6 +42,8 @@ export interface Practice {
   tags: string[];
   /** Breathwork: one cycle of phases (looped). Absent for other types. */
   phases?: BreathPhase[];
+  /** Meditation: the guided script, beat by beat. Absent for other types. */
+  segments?: MeditationSegment[];
   /** True if the pattern includes a breath hold (titrated / avoidable). */
   hasHold: boolean;
   /** Short usage/safety note shown with the practice. */
@@ -83,7 +92,122 @@ export const BREATHWORK: Practice[] = [
   },
 ];
 
-const ALL_PRACTICES: Practice[] = [...BREATHWORK];
+// ── Meditation catalog (roadmap F2). Trauma-informed and deterministic: each
+// is a short spoken script (no produced media, so no content pipeline), read
+// aloud on-device or followed as text. Safety is built into the copy —
+// orienting/present-moment work first, eyes-open options, and explicit
+// permission to stop or skip. Ordered gentlest-first. ──
+export const MEDITATIONS: Practice[] = [
+  {
+    id: "orienting-to-now", type: "meditation", title: "Orienting to now",
+    intro: "A brief, eyes-open practice to arrive in the present and remind your body you're here, and it's now.",
+    durationSec: 117, intensity: 1, tags: ["grounding", "present-moment", "eyes-open"], hasHold: false,
+    note: "Keep your eyes open the whole time. This is about noticing the room you're actually in.",
+    segments: [
+      { text: "Let's take a couple of minutes to arrive. You don't need to change anything — just notice.", seconds: 9 },
+      { text: "Let your eyes stay open. Slowly look around the space you're in.", seconds: 9 },
+      { text: "Find something to your left. Now something to your right. You're turning your head, orienting, like any creature checking it's safe.", seconds: 14 },
+      { text: "Name, silently, five things you can see. Take your time with each one.", seconds: 18 },
+      { text: "Now notice four things you can hear — near, or far away.", seconds: 15 },
+      { text: "Feel three points where your body is supported — your feet, the chair, your back.", seconds: 14 },
+      { text: "Press your feet gently into the floor. The ground is holding you up.", seconds: 12 },
+      { text: "Notice: you are here. It is now. Whatever else is true, this moment is a place you can stand.", seconds: 14 },
+      { text: "Take one slower breath out. When you're ready, carry this noticing with you.", seconds: 12 },
+    ],
+  },
+  {
+    id: "breath-anchor", type: "meditation", title: "The breath as an anchor",
+    intro: "Rest your attention on the breath — not to control it, just to have somewhere steady to return.",
+    durationSec: 162, intensity: 1, tags: ["calming", "focus", "anytime"], hasHold: false,
+    note: "There's no right way to breathe here. If watching the breath feels uneasy, open your eyes and feel your feet instead.",
+    segments: [
+      { text: "Settle into a position that feels okay. You can close your eyes, or keep a soft gaze downward.", seconds: 12 },
+      { text: "You don't need to breathe in any special way. Just let the breath be as it is.", seconds: 12 },
+      { text: "Notice where you feel it most — the nose, the chest, or the belly rising and falling.", seconds: 16 },
+      { text: "Rest your attention there, lightly. Like a hand resting on something that moves.", seconds: 16 },
+      { text: "When your mind wanders — and it will — that's fine. That's what minds do.", seconds: 14 },
+      { text: "Each time you notice you've drifted, gently come back to the next breath. That returning is the practice.", seconds: 18 },
+      { text: "There's nothing to achieve. Just this breath, and then the next one.", seconds: 16 },
+      { text: "If anything feels like too much, open your eyes, look around, and press your feet down.", seconds: 14 },
+      { text: "Stay with the breath for a few more moments, at your own pace.", seconds: 30 },
+      { text: "When you're ready, let your attention widen back out to the room. You can return here any time.", seconds: 14 },
+    ],
+  },
+  {
+    id: "calm-place", type: "meditation", title: "A place of calm",
+    intro: "Bring to mind a place — real or imagined — where you feel calm and safe, and let your senses fill it in.",
+    durationSec: 170, intensity: 1, tags: ["resourcing", "calming", "visualization"], hasHold: false,
+    note: "If no place feels safe, that's okay — imagine one, or picture a color or a texture that feels calm. You're always in control here.",
+    segments: [
+      { text: "Bring to mind a place where you feel calm and at ease. It can be real, remembered, or completely imagined.", seconds: 16 },
+      { text: "It might be a beach, a forest, a room, a garden — or nowhere in particular, just a feeling of calm.", seconds: 14 },
+      { text: "Look around this place. What do you see? Notice the colors, the light, the shapes.", seconds: 18 },
+      { text: "What sounds are here? Maybe water, wind, birdsong — or a deep quiet.", seconds: 16 },
+      { text: "Notice the temperature. The air on your skin. Is it warm, cool, still, moving?", seconds: 16 },
+      { text: "Let yourself feel what it's like to be here — the ease of it, the safety of it.", seconds: 18 },
+      { text: "This place is yours. It's always available to you, exactly like this.", seconds: 14 },
+      { text: "If you'd like, choose a word for this place — a word you can say to yourself to come back.", seconds: 16 },
+      { text: "Rest here a little longer. Let the calm settle into your body.", seconds: 28 },
+      { text: "When you're ready, let the image soften, knowing you can return whenever you need to.", seconds: 14 },
+    ],
+  },
+  {
+    id: "self-compassion", type: "meditation", title: "A kinder moment",
+    intro: "A short self-compassion practice — meeting yourself, and this moment, with a little more warmth.",
+    durationSec: 156, intensity: 2, tags: ["self-compassion", "soothing"], hasHold: false,
+    note: "If a hand on the heart feels like too much, rest it on your arm, or just imagine the warmth. Go at your own pace.",
+    segments: [
+      { text: "Let's take a few moments to turn some kindness toward yourself — something we rarely stop to do.", seconds: 12 },
+      { text: "If it feels okay, place a hand somewhere comforting — your heart, your belly, or your other arm.", seconds: 14 },
+      { text: "Feel the warmth and the gentle weight of your own hand. A simple signal of care.", seconds: 16 },
+      { text: "Acknowledge, silently: this is a hard moment. Hard moments are part of being human.", seconds: 16 },
+      { text: "You're not the only one who struggles. Everyone, everywhere, carries something.", seconds: 16 },
+      { text: "Now offer yourself a few kind words. Maybe: may I be gentle with myself.", seconds: 16 },
+      { text: "Or: may I give myself the care I need. Choose whatever words feel right to you.", seconds: 16 },
+      { text: "You don't have to feel any particular way. The offering itself is enough.", seconds: 14 },
+      { text: "Stay with the warmth of your hand for a few more breaths.", seconds: 24 },
+      { text: "When you're ready, let your hand rest. You can be this kind to yourself any time.", seconds: 12 },
+    ],
+  },
+  {
+    id: "gentle-body-scan", type: "meditation", title: "Gentle body scan",
+    intro: "Move your attention slowly through the body — with full permission to skip anywhere that doesn't feel okay.",
+    durationSec: 162, intensity: 2, tags: ["body-awareness", "grounding"], hasHold: false,
+    note: "You're in charge of your attention. Skip any area that feels uncomfortable, and keep your eyes open if that helps you feel safer.",
+    segments: [
+      { text: "We'll move attention gently through the body. If any area feels uncomfortable, simply skip it — that's not just allowed, it's wise.", seconds: 16 },
+      { text: "Start with your feet. Notice any sensation — pressure, warmth, tingling, or nothing much at all.", seconds: 16 },
+      { text: "Let your attention move up to your lower legs and knees. Just noticing, not changing.", seconds: 16 },
+      { text: "Up through the hips and the base of the spine — the parts of you in contact with what's holding you.", seconds: 16 },
+      { text: "Notice your belly and chest, rising and falling with the breath.", seconds: 16 },
+      { text: "Your hands and arms. Maybe heavy, maybe light. However they are is fine.", seconds: 16 },
+      { text: "Your shoulders and neck. If they're holding tension, you don't have to fix it — just notice it's there.", seconds: 16 },
+      { text: "And your face — the jaw, around the eyes. Letting it be soft if it wants to be.", seconds: 16 },
+      { text: "Now sense the whole body at once, here, breathing, supported.", seconds: 18 },
+      { text: "If you skipped anywhere, that was you taking care of yourself. When you're ready, open your eyes and look around.", seconds: 16 },
+    ],
+  },
+  {
+    id: "container", type: "meditation", title: "Setting it aside",
+    intro: "A containment practice: gently set difficult thoughts or feelings aside for now — not gone, just kept safe until you choose to return.",
+    durationSec: 156, intensity: 2, tags: ["resourcing", "containment", "before-sleep"], hasHold: false,
+    note: "This isn't about pushing feelings away for good — it's about choosing when to carry them. You decide what goes in, and when to open it again.",
+    segments: [
+      { text: "Sometimes we need to set something down for a while — not to avoid it, but to rest. Let's practice that.", seconds: 14 },
+      { text: "Imagine a container. Any size, any material — a box, a chest, a vault, a jar with a lid.", seconds: 16 },
+      { text: "Make it strong enough to hold whatever you need it to, and give it a lid or a door that only you control.", seconds: 18 },
+      { text: "Now, if there's a worry or a feeling that's heavy right now, picture placing it inside.", seconds: 16 },
+      { text: "You're not throwing it away. You're keeping it safe, setting it down until you're ready.", seconds: 16 },
+      { text: "Close the container. Notice that it holds. The contents are secure, and they'll be there when you choose to return.", seconds: 18 },
+      { text: "Feel what it's like to set it down, even a little. Your hands, and your mind, are freer for now.", seconds: 16 },
+      { text: "The container waits for you. You decide if and when to open it — perhaps with support.", seconds: 16 },
+      { text: "Take a slower breath. Notice the room around you.", seconds: 14 },
+      { text: "When you're ready, carry on with your day, knowing what's set aside is safely kept.", seconds: 12 },
+    ],
+  },
+];
+
+const ALL_PRACTICES: Practice[] = [...BREATHWORK, ...MEDITATIONS];
 
 /** Whether today's check-in indicates we should surface gentler, no-hold work
  *  first (roadmap §9 titration). Best-effort — defaults to false. */
