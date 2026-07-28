@@ -353,6 +353,14 @@ function migrate(db: Database.Database) {
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
   );
   CREATE INDEX IF NOT EXISTS idx_practice_completions_user ON practice_completions(user_id, created_at);
+
+  CREATE TABLE IF NOT EXISTS lesson_reads (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL REFERENCES users(id),
+    lesson_id TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    UNIQUE(user_id, lesson_id)
+  );
   `);
 
   // Columns added after initial release; SQLite has no ADD COLUMN IF NOT EXISTS.

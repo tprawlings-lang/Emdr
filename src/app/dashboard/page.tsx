@@ -259,6 +259,16 @@ export default async function DashboardPage() {
             A few minutes of paced breathing to settle — before a session, or any time.
           </p>
         </Link>
+        <Link
+          href="/learn"
+          className="rounded-3xl border border-ground/10 bg-linen p-5 shadow-soft transition-colors hover:bg-moss"
+        >
+          <p className="text-sm text-olive">Learn</p>
+          <p className="mt-1 font-serif text-2xl font-medium">Short reads</p>
+          <p className="mt-2 text-sm leading-relaxed text-olive">
+            Make sense of the work — window of tolerance, triggers, why the method helps.
+          </p>
+        </Link>
         {readiness && (
           <div className="rounded-3xl border border-ground/10 bg-linen p-5 shadow-soft">
             <div className="flex items-baseline justify-between">

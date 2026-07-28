@@ -6,6 +6,7 @@ import { getSavedCalmPlace, getSessionFocus } from "@/lib/session-focus";
 import { hasSeizureFlag } from "@/lib/fitness-screener";
 import { getCompanionPrefs } from "@/lib/profile";
 import { listPractices } from "@/lib/practices";
+import { lessonsForModule } from "@/lib/lessons";
 import SessionPlayer from "@/components/SessionPlayer";
 
 export default async function SessionPage({
@@ -49,6 +50,7 @@ export default async function SessionPage({
       memberName={preferredName}
       liveEnabled={liveEnabled}
       preparePractice={breaths[0] ?? null}
+      relatedLessons={lessonsForModule(mod.id).map((l) => ({ id: l.id, title: l.title }))}
     />
   );
 }

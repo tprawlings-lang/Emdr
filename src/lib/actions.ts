@@ -1513,6 +1513,17 @@ export async function completePractice(practiceId: string, durationSec: number):
   return recordPracticeCompletion(user.id, practiceId, durationSec);
 }
 
+// Psychoeducation micro-lessons (roadmap F11): mark a lesson read (idempotent).
+export async function markLessonReadAction(lessonId: string): Promise<void> {
+  try {
+    const user = await requireMember();
+    const { markLessonRead } = await import("./lessons");
+    await markLessonRead(user.id, lessonId);
+  } catch {
+    // best-effort
+  }
+}
+
 // Prepare-for-session on-ramp (roadmap F4): audit that a member regulated before
 // starting a module, so the hard-stop rate of prepared vs unprepared sessions is
 // measurable. Content-free.

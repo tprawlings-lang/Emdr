@@ -44,6 +44,8 @@ interface Props {
   liveEnabled?: boolean;
   /** A gentle breathwork practice offered as the optional prepare-first on-ramp. */
   preparePractice?: Practice | null;
+  /** Psychoeducation lessons related to this module (roadmap F11). */
+  relatedLessons?: { id: string; title: string }[];
 }
 
 // iPhone/iPad (incl. iPadOS reporting as "MacIntel" with touch) — used only to
@@ -365,7 +367,7 @@ const GROUNDING_STEPS = [
   "Look around the room. Notice where you are, today's date, that you are here now.",
 ];
 
-export default function SessionPlayer({ module: mod, focus, calmPlace, audioOnlyDefault, voiceEnabled = false, memberName, liveEnabled = false, preparePractice = null }: Props) {
+export default function SessionPlayer({ module: mod, focus, calmPlace, audioOnlyDefault, voiceEnabled = false, memberName, liveEnabled = false, preparePractice = null, relatedLessons = [] }: Props) {
   const router = useRouter();
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [phase, setPhase] = useState<Phase>("intro");
@@ -731,6 +733,20 @@ export default function SessionPlayer({ module: mod, focus, calmPlace, audioOnly
             </select>
           </label>
         </div>
+        {relatedLessons.length > 0 && (
+          <div className="mt-6 rounded-3xl border border-ground/10 bg-linen p-5 shadow-soft">
+            <p className="text-sm font-medium">Learn about this</p>
+            <ul className="mt-2 space-y-1">
+              {relatedLessons.map((l) => (
+                <li key={l.id}>
+                  <a href={`/learn/${l.id}`} className="text-sm text-support-deep underline">
+                    {l.title}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
         {preparePractice && (
           <div className="mt-6 rounded-3xl border border-ground/10 bg-linen p-5 shadow-soft">
             {prepared ? (
