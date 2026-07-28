@@ -21,7 +21,29 @@ export function getDb(): Database.Database {
   db.pragma("foreign_keys = ON");
   migrate(db);
   seed(db);
+  refreshDemoDaily(db);
   return db;
+}
+
+// Demo data is seeded once onto a persistent disk, so its "today" check-in is
+// dated to the seed day and goes stale — after which the daily check-in gate
+// blocks every module (even ones a clinician opened, since an override never
+// bypasses the daily safety read). On each boot, give the demo members a
+// check-in for the ACTUAL today (if missing) so the demo stays usable.
+function refreshDemoDaily(db: Database.Database) {
+  if (process.env.EMDR_DEMO !== "1") return;
+  const today = new Date().toISOString().slice(0, 10);
+  for (const email of ["demo@example.com", "demo2@example.com"]) {
+    const m = db.prepare("SELECT id FROM users WHERE email = ?").get(email) as { id: string } | undefined;
+    if (!m) continue;
+    const has = db.prepare("SELECT 1 FROM checkins WHERE user_id = ? AND checkin_date = ?").get(m.id, today);
+    if (has) continue;
+    db.prepare(
+      `INSERT INTO checkins (id, user_id, checkin_date, activation, shutdown, harm_urge, feels_safe,
+         dissociation, sleep_quality, substance_flag, recommended_action)
+       VALUES (?, ?, ?, 3, 1, 0, 1, 1, 6, 0, 'processing_ok')`
+    ).run(newId(), m.id, today);
+  }
 }
 
 function migrate(db: Database.Database) {

@@ -19,9 +19,10 @@ import {
 } from "../fitness-screener";
 import { INSTRUMENTS, getInstrument, scoreInstrument } from "../instruments";
 import { computeReadiness, getProfile, type ReadinessAnswers } from "../profile";
-import { writeMemory } from "../companion";
+import { writeMemory, getMemoryItemsByType } from "../companion";
 import { subscriptionActive, startDemoSubscription } from "../billing";
 import { hasConsent, screeningComplete } from "../gating";
+import { getSavedCalmPlace } from "../session-focus";
 import { profileComplete } from "../profile";
 
 // ---------- signup ----------
@@ -323,6 +324,59 @@ export async function saveCompanionMobile(userId: string, b: {
      JSON.stringify((b.modes ?? []).slice(0, 10)), JSON.stringify((b.avoidances ?? []).slice(0, 10)), memory]
   );
   await audit({ actorId: userId, actorRole: "member", family: "clinical", type: "companion_preferences_saved", detail: { via: "mobile" } });
+}
+
+// Set the member's calm place directly (e.g. from Settings) so it persists
+// immediately — writes the same durable "calm place" memory slot the web reads.
+export async function saveCalmPlaceMobile(userId: string, place: string): Promise<{ ok: boolean }> {
+  const value = place.trim().slice(0, 200);
+  if (!value) return { ok: false };
+  await writeMemory({ userId, type: "grounding_tool", key: "calm place", value, source: "session_reflection" });
+  await audit({ actorId: userId, actorRole: "member", family: "clinical", type: "calm_place_set", detail: { via: "mobile" } });
+  return { ok: true };
+}
+
+function safeArr(v: unknown): string[] {
+  try { const a = JSON.parse(String(v ?? "[]")); return Array.isArray(a) ? a.map(String) : []; } catch { return []; }
+}
+
+// The member's saved profile values (so the native forms can pre-fill / resume-
+// edit, like the web forms do). Plaintext + memory-backed fields only — the
+// encrypted safety-plan free text is reported as presence, never returned.
+export async function savedProfileMobile(userId: string) {
+  const c = await data();
+  const [profile, triggers, warnings, companion, safetyPlan, restricted, calmPlace] = await Promise.all([
+    getProfile(userId),
+    c.all("SELECT trigger_name, trigger_category, intensity_score FROM user_triggers WHERE user_id = ? AND active = 1 ORDER BY updated_at DESC", [userId]),
+    c.all("SELECT sign_name FROM early_warning_signs WHERE user_id = ? AND active = 1", [userId]),
+    c.get("SELECT preferred_user_name, tone, support_modes_json, avoidances_json, memory_enabled FROM ai_companion_preferences WHERE user_id = ?", [userId]),
+    c.get("SELECT user_id FROM safety_plans WHERE user_id = ?", [userId]),
+    getMemoryItemsByType(userId, "restricted_topic"),
+    getSavedCalmPlace(userId),
+  ]);
+  const p = (profile as unknown as Record<string, unknown> | null) ?? undefined;
+  const comp = companion as Record<string, unknown> | undefined;
+  return {
+    support: p
+      ? { therapistStatus: (p.therapist_status as string) ?? null, emdrExperience: (p.emdr_experience as string) ?? null, goals: safeArr(p.goals_json) }
+      : null,
+    restrictedTopics: restricted.map((m) => m.memory_key),
+    triggers: (triggers as Array<Record<string, unknown>>).map((t) => ({
+      name: t.trigger_name as string, category: t.trigger_category as string, intensity: t.intensity_score as number,
+    })),
+    warningSigns: (warnings as Array<Record<string, unknown>>).map((w) => w.sign_name as string),
+    companion: comp
+      ? {
+          preferredName: (comp.preferred_user_name as string) ?? null,
+          tone: (comp.tone as string) ?? null,
+          modes: safeArr(comp.support_modes_json),
+          avoidances: safeArr(comp.avoidances_json),
+          memory: (comp.memory_enabled as string) ?? "yes",
+        }
+      : null,
+    hasSafetyPlan: !!safetyPlan,
+    calmPlace,
+  };
 }
 
 export async function completeProfileMobile(userId: string) {

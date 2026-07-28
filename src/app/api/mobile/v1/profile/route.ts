@@ -3,16 +3,16 @@ import { requireMember, json, error } from "@/lib/mobile/http";
 import {
   profileCatalog, saveSupportMobile, saveTraumaMobile, saveTriggersMobile,
   saveWarningSignsMobile, saveReadinessMobile, saveSafetyPlanMobile,
-  saveCompanionMobile, completeProfileMobile,
+  saveCompanionMobile, completeProfileMobile, saveCalmPlaceMobile, savedProfileMobile,
 } from "@/lib/mobile/onboarding";
 
 export const runtime = "nodejs";
 
-// GET → the option catalog for the native profile forms.
+// GET → the option catalog plus the member's saved values (for resume-edit).
 export async function GET(req: NextRequest) {
   const auth = await requireMember(req);
   if (auth instanceof NextResponse) return auth;
-  return json(profileCatalog());
+  return json({ ...profileCatalog(), saved: await savedProfileMobile(auth.id) });
 }
 
 // POST { step, ...payload } — one endpoint dispatching the 8 profile steps.
@@ -49,6 +49,9 @@ export async function POST(req: NextRequest) {
       return json({ ok: true });
     case "companion":
       await saveCompanionMobile(uid, b as never);
+      return json({ ok: true });
+    case "calm-place":
+      await saveCalmPlaceMobile(uid, String(b.calmPlace ?? ""));
       return json({ ok: true });
     case "complete":
       await completeProfileMobile(uid);
