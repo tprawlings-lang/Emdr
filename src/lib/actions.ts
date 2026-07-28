@@ -1506,6 +1506,13 @@ export async function revokeProcessingConsent(): Promise<void> {
 // Content-free audit of resourcing-session lifecycle events (start / stop /
 // closed) for the Phase-4a pilot's adverse-event tracking. No member content —
 // coded event ids only. Best-effort: never blocks the session UI.
+// Practices (Prepare & Regulate) — record a completed breathwork/meditation/etc.
+export async function completePractice(practiceId: string, durationSec: number): Promise<{ ok: boolean }> {
+  const user = await requireMember();
+  const { recordPracticeCompletion } = await import("./practices");
+  return recordPracticeCompletion(user.id, practiceId, durationSec);
+}
+
 export async function recordResourcingEvent(event: "start" | "stop" | "closed"): Promise<void> {
   if (event !== "start" && event !== "stop" && event !== "closed") return;
   try {

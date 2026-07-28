@@ -249,6 +249,16 @@ export default async function DashboardPage() {
       )}
 
       <div className="mt-6 grid gap-4 sm:grid-cols-2">
+        <Link
+          href="/practices/breathe"
+          className="rounded-3xl border border-ground/10 bg-linen p-5 shadow-soft transition-colors hover:bg-moss"
+        >
+          <p className="text-sm text-olive">Prepare &amp; regulate</p>
+          <p className="mt-1 font-serif text-2xl font-medium">Breathe</p>
+          <p className="mt-2 text-sm leading-relaxed text-olive">
+            A few minutes of paced breathing to settle — before a session, or any time.
+          </p>
+        </Link>
         {readiness && (
           <div className="rounded-3xl border border-ground/10 bg-linen p-5 shadow-soft">
             <div className="flex items-baseline justify-between">

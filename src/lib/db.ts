@@ -343,6 +343,16 @@ function migrate(db: Database.Database) {
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
   );
   CREATE INDEX IF NOT EXISTS idx_signoffs_rule ON autonomous_signoffs(rule_id, config_version, created_at);
+
+  CREATE TABLE IF NOT EXISTS practice_completions (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL REFERENCES users(id),
+    practice_id TEXT NOT NULL,
+    practice_type TEXT NOT NULL,
+    duration_sec INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+  CREATE INDEX IF NOT EXISTS idx_practice_completions_user ON practice_completions(user_id, created_at);
   `);
 
   // Columns added after initial release; SQLite has no ADD COLUMN IF NOT EXISTS.
