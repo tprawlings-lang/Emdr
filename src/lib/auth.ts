@@ -72,9 +72,14 @@ export async function clearSessionCookie() {
   store.delete(COOKIE);
 }
 
-export async function getCurrentUser(): Promise<SessionUser | null> {
-  const store = await cookies();
-  const token = store.get(COOKIE)?.value;
+/**
+ * Resolve a session user from a raw bearer token (no cookies). This is the
+ * cookie-independent core of `getCurrentUser`, exported so the mobile JSON API
+ * (which authenticates with `Authorization: Bearer <token>`) can reuse the
+ * exact same signature check, absolute-lifetime check, and per-user epoch
+ * revocation as the web app. The token itself is produced by `makeSessionToken`.
+ */
+export async function getUserFromToken(token: string | null | undefined): Promise<SessionUser | null> {
   if (!token) return null;
   const parsed = parseToken(token);
   if (!parsed) return null;
@@ -88,6 +93,11 @@ export async function getCurrentUser(): Promise<SessionUser | null> {
   // invalidated by "sign out everywhere" (or a password change).
   if ((row.token_epoch ?? 0) !== parsed.epoch) return null;
   return { id: row.id, email: row.email, name: row.name, role: row.role };
+}
+
+export async function getCurrentUser(): Promise<SessionUser | null> {
+  const store = await cookies();
+  return getUserFromToken(store.get(COOKIE)?.value);
 }
 
 export async function requireUser(): Promise<SessionUser> {
