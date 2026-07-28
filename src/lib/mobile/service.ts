@@ -33,6 +33,11 @@ import {
 } from "../profile";
 import { MODULES, getModule, type TherapyModule } from "../modules";
 import { audit } from "../audit";
+import { writeMemory } from "../companion";
+import { getSavedCalmPlace } from "../session-focus";
+import { shadowDecide } from "../safety/decide";
+import { generateProgramPlan } from "../program-plan";
+import { encryptField } from "../crypto";
 
 // ---------- shared shapes (the mobile API contract) ----------
 
@@ -44,6 +49,9 @@ export interface CheckinValues {
   dissociation: number;
   sleep_quality: number;
   substance_flag: boolean;
+  /** Trigger IDs the member marks as active today (the "triggers today" watch,
+   *  mirrors the web check-in). Persisted to checkins.triggers_json. */
+  triggers?: string[];
 }
 
 export interface ModuleDTO {
@@ -69,6 +77,7 @@ export interface GatingSnapshot {
   liveVoiceAvailable: boolean;         // in-session spoken responder enabled
   nextStep: string;                    // subscribe|consent|screener|...|ready
   todayCheckin: { date: string; action: string } | null;
+  calmPlace: string | null;            // saved calm-place word, so the phone can restore it
 }
 
 // ---------- alerts (mirrors the private createAlert in lib/actions.ts) ----------
@@ -114,7 +123,7 @@ export async function loginMobile(
 // ---------- gating snapshot + module access ----------
 
 export async function gatingSnapshot(userId: string): Promise<GatingSnapshot> {
-  const [sub, consent, screening, profile, checkin, fit, next, liveVoice] = await Promise.all([
+  const [sub, consent, screening, profile, checkin, fit, next, liveVoice, calmPlace] = await Promise.all([
     subscriptionActive(userId),
     hasConsent(userId),
     screeningComplete(userId),
@@ -123,6 +132,7 @@ export async function gatingSnapshot(userId: string): Promise<GatingSnapshot> {
     getFitnessState(userId),
     nextStep(userId),
     liveAvailableFor(userId),
+    getSavedCalmPlace(userId),
   ]);
   return {
     subscriptionActive: sub,
@@ -137,6 +147,7 @@ export async function gatingSnapshot(userId: string): Promise<GatingSnapshot> {
     todayCheckin: checkin
       ? { date: checkin.checkin_date, action: checkin.recommended_action }
       : null,
+    calmPlace,
   };
 }
 
@@ -182,7 +193,7 @@ export async function submitCheckinMobile(
       values.activation, values.shutdown,
       values.harm_urge ? 1 : 0, values.feels_safe ? 1 : 0,
       values.dissociation, values.sleep_quality, values.substance_flag ? 1 : 0,
-      action, JSON.stringify([]),
+      action, JSON.stringify(values.triggers ?? []),
     ]
   );
 
@@ -254,6 +265,10 @@ export async function startSessionMobile(
   const access = await checkModuleAccess(userId, mod);
   if (!access.allowed) return { ok: false, reason: access.reason, action: access.action };
 
+  // Autonomous safety core (shadow mode): record the deterministic engine's
+  // parallel decision. Best-effort — never affects this session (parity with web).
+  void shadowDecide(userId, "session_start", Date.now());
+
   const chosenFocus = focus?.trim().slice(0, 200) || null;
   const c = await data();
   const id = newId();
@@ -261,6 +276,23 @@ export async function startSessionMobile(
     "INSERT INTO therapy_sessions (id, user_id, module_id, detail_json) VALUES (?, ?, ?, ?)",
     [id, userId, mod.id, JSON.stringify(chosenFocus ? { focus: chosenFocus } : {})]
   );
+
+  // Persist the focus (and, for the calm place, its durable slot) to companion
+  // memory — identical to web startSession, so what's set on the phone is
+  // reused by later sessions, grounding prompts, getSavedCalmPlace, and the web.
+  if (chosenFocus) {
+    if (mod.id === "calm-place") {
+      writeMemory({
+        userId, type: "grounding_tool", key: "calm place",
+        value: chosenFocus, source: "session_reflection", sourceId: id,
+      });
+    }
+    writeMemory({
+      userId, type: "session_pattern", key: `current focus — ${mod.name}`,
+      value: chosenFocus, source: "session_reflection", sourceId: id,
+    });
+  }
+
   await audit({
     actorId: userId, actorRole: "member", family: "module_runtime",
     type: "session_started", target: mod.id, detail: { sessionId: id, focus: chosenFocus, via: "mobile" },
@@ -309,6 +341,60 @@ export async function finishSessionMobile(
       detail: `Hard stop in module ${session.module_id} (mobile): ${args.hardStopReason ?? "unspecified"}`,
     });
   }
+
+  // Completing the trigger-map refreshes the program plan (companion / focus
+  // picker / specialist view) — parity with web finishSession. Fire-and-forget.
+  if (args.outcome === "completed" && session.module_id === "trigger-map") {
+    void generateProgramPlan(userId, "trigger_map").catch((err) =>
+      console.error("Program plan generation failed after trigger map (mobile):", err)
+    );
+  }
+  return { ok: true };
+}
+
+// Module-5 trigger entry — the mobile parity of recordSessionTrigger (which
+// takes the session user); here the userId comes from the bearer token. Writes
+// the encrypted trigger to user_triggers so it reaches the program plan, the
+// companion, and the specialist review just like the web.
+export async function recordSessionTriggerMobile(
+  userId: string,
+  args: { sessionId: string; name: string; category: string; bodyFelt: string; belief: string; disruption: number }
+): Promise<{ ok: boolean; error?: string }> {
+  const c = await data();
+  const owned = await c.get("SELECT id FROM therapy_sessions WHERE id = ? AND user_id = ?", [args.sessionId, userId]);
+  if (!owned) return { ok: false, error: "Session not found." };
+
+  const name = args.name.trim().slice(0, 120);
+  if (!name) return { ok: false, error: "Give the trigger a short name first." };
+  const categories = ["relational", "environmental", "body", "memory", "internal", "other"];
+  const category = categories.includes(args.category) ? args.category : "other";
+  const disruption = Math.max(1, Math.min(10, Math.round(args.disruption)));
+  const bodyFelt = args.bodyFelt.trim().slice(0, 200);
+  const belief = args.belief.trim().slice(0, 300);
+  const notes =
+    [
+      bodyFelt ? `Felt in: ${bodyFelt}.` : "",
+      belief ? `Belief that comes with it: “${belief}”.` : "",
+      `Mapped in Module 5.`,
+    ].filter(Boolean).join(" ") || null;
+
+  const existing = (await c.get("SELECT id FROM user_triggers WHERE user_id = ? AND trigger_name = ?", [userId, name])) as { id: string } | undefined;
+  if (existing) {
+    await c.run(
+      `UPDATE user_triggers SET trigger_category = ?, intensity_score = ?, notes = ?, active = 1, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
+      [category, disruption, encryptField(notes), existing.id]
+    );
+  } else {
+    await c.run(
+      `INSERT INTO user_triggers (id, user_id, trigger_name, trigger_category, intensity_score, common_responses_json, notes) VALUES (?, ?, ?, ?, ?, '[]', ?)`,
+      [newId(), userId, name, category, disruption, encryptField(notes)]
+    );
+  }
+  await audit({
+    actorId: userId, actorRole: "member", family: "clinical",
+    type: "trigger_mapped_in_session", target: args.sessionId,
+    detail: { category, disruption, updated: Boolean(existing), via: "mobile" },
+  });
   return { ok: true };
 }
 

@@ -28,6 +28,9 @@ export async function POST(req: NextRequest) {
     dissociation: clamp(b.dissociation),
     sleep_quality: clamp(b.sleep_quality, 5),
     substance_flag: Boolean(b.substance_flag),
+    triggers: Array.isArray(b.triggers)
+      ? b.triggers.filter((t): t is string => typeof t === "string").slice(0, 50)
+      : undefined,
   };
   const result = await submitCheckinMobile(auth.id, values);
   return json(result);
