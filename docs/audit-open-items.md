@@ -42,8 +42,12 @@ Last updated: 2026-07 (during audit remediation).
 
 ## C. Drills & evidence to run (need infra/people)
 
-- [ ] **🔴 EMDR-trained clinical advisor sign-off** — screener wording/thresholds
-  (`fit-v1-placeholder`), crisis script, session scripts.
+- [x] **🔴 EMDR-trained clinical advisor sign-off** — ✅ **DONE (with conditions),
+  2026-07-22.** Two independent licensed psychologists (Altschuler PSY-005804, Allen
+  PSY-002055) ratified config `beta-clinrev-2026-07` — screener wording (now
+  `fit-v2-clinrev`), crisis script, session scripts, and all autonomous safety rules
+  (all Agree / Confirm). Signed: `docs/autonomous/clinician-signoff-SIGNED-2026-07-22.pdf`.
+  Conditions: the §C/§E evidence drills below + no autonomous BLS in beta.
 - [ ] **🟡 First backup-restore drill** — once R2 is set, run `make restore-test`
   (`docs/disaster-recovery.md`) to prove RPO 24h / RTO ~1h for real.
 - [ ] **🟡 Load test against real staging** — re-run `k6`
@@ -84,7 +88,9 @@ gets its own go-ahead before flipping.
   in-memory limiter so limits hold across instances.
 - [ ] **Step 3 — externalize the backup scheduler** (Render Cron or leader
   election) so it fires once across instances.
-- [ ] **Step 4 — concurrency-safe audit append** (advisory lock / single-writer
-  path) so the hash chain stays intact with multiple writers.
+- [x] **Step 4 — concurrency-safe audit append** — **done.** `audit()` takes a
+  transaction-scoped Postgres advisory lock before reading the chain tip, so the
+  hash chain stays intact under multiple concurrent writers (empty-table/genesis
+  case covered; SQLite unaffected — single-writer).
 - [ ] **Step 5 — set `numInstances ≥ 2`** → Render does rolling, zero-downtime
   deploys automatically.

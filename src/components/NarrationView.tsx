@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useSpeech } from "./useSpeech";
 
 // Guided-session narration ("someone is talking"). Delivers clinician-authored
 // beats one at a time with a gentle reveal, at a calm pace. Deterministic copy
@@ -28,11 +29,30 @@ function prefersReducedMotion(): boolean {
   );
 }
 
-export default function NarrationView({ beats }: { beats: string[] }) {
+export default function NarrationView({ beats, voice = false }: { beats: string[]; voice?: boolean }) {
   // Lazy init: reduced-motion members start with everything already shown.
   const [shown, setShown] = useState(() => (prefersReducedMotion() ? beats.length : 0));
   const [typed, setTyped] = useState("");
   const instantRef = useRef(prefersReducedMotion());
+
+  // Speak the narration aloud (on-device) when voice is on. Each beat is queued so
+  // they play in order without cutting one another off; the visual reveal above is
+  // independent, so nobody waits on audio. Deterministic clinician-authored copy —
+  // the same text already shown. Component is keyed per step by the parent, so this
+  // runs once per step; cancel on unmount / mute stops it.
+  const { speak, cancel, supported: speechSupported } = useSpeech(voice);
+  const beatsRef = useRef(beats);
+  beatsRef.current = beats;
+  useEffect(() => {
+    if (!voice || !speechSupported) return;
+    beatsRef.current.forEach((b, i) => speak(b, { queue: i > 0 }));
+    return () => cancel();
+    // Run once per mount (keyed per step upstream); speak/cancel are stable.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  useEffect(() => {
+    if (!voice) cancel(); // muting mid-step stops the voice immediately
+  }, [voice, cancel]);
 
   useEffect(() => {
     if (instantRef.current) return; // reduced-motion or already revealed

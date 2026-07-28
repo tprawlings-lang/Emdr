@@ -13,23 +13,30 @@ export interface CatalogRule {
   reason: string;
 }
 
+// Clinical-review revision (config beta-clinrev-2026-07): beta runs NO
+// autonomous bilateral stimulation / trauma-memory reprocessing. The
+// stimulation/BLS rows below are retained as FAIL-SAFE stops and upper bounds
+// only — they do not authorize autonomous sets. Any future BLS protocol needs a
+// separately validated purpose, target restrictions, modality, per-set duration,
+// consent, orientation checks, user stop, closure, aftercare, adverse-event
+// monitoring, and clinician-supervised evidence before it may run.
 export const SESSION_RULES: CatalogRule[] = [
-  { id: "SESSION_START_SUDS_CEILING", category: "session_start", reason: `Deny stimulation if starting SUDS is above ${SESSION.startingSudsCeiling}.` },
-  { id: "SESSION_MAX_SETS", category: "session", reason: `At most ${SESSION.maxSets} stimulation sets per session (beta).` },
-  { id: "SESSION_CONTAINMENT_DELTA", category: "session_suds", reason: `Containment if post-set SUDS rises by ${SESSION.containmentDelta} or more.` },
-  { id: "SESSION_CONTAINMENT_ABSOLUTE", category: "session_suds", reason: `Containment if post-set SUDS reaches ${SESSION.containmentAbsolute}.` },
-  { id: "SESSION_HARD_STOP_SUDS", category: "session_suds", reason: `Hard-stop containment if SUDS reaches ${SESSION.hardStopSuds}.` },
-  { id: "SESSION_RISE_OVER_START", category: "session_suds", reason: `Containment if SUDS rises ${SESSION.containmentRiseOverStart}+ over the starting value.` },
-  { id: "SESSION_TWO_RISES", category: "session_suds", reason: "Containment after two consecutive +1 rises." },
-  { id: "SESSION_NO_CHANGE", category: "session_suds", reason: `Close (no more sets) if SUDS is unchanged across ${SESSION.noChangeSets} sets ("stuck is a stop signal").` },
-  { id: "SESSION_DISSOCIATION_STOP", category: "session_state", reason: `Stop the exercise if in-session dissociation reaches ${SESSION.dissociationStop}.` },
-  { id: "SESSION_ORIENTATION_STOP", category: "session_state", reason: "Stop + re-orient if the member is not oriented to the present." },
-  { id: "SESSION_WIND_DOWN", category: "session_time", reason: `Wind-down (no new sets) at ${SESSION.windDownMinutes} minutes.` },
-  { id: "SESSION_HARD_STOP_TIME", category: "session_time", reason: `Force closure at ${SESSION.hardStopMinutes} minutes.` },
-  { id: "SESSION_CLOSURE_MIN", category: "session_closure", reason: `Mandatory closure of at least ${SESSION.closureMinSeconds} seconds, regardless of score.` },
-  { id: "SESSION_GROUND_ME", category: "session_control", reason: "Ground-Me: one-tap immediate halt, locks stimulation for the session, no return." },
-  { id: "BLS_HZ", category: "bls", reason: `Bilateral stimulation ${BLS.minHz}–${BLS.maxHz} Hz (default ${BLS.defaultHz}); no adaptive speed, no mid-set increase.` },
-  { id: "BLS_NO_VISUAL_BETA", category: "bls", reason: "No visual BLS in beta (auditory + self-tapping only)." },
+  { id: "SESSION_START_SUDS_CEILING", category: "session_start", reason: `[No autonomous BLS in beta] If a future supervised protocol runs, deny stimulation when starting SUDS is above ${SESSION.startingSudsCeiling} — plus orientation, consent, stop-capacity, and clinician-approved context.` },
+  { id: "SESSION_MAX_SETS", category: "session", reason: `[No autonomous processing sets in beta] Upper bound of ${SESSION.maxSets} sets is incomplete without per-set duration, modality, purpose, stop checks, and aftercare. Self-tapping may remain only as present-focused grounding.` },
+  { id: "SESSION_CONTAINMENT_DELTA", category: "session_suds", reason: `Fail-safe: containment if post-set SUDS rises by ${SESSION.containmentDelta} or more.` },
+  { id: "SESSION_CONTAINMENT_ABSOLUTE", category: "session_suds", reason: `Fail-safe: containment if post-set SUDS reaches ${SESSION.containmentAbsolute}.` },
+  { id: "SESSION_HARD_STOP_SUDS", category: "session_suds", reason: `Fail-safe: hard-stop containment if SUDS reaches ${SESSION.hardStopSuds}.` },
+  { id: "SESSION_RISE_OVER_START", category: "session_suds", reason: `Fail-safe: containment if SUDS rises ${SESSION.containmentRiseOverStart}+ over the starting value.` },
+  { id: "SESSION_TWO_RISES", category: "session_suds", reason: "Fail-safe: containment after two consecutive +1 rises." },
+  { id: "SESSION_NO_CHANGE", category: "session_suds", reason: `Fail-safe: close (no more sets) if SUDS is unchanged across ${SESSION.noChangeSets} sets ("stuck is a stop signal").` },
+  { id: "SESSION_DISSOCIATION_STOP", category: "session_state", reason: `Hard stop on a defined dissociation scale (>= ${SESSION.dissociationStop}) OR loss of present orientation OR inability to follow a stop instruction; numeric elevation → reorient, no further sets.` },
+  { id: "SESSION_ORIENTATION_STOP", category: "session_state", reason: "Stop + re-orient if the member is not oriented to the present (overrides SUDS)." },
+  { id: "SESSION_WIND_DOWN", category: "session_time", reason: `Upper operational boundary only (${SESSION.windDownMinutes} min) — not evidence of safe processing; does not authorize autonomous BLS.` },
+  { id: "SESSION_HARD_STOP_TIME", category: "session_time", reason: `Absolute session ceiling only (${SESSION.hardStopMinutes} min); it does not authorize activity inside the window.` },
+  { id: "SESSION_CLOSURE_MIN", category: "session_closure", reason: `Closure FLOOR of ${SESSION.closureMinSeconds} seconds is necessary but not sufficient — closure also requires orientation confirmation, a member-reported stability check, and an escalation/human-review path if closure fails.` },
+  { id: "SESSION_GROUND_ME", category: "session_control", reason: "Ground-Me: one-tap immediate halt, locks stimulation for the session, no return. User-initiated stop is available at any time." },
+  { id: "BLS_HZ", category: "bls", reason: `[Disabled in beta] If later validated, bilateral stimulation ${BLS.minHz}–${BLS.maxHz} Hz (default ${BLS.defaultHz}); no adaptive speed, no mid-set increase. Speed alone cannot establish safety.` },
+  { id: "BLS_NO_VISUAL_BETA", category: "bls", reason: "No visual BLS in beta (auditory + self-tapping only); visual BLS stays disabled." },
   { id: "BLS_FLASH_CEILING", category: "bls", reason: `Visual flashes/traverses never exceed ${BLS.maxFlashesPerSecond}/sec (WCAG 2.3.2).` },
   { id: "BLS_TIMING_FAILURE", category: "bls", reason: "On a stimulation timing failure: stop the set; never catch up or resume." },
 ];
@@ -81,7 +88,7 @@ export const EXPERIENCE_RULES: CatalogRule[] = [
     id: "LIVE_SESSION_CRISIS_SCRIPTED",
     category: "live_session",
     reason:
-      "Spoken input is checked for crisis first (detectRisk); crisis and high-activation responses are scripted and route to Ground-me + 988 — never AI-generated. Any AI phrasing only rewords an already-safe, non-crisis line and is discarded if it fails the output guard.",
+      "Spoken input is checked for crisis first (detectRisk); crisis and high-activation responses are deterministic and never AI-generated. Clinical-review revision: the response is a direct present-safety clarification with verified jurisdiction-aware resources, emergency guidance where danger is immediate, and truthful human-notification status — not one universal '988' script implying monitoring. Any AI phrasing only rewords an already-safe, non-crisis line and is discarded if it fails the output guard.",
   },
   {
     id: "LIVE_SESSION_BOUNDED_RESPONSE",

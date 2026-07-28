@@ -44,6 +44,7 @@ export type RuleCategory =
   | "crisis"
   | "program_fit"
   | "standing_restriction"
+  | "human_review" // restricted access pending human review (clinical-review revision)
   | "dissociation"
   | "acute_trauma"
   | "daily_route"
@@ -52,6 +53,7 @@ export type RuleCategory =
   | "cooldown"
   | "reentry"
   | "readiness"
+  | "educational_access" // clinical-review rename of the "readiness" construct
   | "missing_input"
   | "modality";
 
@@ -73,6 +75,26 @@ export interface Dispositions {
   forcedStabilizationUntil: number | null;
   /** Absolute UTC ms at which a state hard-stop may be retaken (if any). */
   retakeAllowedAt: number | null;
+
+  // ── Clinical-review revision (config beta-clinrev-2026-07) ────────────────
+  /** Restricted access pending HUMAN REVIEW of current stability/orientation/
+   *  support/intended use. Replaces diagnosis- or history-based standing
+   *  exclusions (ledger A6 + rules FIT_*_DX/HOSPITALIZATION/SUBSTANCE). Blocks
+   *  activating content until a human clears it — but is NOT a permanent ban. */
+  humanReviewPending: boolean;
+  /** A present-safety clarification (current intent / ability to stay safe /
+   *  action already taken / immediate support) must be completed before routing.
+   *  Replaces score- or history-only automatic crisis routing. */
+  presentSafetyClarificationRequired: boolean;
+  /** Surface JURISDICTION-AWARE emergency/support resources with truthful
+   *  human-notification status — never one generic script implying monitoring. */
+  jurisdictionAwareResources: boolean;
+  /** A numeric threshold fired as a REVIEW TRIGGER (fresh check-in + human
+   *  review) rather than a standalone automatic lockout (ledger worsening/daily
+   *  changes). Informational for routing; does not by itself lower the tier. */
+  reviewTriggered: boolean;
+  /** Route a possible medical emergency to urgent medical evaluation. */
+  urgentMedicalReferral: boolean;
 }
 
 /** The inputs to a deterministic access decision. All already-resolved facts;

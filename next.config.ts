@@ -6,7 +6,7 @@ const nextConfig: NextConfig = {
   serverExternalPackages: ["better-sqlite3"],
   // Security headers (compliance 2.1): TLS terminates at the platform edge;
   // HSTS and the basics are set here so they hold on any host. The
-  // Content-Security-Policy is set per-request in src/middleware.ts instead,
+  // Content-Security-Policy is set per-request in src/proxy.ts instead,
   // because it carries a fresh nonce each response (ADR 0008).
   async headers() {
     return [

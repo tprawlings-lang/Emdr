@@ -45,12 +45,25 @@ function sha256(s: string): string {
 
 const GENESIS = "0".repeat(64);
 
+// Fixed 64-bit key for the audit-chain advisory lock. `hashtext` is stable
+// across sessions and Postgres versions, so every instance derives the same
+// key and contends on the same lock. Namespaced string keeps it from colliding
+// with any other advisory lock the app might take later.
+const AUDIT_LOCK_KEY_SQL = "hashtext('emdr_audit_chain')";
+
 // Append-only, tamper-evident audit trail. Every consent, gating result,
 // session event, and clinician decision passes through here. Each row is
 // hash-chained to the previous one: entry_hash = sha256(prev_hash + content),
 // so any retroactive edit or deletion breaks the chain from that point on
-// (detectable via verifyAuditChain). Single-writer by design (one SQLite
-// process); the insert reads the latest hash and appends under that assumption.
+// (detectable via verifyAuditChain).
+//
+// Concurrency: the read-latest-then-append must be serialized, or two writers
+// can read the same chain tip and fork it. On SQLite that's free — better-
+// sqlite3 is synchronous and single-writer, so one process appends at a time.
+// On Postgres (multi-instance) we take a transaction-scoped advisory lock at
+// the top of the transaction; it serializes all appenders and auto-releases on
+// COMMIT/ROLLBACK. An advisory lock (not SELECT..FOR UPDATE) is used so the
+// empty-table / genesis case is covered too — there is no row to lock yet.
 export async function audit(args: {
   actorId?: string | null;
   actorRole?: string | null;
@@ -62,11 +75,14 @@ export async function audit(args: {
   const detailJson = JSON.stringify(args.detail ?? {});
   const createdAt = new Date().toISOString();
 
-  // Read-latest-then-append is wrapped in a transaction so the hash chain is
-  // atomic. (Multi-instance serialization — SELECT..FOR UPDATE / advisory lock
-  // on Postgres — is tracked as a hardening follow-up in pg-migration-progress.)
   const c = await data();
   await c.tx(async (t) => {
+    // Serialize concurrent appenders before reading the chain tip. Postgres
+    // only; the lock statement is not valid SQLite (and SQLite needs no lock).
+    if (c.backend === "postgres") {
+      await t.get(`SELECT pg_advisory_xact_lock(${AUDIT_LOCK_KEY_SQL})`);
+    }
+
     const prev = (await t.get(
       "SELECT entry_hash FROM audit_log ORDER BY id DESC LIMIT 1"
     )) as { entry_hash: string | null } | undefined;

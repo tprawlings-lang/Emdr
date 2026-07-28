@@ -13,17 +13,20 @@ treatment claims. Membership is **$34.99/month** after a 7-day free trial.
 **Who this document is for.** This README is the handoff spec for anyone building
 skills/automation on top of Steady. It documents the **entire member workflow**, every
 **instrument and questionnaire**, exactly **how each is scored**, and **how ongoing scores
-open and close modules**. Everything described in §1–§9 is implemented and live —
-including guided talk-through narration in every module (§3), the 16-modality therapy
-knowledge base and hardened companion (§8), and demo-gated voice / live spoken
-sessions. §10 describes the **autonomous direction**: the clinician-designed
-deterministic safety architecture is **built and deployed in shadow mode** — it computes
-and audit-logs every decision but **governs nothing a member sees**. Clinician + counsel
-approvals are recorded (2026-07-22, per founder); the flag (`EMDR_AUTONOMOUS_SAFETY`,
-default off) flips only via the staged [go-live runbook](docs/go-live-runbook.md).
-Skills must **not** assume it is governing yet. The Postgres migration for
-zero-downtime, multi-instance deploys is **code-complete and verified** (§14.5) —
-remaining is ops provisioning. Build docs live in [`docs/autonomous/`](docs/autonomous/).
+open and close modules**. Everything in §1–§9 is implemented and live — this is the
+**human-in-the-loop gate chain (`checkModuleAccess`) that actually governs members today**,
+regardless of any flag. A **native iOS app** (`tprawlings-lang/Steady-ios`, SwiftUI) talks to
+this backend through the mobile API under `/api/mobile/v1/*` (`src/app/api/mobile/`,
+`src/lib/mobile/`; token auth in `src/lib/auth.ts`). §10 describes the **parallel autonomous
+safety engine**: as of
+config `beta-clinrev-2026-07` it has been **ratified by two independent licensed clinicians
+(2026-07-22, approved *with conditions*)**, but it currently runs in **shadow** (computes +
+audit-logs; the clinician console can simulate it) and is **not yet wired into member-facing
+gating**. `EMDR_AUTONOMOUS_SAFETY=1` today only serves the autonomous ToS/privacy/consent
+copy and labels the shadow audit `safety_routing`; making the engine actually govern module
+unlocks is a remaining wiring step (§14.4), gated on the reviewers' conditions. So **members
+are governed by §1–§9 whether the flag is on or off.** Build docs + the signed sign-off live
+in [`docs/autonomous/`](docs/autonomous/).
 
 ---
 
@@ -93,7 +96,7 @@ skipped.** Answers are stored as coded 0/1 only, never free text.
 `soft_flag`; otherwise `pass`. **Effect of hard stop:** all sessions closed, member routed
 to crisis resources, **24-hour cooldown** before retake (`RETAKE_COOLDOWN_HOURS = 24`),
 and the current billing period is auto-refunded. After cooldown the screener may be
-retaken. Wording/thresholds are placeholders pending EMDR-trained advisor sign-off.
+retaken. Wording finalized as `fit-v2-clinrev` and clinician-ratified (2026-07-22).
 
 ### 2.2 Baseline & ongoing measures
 
@@ -201,17 +204,6 @@ specialist unlock; `maintenance` has no prerequisites.
 Sessions are built from typed steps (`instruction`, `suds`, `bls`, `grounding`,
 `trigger-entry`). BLS sets are short by design (20–30s × 2–3 sets). Completing
 `trigger-map` fire-and-forgets a **program plan** regeneration (§8).
-
-**Guided narration (talk-through) — ALL modules.** Every instruction and
-grounding/closure step carries clinician-voice narration `beats` delivered one line at
-a time as scrolling "someone is talking" text (`NarrationView` teleprompter),
-personalized with `{name}`/`{calmPlace}` slots from what Steady knows. Deterministic
-authored copy — **no model in the session loop**; every beat passes the companion
-output guard (enforced by tests, which also fail if any module step lacks narration).
-Accessibility-first: full text always present for screen readers (never a per-char
-firehose), `prefers-reduced-motion` shows all at once, "Show all" escape hatch, and
-Continue is always available. Deaf/HoH members read the scrolling text as the primary
-channel.
 
 ---
 
@@ -349,35 +341,6 @@ chat messages are AES-256-GCM encrypted at the app layer (`enc1:` prefix,
 `EMDR_DATA_KEY`). Companion memory is member-viewable, editable, and deletable. If no
 `ANTHROPIC_API_KEY` is set, deterministic scripted flows run instead.
 
-**Therapy knowledge base** (`src/lib/therapy-kb/`): a file-based, clinician-reviewable
-technique library — **16 modalities, 69 techniques** per the founder's reference sheet
-(CBT, DBT, IPT, ACT, Psychodynamic, Humanistic, Exposure-informed [strictly non-trauma],
-Gestalt, Adlerian, Jungian [receive-only], Somatic, Relational + the EMDR lane and 3
-supplemental lanes). On **every** companion reply a deterministic selector picks the
-techniques cleared for the member's *current* gated state (tier, activation ceiling,
-dissociation → grounding-only, imagery capability, restricted topics; unknown state
-resolves conservatively; engine failure = no KB at all) and injects them as advisory
-vocabulary — retrieval *is* the reply path, no lookup step. Every guidance string passes
-the output guard in tests; each modality/constraint is a sign-offable `KB_*` row on the
-clinician console. Competitive framing: [`docs/competitive-positioning.md`](docs/competitive-positioning.md).
-
-**Conversation-system hardening (independent audit, 2026-07):** a separate model
-instance audited the dynamic-response system; all high findings fixed same-day —
-output guard now **enforces in demo** and fails **closed**; memory taxonomy enforced at
-retrieval (SafetyAudit-class never model-readable/writable, TTL decay honored,
-memory-off members get zero injection); guard regexes expanded with red-team paraphrase
-regression tests; risk-flagged replies **always** carry 988. Findings + resolution table:
-[`docs/autonomous/03-conversation-audit-2026-07.md`](docs/autonomous/03-conversation-audit-2026-07.md).
-
-**In-session dynamic responder + live spoken sessions** (`session-companion.ts`,
-`speakInSession`, `LiveVoice`): in demo (or `EMDR_LIVE_SESSION`), the member can talk
-hands-free during a session and the system responds dynamically from memory + rules +
-the KB. Crisis speech is caught first and answered scripted (→ Ground-me + 988, never
-AI); high activation/SUDS → scripted grounding; the responder returns words + at most a
-Ground-me UI hint and is *structurally unable* to advance a set or override a stop. An
-optional AI pass only rewords lines the composer marks `aiEligible` (attunement +
-cleared techniques — never crisis/grounding), guard-checked with deterministic fallback.
-
 ---
 
 ## 9. Current human-oversight touchpoints (what exists today)
@@ -396,18 +359,25 @@ the recommender — is **already deterministic and autonomous**.
 
 ---
 
-## 10. Autonomous direction — BUILT in shadow mode, pending clinician sign-off
+## 10. Autonomous safety engine — clinician-ratified (with conditions); governs when enabled
 
-**Status: the deterministic safety architecture is built and deployed, but runs in
-SHADOW MODE — it computes and audit-logs every decision and governs NOTHING a member
-experiences.** It is gated behind `EMDR_AUTONOMOUS_SAFETY` (default off). Skills must
-**not** assume it is governing. Clinician sign-off is **reported approved
-(2026-07-22, per founder)** and counsel has approved the accompanying legal copy —
-but the flag has deliberately NOT been flipped: remaining gates are register
-verification, the Postgres ops cutover, and the staged flip itself (see the
-[go-live runbook](docs/go-live-runbook.md)). Built faithfully from the five-volume
-clinician-authored corpus; the mapping, build sequence, and sign-off ledger are in
-[`docs/autonomous/`](docs/autonomous/).
+**Status (config `beta-clinrev-2026-07`): the deterministic safety architecture is built,
+deployed, and — as of 2026-07-22 — clinically ratified by two independent licensed
+psychologists (approved *with conditions*; signed record in
+[`docs/autonomous/`](docs/autonomous/)).** But it is **not yet the governing decision-maker
+for members.** `shadowDecide()` computes + audit-logs the engine's decision at session start
+as a `void` call that *"never affects this session"* — the live gate is still
+`checkModuleAccess` (§5). `EMDR_AUTONOMOUS_SAFETY` currently controls only two things:
+**default off** → audit label `safety_routing_shadow` + human-in-loop legal copy; **`=1`** →
+audit label `safety_routing` + autonomous legal copy. **Neither setting wires the engine into
+module gating** — that (the session-UI / auto-unlock wiring) is a remaining implementation
+step (§14.4), and real-member governance stays gated on the reviewers' conditions (the
+deployment-evidence gates — independent privacy/security review + human-factors testing — and
+no autonomous BLS in beta, [`docs/autonomous/evidence/`](docs/autonomous/evidence/)). Built
+faithfully from the five-volume corpus; the clinical-review change set (no autonomous BLS,
+diagnosis/history → human review, numeric scores → review triggers, DES-II omitted, PCL-5
+item 16 de-scoped as a suicide proxy, "readiness" → Educational Access State) is in the
+ledger changelog.
 
 **The one architectural rule (all five volumes agree):** safety decisions are deterministic
 and verified; the AI companion is advisory only and is *structurally prevented* from making,
@@ -434,7 +404,8 @@ intensity." Autonomy here means *more deterministic automation of clinician-vali
 6. **Governance** — kill switches (generative conversation / provider sharing / escalation
    automation), config-as-code snapshot, and `/api/safety-status` (mode, version, stages).
 
-~112 dedicated safety unit tests plus an end-to-end red-team harness (`tests/safety-*.ts`).
+~197 tests across the safety suite (`tests/*.test.ts`, run by `npm run test:safety`),
+including end-to-end red-team harnesses (`tests/safety-redteam.test.ts`, `tests/bls-redteam.test.ts`).
 
 ### How a clinician validates and signs off
 The clinician-only **Autonomous Review console** (`/clinician/autonomous`) is the sign-off
@@ -451,16 +422,16 @@ shadow → clinician walks the console + ratifies the ledger → flip `EMDR_AUTO
 **one stage at a time** (kill switches available per capability) → governing → full launch.
 Blocking before it governs a real member:
 
-1. **"Specialist review" claims** — ✅ legal copy (ToS/Privacy/consent) is
-   counsel-approved and staged flag-aware (serves automatically at flip). Remaining:
-   the product microcopy (`gating.ts` unlock strings, dashboard care-team) rewords
-   **with** the flip (§14.4).
-2. **Counsel posture** — ✅ counsel approved the autonomous rewrite and the
-   voice/biometric consent (2026-07-22, per founder's attorney).
-3. **Clinician sign-off** — reported approved (2026-07-22, per founder); verify the
-   register shows all-Agree/zero-unreviewed at the current config version before the flip.
-4. The `@safety` + safety-core suites (green, 167 tests) stay green; kill switch +
-   fitness screener + SUDS rules remain non-negotiable substrate.
+1. **Every "specialist review" claim must change** — marketing/FAQ/dashboard/module copy,
+   ToS/consent, and `COMPLIANCE.md` currently promise human review; shipping autonomy without
+   rewriting these makes existing claims false. *(Pending founder handoff — §14.3.)*
+2. **Counsel re-confirms the wellness-lane posture with oversight removed** (the June 2026
+   build handoff named a live-clinician gate as non-negotiable).
+3. **Independent licensed clinician (≥2) sign-off** on scope/thresholds/stop rules/crisis
+   routing via the review console + ledger — the deterministic rules inherit the safety role
+   the clinician held.
+4. The `@safety` + safety-core suites (done) stay green; kill switch + fitness screener +
+   SUDS rules remain non-negotiable substrate.
 
 ---
 
@@ -498,14 +469,11 @@ With `EMDR_DEMO=1` a rich fictional dataset seeds instead.
 
 **Tests & CI:** `npm run test:safety` runs the CI-blocking `@safety` suite (screener
 hard stops, SUDS rules, check-in routing, crisis regex, track-recommender safety gate)
-plus the **autonomous safety-core suite** (**167 tests**: the deterministic engine,
-scoring, session runtime, companion guard + red-team paraphrase regressions, therapy-KB
-integrity/guard self-check, session narration guard-check, in-session responder,
-voice-consent gate, audit hash chain, journey orchestration, governance — §10).
-`npm run test:e2e` runs the Playwright suite (unauthenticated surfaces + security
-headers, authenticated login flow, the clinician autonomous console, and a full guided
-calm-place session incl. narration; hermetic by default, or point at a deploy with
-`E2E_BASE_URL`).
+plus the **autonomous safety-core suite** (the deterministic engine, scoring, session
+runtime, companion guard, journey orchestration, governance, resourcing/BLS, and a
+red-team harness — §10). ~197 tests total across `tests/*.test.ts`.
+`npm run test:e2e` runs the Playwright smoke suite (critical unauthenticated surfaces +
+security headers; hermetic by default, or point at a deploy with `E2E_BASE_URL`).
 CI (`.github/workflows/safety.yml`) blocks on `@safety` + build + `npm audit`
 (high/critical) + the e2e smoke suite + a banned-vocabulary grep over product copy;
 a nightly `load` job (`.github/workflows/load.yml`) runs `npm run loadcheck`
@@ -522,31 +490,19 @@ Env vars of note: `ANTHROPIC_API_KEY` (companion + AI plans), `EMDR_DATA_KEY`
 Autonomous safety core (§10): `EMDR_AUTONOMOUS_SAFETY` (default off — governs only
 after clinician sign-off), and the emergency kill switches `EMDR_KILL_GENERATIVE`
 (companion → static safe info), `EMDR_KILL_PROVIDER_SHARING`, `EMDR_KILL_ESCALATION`.
-Voice/live sessions: `EMDR_VOICE_INPUT`, `EMDR_LIVE_SESSION` (both default off for real
-members; demo has them on; a real member additionally needs the `voice_biometric`
-consent from `/settings/voice`).
-
-**Database backend:** `EMDR_DB=postgres` + `DATABASE_URL` switches the entire app from
-the default SQLite file to Postgres (schema: `scripts/pg-schema.sql`). All data access
-goes through the async dual-backend layer (`src/lib/data.ts`); queries are
-dialect-neutral, and backups use `pg_dump -Fc` on the Postgres backend. Verified against
-a real Postgres 16 cluster — see [`docs/pg-migration-progress.md`](docs/pg-migration-progress.md).
 
 ## 13. Stack
 
 Next.js (App Router, server actions, standalone output) · TypeScript · Tailwind CSS ·
-async dual-backend data layer (`src/lib/data.ts`: better-sqlite3 by default,
-node-postgres via `EMDR_DB=postgres`) · Anthropic SDK. No ad-tech, no analytics pixels,
-no third-party trackers — by design. The clinician-designed **deterministic safety core** lives in
-[`src/lib/safety/`](src/lib/safety/) (pure, ~112 tests, shadow-mode, flag-gated — §10),
+better-sqlite3 · Anthropic SDK. No ad-tech, no analytics pixels, no third-party
+trackers — by design. The clinician-designed **deterministic safety core** lives in
+[`src/lib/safety/`](src/lib/safety/) (pure, ~197-test suite, shadow-mode, flag-gated — §10),
 surfaced for review at `/clinician/autonomous` and `/api/safety-status`.
 
 ## 14. Before any real-world use (wellness-lane launch gates)
 
-**The master switch list — every flag, gate, owner, and rollback in order — is the
-[go-live runbook](docs/go-live-runbook.md).** Full detail in
-[`COMPLIANCE.md`](COMPLIANCE.md); the live founder checklist with severities is
-[`docs/audit-open-items.md`](docs/audit-open-items.md).
+Full detail in [`COMPLIANCE.md`](COMPLIANCE.md); the live founder checklist with
+severities is [`docs/audit-open-items.md`](docs/audit-open-items.md).
 
 ### 14.1 Founder to-do — outside accounts you need to set up 🔴
 
@@ -561,21 +517,20 @@ demo; they are the gates to a real launch:
   warnings, and backup-failure alerts.
 - [ ] **Stripe** — real hosted checkout. Safety auto-refund and 2-click cancel
   already work against the demo provider.
-- [~] **EMDR-trained clinical advisor** — sign-off on screener wording/thresholds
-  (`fit-v1-placeholder`), crisis script, and session scripts. Also the **autonomous
-  safety rules** (§10) via the Autonomous Review console (`/clinician/autonomous`),
-  Volume II conflicts, and an Agree / Needs-change verdict per rule
-  ([`docs/autonomous/01-signoff-ledger.md`](docs/autonomous/01-signoff-ledger.md)).
-  **Founder reports approval recorded (2026-07-22)** — verify completeness via the
-  register/CSV before the flag flip (§14.4).
+- [x] **EMDR-trained clinical advisor** — ✅ **DONE (with conditions), 2026-07-22.** Two
+  independent licensed psychologists ratified the screener wording (finalized `fit-v2-clinrev`),
+  crisis script, session scripts, and the **autonomous safety rules** (§10) at config
+  `beta-clinrev-2026-07` — all rules Agree, all numeric conflicts Confirm
+  ([`docs/autonomous/01-signoff-ledger.md`](docs/autonomous/01-signoff-ledger.md); signed
+  [`PDF`](docs/autonomous/clinician-signoff-SIGNED-2026-07-22.pdf)). Conditions: complete the
+  §14.2 evidence gates and keep autonomous BLS disabled before governing a real member.
 - [ ] **Cyber liability insurance** quote ([`docs/incident-response.md`](docs/incident-response.md)).
 - [ ] **Branded domain + support email** — unblocks the ToS contact placeholder.
 
 ### 14.2 Drills & evidence to run (need the accounts above)
 
 - [ ] **Off-site backups** — set `R2_*` + `BACKUP_AGE_RECIPIENT`, then run
-  `make restore-test` (RPO 24h / RTO ~1h). Works on both backends (SQLite Online
-  Backup API; `pg_dump -Fc` under `EMDR_DB=postgres`).
+  `make restore-test` (RPO 24h / RTO ~1h).
 - [ ] **Security/accessibility evidence** — companion red-team pass, ZAP scan,
   SSL Labs record. (Automated already: `gitleaks` secret scan, `npm audit`,
   Dependabot, and the axe-core WCAG gate.)
@@ -584,54 +539,44 @@ demo; they are the gates to a real launch:
 
 - [x] Companion transcripts — **keep encrypted persistence** (decided).
 - [x] CSP hardening — **nonce-based, done** (ADR 0008).
-- [x] Zero-downtime deploys — **approved** (ADR 0007); migration **code-complete** (§14.5).
-- [x] **Autonomous-model claim rewrite** — legal copy (ToS/Privacy/consent) is
-  counsel-approved and staged flag-aware (§14.4); voice/biometric consent
-  counsel-approved as `voice-consent-v1.0`. Remaining piece is the product microcopy
-  reword that ships with the flag flip (§14.4).
+- [x] Zero-downtime deploys — **approved** (ADR 0007); migration steps tracked in §14.5.
+- [ ] **Autonomous-model claim rewrite** (§10) — pending founder handoff.
 
-### 14.5 Infrastructure — required before live mode (not demo)
+### 14.5 Infrastructure — Postgres cutover (required before live mode, not demo)
 
-The demo runs single-instance on SQLite (brief outage per deploy). The Postgres
-migration that fixes this is **CODE-COMPLETE and verified** against a real local
-Postgres 16 cluster (app boots + serves, data layer round-trips, audit hash-chain
-verifies, `pg_dump` backup restorable) — see
-[`docs/pg-migration-progress.md`](docs/pg-migration-progress.md) (ADR 0007):
+The demo runs single-instance on SQLite, which forces a brief outage on every deploy.
+The Postgres migration (ADR 0007) that makes deploys zero-downtime and lets the app run
+more than one instance is now **code-complete and verified on a real Postgres 16 cluster**
+(boot + round-trip + audit-chain verify + `pg_dump` backup). What remains is **OPS only** —
+detail in [`docs/go-live-runbook.md`](docs/go-live-runbook.md) §4 and
+[`docs/pg-migration-progress.md`](docs/pg-migration-progress.md).
 
 - [x] PG schema + driver (`scripts/pg-schema.sql`, dual SQLite/PG data layer).
-- [x] Async data-access layer — **and every application call site ported to it**
-  (`getDb()` no longer exists outside the data layer).
-- [x] Dialect-neutral SQL (no SQLite-only `datetime('now')`/`julianday`/
-  `INSERT OR IGNORE` in runtime queries).
-- [x] Backup on Postgres: `pg_dump -Fc` path (encrypt → R2 → prune unchanged).
-- [x] Verified end-to-end on Postgres 16.
-- [ ] **OPS: provision the ~$7/mo managed Render Postgres**, set `DATABASE_URL` +
-  `EMDR_DB=postgres`. 🔴 *(Founder creates the DB; engineering flips + loads data.)*
-- [ ] **OPS: one-time load** of existing SQLite data → Postgres, quiet-moment cutover.
-- [ ] **OPS: audit-chain serialization** (`SELECT … FOR UPDATE` / advisory lock)
-  before scaling past one instance, then confirm rolling deploys drop no requests.
+- [x] Async data-access layer — **every app `getDb()` call site ported** (0 remaining).
+- [x] Dialect-neutral SQL (no SQLite-only `datetime('now')` / `julianday` / `INSERT OR IGNORE`).
+- [x] Backup/restore `pg_dump` path (custom-format archive; keeps RPO 24h / RTO ~1h).
+- [x] **Verified on real Postgres 16** — app boots + serves, data round-trips, the audit
+  hash-chain transaction verifies, relative-date queries work, `pg_dump` archive restorable.
+- [ ] **OPS — provision Render Postgres** (~$7/mo), set `DATABASE_URL` + `EMDR_DB=postgres`. 🔴
+- [ ] **OPS — one-time load** of existing SQLite data into Postgres, then flip. 🔴
+- [x] Audit-chain serialization for concurrent writers — **done in code**
+  (transaction-scoped Postgres advisory lock in `audit()`; covers the genesis case).
+- [ ] **OPS — scale past one instance**: set `numInstances ≥ 2` for automatic rolling,
+  zero-downtime deploys (no code change left). 🔴
 
 ### 14.4 Autonomous safety system (§10) — status
 
 - [x] Built from the clinician corpus (safety core, scoring, session engine, companion
-  guard, journey orchestration, governance) — pure, ~112 tests, red-team harness.
-- [x] Deployed in **shadow mode** (governs nothing) + clinician review console with
-  per-rule Agree / Needs-change sign-off and CSV export.
-- [x] **Therapy knowledge base** — file-based, clinician-reviewable technique library:
-  **16 modalities / 69 techniques** per the founder's reference sheet (deterministic
-  tier/activation/dissociation/imagery-gated retrieval; unknown state resolves
-  conservatively; crisis tier gets none; output guard validates every reply and every
-  catalog entry in tests). Browsable + sign-offable at `/clinician/autonomous#therapy-kb`
-  (`KB_*` rows incl. the `KB_AVOIDWHEN_ADVISORY` honesty row). Growth pipeline + Abby.gg
-  positioning: [`docs/competitive-positioning.md`](docs/competitive-positioning.md).
-- [x] **Independent conversation-system audit (2026-07)** — all high-severity
-  enforcement gaps fixed same-day (guard enforced in demo + fail-closed; memory
-  taxonomy enforced at retrieval; guard paraphrase families expanded with red-team
-  regressions; 988 guaranteed on risk-flagged replies). Findings + resolution:
-  [`docs/autonomous/03-conversation-audit-2026-07.md`](docs/autonomous/03-conversation-audit-2026-07.md).
-- [x] **Guided session narration in ALL modules** — clinician-voice talk-through beats
-  on every instruction/closure step (§3), personalized, guard-clean by test, no model in
-  the session loop. Demo seed fixed so the demo member can actually reach sessions.
+  guard, journey orchestration, governance) — pure, ~197 tests, red-team harness.
+- [x] Deployed + clinician review console with per-rule Agree / Needs-change sign-off and
+  CSV export. **Ratified (with conditions) 2026-07-22.** Still shadow — the flag swaps legal
+  copy + audit label only; the engine is **not yet wired to govern module gating** (see below).
+  Real-member launch gated on the §14.2 evidence gates.
+- [x] **Therapy knowledge base** — file-based, clinician-reviewable technique library
+  (8 modalities, deterministic tier/activation/dissociation-gated retrieval; crisis tier
+  gets none; output guard still validates every reply). Browsable + sign-offable at
+  `/clinician/autonomous#therapy-kb` (`KB_*` rows). Modality list provisional pending the
+  founder's reference sheet. 🔴
 - [x] **Live spoken sessions** (hands-free voice + dynamic in-session responder) — the
   member can speak during a session without pressing anything, and the system responds
   dynamically from memory + rules + the therapy KB. Safety by construction: the
@@ -641,8 +586,7 @@ verifies, `pg_dump` backup restorable) — see
   deterministic fallback. Demo/flag-gated (`EMDR_LIVE_SESSION`), off for real members.
   Voice/biometric consent is **counsel-approved** (`voice-consent-v1.0`) and the gate is
   wired (`/settings/voice` → `liveAvailableFor`): flag on + member consent = available.
-  Clinician sign-off (`LIVE_SESSION_*`) reported approved — verify in the register.
-  Remaining: the deliberate flag flip (runbook §3). 🔴
+  Remaining: clinician sign-off (`LIVE_SESSION_*`) + the flag flip. 🔴
 - [x] **Voice responses** (member answers a free-text reflection by speaking) — live in
   demo (`EMDR_VOICE_INPUT` / on with `EMDR_DEMO`), off by default for real members. Typing
   is always available; recognition is confirm-before-submit; free-text only (never SUDS or
@@ -650,12 +594,22 @@ verifies, `pg_dump` backup restorable) — see
   console (`/clinician/autonomous#voice`, `VOICE_INPUT_*` in the register). Voice/biometric
   consent is **counsel-approved** (`voice-consent-v1.0`) and the gate is wired
   (`/settings/voice` → `voiceAvailableFor`); remaining before non-demo: the flag flip. 🔴
-- [~] **Clinician sign-off** on the rules + Volume II conflict resolution — **founder
-  reports the clinician approved everything (2026-07-22)**. Before acting on it, verify
-  the register shows **all Agree / zero Needs-change / zero unreviewed** at the current
-  config version (console CSV export;
-  [`docs/autonomous/01-signoff-ledger.md`](docs/autonomous/01-signoff-ledger.md)). Note
-  a rule's sign-off resets if its threshold/wording changes.
+- [x] **Spoken session guidance (on-device TTS)** — the calm-place / resourcing sessions now
+  *speak* the deterministic narration and a short directive cue at the start of each set
+  (personalized to the member's place, shown on screen too), on top of the text. Every spoken
+  line is the same output-guard-clean deterministic copy — no generative speech during a set.
+  On-device only (Web Speech API; nothing uploaded) → no consent impact; a Voice on/off toggle
+  mutes it. The most natural installed voice is auto-selected (not the robotic default), audio
+  + speech unlock in a tap for iOS/iPadOS, and BLS tones play by default. Both stimulation
+  modes (moving dot / audio-only) remain a member choice. Truly-natural (human/neural) voice is
+  the next step — plan in **§14.6**.
+- [x] **Clinician sign-off** on the rules + Volume II conflict resolution — ✅ **DONE
+  (with conditions), 2026-07-22.** Two independent licensed psychologists (Altschuler
+  PSY-005804, Allen PSY-002055) ratified config `beta-clinrev-2026-07`: all rules Agree,
+  all Section-A items Confirm. Signed:
+  [`docs/autonomous/clinician-signoff-SIGNED-2026-07-22.pdf`](docs/autonomous/clinician-signoff-SIGNED-2026-07-22.pdf).
+  Conditions: complete the Part 4 evidence gates (§14.2) and keep autonomous BLS/reprocessing
+  disabled before the flag flips.
 - [x] **Legal copy (ToS / Privacy / consent)** — counsel-approved autonomous rewrite is
   applied **flag-aware**: current human-in-loop copy stays live; the `*-autonomous`
   versions + automated-decision-making disclosure serve automatically when
@@ -666,3 +620,68 @@ verifies, `pg_dump` backup restorable) — see
   flip + session-UI wiring (deferred until auto-unlock is wired). 🔴
 - [ ] **Flip `EMDR_AUTONOMOUS_SAFETY=1`** (one stage at a time) + wire the session UI /
   dashboard to the engine — only after sign-off. 🔴
+
+### 14.6 Natural (human / neural) session voice — plan
+
+Today's spoken guidance uses **on-device TTS** with the best installed voice auto-selected.
+For a genuinely soothing, meditation-grade narrator, the plan is to **pre-render the fixed
+lines once and ship them as static audio**, played in place of TTS, with on-device TTS as the
+fallback for any line that has no clip.
+
+**Why pre-render fits this app:** the narration beats and cue templates are **deterministic**
+(clinician-authored, fixed). Generating the audio at build time gives studio quality with
+**zero runtime cost, zero latency, offline playback, and nothing leaving the device** — so no
+change to the privacy/consent posture (the audio is made from fixed text at build, not from
+any member data).
+
+**Voice source (pick one):**
+- **Human voice actor** — record the fixed scripts. Most authentic/soothing, strongest brand;
+  ~$few-hundred–$2k, ~1–2 weeks lead time, re-record on copy change.
+- **Neural TTS, pre-rendered** (ElevenLabs / OpenAI / Azure) — near-human, ~$5–30 in credits,
+  regenerate in minutes on copy change; commercial rights included with stock voices.
+
+**The personalized word ("the beach"):** a pre-rendered clip can't contain a member-typed
+word. Options, best first:
+- speak a generic line ("your calm place") in the natural voice and keep the typed place
+  **on screen** — full natural voice + full privacy (**recommended**);
+- pre-render a small library of common places (beach, forest, lake, garden, home…);
+- synthesize the personalized line at runtime via cloud TTS — most flexible, but the member's
+  word then leaves the device → needs a consent-language update + vendor DPA first.
+
+**Engineering (vendor-independent):** a thin audio layer — a manifest mapping each known line
+to a clip + a `playLine()` that plays the clip or falls back to `useSpeech`, plus a generation
+script if neural. Boundary kept: a warm voice must never imply a live person is monitoring —
+copy stays honestly "a guide" (companion-guard enforced). **Decision pending founder:** voice
+source + personalization handling. 🔴
+
+### 14.7 Going fully autonomous — the ordered next steps
+
+"Fully autonomous" = the deterministic safety engine (§10) **governs** module access and
+session flow for real members without waiting on a human touchpoint. Today the engine is
+**built + ratified (with conditions) but SHADOW only**: `shadowDecide()` logs its decision and
+`checkModuleAccess` (§5) still governs. The ordered path to flip that:
+
+1. **Complete the Part-4 evidence gates (§14.2)** — the reviewers' explicit condition:
+   independent privacy/security review (ZAP, SSL Labs, companion red-team) **plus** human-factors
+   testing of the session UI (stop-control salience under stress). No governance before these. 🔴
+2. **Rewrite every "specialist review" claim** (§10 step 1, §14.4 microcopy, §14.3 decision) —
+   marketing/FAQ/dashboard/module copy, `gating.ts` unlock strings, ToS/consent, `COMPLIANCE.md`.
+   Shipping autonomy without this makes live claims false. The `*-autonomous` legal copy is
+   already staged to serve on the flag flip; the **product microcopy is not**. 🔴
+3. **Counsel re-confirms the wellness-lane posture with the human gate removed** — the June 2026
+   handoff named a live-clinician gate as non-negotiable, so it must be explicitly lifted, in
+   writing, before autonomy governs. 🔴
+4. **Wire the engine to govern** — replace the `shadowDecide()` void call with the engine as the
+   live gate for module auto-unlock + session-UI transitions (the one remaining implementation
+   step). Every kill switch stays available per capability. 🔴
+5. **Flip `EMDR_AUTONOMOUS_SAFETY=1` one stage at a time** — gating first, then session-runtime,
+   watching the shadow-vs-governing audit deltas at each stage; roll back per capability on any
+   divergence. 🔴
+6. **Autonomous BLS stays OFF through all of the above** (an explicit sign-off condition).
+   Member-initiated resourcing (4a) is live and flag-gated, but *autonomous* stimulation /
+   reprocessing is a separate, later gate that needs its own clinician sign-off + evidence. 🔴
+
+Non-negotiable substrate that stays green throughout: the `@safety` + safety-core suites, the
+kill switch, the fitness screener, and the SUDS stop rules. The one architectural rule never
+changes — **autonomy means more deterministic automation of clinician-validated rules, never
+the AI deciding more** (§10).

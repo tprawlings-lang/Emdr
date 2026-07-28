@@ -27,13 +27,14 @@ function clearInputs(): SafetyInputs {
   };
 }
 
-test("clear member on steady track may start an activating session", () => {
+test("clear member reaches steady tier but activating sessions are OFF in beta (no autonomous BLS)", () => {
   const d = evaluateAccess(clearInputs());
   assert.equal(d.tier, AccessTier.STEADY);
-  assert.equal(d.activatingSessionsAllowed, true);
   assert.equal(d.groundingOnly, false);
-  assert.equal(d.capabilities.stimulation, true);
-  // Visual BLS is off globally in beta regardless.
+  // Clinical-review revision: beta runs no autonomous BLS/reprocessing, so the
+  // stimulation capability is off globally and no activating session may start.
+  assert.equal(d.capabilities.stimulation, false);
+  assert.equal(d.activatingSessionsAllowed, false);
   assert.equal(d.capabilities.visualStimulation, false);
   assert.equal(d.hits.length, 0);
 });
@@ -66,23 +67,28 @@ test("under-18 is a standing exclusion at CRISIS tier", () => {
   assert.equal(d.activatingSessionsAllowed, false);
 });
 
-test("state hard-stop (recent self-harm) → crisis, auto-refund, 14-day retake", () => {
+test("recent self-harm HISTORY → grounding + present-safety clarification (not automatic crisis)", () => {
+  // Clinical-review revision: a 30-day history flag alone is not present crisis.
   const i = clearInputs();
   i.programFit!.selfHarm30d = true;
   i.programFit!.stateHardStopAtMs = NOW;
   const d = evaluateAccess(i);
-  assert.equal(d.tier, AccessTier.CRISIS);
-  assert.equal(d.dispositions.autoRefund, true);
-  assert.equal(d.dispositions.retakeAllowedAt, NOW + 14 * DAY);
+  assert.equal(d.tier, AccessTier.GROUNDING_ONLY);
+  assert.equal(d.dispositions.presentSafetyClarificationRequired, true);
+  assert.equal(d.dispositions.referralSurfaced, true);
+  assert.equal(d.dispositions.crisis, false);
+  assert.equal(d.dispositions.autoRefund, false);
 });
 
-test("trait hard-stop (hospitalization) → standing exclusion + referral, no auto-refund", () => {
+test("hospitalization HISTORY → restricted pending human review + referral, no standing exclusion", () => {
+  // Clinical-review revision: diagnosis/history → human review, not an indefinite ban.
   const i = clearInputs();
   i.programFit!.hospitalized12m = true;
   const d = evaluateAccess(i);
-  assert.equal(d.dispositions.standingExclusion, true);
+  assert.equal(d.dispositions.humanReviewPending, true);
+  assert.equal(d.dispositions.standingExclusion, false);
   assert.equal(d.dispositions.referralSurfaced, true);
-  assert.equal(d.dispositions.autoRefund, false);
+  assert.equal(d.activatingSessionsAllowed, false);
 });
 
 test("missing check-in never defaults favorably (grounding only)", () => {
@@ -116,10 +122,14 @@ test("activation ≥8 and shutdown ≥8 → grounding only", () => {
   assert.equal(evaluateAccess(b).tier, AccessTier.GROUNDING_ONLY);
 });
 
-test("low sleep and substance flag → stabilization", () => {
+test("low sleep → cautious (review trigger); substance flag → stabilization", () => {
+  // Clinical-review revision: low sleep reduces demand + prompts a check, rather
+  // than imposing a universal stabilization restriction.
   const a = clearInputs();
   a.dailyCheckin!.sleepQuality = 2;
-  assert.equal(evaluateAccess(a).tier, AccessTier.STABILIZATION);
+  const da = evaluateAccess(a);
+  assert.equal(da.tier, AccessTier.CAUTIOUS);
+  assert.equal(da.dispositions.reviewTriggered, true);
   const b = clearInputs();
   b.dailyCheckin!.substanceFlag = true;
   assert.equal(evaluateAccess(b).tier, AccessTier.STABILIZATION);
@@ -135,41 +145,46 @@ test("most restrictive wins when several rules fire", () => {
   assert.ok(d.hits.length >= 3);
 });
 
-test("PHQ-9 item 9 nonzero → stabilization + safety question + referral + 72h forced stabilization", () => {
+test("PHQ-9 item 9 nonzero → stabilization + present-safety clarification (no fixed 72h lockout)", () => {
+  // Clinical-review revision: nonzero item 9 → present-risk clarification, not a
+  // standalone fixed 72-hour lockout. Response depends on present intent/means/action.
   const i = clearInputs();
   i.instruments!.phq9Item9 = 1;
   const d = evaluateAccess(i);
   assert.equal(d.tier, AccessTier.STABILIZATION);
+  assert.equal(d.dispositions.presentSafetyClarificationRequired, true);
   assert.equal(d.dispositions.safetyQuestionRequired, true);
   assert.equal(d.dispositions.referralSurfaced, true);
-  assert.equal(d.dispositions.forcedStabilizationUntil, NOW + 72 * HOUR);
-  assert.equal(d.activatingSessionsAllowed, false); // forced stabilization active
+  assert.equal(d.dispositions.forcedStabilizationUntil, null);
 });
 
-test("PCL-5 item 16 ≥3 behaves like a safety item", () => {
+test("PCL-5 item 16 ≥3 is a context prompt only, NOT a suicide-routing safety item", () => {
+  // Clinical-review revision: item 16 = risk-taking behavior, not suicidal
+  // ideation. De-scoped from safety routing → review trigger only, no lockout.
   const i = clearInputs();
   i.instruments!.pcl5Item16 = 3;
   const d = evaluateAccess(i);
-  assert.equal(d.dispositions.safetyQuestionRequired, true);
-  assert.equal(d.dispositions.forcedStabilizationUntil, NOW + 72 * HOUR);
+  assert.equal(d.dispositions.safetyQuestionRequired, false);
+  assert.equal(d.dispositions.forcedStabilizationUntil, null);
+  assert.equal(d.dispositions.reviewTriggered, true);
+  assert.equal(d.tier, AccessTier.STEADY); // no tier change
+  assert.ok(d.hits.some((h) => h.id === "PCL5_ITEM16_CONTEXT"));
 });
 
-test("DES-II ≥30 → stabilization, imagery + stimulation removed, referral", () => {
-  const i = clearInputs();
-  i.instruments!.des2Mean = 35;
-  const d = evaluateAccess(i);
-  assert.equal(d.tier, AccessTier.STABILIZATION);
-  assert.equal(d.capabilities.imagery, false);
-  assert.equal(d.capabilities.stimulation, false);
-  assert.equal(d.dispositions.referralSurfaced, true);
-});
+test("DES-II is inert in beta (omitted until licensed + validated)", () => {
+  // Clinical-review revision (ledger A9): DES-II not surfaced/scored in beta.
+  const hi = clearInputs();
+  hi.instruments!.des2Mean = 35;
+  const dh = evaluateAccess(hi);
+  assert.equal(dh.tier, AccessTier.STEADY); // no DES-forced stabilization
+  assert.equal(dh.capabilities.imagery, true); // DES no longer removes imagery
+  assert.ok(!dh.hits.some((h) => h.id.startsWith("DES2_")));
 
-test("DES-II 20–29.99 → imagery removed but tier unaffected", () => {
-  const i = clearInputs();
-  i.instruments!.des2Mean = 25;
-  const d = evaluateAccess(i);
-  assert.equal(d.capabilities.imagery, false);
-  assert.equal(d.tier, AccessTier.STEADY);
+  const lo = clearInputs();
+  lo.instruments!.des2Mean = 25;
+  const dl = evaluateAccess(lo);
+  assert.equal(dl.capabilities.imagery, true);
+  assert.equal(dl.tier, AccessTier.STEADY);
 });
 
 test("photosensitivity removes visual stimulation", () => {
@@ -179,11 +194,14 @@ test("photosensitivity removes visual stimulation", () => {
   assert.equal(d.capabilities.visualStimulation, false);
 });
 
-test("weekly worsening → 14-day cautious ceiling + referral", () => {
+test("weekly worsening → review trigger + referral, not an automatic ceiling", () => {
+  // Clinical-review revision: a sharp rise triggers fresh check-in + human
+  // review, not an automatic 14-day cautious ceiling.
   const i = clearInputs();
   i.instruments!.pcl5WeeklyRise = 10;
   const d = evaluateAccess(i);
-  assert.equal(d.tier, AccessTier.CAUTIOUS);
+  assert.equal(d.tier, AccessTier.STEADY); // no automatic tier drop
+  assert.equal(d.dispositions.reviewTriggered, true);
   assert.equal(d.dispositions.referralSurfaced, true);
 });
 
@@ -197,12 +215,14 @@ test("active cooldown blocks activating content and sets cooldownUntil", () => {
   assert.equal(d.dispositions.cooldownUntil, until);
 });
 
-test("expired cooldown does not restrict", () => {
+test("expired cooldown does not restrict the tier", () => {
   const i = clearInputs();
   i.activeCooldowns = [{ id: "cd1", kind: "mild", untilMs: NOW - HOUR }];
   const d = evaluateAccess(i);
   assert.equal(d.tier, AccessTier.STEADY);
-  assert.equal(d.activatingSessionsAllowed, true);
+  // Activating remains off in beta (no autonomous BLS), but the expired cooldown
+  // adds no further restriction and stabilization/grounding stay open.
+  assert.equal(d.dispositions.cooldownUntil, null);
 });
 
 test("acute trauma <30 days → grounding only, no stimulation", () => {

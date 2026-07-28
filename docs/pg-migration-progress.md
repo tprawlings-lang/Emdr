@@ -51,10 +51,15 @@ Structural async is done, but two things still block flipping `EMDR_DB=postgres`
    backend (task 16).
 Then: provision Postgres, set DATABASE_URL, flip EMDR_DB=postgres, verify.
 
-## Audit hash-chain note
-`audit()` now wraps read-latest + insert in `data().tx()`. Under multi-instance
-Postgres, concurrent appends could still race the chain tip; add
-`SELECT ... FOR UPDATE` / a Postgres advisory lock before enabling >1 instance.
+## Audit hash-chain note — RESOLVED (multi-instance safe)
+`audit()` wraps read-latest + insert in `data().tx()`. To keep the chain intact
+when more than one instance appends concurrently, the transaction takes a
+**transaction-scoped Postgres advisory lock** (`pg_advisory_xact_lock(hashtext(
+'emdr_audit_chain'))`) before reading the chain tip, serializing all appenders;
+it auto-releases on COMMIT/ROLLBACK. An advisory lock (rather than
+`SELECT ... FOR UPDATE`) is used so the empty-table / genesis case is covered
+too — there is no row to lock yet. SQLite needs no lock (better-sqlite3 is
+synchronous and single-writer), so the lock statement is Postgres-only.
 
 ## ✅ VERIFIED ON REAL POSTGRES (local cluster, PG 16)
 Booted the built app with `EMDR_DB=postgres` + `DATABASE_URL` against a local
@@ -70,5 +75,6 @@ Postgres 16 cluster with `scripts/pg-schema.sql` applied (24 tables):
 **The migration is code-complete and verified.** Remaining is OPS only:
 1. Provision the managed Render Postgres, set `DATABASE_URL` + `EMDR_DB=postgres`.
 2. Migrate existing SQLite data into it (one-time load), then flip.
-3. Before running >1 instance, add the audit-chain serialization
-   (`SELECT ... FOR UPDATE` / advisory lock) noted above.
+3. Scale to >1 instance for zero-downtime rolling deploys. The audit-chain
+   serialization this requires is now **in code** (advisory lock, see above) —
+   no code change left; this step is just setting `numInstances ≥ 2`.

@@ -5,6 +5,9 @@ import { useRouter } from "next/navigation";
 import type { SessionStep, TherapyModule } from "@/lib/modules";
 import { fillNarrationSlots } from "@/lib/modules";
 import NarrationView from "@/components/NarrationView";
+import { getAudioContext, unlockMedia } from "@/components/media-unlock";
+import { useSpeech } from "@/components/useSpeech";
+import { personalizedCues } from "@/lib/safety/resourcing";
 import type { SessionFocus } from "@/lib/session-focus";
 import { finishSession, logSafetyEvent, recordSessionTrigger, speakInSession, startSession } from "@/lib/actions";
 import VoiceInput from "@/components/VoiceInput";
@@ -39,6 +42,14 @@ interface Props {
   liveEnabled?: boolean;
 }
 
+// iPhone/iPad (incl. iPadOS reporting as "MacIntel" with touch) — used only to
+// show a one-line hint about downloading a more natural voice.
+function isAppleTouch(): boolean {
+  if (typeof navigator === "undefined") return false;
+  const ua = navigator.userAgent || "";
+  return /iPad|iPhone|iPod/.test(ua) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+}
+
 function BlsVisual({
   running,
   speedMs,
@@ -49,7 +60,6 @@ function BlsVisual({
   soundOn: boolean;
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const audioRef = useRef<AudioContext | null>(null);
   const lastSideRef = useRef<number>(0);
 
   useEffect(() => {
@@ -64,8 +74,11 @@ function BlsVisual({
     const beep = (pan: number) => {
       if (!soundOn) return;
       try {
-        audioRef.current ??= new AudioContext();
-        const ac = audioRef.current;
+        // Shared context, unlocked in a tap handler (iOS). Creating a fresh one
+        // here would stay suspended on iPad and never sound.
+        const ac = getAudioContext();
+        if (!ac) return;
+        if (ac.state === "suspended") ac.resume().catch(() => {});
         const osc = ac.createOscillator();
         const gain = ac.createGain();
         const panner = ac.createStereoPanner();
@@ -129,15 +142,16 @@ function BlsVisual({
 // moving on screen. The default for members with a photosensitivity flag and
 // available to everyone (compliance 6.1).
 function BlsAudio({ running, speedMs }: { running: boolean; speedMs: number }) {
-  const audioRef = useRef<AudioContext | null>(null);
   const sideRef = useRef(1);
 
   useEffect(() => {
     if (!running) return;
     const beep = () => {
       try {
-        audioRef.current ??= new AudioContext();
-        const ac = audioRef.current;
+        // Shared context, unlocked in a tap handler (iOS-safe).
+        const ac = getAudioContext();
+        if (!ac) return;
+        if (ac.state === "suspended") ac.resume().catch(() => {});
         const osc = ac.createOscillator();
         const gain = ac.createGain();
         const panner = ac.createStereoPanner();
@@ -362,7 +376,13 @@ export default function SessionPlayer({ module: mod, focus, calmPlace, audioOnly
   const [currentSuds, setCurrentSuds] = useState(5);
   const [hardStopReason, setHardStopReason] = useState<string>("");
   const [speedMs, setSpeedMs] = useState(2400);
-  const [soundOn, setSoundOn] = useState(false);
+  // Bilateral tones on by default — the narration promises "a slow, steady rhythm
+  // plays underneath", and a silent session is the common "I can't hear anything".
+  const [soundOn, setSoundOn] = useState(true);
+  // Spoken narration on by default (on-device TTS). Members can mute it.
+  const [voiceOn, setVoiceOn] = useState(true);
+  // Voice for the short directive cues spoken DURING a positive-resource set.
+  const { speak: speakCue, voiceQuality } = useSpeech(voiceOn);
   const [blsState, setBlsState] = useState<{ set: number; secondsLeft: number; resting: boolean }>(
     { set: 1, secondsLeft: 0, resting: false }
   );
@@ -459,6 +479,7 @@ export default function SessionPlayer({ module: mod, focus, calmPlace, audioOnly
   );
 
   const advance = useCallback(() => {
+    unlockMedia(); // keep audio + speech unlocked across steps (iOS)
     if (stepIndex + 1 >= mod.steps.length) {
       void endSession("completed");
     } else {
@@ -534,6 +555,7 @@ export default function SessionPlayer({ module: mod, focus, calmPlace, audioOnly
   }, [phase, step, blsStarted, advance]);
 
   const startBls = () => {
+    unlockMedia(); // unlock audio inside this tap so the tones actually sound (iOS)
     setBlsStarted(true);
     setBlsState({ set: 1, secondsLeft: step?.durationSec ?? 30, resting: false });
   };
@@ -542,6 +564,21 @@ export default function SessionPlayer({ module: mod, focus, calmPlace, audioOnly
     customFocus.trim() ||
     focus?.options.find((o) => o.id === selectedFocusId)?.label ||
     "";
+
+  // Light directive cues spoken DURING a set — only for positive-resource
+  // (autonomous-tier) modules like the calm place. NOT for gated trauma-processing
+  // sets, where "notice what's pleasant" would be clinically wrong. Personalized
+  // to the member's calm place / focus; deterministic + output-guard-clean.
+  const resourcingModule = mod.tier === "autonomous";
+  const blsCues = personalizedCues(calmPlace || chosenFocus);
+  const setActive =
+    step?.kind === "bls" && blsStarted && !blsState.resting && blsState.secondsLeft > 0;
+  const currentCue = blsCues[(blsState.set - 1) % blsCues.length];
+  useEffect(() => {
+    if (!resourcingModule || !setActive) return;
+    speakCue(currentCue); // fires once per set start (deps don't include the ticking clock)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [resourcingModule, setActive, blsState.set]);
 
   if (phase === "intro") {
     return (
@@ -610,6 +647,12 @@ export default function SessionPlayer({ module: mod, focus, calmPlace, audioOnly
             always allowed. If distress climbs too high, the session ends itself and offers
             grounding.
           </p>
+          {voiceQuality === "basic" && isAppleTouch() && (
+            <p className="mt-3 text-xs text-olive">
+              Tip: for a warmer, more natural narrator on iPhone/iPad, download an enhanced
+              voice once in Settings → Accessibility → Spoken Content → Voices.
+            </p>
+          )}
           <fieldset className="mt-4">
             <legend className="font-medium">Bilateral stimulation</legend>
             <div className="mt-2 flex gap-2">
@@ -666,6 +709,7 @@ export default function SessionPlayer({ module: mod, focus, calmPlace, audioOnly
         </div>
         <button
           onClick={async () => {
+            unlockMedia(); // unlock audio + speech inside the tap so the session can talk (iOS)
             const id = await startSession(mod.id, chosenFocus || undefined);
             setSessionId(id ?? null);
             startedAtRef.current = Date.now();
@@ -802,6 +846,16 @@ export default function SessionPlayer({ module: mod, focus, calmPlace, audioOnly
           )}
         </span>
         <div className="flex gap-3">
+          <button
+            onClick={() => {
+              unlockMedia(); // this tap also unlocks speech on iOS
+              setVoiceOn((v) => !v);
+            }}
+            aria-pressed={voiceOn}
+            className="text-olive underline"
+          >
+            {voiceOn ? "🔊 Voice on" : "🔇 Voice off"}
+          </button>
           <a href="/crisis" className="font-semibold text-support underline">
             Need help now?
           </a>
@@ -823,6 +877,7 @@ export default function SessionPlayer({ module: mod, focus, calmPlace, audioOnly
             <div className="mt-4">
               <NarrationView
                 key={stepIndex}
+                voice={voiceOn}
                 beats={step.beats.map((b) => fillNarrationSlots(b, { calmPlace, name: memberName }))}
               />
             </div>
@@ -903,6 +958,11 @@ export default function SessionPlayer({ module: mod, focus, calmPlace, audioOnly
               />
             )}
           </div>
+          {resourcingModule && setActive && (
+            <p className="mt-5 text-center font-serif text-2xl text-ground" aria-live="polite">
+              {currentCue}
+            </p>
+          )}
           {!blsStarted ? (
             <button
               onClick={startBls}

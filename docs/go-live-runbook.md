@@ -30,7 +30,8 @@ These are independent of which capability you turn on.
       local PG16 cluster** (all data access async, dialect-neutral SQL,
       pg_dump backup; app boots + round-trips + audit chain verify on Postgres).
       Remaining is OPS: provision Render Postgres, one-time data load, flip
-      `EMDR_DB=postgres`, and add audit-chain `FOR UPDATE` before >1 instance.
+      `EMDR_DB=postgres`, then scale to >1 instance (audit-chain serialization
+      is already in code — advisory lock).
       *(Runbook §4; details in `docs/pg-migration-progress.md`; owner: Eng/Founder.)*
 - [ ] **Outside accounts provisioned** (README §14.1): login/MFA provider,
       email provider (Resend key), Stripe live checkout. *(Owner: Founder.)*
@@ -47,9 +48,14 @@ These are independent of which capability you turn on.
 Currently: **shadow mode** (computes + logs, governs nothing).
 
 Gate:
-- [ ] **Clinician sign-off complete** in the console: all rules **Agree**, zero
-      Needs-change, zero unreviewed, at the current `SAFETY_CONFIG_VERSION`.
-      Verify via the CSV export. *(Owner: Clinician; confirm: Founder.)*
+- [x] **Clinician sign-off complete** — ✅ **DONE (with conditions), 2026-07-22.**
+      Two independent licensed psychologists (Altschuler PSY-005804, Allen
+      PSY-002055) reviewed config `beta-clinrev-2026-07`: all rules **Agree**,
+      all Section-A items **Confirm**, zero Needs-change. Signed:
+      `docs/autonomous/clinician-signoff-SIGNED-2026-07-22.pdf`. **Conditions:**
+      the Part 4 evidence gates (§1 pre-flight below + audit-open-items §C/E)
+      must be completed, and **no autonomous BLS/reprocessing** in beta.
+      *(Owner: Clinician — done; confirm: Founder.)*
 - [ ] **Counsel-approved legal copy staged** (already flag-aware in code:
       `*_AUTONOMOUS` consent/ToS/privacy versions). *(Owner: Counsel — done per
       founder's attorney.)*
@@ -80,8 +86,9 @@ Gate:
 - [x] **Counsel approved the voice/biometric consent** (2026-07-22, per founder's
       attorney) — finalized as `voice-consent-v1.0` in `policy.ts`; gate wired
       (`/settings/voice`, `decideVoiceAvailability`). *(Owner: Counsel — done.)*
-- [ ] **Clinician sign-off** on `LIVE_SESSION_*` + `VOICE_INPUT_*` rows (in the
-      console). *(Owner: Clinician.)*
+- [x] **Clinician sign-off** on `LIVE_SESSION_*` + `VOICE_INPUT_*` rows — ✅
+      **DONE, 2026-07-22** (all Agree, part of the beta-clinrev sign-off above).
+      *(Owner: Clinician.)*
 - [ ] Confirm the **on-device recognition** story for the shipped app if/when
       native (the web build uses the browser recognizer — disclosed in consent).
 
@@ -115,8 +122,10 @@ Owner: Engineering. Detail in [ADR 0007](adr/0007-scaling-zero-downtime.md) and
 - [ ] **OPS:** provision the managed Render Postgres (~$7/mo), set `DATABASE_URL`
       + `EMDR_DB=postgres`.
 - [ ] **OPS:** one-time load of existing SQLite data into Postgres, then flip.
-- [ ] **OPS:** add audit-chain `SELECT ... FOR UPDATE` / advisory lock, then
-      scale past one instance and confirm rolling deploys drop no requests.
+- [x] Audit-chain serialization for concurrent writers — **done in code**
+      (transaction-scoped Postgres advisory lock in `audit()`; empty-table safe).
+- [ ] **OPS:** scale past one instance and confirm rolling deploys drop no
+      requests (no code change left — set `numInstances ≥ 2`).
 
 ---
 

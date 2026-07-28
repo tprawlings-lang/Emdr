@@ -48,22 +48,79 @@ export function voiceInputEnabled(): boolean {
 }
 
 // ── Conservative Initial Beta Configuration (Vol II §12) ────────────────────
+// Revised per the clinical-review draft (config version beta-clinrev-2026-07;
+// docs/autonomous/01-signoff-ledger.md changelog). The headline change: beta
+// runs NO autonomous bilateral stimulation / trauma-memory reprocessing.
 export const BETA_CONFIG = {
   /** Beta ships 3 tracks; "expanded" is disabled. */
   tracks: ["grounding", "cautious", "steady"] as const,
+  /** Clinical-review revision (ledger A3/A5/A7): beta performs NO autonomous
+   *  BLS / trauma-memory reprocessing. Speed/duration/set-count alone cannot
+   *  establish safety; a future protocol needs independent clinical +
+   *  human-factors validation. Self-tapping remains available only as a
+   *  present-focused grounding/orienting skill, never memory processing.
+   *  When false, the engine removes the `stimulation` capability globally. */
+  autonomousStimulationEnabled: false,
   /** Auditory + self-tapping only in beta; no visual BLS until a11y/device
    *  validation. Enforced as a global capability removal. (Ledger A7.) */
   visualStimulationEnabled: false,
-  /** Max stimulation sets in early beta (Vol II §12; ledger A5). */
+  /** Clinical-review revision (ledger A9): DES-II is NOT surfaced or scored in
+   *  beta until lawful commercial licensing, scoring fidelity, interpretation
+   *  limits, and clinician workflow are independently confirmed. When false,
+   *  the DES-II rules never fire. */
+  des2SurfaceEnabled: false,
+  /** Max stimulation sets in early beta (Vol II §12; ledger A5). Retained only
+   *  as an upper operational bound for any FUTURE validated protocol — it does
+   *  not authorize autonomous sets while autonomousStimulationEnabled is false. */
   maxStimulationSets: 2,
   /** Starting-SUDS ceiling to permit stimulation (Vol II §12). */
   startingSudsCeiling: 5,
   /** Daily dissociation at/above this blocks stimulation (Vol II §12). */
   dissociationBlocksStimulationAt: 4,
-  /** Mandatory closure seconds (Vol II §12; main-body value, ledger A7). */
+  /** Mandatory closure seconds — a FLOOR, not a sufficient condition (ledger
+   *  A2/closure change): closure also requires orientation confirmation and a
+   *  member-reported stability check before a session may complete. */
   closureMinSeconds: 120,
   /** One activating session per operational day (Vol II §12). */
   maxActivatingSessionsPerDay: 1,
+} as const;
+
+// ── Resourcing BLS (Phase 4a — Calm/Safe Place installation) ────────────────
+// The clinician-approved BLS protocol (bls-protocol-v1) staged rollout begins
+// with RESOURCING ONLY: short, slow bilateral stimulation paired with a positive
+// resource + cue word (docs/autonomous/bls-validation). This is NOT trauma-memory
+// desensitization — that stays disabled (`autonomousStimulationEnabled = false`).
+// Resourcing is gated separately so 4a can be piloted without enabling 4b/4c.
+export const BLS_RESOURCING = {
+  /** Slow speed for resourcing (research: short, slow sets). */
+  hz: 1.0,
+  /** Short sets so installation does NOT open processing (~4–8 passes). */
+  passesPerSet: 6,
+  /** Approximate seconds per set at the above (short by design). */
+  approxSecondsPerSet: 8,
+  /** A few short sets to install the resource. */
+  maxSets: 4,
+  /** Member chooses a cue word paired with the resource. */
+  cueWordRequired: true,
+} as const;
+
+/** Phase-4a resourcing BLS gate. OFF by default; enabled explicitly for the
+ *  monitored pilot. Desensitization stays governed by autonomousStimulationEnabled
+ *  (which remains false) — this flag never enables trauma-memory processing. The
+ *  `EMDR_KILL_BLS` kill switch (governance) overrides this to false. */
+export function blsResourcingEnabled(): boolean {
+  return process.env.EMDR_BLS_RESOURCING === "1";
+}
+
+// ── Finalized program-fit gate wording (ledger A8) ──────────────────────────
+// Replaces the `fit-v1-placeholder` item. Preparation-only scope stated plainly;
+// no diagnosis, no readiness-for-processing determination, no clinician
+// replacement. Pending clinician ratification at the new config version.
+export const PROGRAM_FIT_GATE_WORDING = {
+  version: "fit-v2-clinrev",
+  prompt:
+    "Steady provides education, preparation, and grounding-oriented skills. It does not diagnose, determine readiness for trauma processing, or replace a licensed clinician. Are you seeking general education/preparation rather than emergency help or independent trauma-memory processing?",
+  responses: ["Yes", "I am not sure", "No, I need urgent or clinical help"] as const,
 } as const;
 
 // ── Instrument thresholds (Vol II §1; all provisional, ledger §B) ───────────
