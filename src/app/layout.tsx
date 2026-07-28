@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Inter, Cormorant_Garamond } from "next/font/google";
 import "./globals.css";
+import SosMount from "@/components/SosMount";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
 const cormorant = Cormorant_Garamond({
@@ -31,6 +32,7 @@ export default function RootLayout({
           </div>
         )}
         <div className="flex-1">{children}</div>
+        <SosMount />
         <footer className="mx-auto w-full max-w-3xl px-6 py-10 text-center text-sm text-olive">
           <p className="font-medium">
             Steady is not emergency care. In the US, call or text{" "}

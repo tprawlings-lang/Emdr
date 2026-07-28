@@ -1524,6 +1524,19 @@ export async function markLessonReadAction(lessonId: string): Promise<void> {
   }
 }
 
+// SOS panic panel (roadmap F7): record that the member reached for immediate
+// relief. Coded safety event only — never what prompted it. Best-effort so a
+// logging hiccup never blocks the panel from opening.
+export async function recordSosOpenedAction(): Promise<void> {
+  try {
+    const user = await requireMember();
+    const { recordSosOpened } = await import("./sos");
+    await recordSosOpened(user.id);
+  } catch {
+    // best-effort
+  }
+}
+
 // Prepare-for-session on-ramp (roadmap F4): audit that a member regulated before
 // starting a module, so the hard-stop rate of prepared vs unprepared sessions is
 // measurable. Content-free.
