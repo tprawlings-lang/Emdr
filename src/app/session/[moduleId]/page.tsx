@@ -5,6 +5,7 @@ import { checkModuleAccess, voiceAvailableFor, liveAvailableFor } from "@/lib/ga
 import { getSavedCalmPlace, getSessionFocus } from "@/lib/session-focus";
 import { hasSeizureFlag } from "@/lib/fitness-screener";
 import { getCompanionPrefs } from "@/lib/profile";
+import { listPractices } from "@/lib/practices";
 import SessionPlayer from "@/components/SessionPlayer";
 
 export default async function SessionPage({
@@ -30,12 +31,13 @@ export default async function SessionPage({
     (await getCompanionPrefs(user.id))?.preferred_user_name?.trim() ||
     user.name?.trim().split(/\s+/)[0] ||
     null;
-  const [focus, calmPlace, audioOnlyDefault, voiceEnabled, liveEnabled] = await Promise.all([
+  const [focus, calmPlace, audioOnlyDefault, voiceEnabled, liveEnabled, breaths] = await Promise.all([
     getSessionFocus(user.id, mod.id),
     getSavedCalmPlace(user.id),
     hasSeizureFlag(user.id),
     voiceAvailableFor(user.id),
     liveAvailableFor(user.id),
+    listPractices(user.id, "breathwork"),
   ]);
   return (
     <SessionPlayer
@@ -46,6 +48,7 @@ export default async function SessionPage({
       voiceEnabled={voiceEnabled}
       memberName={preferredName}
       liveEnabled={liveEnabled}
+      preparePractice={breaths[0] ?? null}
     />
   );
 }

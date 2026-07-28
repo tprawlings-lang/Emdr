@@ -1513,6 +1513,21 @@ export async function completePractice(practiceId: string, durationSec: number):
   return recordPracticeCompletion(user.id, practiceId, durationSec);
 }
 
+// Prepare-for-session on-ramp (roadmap F4): audit that a member regulated before
+// starting a module, so the hard-stop rate of prepared vs unprepared sessions is
+// measurable. Content-free.
+export async function recordSessionPrepare(moduleId: string): Promise<void> {
+  try {
+    const user = await requireMember();
+    await audit({
+      actorId: user.id, actorRole: "member", family: "module_runtime",
+      type: "session_prepared", target: moduleId, detail: {},
+    });
+  } catch {
+    // best-effort — never block the session
+  }
+}
+
 export async function recordResourcingEvent(event: "start" | "stop" | "closed"): Promise<void> {
   if (event !== "start" && event !== "stop" && event !== "closed") return;
   try {

@@ -7,9 +7,11 @@ import { fillNarrationSlots } from "@/lib/modules";
 import NarrationView from "@/components/NarrationView";
 import { getAudioContext, unlockMedia } from "@/components/media-unlock";
 import { useSpeech } from "@/components/useSpeech";
+import BreathePacer from "@/components/BreathePacer";
 import { personalizedCues } from "@/lib/safety/resourcing";
 import type { SessionFocus } from "@/lib/session-focus";
-import { finishSession, logSafetyEvent, recordSessionTrigger, speakInSession, startSession } from "@/lib/actions";
+import type { Practice } from "@/lib/practices";
+import { finishSession, logSafetyEvent, recordSessionTrigger, speakInSession, startSession, recordSessionPrepare, completePractice } from "@/lib/actions";
 import VoiceInput from "@/components/VoiceInput";
 import LiveVoice from "@/components/LiveVoice";
 import {
@@ -40,6 +42,8 @@ interface Props {
   memberName?: string | null;
   /** Enable hands-free voice + the dynamic in-session responder (demo/flag). */
   liveEnabled?: boolean;
+  /** A gentle breathwork practice offered as the optional prepare-first on-ramp. */
+  preparePractice?: Practice | null;
 }
 
 // iPhone/iPad (incl. iPadOS reporting as "MacIntel" with touch) — used only to
@@ -361,10 +365,13 @@ const GROUNDING_STEPS = [
   "Look around the room. Notice where you are, today's date, that you are here now.",
 ];
 
-export default function SessionPlayer({ module: mod, focus, calmPlace, audioOnlyDefault, voiceEnabled = false, memberName, liveEnabled = false }: Props) {
+export default function SessionPlayer({ module: mod, focus, calmPlace, audioOnlyDefault, voiceEnabled = false, memberName, liveEnabled = false, preparePractice = null }: Props) {
   const router = useRouter();
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [phase, setPhase] = useState<Phase>("intro");
+  // Prepare-for-session on-ramp (F4): optional regulate step before Begin.
+  const [preparing, setPreparing] = useState(false);
+  const [prepared, setPrepared] = useState(false);
   const [selectedFocusId, setSelectedFocusId] = useState<string | null>(null);
   const [customFocus, setCustomFocus] = useState("");
   const [blsMode, setBlsMode] = useState<"visual" | "audio">(audioOnlyDefault ? "audio" : "visual");
@@ -580,6 +587,23 @@ export default function SessionPlayer({ module: mod, focus, calmPlace, audioOnly
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [resourcingModule, setActive, blsState.set]);
 
+  if (phase === "intro" && preparing && preparePractice) {
+    return (
+      <div className="mx-auto flex min-h-[70vh] max-w-2xl flex-col items-center justify-center gap-6 px-6 py-12 text-center">
+        <p className="text-olive">Taking a moment to settle before we begin.</p>
+        <BreathePacer
+          practice={preparePractice}
+          onDone={(secs) => {
+            setPreparing(false);
+            setPrepared(true);
+            if (secs >= 20) void completePractice(preparePractice.id, secs);
+            void recordSessionPrepare(mod.id);
+          }}
+        />
+      </div>
+    );
+  }
+
   if (phase === "intro") {
     return (
       <div className="mx-auto max-w-2xl px-6 py-12">
@@ -707,6 +731,33 @@ export default function SessionPlayer({ module: mod, focus, calmPlace, audioOnly
             </select>
           </label>
         </div>
+        {preparePractice && (
+          <div className="mt-6 rounded-3xl border border-ground/10 bg-linen p-5 shadow-soft">
+            {prepared ? (
+              <p className="text-sm font-medium text-support-deep">
+                ✓ You took a moment to settle. Begin whenever you&apos;re ready.
+              </p>
+            ) : (
+              <>
+                <p className="font-medium">Prepare first (optional)</p>
+                <p className="mt-1 text-sm text-olive">
+                  A short paced breath to settle before you start — about a minute. Steadier going in
+                  tends to make the work gentler.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    unlockMedia();
+                    setPreparing(true);
+                  }}
+                  className="mt-3 rounded-full border border-sage px-5 py-2 text-sm font-medium text-support-deep transition-colors hover:bg-sage/10"
+                >
+                  Prepare with a breath
+                </button>
+              </>
+            )}
+          </div>
+        )}
         <button
           onClick={async () => {
             unlockMedia(); // unlock audio + speech inside the tap so the session can talk (iOS)
