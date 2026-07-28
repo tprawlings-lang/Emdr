@@ -184,7 +184,18 @@ export type ModuleAccess =
       action: "subscribe" | "consent" | "screening" | "profile" | "checkin" | "crisis" | "grounding" | "unlock" | "prereq" | "readiness" | "safety_plan" | "paused" | "cooldown";
     };
 
-const GROUNDING_MODULES = new Set(["calm-place", "containment"]);
+export const GROUNDING_MODULES = new Set(["calm-place", "containment"]);
+
+// TEST/DEMO ONLY. EMDR_OPEN_GATED=1 (honored only when EMDR_DEMO=1) opens the
+// gated modules without a per-member clinician unlock, so the full module set
+// can be exercised in a testing cycle. It behaves like a clinician override —
+// relaxing the unlock requirement + readiness track + prerequisites — but NEVER
+// the daily safety read (crisis / grounding-only / stabilization), the cooldown,
+// the per-day cap, or the kill switch. Inert on any real deployment (EMDR_DEMO
+// unset), so it can never open processing modules for a real member.
+export function testOpenGated(): boolean {
+  return process.env.EMDR_OPEN_GATED === "1" && process.env.EMDR_DEMO === "1";
+}
 
 export async function checkModuleAccess(userId: string, mod: TherapyModule): Promise<ModuleAccess> {
   // Global kill switch (compliance 4D): new session starts can be disabled
@@ -246,7 +257,9 @@ export async function checkModuleAccess(userId: string, mod: TherapyModule): Pro
   // never the daily safety read above (check-in crisis/grounding/stabilization)
   // or the cooldown/cap checks further down.
   const unlockRow = mod.tier === "gated" ? await getUnlock(userId, mod.id) : null;
-  const override = !!unlockRow && unlockRow.status === "unlocked" && unlockRow.override === 1;
+  const override =
+    (!!unlockRow && unlockRow.status === "unlocked" && unlockRow.override === 1) ||
+    (mod.tier === "gated" && testOpenGated());
 
   // Readiness track gating (feature spec section 5). The language never
   // implies failure: today may simply be better for grounding.
@@ -285,7 +298,7 @@ export async function checkModuleAccess(userId: string, mod: TherapyModule): Pro
 
   if (mod.tier === "gated") {
     const unlock = unlockRow;
-    if (!unlock || unlock.status !== "unlocked")
+    if (!override && (!unlock || unlock.status !== "unlocked"))
       return {
         allowed: false,
         reason:

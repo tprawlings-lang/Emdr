@@ -681,6 +681,22 @@ session flow for real members without waiting on a human touchpoint. Today the e
    Member-initiated resourcing (4a) is live and flag-gated, but *autonomous* stimulation /
    reprocessing is a separate, later gate that needs its own clinician sign-off + evidence. 🔴
 
+**Pre-flip artifact (built) — shadow-vs-live divergence report.** Before step 4/5, we must
+show the engine's decision matches the live human gate. `src/lib/autonomous/divergence.ts`
+compares, per active member × module, `checkModuleAccess` (governs today) against the engine's
+`engineModuleVerdict(decideAccess(...))`, and classifies agree / engine-more-permissive /
+engine-more-restrictive. **"Engine more permissive"** (the engine would open a module the human
+gate blocks — chiefly gated modules that today need a clinician unlock) is flagged for clinician
+review. Clinician/admin JSON at **`GET /api/clinician/divergence`**. This is the report to walk
+with the reviewers before flipping the flag.
+
+**Testing the full module set — `EMDR_OPEN_GATED`.** The gated (processing) modules require a
+per-member clinician unlock by design. For a testing cycle, `EMDR_OPEN_GATED=1` — honored
+**only when `EMDR_DEMO=1`** — opens them without the clinician step (behaves like a clinician
+override: relaxes unlock + readiness track + prerequisites, but never the daily safety read,
+cooldowns, caps, or kill switch). Inert on any real deployment, so it can never open processing
+modules for a real member.
+
 Non-negotiable substrate that stays green throughout: the `@safety` + safety-core suites, the
 kill switch, the fitness screener, and the SUDS stop rules. The one architectural rule never
 changes — **autonomy means more deterministic automation of clinician-validated rules, never
