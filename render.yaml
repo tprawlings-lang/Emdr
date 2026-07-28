@@ -7,7 +7,7 @@ services:
     name: steady-emdr-demo
     runtime: docker
     plan: starter
-    branch: claude/gifted-keller-501y5d
+    branch: main
     healthCheckPath: /
     disk:
       name: data
