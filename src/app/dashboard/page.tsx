@@ -118,6 +118,10 @@ export default async function DashboardPage() {
   // same-day clinical exclusion before rendering any set).
   const resourcingAvail = checkin ? await resourcingBlsAvailable(user.id) : false;
 
+  // Autopilot (Premium): today's composed plan, or null on other tiers.
+  const { getAutopilotPlan } = await import("@/lib/autopilot");
+  const autopilot = await getAutopilotPlan(user.id);
+
   return (
     <main className="mx-auto max-w-4xl px-6 py-12">
       {fitness.status === "none" && (
@@ -193,6 +197,41 @@ export default async function DashboardPage() {
           </p>
         </div>
       </div>
+
+      {autopilot && (
+        <section className="mt-6 rounded-3xl border border-sage-deep/40 bg-moss p-7 shadow-soft">
+          <div className="flex items-baseline justify-between gap-3">
+            <div>
+              <p className="text-sm text-olive">Autopilot · today&apos;s plan</p>
+              <h2 className="mt-1 font-serif text-2xl font-medium">{autopilot.headline}</h2>
+            </div>
+            <p className="text-xs text-olive">{autopilot.date}</p>
+          </div>
+          {autopilot.outreach && (
+            <p className="mt-4 rounded-2xl bg-ivory/70 p-4 text-sm leading-relaxed text-ground/90">
+              {autopilot.outreach}
+            </p>
+          )}
+          <div className="mt-4 space-y-2.5">
+            {autopilot.items.map((item) => (
+              <Link
+                key={item.href + item.title}
+                href={item.href}
+                className="flex items-start justify-between gap-3 rounded-2xl border border-ground/10 bg-linen p-4 transition-colors hover:bg-ivory"
+              >
+                <div>
+                  <p className="font-medium text-ground">{item.title}</p>
+                  <p className="mt-0.5 text-sm text-olive">{item.detail}</p>
+                </div>
+                <span className="mt-1 text-olive" aria-hidden="true">→</span>
+              </Link>
+            ))}
+          </div>
+          {autopilot.pacingNote && (
+            <p className="mt-4 text-xs leading-relaxed text-olive">{autopilot.pacingNote}</p>
+          )}
+        </section>
+      )}
 
       {!checkin ? (
         <div className="mt-6 rounded-3xl bg-ground p-7 text-ivory shadow-soft">

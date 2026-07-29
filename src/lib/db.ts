@@ -362,6 +362,24 @@ function migrate(db: Database.Database) {
   );
   CREATE INDEX IF NOT EXISTS idx_upsell_events_user ON upsell_events(user_id, created_at);
 
+  CREATE TABLE IF NOT EXISTS autopilot_plans (
+    user_id TEXT NOT NULL REFERENCES users(id),
+    plan_date TEXT NOT NULL,
+    checkin_state TEXT NOT NULL DEFAULT 'none',
+    plan_json TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+    PRIMARY KEY (user_id, plan_date)
+  );
+
+  CREATE TABLE IF NOT EXISTS autopilot_events (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL REFERENCES users(id),
+    kind TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+  CREATE INDEX IF NOT EXISTS idx_autopilot_events_user ON autopilot_events(user_id, created_at);
+
   CREATE TABLE IF NOT EXISTS lesson_reads (
     id TEXT PRIMARY KEY,
     user_id TEXT NOT NULL REFERENCES users(id),

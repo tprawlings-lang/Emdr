@@ -1166,11 +1166,16 @@ export async function requestUnlock(formData: FormData) {
        status = 'requested', member_note = excluded.member_note,
        requested_at = CURRENT_TIMESTAMP, decided_at = NULL, decision_reason = NULL`, [newId(), user.id, moduleId, note || null]);
 
+  // Priority specialist review is a Premium benefit: the request queues at a
+  // higher severity so it sorts to the top of the clinician's list. The
+  // clinical bar for the decision itself is identical on every tier.
+  const { getEntitlements } = await import("./entitlements");
+  const priority = (await getEntitlements(user.id))?.priorityReview === true;
   await createAlert({
     userId: user.id,
     type: "unlock_requested",
-    severity: "moderate",
-    detail: `Member requested unlock for module: ${mod.name}`,
+    severity: priority ? "high" : "moderate",
+    detail: `${priority ? "Priority review (Premium) — " : ""}Member requested unlock for module: ${mod.name}`,
   });
   await audit({
     actorId: user.id,
@@ -1178,6 +1183,7 @@ export async function requestUnlock(formData: FormData) {
     family: "clinical",
     type: "unlock_requested",
     target: moduleId,
+    detail: { priority },
   });
   redirect("/dashboard?unlock=requested");
 }
