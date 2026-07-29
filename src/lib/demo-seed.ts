@@ -148,17 +148,18 @@ export function seedDemoData(db: Database.Database) {
     "open", null, null, daysAgo(1, 9), null
   );
 
-  // --- Memberships: Alex is paying monthly, Sam is mid-trial ---
+  // --- Memberships: Alex pays for Premium; Sam is in the free Premium week
+  // with billing set to start on Plus ---
   const insSub = db.prepare(
     `INSERT INTO subscriptions (user_id, plan, status, price_cents, currency, provider, current_period_end, created_at)
-     VALUES (?, 'monthly', ?, 3499, 'usd', 'demo', ?, ?)`
+     VALUES (?, ?, ?, ?, 'usd', 'demo', ?, ?)`
   );
   const inFuture = (d: number) => {
     const t = new Date(Date.now() + d * 86400000);
     return t.toISOString().slice(0, 19).replace("T", " ");
   };
-  insSub.run(alexId, "active", inFuture(16), daysAgo(22));
-  insSub.run(samId, "trialing", inFuture(5), daysAgo(2));
+  insSub.run(alexId, "premium", "active", 3499, inFuture(16), daysAgo(22));
+  insSub.run(samId, "plus", "trialing", 1999, inFuture(5), daysAgo(2));
   const insPayment = db.prepare(
     `INSERT INTO payments (id, user_id, amount_cents, currency, status, description, provider, created_at)
      VALUES (?, ?, 3499, 'usd', 'succeeded', ?, 'demo', ?)`

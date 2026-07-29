@@ -9,23 +9,80 @@ import { audit } from "./audit";
 // signup -> subscribe -> onboarding flow works end to end; swapping in
 // Stripe means implementing checkout/renewal against their API and webhooks
 // behind these same functions, keyed off STRIPE_SECRET_KEY.
+//
+// Pricing (Phase A): three tiers — base / plus / premium. Every new
+// membership starts with TRIAL_DAYS of premium (status "trialing" runs at
+// premium entitlements; see lib/entitlements.ts), then bills on the tier the
+// member chose. Legacy "monthly" ($34.99) rows are grandfathered as premium.
 
-export const PLAN = {
-  id: "monthly",
-  label: "Steady membership",
-  priceCents: 3499,
-  currency: "usd",
-  priceLabel: "$34.99 / month",
-  trialDays: 7,
-  includes: [
-    "Daily check-ins that pace every session",
-    "Guided trauma-support modules",
-    "Grounding tools and your safety plan",
-    "Your companion, with memory you control",
-    "Session reflections and progress trends",
-    "Specialist-informed safety review",
-  ],
+export type PlanId = "base" | "plus" | "premium";
+
+export interface PlanDef {
+  id: PlanId;
+  label: string;
+  tagline: string;
+  priceCents: number;
+  currency: string;
+  priceLabel: string;
+  includes: string[];
+}
+
+export const TRIAL_DAYS = 7;
+
+export const PLANS: Record<PlanId, PlanDef> = {
+  base: {
+    id: "base",
+    label: "Base",
+    tagline: "A calmer daily practice",
+    priceCents: 699,
+    currency: "usd",
+    priceLabel: "$6.99 / month",
+    includes: [
+      "Daily check-ins that pace your day",
+      "Breathe, meditate, move, and sleep practices",
+      "Short lessons that make sense of the work",
+      "Grounding tools, your safety plan, and SOS",
+      "Your companion, once a week",
+    ],
+  },
+  plus: {
+    id: "plus",
+    label: "Plus",
+    tagline: "A program that remembers you",
+    priceCents: 1999,
+    currency: "usd",
+    priceLabel: "$19.99 / month",
+    includes: [
+      "Everything in Base",
+      "Guided trauma-support module program",
+      "Your companion, unlimited, with memory you control",
+      "Symptom measures and progress trends",
+      "Specialist-informed safety review",
+    ],
+  },
+  premium: {
+    id: "premium",
+    label: "Premium",
+    tagline: "Steady runs your program with you",
+    priceCents: 3499,
+    currency: "usd",
+    priceLabel: "$34.99 / month",
+    includes: [
+      "Everything in Plus",
+      "Autopilot: a daily plan composed for you each morning",
+      "A companion that reaches out between sessions",
+      "Pacing that adapts to keep you in your window",
+      "Live spoken sessions, hands-free",
+      "Priority specialist review",
+    ],
+  },
 };
+
+export function getPlan(id: string): PlanDef {
+  if (id === "base" || id === "plus" || id === "premium") return PLANS[id];
+  // Legacy single-plan rows ("monthly", $34.99) map to premium.
+  return PLANS.premium;
+}
 
 export interface Subscription {
   user_id: string;
@@ -50,11 +107,11 @@ function addMonth(from: Date): string {
   return d.toISOString().slice(0, 19).replace("T", " ");
 }
 
-async function recordPayment(userId: string, description: string) {
+async function recordPayment(userId: string, amountCents: number, currency: string, description: string) {
   const c = await data();
   await c.run(
     "INSERT INTO payments (id, user_id, amount_cents, currency, status, description) VALUES (?, ?, ?, ?, 'succeeded', ?)",
-    [newId(), userId, PLAN.priceCents, PLAN.currency, description]
+    [newId(), userId, amountCents, currency, description]
   );
 }
 
@@ -67,8 +124,9 @@ export async function getSubscription(userId: string): Promise<Subscription | nu
 }
 
 // Demo-provider recurring billing: lazily roll the subscription forward when
-// a period has lapsed. Trials convert to a first charge; active periods renew
-// with a monthly charge; cancellations take effect at the period boundary.
+// a period has lapsed. Trials convert to a first charge on the CHOSEN plan;
+// active periods renew with a monthly charge; cancellations take effect at
+// the period boundary.
 export async function getCurrentSubscription(userId: string): Promise<Subscription | null> {
   const c = await data();
   let sub = await getSubscription(userId);
@@ -90,11 +148,16 @@ export async function getCurrentSubscription(userId: string): Promise<Subscripti
         "UPDATE subscriptions SET status = 'active', current_period_end = ?, updated_at = CURRENT_TIMESTAMP WHERE user_id = ?",
         [periodEnd, userId]
       );
+      const plan = getPlan(sub.plan);
       await recordPayment(
         userId,
-        sub.status === "trialing" ? "First month after free trial (simulated)" : "Monthly renewal (simulated)"
+        sub.price_cents,
+        sub.currency,
+        sub.status === "trialing"
+          ? `First month of ${plan.label} after free Premium week (simulated)`
+          : `Monthly ${plan.label} renewal (simulated)`
       );
-      await audit({ actorId: userId, actorRole: "member", family: "billing", type: "subscription_renewed" });
+      await audit({ actorId: userId, actorRole: "member", family: "billing", type: "subscription_renewed", detail: { plan: sub.plan } });
     }
     sub = await getSubscription(userId);
   }
@@ -106,32 +169,59 @@ export async function subscriptionActive(userId: string): Promise<boolean> {
   return !!sub && (sub.status === "active" || sub.status === "trialing");
 }
 
-export async function startDemoSubscription(userId: string) {
+/** Start (or restart) a membership. New members begin a TRIAL_DAYS free week
+ *  that runs at premium; billing then starts on `planId`. Re-subscribers start
+ *  a fresh paid period on `planId` immediately (no second trial). When
+ *  restarting without an explicit choice, the previous plan is kept. */
+export async function startDemoSubscription(userId: string, planId?: PlanId) {
   const c = await data();
   const existing = await getSubscription(userId);
   const now = new Date();
   if (existing) {
-    // Re-subscribe after cancellation: a fresh paid period starts now.
+    const plan = planId ? PLANS[planId] : getPlan(existing.plan);
     await c.run(
-      `UPDATE subscriptions SET status = 'active', cancel_at_period_end = 0,
+      `UPDATE subscriptions SET plan = ?, price_cents = ?, status = 'active', cancel_at_period_end = 0,
          current_period_end = ?, updated_at = CURRENT_TIMESTAMP WHERE user_id = ?`,
-      [addMonth(now), userId]
+      [plan.id, plan.priceCents, addMonth(now), userId]
     );
-    await recordPayment(userId, "Membership restarted (simulated)");
-    await audit({ actorId: userId, actorRole: "member", family: "billing", type: "subscription_restarted" });
+    await recordPayment(userId, plan.priceCents, plan.currency, `${plan.label} membership restarted (simulated)`);
+    await audit({ actorId: userId, actorRole: "member", family: "billing", type: "subscription_restarted", detail: { plan: plan.id } });
     return;
   }
+  const plan = PLANS[planId ?? "premium"];
   await c.run(
     `INSERT INTO subscriptions (user_id, plan, status, price_cents, currency, provider, current_period_end)
      VALUES (?, ?, 'trialing', ?, ?, 'demo', ?)`,
-    [userId, PLAN.id, PLAN.priceCents, PLAN.currency, addDays(now, PLAN.trialDays)]
+    [userId, plan.id, plan.priceCents, plan.currency, addDays(now, TRIAL_DAYS)]
   );
   await audit({
     actorId: userId,
     actorRole: "member",
     family: "billing",
     type: "subscription_started",
-    detail: { plan: PLAN.id, trialDays: PLAN.trialDays },
+    detail: { plan: plan.id, trialDays: TRIAL_DAYS, trialTier: "premium" },
+  });
+}
+
+/** Change tier. Upgrades and downgrades both take effect at the next period
+ *  boundary for billing (the demo provider keeps it simple: the plan and price
+ *  change now, the next renewal charges the new price). During a trial this
+ *  just changes which tier billing starts on. */
+export async function changePlan(userId: string, planId: PlanId) {
+  const c = await data();
+  const sub = await getSubscription(userId);
+  if (!sub || sub.status === "canceled") return;
+  const plan = PLANS[planId];
+  await c.run(
+    "UPDATE subscriptions SET plan = ?, price_cents = ?, updated_at = CURRENT_TIMESTAMP WHERE user_id = ?",
+    [plan.id, plan.priceCents, userId]
+  );
+  await audit({
+    actorId: userId,
+    actorRole: "member",
+    family: "billing",
+    type: "plan_changed",
+    detail: { from: sub.plan, to: plan.id },
   });
 }
 
@@ -148,14 +238,14 @@ export async function safetyRefundAndCancel(userId: string) {
     );
   }
   const lastCharge = (await c.get(
-    `SELECT id, amount_cents FROM payments
+    `SELECT id, amount_cents, currency FROM payments
        WHERE user_id = ? AND status = 'succeeded' ORDER BY created_at DESC LIMIT 1`,
     [userId]
-  )) as { id: string; amount_cents: number } | undefined;
+  )) as { id: string; amount_cents: number; currency: string } | undefined;
   if (lastCharge) {
     await c.run(
       "INSERT INTO payments (id, user_id, amount_cents, currency, status, description) VALUES (?, ?, ?, ?, 'refunded', ?)",
-      [newId(), userId, lastCharge.amount_cents, PLAN.currency, "Automatic refund — program fit (no action needed)"]
+      [newId(), userId, lastCharge.amount_cents, lastCharge.currency, "Automatic refund — program fit (no action needed)"]
     );
   }
   await audit({

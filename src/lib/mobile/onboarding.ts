@@ -66,8 +66,12 @@ export async function signupMobile(input: {
 
 // ---------- subscribe ----------
 
-export async function subscribeMobile(userId: string): Promise<{ active: boolean }> {
-  await startDemoSubscription(userId);
+export async function subscribeMobile(
+  userId: string,
+  plan?: string
+): Promise<{ active: boolean }> {
+  const planId = plan === "base" || plan === "plus" || plan === "premium" ? plan : undefined;
+  await startDemoSubscription(userId, planId);
   return { active: await subscriptionActive(userId) };
 }
 

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { currentTermsVersion } from "@/lib/policy";
 import { autonomousSafetyEnabled } from "@/lib/safety/config";
-import { PLAN } from "@/lib/billing";
+import { PLANS, TRIAL_DAYS } from "@/lib/billing";
 
 // Terms of Service v2.0. Coverage expanded per counsel's instruction to match
 // competitor-standard commercial protections (as-is disclaimer, liability
@@ -195,8 +195,11 @@ export default function TermsPage() {
 
       <Section n={10} title="Membership, billing, and cancellation">
         <p>
-          Steady is {PLAN.priceLabel} after a {PLAN.trialDays}-day free trial. You will see
-          the price and the date of your first charge before the trial starts.{" "}
+          Steady offers three memberships — {PLANS.base.label} ({PLANS.base.priceLabel}),{" "}
+          {PLANS.plus.label} ({PLANS.plus.priceLabel}), and {PLANS.premium.label} (
+          {PLANS.premium.priceLabel}) — each beginning with a {TRIAL_DAYS}-day free trial that
+          includes Premium features. Billing then starts on the membership you chose. You will
+          see the price and the date of your first charge before the trial starts.{" "}
           <strong>Your membership renews automatically each month</strong> at the
           then-current rate until you cancel; if the rate is going to change, we will tell
           you before it applies to you. Payment is handled by a secure third-party payment

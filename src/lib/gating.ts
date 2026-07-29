@@ -182,7 +182,7 @@ export type ModuleAccess =
   | {
       allowed: false;
       reason: string;
-      action: "subscribe" | "consent" | "screening" | "profile" | "checkin" | "crisis" | "grounding" | "unlock" | "prereq" | "readiness" | "safety_plan" | "paused" | "cooldown";
+      action: "subscribe" | "upgrade" | "consent" | "screening" | "profile" | "checkin" | "crisis" | "grounding" | "unlock" | "prereq" | "readiness" | "safety_plan" | "paused" | "cooldown";
     };
 
 // GROUNDING_MODULES is imported from safety/module-verdict (single source of truth).
@@ -209,6 +209,18 @@ export async function checkModuleAccess(userId: string, mod: TherapyModule): Pro
     };
   if (!(await subscriptionActive(userId)))
     return { allowed: false, reason: "An active membership is needed for sessions.", action: "subscribe" };
+  // The guided module program is a Plus/Premium feature. Base keeps the whole
+  // regulate suite, Learn, Ground, and SOS — safety is never tier-gated.
+  {
+    const { getEntitlements } = await import("./entitlements");
+    const ent = await getEntitlements(userId);
+    if (ent && !ent.program)
+      return {
+        allowed: false,
+        reason: "Guided sessions are part of Plus and Premium. Your practices, lessons, and grounding tools are all still here.",
+        action: "upgrade",
+      };
+  }
   if (!(await hasConsent(userId)))
     return { allowed: false, reason: "Please review and complete consent first.", action: "consent" };
 

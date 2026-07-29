@@ -78,7 +78,7 @@ const FAQS = [
   },
   {
     q: "What does it cost?",
-    a: "$34.99 a month after a 7-day free trial — a fraction of a single traditional session. If it doesn't feel right within your first week, cancel and pay nothing. Crisis support and grounding tools stay open to everyone, regardless of membership.",
+    a: "From $6.99 a month, after 7 days of Premium free. Base ($6.99) is the daily practice — breathing, meditation, movement, sleep, and grounding. Plus ($19.99) adds the guided program and an unlimited companion that remembers you. Premium ($34.99) adds Autopilot: Steady plans each day with you, reaches out between sessions, and adapts your pacing — a fraction of a single traditional session. Crisis support and grounding tools stay open to everyone, regardless of membership.",
   },
 ];
 
@@ -448,15 +448,15 @@ export default async function Home() {
             as long as the work takes.
           </p>
           <p className="mt-8 font-serif text-6xl font-medium">
-            $34.99<span className="text-2xl text-olive">/month</span>
+            From $6.99<span className="text-2xl text-olive">/month</span>
           </p>
-          <p className="mt-2 text-sm text-olive">First 7 days free</p>
+          <p className="mt-2 text-sm text-olive">First 7 days of Premium free — then Base $6.99, Plus $19.99, or Premium $34.99</p>
           <ul className="mx-auto mt-6 max-w-md space-y-2 text-left text-sm text-ground/90">
             {[
-              "Unlimited guided sessions and grounding tools",
-              "Daily readiness check-ins and progress measures",
-              "A companion with memory you control",
-              "Specialist-informed safety review",
+              "Base: daily check-ins, breathe / meditate / move / sleep, lessons, and SOS",
+              "Plus: the guided program, and an unlimited companion that remembers you",
+              "Premium: Autopilot — a daily plan, proactive outreach, adaptive pacing, live sessions",
+              "Specialist-informed safety review across every tier",
             ].map((line) => (
               <li key={line} className="flex items-start gap-3">
                 <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-sage" aria-hidden="true" />

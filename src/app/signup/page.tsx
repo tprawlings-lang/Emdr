@@ -2,7 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
 import { signup } from "@/lib/actions";
-import { PLAN } from "@/lib/billing";
+import { PLANS, TRIAL_DAYS } from "@/lib/billing";
 import { SteadyMark, Wordmark } from "@/components/Brand";
 
 const ERROR_COPY: Record<string, string> = {
@@ -43,7 +43,7 @@ export default async function SignupPage({
             structure that always knows what to offer next.
           </p>
           <ul className="mt-6 space-y-3 text-ground/90">
-            {PLAN.includes.map((line) => (
+            {PLANS.premium.includes.map((line) => (
               <li key={line} className="flex items-start gap-3">
                 <span className="mt-2 h-2 w-2 shrink-0 rounded-full bg-sage" aria-hidden="true" />
                 {line}
@@ -52,13 +52,14 @@ export default async function SignupPage({
           </ul>
           <div className="mt-8 rounded-3xl border border-ground/10 bg-linen p-6 shadow-soft">
             <p className="font-serif text-2xl font-medium">
-              {PLAN.priceLabel}
+              From {PLANS.base.priceLabel}
               <span className="ml-2 text-base font-normal text-olive">
-                · first {PLAN.trialDays} days free
+                · first {TRIAL_DAYS} days of Premium free
               </span>
             </p>
             <p className="mt-2 text-sm leading-relaxed text-olive">
-              Begin with a free week. Cancel anytime — pausing is always allowed here, in
+              Begin with a free week of everything, then choose the membership that fits —
+              Base, Plus, or Premium. Cancel anytime — pausing is always allowed here, in
               billing as much as in sessions.
             </p>
           </div>

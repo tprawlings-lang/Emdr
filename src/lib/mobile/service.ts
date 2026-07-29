@@ -68,6 +68,8 @@ export interface ModuleDTO {
 
 export interface GatingSnapshot {
   subscriptionActive: boolean;
+  /** Membership tier: base | plus | premium (trials run at premium); null if none. */
+  tier: string | null;
   hasConsent: boolean;
   screeningComplete: boolean;
   profileComplete: boolean;
@@ -123,8 +125,10 @@ export async function loginMobile(
 // ---------- gating snapshot + module access ----------
 
 export async function gatingSnapshot(userId: string): Promise<GatingSnapshot> {
-  const [sub, consent, screening, profile, checkin, fit, next, liveVoice, calmPlace] = await Promise.all([
+  const { getTier } = await import("../entitlements");
+  const [sub, tier, consent, screening, profile, checkin, fit, next, liveVoice, calmPlace] = await Promise.all([
     subscriptionActive(userId),
+    getTier(userId),
     hasConsent(userId),
     screeningComplete(userId),
     profileComplete(userId),
@@ -136,6 +140,7 @@ export async function gatingSnapshot(userId: string): Promise<GatingSnapshot> {
   ]);
   return {
     subscriptionActive: sub,
+    tier,
     hasConsent: consent,
     screeningComplete: screening,
     profileComplete: profile,

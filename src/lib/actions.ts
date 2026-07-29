@@ -279,12 +279,25 @@ export async function logSafetyEvent(type: string, sessionId?: string) {
 
 // ---------- Membership billing ----------
 
-export async function startSubscription() {
+export async function startSubscription(formData: FormData) {
   const user = await requireMember();
+  const raw = String(formData.get("plan") ?? "");
+  const plan = raw === "base" || raw === "plus" || raw === "premium" ? raw : "premium";
   // The demo provider simulates checkout; a real provider would redirect to
   // hosted checkout here and activate via webhook (see lib/billing.ts).
-  startDemoSubscription(user.id);
+  await startDemoSubscription(user.id, plan);
   redirect("/onboarding");
+}
+
+export async function changePlanAction(formData: FormData) {
+  const user = await requireMember();
+  const raw = String(formData.get("plan") ?? "");
+  if (raw === "base" || raw === "plus" || raw === "premium") {
+    const { changePlan } = await import("./billing");
+    await changePlan(user.id, raw);
+  }
+  revalidatePath("/settings/billing");
+  redirect("/settings/billing");
 }
 
 export async function cancelSubscription() {

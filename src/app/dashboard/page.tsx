@@ -56,6 +56,7 @@ const ACTION_LINKS: Record<string, { href: string; label: string }> = {
   subscribe: { href: "/subscribe", label: "Restart membership" },
   grounding: { href: "/ground", label: "Ground now" },
   crisis: { href: "/crisis", label: "Open support" },
+  upgrade: { href: "/settings/billing", label: "See Plus & Premium" },
 };
 
 export default async function DashboardPage() {
