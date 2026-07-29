@@ -207,7 +207,83 @@ export const MEDITATIONS: Practice[] = [
   },
 ];
 
-const ALL_PRACTICES: Practice[] = [...BREATHWORK, ...MEDITATIONS];
+// ── Sleep catalog (roadmap F5). Guided wind-down scripts to do lying down, in
+// the dark, drifting off — slower pacing and longer pauses than a daytime
+// meditation, and deliberately no "return to the room" ending: each trails off
+// into permission to sleep. Deterministic text (no media). Ordered gentlest-
+// first. Reuses the meditation segment player. ──
+export const SLEEP: Practice[] = [
+  {
+    id: "wind-down-breath", type: "sleep", title: "Winding down",
+    intro: "A slow, unhurried breath to let the day loosen its grip and the body grow heavy. Do this lying down.",
+    durationSec: 206, intensity: 1, tags: ["wind-down", "breath", "in-bed"], hasHold: false,
+    note: "Lie down, dim the screen, and let your eyes close whenever they want to. It's completely fine to fall asleep before the end.",
+    segments: [
+      { text: "Let yourself get comfortable. Feel the weight of your body sinking into the bed.", seconds: 18 },
+      { text: "There's nothing to do now, and nowhere to be. This time is just for resting.", seconds: 18 },
+      { text: "Let your breathing slow, all on its own. No counting, no effort.", seconds: 18 },
+      { text: "Notice the out-breath — how it lets go. Let each one be a little longer, a little softer.", seconds: 22 },
+      { text: "With every breath out, let something loosen — your shoulders, your jaw, your hands.", seconds: 24 },
+      { text: "The day is behind you now. You don't have to hold any of it.", seconds: 22 },
+      { text: "Just this breath. And the heaviness of the body. And the quiet.", seconds: 26 },
+      { text: "Let the breaths get slower still. There's no need to stay awake for the end.", seconds: 28 },
+      { text: "Sinking, softening, drifting. Let sleep come whenever it's ready.", seconds: 30 },
+    ],
+  },
+  {
+    id: "sleep-body-scan", type: "sleep", title: "Melting into rest",
+    intro: "A slow, drowsy journey through the body, releasing each part in turn — a gentle way to let go of the day.",
+    durationSec: 248, intensity: 1, tags: ["body-scan", "relaxation", "in-bed"], hasHold: false,
+    note: "Do this lying down with the lights off. If any area feels uncomfortable, simply skip it. Drifting off partway through is exactly right.",
+    segments: [
+      { text: "Settle onto your back, or however you sleep. Let the bed take your full weight.", seconds: 20 },
+      { text: "Bring a soft attention to your feet. Let them grow heavy, and warm, and still.", seconds: 24 },
+      { text: "Let that heaviness spread up through your lower legs, and your knees. Nothing to hold.", seconds: 24 },
+      { text: "Your thighs, your hips, sinking down into the mattress. Releasing.", seconds: 24 },
+      { text: "Let your belly soften with each breath. Your back, resting fully into what holds you.", seconds: 26 },
+      { text: "Your hands, your arms, growing heavy and warm. Let them be completely still.", seconds: 24 },
+      { text: "Let your shoulders drop away from your ears. Your neck, long and soft.", seconds: 24 },
+      { text: "Soften your jaw, and the space around your eyes. Let your whole face be at ease.", seconds: 24 },
+      { text: "The whole body now, heavy and warm and still, held by the bed.", seconds: 28 },
+      { text: "There's nothing left to do. Let yourself sink, and let sleep find you.", seconds: 30 },
+    ],
+  },
+  {
+    id: "put-the-day-down", type: "sleep", title: "Putting the day down",
+    intro: "If a busy mind is keeping you awake, this gently sets the day and its worries aside — safe, and waiting, until morning.",
+    durationSec: 222, intensity: 2, tags: ["worry", "containment", "in-bed"], hasHold: false,
+    note: "For nights when your thoughts won't settle. You're not solving anything now — just setting it down until you're rested enough to hold it.",
+    segments: [
+      { text: "If your mind is still busy, that's okay. We're going to gently set the day down for the night.", seconds: 20 },
+      { text: "Picture a place beside your bed to leave things — a table, a shelf, a basket.", seconds: 22 },
+      { text: "Whatever your mind keeps reaching for — a worry, a task, a conversation — imagine setting it there.", seconds: 24 },
+      { text: "You're not forgetting it. It will be right there in the morning, when you're rested.", seconds: 24 },
+      { text: "One by one, lift each thought and set it down. There's nothing you must solve tonight.", seconds: 26 },
+      { text: "If a new one arrives, that's fine — just set it down too, as many times as it takes.", seconds: 26 },
+      { text: "Night is not the time for carrying. It's the time for putting down.", seconds: 24 },
+      { text: "Feel how much lighter it is to rest with empty hands.", seconds: 26 },
+      { text: "The day is set down. It's kept safe. Let your mind grow quiet, and let yourself drift.", seconds: 30 },
+    ],
+  },
+  {
+    id: "safe-and-warm", type: "sleep", title: "Safe and warm",
+    intro: "A cocoon of imagined warmth and safety to sink into — soothing when the body needs to feel protected before sleep.",
+    durationSec: 204, intensity: 1, tags: ["safety", "imagery", "in-bed"], hasHold: false,
+    note: "Rest into the sense of being held and safe. If picturing a place feels like too much, just feel the warmth and weight of your own blankets.",
+    segments: [
+      { text: "Feel the weight of the blankets over you, the softness beneath you. You are held.", seconds: 22 },
+      { text: "Imagine a warmth, like sunlight or a gentle glow, resting over your whole body.", seconds: 24 },
+      { text: "Picture yourself somewhere completely safe — a place where nothing is asked of you.", seconds: 24 },
+      { text: "It might be this bed, a cabin, a nest of blankets — anywhere you feel protected.", seconds: 24 },
+      { text: "Nothing can reach you here. There is nothing to guard against, nothing to watch for.", seconds: 26 },
+      { text: "Let your body understand that it's safe now. It can finally, fully rest.", seconds: 26 },
+      { text: "Warm, and heavy, and safe. Held by the dark like something precious.", seconds: 28 },
+      { text: "Let the warmth carry you down, gently, toward sleep.", seconds: 30 },
+    ],
+  },
+];
+
+const ALL_PRACTICES: Practice[] = [...BREATHWORK, ...MEDITATIONS, ...SLEEP];
 
 /** Whether today's check-in indicates we should surface gentler, no-hold work
  *  first (roadmap §9 titration). Best-effort — defaults to false. */

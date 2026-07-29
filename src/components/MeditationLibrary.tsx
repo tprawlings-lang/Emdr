@@ -5,15 +5,40 @@ import { completePractice } from "@/lib/actions";
 import type { Practice } from "@/lib/practices";
 import MeditationPlayer from "./MeditationPlayer";
 
-// Meditation library (roadmap F2). Backend-served, safety-ordered for today's
-// check-in (gentler/orienting practices first on elevated days); the client
+// Copy that differs between the meditation and sleep libraries. Same player,
+// same completion mechanics — only the framing changes.
+export interface LibraryCopy {
+  heading: string;
+  intro: string;
+  doneTitle: string;
+  doneBody: string;
+  anotherLabel: string;
+  footnote: string;
+}
+
+const MEDITATION_COPY: LibraryCopy = {
+  heading: "Meditate",
+  intro:
+    "Short, guided practices to steady and soothe — grounding, breath, calm-place, self-compassion. Read aloud, or follow along as text. Pick whatever feels right; there's no wrong choice.",
+  doneTitle: "That was time well spent",
+  doneBody:
+    "You gave yourself a few quiet minutes. That's a real act of care — and it's always here when you need it.",
+  anotherLabel: "Another practice",
+  footnote:
+    "Gentler, more grounding practices come first on days your check-in suggests taking it easy. Stop any time.",
+};
+
+// Meditation / sleep library (roadmap F2 / F5). Backend-served, safety-ordered
+// for today's check-in (gentler practices first on elevated days); the client
 // renders the guided player. Deterministic scripts — no streamed media.
 export default function MeditationLibrary({
   practices,
   voiceDefault,
+  copy = MEDITATION_COPY,
 }: {
   practices: Practice[];
   voiceDefault: boolean;
+  copy?: LibraryCopy;
 }) {
   const [selected, setSelected] = useState<Practice | null>(null);
   const [done, setDone] = useState(false);
@@ -39,10 +64,8 @@ export default function MeditationLibrary({
   if (selected && done) {
     return (
       <main className="mx-auto flex min-h-[80vh] max-w-md flex-col items-center justify-center gap-6 px-6 py-12 text-center">
-        <h1 className="font-serif text-3xl font-medium">That was time well spent</h1>
-        <p className="text-olive">
-          You gave yourself a few quiet minutes. That&apos;s a real act of care — and it&apos;s always here when you need it.
-        </p>
+        <h1 className="font-serif text-3xl font-medium">{copy.doneTitle}</h1>
+        <p className="text-olive">{copy.doneBody}</p>
         <div className="flex flex-col gap-3">
           <button
             type="button"
@@ -52,7 +75,7 @@ export default function MeditationLibrary({
             }}
             className="rounded-full bg-sage px-6 py-3.5 font-medium text-ground transition-colors hover:bg-sage-deep"
           >
-            Another practice
+            {copy.anotherLabel}
           </button>
           <Link href="/dashboard" className="text-sm text-olive underline">
             Back to dashboard
@@ -64,11 +87,8 @@ export default function MeditationLibrary({
 
   return (
     <main className="mx-auto max-w-xl px-6 py-12">
-      <h1 className="font-serif text-3xl font-medium">Meditate</h1>
-      <p className="mt-2 text-olive">
-        Short, guided practices to steady and soothe — grounding, breath, calm-place, self-compassion. Read aloud,
-        or follow along as text. Pick whatever feels right; there&apos;s no wrong choice.
-      </p>
+      <h1 className="font-serif text-3xl font-medium">{copy.heading}</h1>
+      <p className="mt-2 text-olive">{copy.intro}</p>
       <div className="mt-8 space-y-3">
         {practices.map((p) => (
           <button
@@ -88,9 +108,7 @@ export default function MeditationLibrary({
           </button>
         ))}
       </div>
-      <p className="mt-6 text-center text-xs text-olive">
-        Gentler, more grounding practices come first on days your check-in suggests taking it easy. Stop any time.
-      </p>
+      <p className="mt-6 text-center text-xs text-olive">{copy.footnote}</p>
     </main>
   );
 }

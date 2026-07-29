@@ -270,6 +270,16 @@ export default async function DashboardPage() {
           </p>
         </Link>
         <Link
+          href="/practices/sleep"
+          className="rounded-3xl border border-ground/10 bg-linen p-5 shadow-soft transition-colors hover:bg-moss"
+        >
+          <p className="text-sm text-olive">Wind down</p>
+          <p className="mt-1 font-serif text-2xl font-medium">Sleep</p>
+          <p className="mt-2 text-sm leading-relaxed text-olive">
+            Guided wind-downs to do lying down — slow breathing, melting into rest, putting the day down.
+          </p>
+        </Link>
+        <Link
           href="/learn"
           className="rounded-3xl border border-ground/10 bg-linen p-5 shadow-soft transition-colors hover:bg-moss"
         >

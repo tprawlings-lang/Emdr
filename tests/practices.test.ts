@@ -7,7 +7,7 @@ import { strict as assert } from "node:assert";
 import test from "node:test";
 import { data } from "../src/lib/data";
 import {
-  BREATHWORK, MEDITATIONS, listPractices, getPractice, recordPracticeCompletion, practiceCompletionCount,
+  BREATHWORK, MEDITATIONS, SLEEP, listPractices, getPractice, recordPracticeCompletion, practiceCompletionCount,
 } from "../src/lib/practices";
 
 const USER = "practices-user";
@@ -51,6 +51,31 @@ test("meditation catalog is internally consistent (roadmap F2)", () => {
   }
   // A gentle, orienting entry point must always exist.
   assert.ok(MEDITATIONS.some((p) => p.intensity === 1), "an intensity-1 meditation exists");
+});
+
+test("sleep catalog is internally consistent (roadmap F5)", () => {
+  assert.ok(SLEEP.length >= 3);
+  const ids = new Set<string>();
+  for (const p of SLEEP) {
+    assert.equal(p.type, "sleep");
+    assert.equal(p.hasHold, false, `${p.id} is not a breath-hold practice`);
+    assert.ok(p.segments && p.segments.length >= 5, `${p.id} has a real script`);
+    for (const s of p.segments!) {
+      assert.ok(s.text.length > 10 && s.seconds > 0, `${p.id} segment well-formed`);
+    }
+    const scripted = p.segments!.reduce((n, s) => n + s.seconds, 0);
+    assert.equal(p.durationSec, scripted, `${p.id} durationSec equals script length`);
+    assert.ok(!ids.has(p.id), `unique id ${p.id}`);
+    ids.add(p.id);
+  }
+  assert.ok(SLEEP.some((p) => p.intensity === 1), "a gentle (intensity-1) wind-down exists");
+});
+
+test("listPractices('sleep'): only sleep practices, gentlest first", async () => {
+  const list = await listPractices(USER, "sleep");
+  assert.ok(list.length >= 3);
+  assert.equal(list[0].intensity, 1);
+  assert.ok(list.every((p) => p.type === "sleep"));
 });
 
 test("listPractices('meditation'): gentlest (intensity 1) first", async () => {
