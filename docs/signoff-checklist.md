@@ -119,5 +119,43 @@ ToS/privacy/consent rewrite (staged, flag-aware).
 
 ---
 
+## 4. Signing packets — who signs what, correlated
+
+**Packet 1 — Clinicians (Altschuler + Allen).**
+*Session A (schedulable now):* accept the drafted evidence docs
+(`evidence/02-evidence-matrix.md`, `evidence/01-clinical-implementation-spec.md`,
+`evidence/03-technical-verification.md`, `evidence/04-red-team-closure.md`,
+`evidence/05-staged-validation-protocol.md` as protocol), sign the
+`LIVE_SESSION_*` + `VOICE_INPUT_*` register rows on the console, and walk the
+divergence report (`/api/clinician/divergence`).
+*Session B (after external execution):* human-factors results (UI + BLS),
+BLS red-team closure report, Phase-4 stage-progression sign-offs, the separate
+autonomous-BLS enablement, and `KB_*` (needs the founder's modality sheet first).
+
+**Packet 2 — Counsel (one engagement):** wellness-lane posture confirmation with
+the human gate removed (written); EMDRIA / "EMDR" trademark opinion on
+self-administered desensitization (framed in `bls-validation/README.md`);
+Terms §10 three-tier billing/trial pass.
+
+**Packet 3 — External security professional:** send
+`evidence/Steady-security-review-handoff-packet.pdf`; deliverable is the signed
+independent privacy/security review (gate 4) incl. ZAP + companion red-team +
+SSL Labs artifacts.
+
+**Packet 4 — External UX researcher (one engagement covers both):**
+`evidence/07-privacy-security-and-human-factors-plan.md` (session-UI stop-control
+salience, gate 5) + `bls-validation/02-human-factors-test-plan.md` (BLS flow,
+Part-6 gate 1) → one combined results report → clinician Session B.
+
+**Packet 5 — Founder:** KB modality reference sheet · claims-rewrite handoff ·
+voice-source decision (§14.6) · Postgres go · commission Packets 3+4 · external
+accounts (Stripe/auth/email/R2/Apple).
+
+**Critical path:** Packet 5 (items 1 + commissioning) → Packets 3+4 execute →
+clinician Session B → counsel posture letter → flag flip. Packet 2 and clinician
+Session A can run in parallel starting now.
+
+---
+
 *Severity: 🔴 blocks real-member/autonomous use · 🟡 resolve before/at pilot · ⚪ track.*
 *Last updated: 2026-07-29.*
