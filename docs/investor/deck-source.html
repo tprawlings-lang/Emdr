@@ -1,0 +1,689 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Steady — Investor Deck Source Document</title>
+<style>
+  @page { size: Letter; margin: 18mm 16mm 20mm 16mm; }
+  :root{
+    --ground:#2f3a33; --olive:#545e53; --sage:#a8b8a1; --sage-deep:#93a58b;
+    --ivory:#f7f1e8; --linen:#fbf8f2; --moss:#dce4d4; --sand:#ded1be;
+    --support:#9a4f42; --pause:#d7a85f; --pause-soft:#f3e4c8; --safe:#7fa37b;
+  }
+  *{box-sizing:border-box}
+  body{
+    font-family:"Helvetica Neue",Helvetica,Arial,sans-serif;
+    color:var(--ground); font-size:9.6pt; line-height:1.5; margin:0;
+  }
+  h1,h2,h3,h4{font-family:Georgia,"Times New Roman",serif;font-weight:600;color:var(--ground);}
+  h1{font-size:23pt;line-height:1.15;margin:0 0 6pt}
+  h2{font-size:15pt;margin:0 0 8pt;padding-bottom:5pt;border-bottom:1.5pt solid var(--sage-deep);}
+  h3{font-size:11.5pt;margin:14pt 0 5pt;color:var(--olive)}
+  h4{font-size:10pt;margin:10pt 0 3pt;font-family:inherit;font-weight:700}
+  p{margin:0 0 7pt}
+  ul,ol{margin:0 0 8pt;padding-left:15pt}
+  li{margin-bottom:3pt}
+  strong{font-weight:700}
+  .section{page-break-before:always;padding-top:2pt}
+  .section:first-of-type{page-break-before:avoid}
+  .kicker{font-size:7.6pt;letter-spacing:.14em;text-transform:uppercase;color:var(--olive);font-weight:700;margin:0 0 4pt}
+  table{width:100%;border-collapse:collapse;margin:6pt 0 10pt;font-size:8.5pt;page-break-inside:auto}
+  th{background:var(--ground);color:var(--ivory);text-align:left;padding:5pt 6pt;font-weight:600;font-size:8pt}
+  td{padding:4.5pt 6pt;border-bottom:.5pt solid var(--sand);vertical-align:top}
+  tr{page-break-inside:avoid}
+  tbody tr:nth-child(even){background:var(--linen)}
+  .box{background:var(--linen);border:.6pt solid var(--sand);border-radius:6pt;padding:9pt 11pt;margin:8pt 0}
+  .box-accent{background:var(--moss);border-color:var(--sage-deep)}
+  .box-warn{background:var(--pause-soft);border-color:var(--pause)}
+  .box h4{margin-top:0}
+  .cols{display:flex;gap:11pt;margin:8pt 0}
+  .cols>div{flex:1}
+  .metric-row{display:flex;gap:8pt;margin:9pt 0}
+  .metric{flex:1;background:var(--linen);border:.6pt solid var(--sand);border-radius:6pt;padding:8pt;text-align:center}
+  .metric .n{font-family:Georgia,serif;font-size:16pt;font-weight:600;display:block;line-height:1.1}
+  .metric .l{font-size:7.2pt;color:var(--olive);display:block;margin-top:2pt;line-height:1.3}
+  .tag{display:inline-block;font-size:7pt;font-weight:700;padding:1.5pt 5pt;border-radius:8pt;white-space:nowrap}
+  .t-live{background:var(--safe);color:#fff}
+  .t-gated{background:var(--pause);color:#3a2c10}
+  .t-plan{background:var(--sand);color:var(--ground)}
+  .note{font-size:8pt;color:var(--olive);font-style:italic}
+  .cover{height:228mm;display:flex;flex-direction:column;justify-content:center;text-align:center;overflow:hidden}
+  .cover .mark{font-family:Georgia,serif;font-size:44pt;font-weight:600;letter-spacing:-.02em}
+  .cover .sub{font-size:12pt;color:var(--olive);margin-top:8pt;line-height:1.45}
+  .cover .meta{margin-top:26pt;font-size:8.5pt;color:var(--olive);line-height:1.7}
+  .rule{height:2pt;background:var(--sage-deep);width:52pt;margin:14pt auto}
+  .footer-note{font-size:7.5pt;color:var(--olive);border-top:.5pt solid var(--sand);padding-top:5pt;margin-top:11pt}
+  .tight li{margin-bottom:1.5pt}
+  .num{font-variant-numeric:tabular-nums}
+</style>
+</head>
+<body>
+
+<!-- ============ COVER ============ -->
+<div class="cover">
+  <div class="mark">steady</div>
+  <div class="rule"></div>
+  <div class="sub">
+    A clinician-governed, autonomous trauma-care system —<br>
+    priced as a daily wellness habit, monetized as clinical software.
+  </div>
+  <div class="meta">
+    <strong>INVESTOR DECK SOURCE DOCUMENT</strong><br>
+    Complete product inventory · activation requirements · differentiation<br>
+    monetization · growth model · deck-builder handoff<br><br>
+    Prepared 29 July 2026 · Confidential
+  </div>
+</div>
+
+<!-- ============ 1. EXEC SUMMARY ============ -->
+<div class="section">
+<p class="kicker">Section 1</p>
+<h2>The investment case in one page</h2>
+
+<p><strong>Steady is not a meditation app with a trauma skin.</strong> It is a deterministic,
+clinician-ratified care engine that decides — every single day, per member — what is safe for
+that person to do, and then does it with them. The content is inseparable from the engine that
+sequences it. That is the asset.</p>
+
+<div class="metric-row">
+  <div class="metric"><span class="n">20</span><span class="l">guided practices shipped, web + iOS</span></div>
+  <div class="metric"><span class="n">11</span><span class="l">clinical modules, gate-governed</span></div>
+  <div class="metric"><span class="n">30</span><span class="l">deterministic safety rules</span></div>
+  <div class="metric"><span class="n">259</span><span class="l">passing automated tests</span></div>
+  <div class="metric"><span class="n">2</span><span class="l">licensed psychologists ratified the engine</span></div>
+</div>
+
+<h3>Six reasons this is a good investment</h3>
+<ol>
+  <li><strong>The hard part is already built and clinically ratified.</strong> Two independent
+  licensed psychologists reviewed and signed off the deterministic safety configuration on
+  22 July 2026. Competitors sell content anyone can license; Steady sells a governed decision
+  system that took a clinical corpus, a rules engine, and a signed review to produce.</li>
+
+  <li><strong>Full product is live on two platforms today.</strong> Web and native iOS, sharing
+  one backend, one memory bank, one safety engine. A member's calm place, triggers, and
+  progress follow them across devices. Not a roadmap — running now.</li>
+
+  <li><strong>The pricing ladder is engineered, not guessed.</strong> Entry at <strong>$6.99</strong>
+  undercuts every major competitor ($9–15) to buy cheap top-of-funnel; the ladder climbs to
+  <strong>$34.99</strong> for an autonomous care tier none of them offer. Every new member starts
+  on a 7-day Premium trial — they experience the top of the ladder before they ever pay.</li>
+
+  <li><strong>Monetization compounds without new acquisition spend.</strong> A memory-driven
+  upsell engine watches each member's own data and recommends a tier change only when their
+  behavior earns it. Revenue expansion is a product feature, not a marketing campaign.</li>
+
+  <li><strong>Structural retention.</strong> The daily layer (breathwork, meditation, movement,
+  sleep) creates habit; the memory bank creates switching cost that compounds with every session.
+  Leaving Steady means abandoning a system that knows what grounds you at 2 a.m.</li>
+
+  <li><strong>Defensible regulatory posture, deliberately chosen.</strong> Steady launches in the
+  wellness lane — no diagnosis, no treatment claims — with a tamper-evident audit chain, a
+  clinician review console, and a documented sign-off ledger already in place. Most consumer
+  mental-health companies retrofit governance after an incident. This one started there.</li>
+</ol>
+
+<div class="box box-warn">
+  <h4>Disclosure — read before using these figures</h4>
+  <p style="margin-bottom:0">Steady is a <strong>pre-revenue development prototype</strong> with a
+  live investor demo and <strong>no production users to date</strong>. Every product count, test
+  count, and capability claim in this document is verified against the shipping codebase. Every
+  financial figure is a <strong>model with stated assumptions, not a result</strong> — sections
+  containing assumptions are marked. Competitor pricing is drawn from public plans and should be
+  re-verified against live pages before the deck is presented. Nothing here should be represented
+  as traction.</p>
+</div>
+</div>
+
+<!-- ============ 2. PROBLEM ============ -->
+<div class="section">
+<p class="kicker">Section 2</p>
+<h2>The problem, and the gap in the market</h2>
+
+<h3>For the person</h3>
+<p>EMDR is one of the most strongly evidenced treatments for PTSD — recommended in frontline
+clinical guidelines from the World Health Organization, the UK's NICE, and the U.S. Department of
+Veterans Affairs. But access is brutal: in-office sessions run <strong>$150–350 an hour</strong>,
+waitlists run months, and the format requires telling a stranger the worst thing that ever happened
+to you. Most people who would benefit never start.</p>
+
+<p>Meanwhile the apps they <em>can</em> afford — Calm, Headspace, Insight Timer — offer general
+relaxation content with no clinical structure, no screening, no pacing, and no idea whether today
+is a safe day for that particular person to go anywhere near a difficult memory.</p>
+
+<h3>For the market</h3>
+<p>The category has split into two poles, and the middle is empty:</p>
+
+<table>
+  <thead><tr><th style="width:20%">Category</th><th style="width:22%">Examples</th><th style="width:16%">Typical price</th><th>What's missing</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Content libraries</strong></td><td>Calm, Headspace, Insight Timer, Balance</td><td>$9–15/mo</td><td>No clinical structure, no screening, no per-day safety decision, no accountability. Content is licensable — no moat.</td></tr>
+    <tr><td><strong>Coaching / therapy marketplaces</strong></td><td>BetterHelp, Talkspace, Sanvello (coaching tiers)</td><td>$60–400/mo</td><td>Human-capacity-bound, so margins compress with scale; expensive; still waitlisted.</td></tr>
+    <tr><td><strong>The gap Steady occupies</strong></td><td>—</td><td><strong>$6.99–34.99/mo</strong></td><td>Software-margin economics with clinical structure: screening, daily gating, deterministic safety rules, specialist oversight, and an autonomous care loop.</td></tr>
+  </tbody>
+</table>
+
+<div class="box box-accent">
+<h4>The one-sentence positioning</h4>
+<p style="margin-bottom:0">Calm helps you relax. A therapist helps you heal but costs $200 an hour
+and has a three-month waitlist. <strong>Steady runs a structured, clinician-governed trauma program
+with you — every day — for less than a streaming subscription.</strong></p>
+</div>
+
+<h3>Why the timing is right</h3>
+<ul>
+  <li><strong>Consumer price ceiling has been established</strong> — a decade of Calm and Headspace
+  taught a mass market to pay a monthly subscription for mental wellbeing. Steady does not have to
+  create that behavior, only redirect it.</li>
+  <li><strong>Deterministic AI safety is now a requirement, not a differentiator</strong> — the
+  market and regulators have turned sharply against "LLM as therapist." Steady's architecture,
+  where the model is structurally prevented from making any safety decision, is the posture the
+  category is being forced toward.</li>
+  <li><strong>Remote EMDR has published RCT support</strong> — including a multisite randomized
+  controlled trial across 10 hospitals showing large reductions in PTSD, anxiety, and depression
+  delivered fully remotely.</li>
+</ul>
+</div>
+
+<!-- ============ 3. PRODUCT INVENTORY ============ -->
+<div class="section">
+<p class="kicker">Section 3</p>
+<h2>Everything Steady provides — complete inventory</h2>
+<p class="note">All items below are implemented and running on web and iOS unless explicitly tagged
+otherwise. Counts verified against the shipping codebase on 29 July 2026.</p>
+
+<h3>3.1 The safety substrate — every tier, never gated, never sold</h3>
+<p>This layer is the product's spine. It runs beneath all three tiers, and access to it is never
+restricted by payment status — a deliberate, documented invariant.</p>
+
+<table>
+  <thead><tr><th style="width:26%">Capability</th><th>What it does</th><th style="width:12%">Status</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Program-fit screener</strong></td><td>8 mandatory yes/no items. Any hard-stop answer (self-harm, recent hospitalization, psychotic/dissociative diagnosis, substance dependence, unsafe situation, under 18) closes all sessions, routes to crisis resources, imposes a 24-hour cooldown, and <strong>auto-refunds the billing period</strong>. Clinician-ratified wording.</td><td><span class="tag t-live">LIVE</span></td></tr>
+    <tr><td><strong>Daily check-in</strong></td><td>Under 90 seconds. Deterministic first-match routing into crisis / grounding-only / stabilization / processing-OK, and recalculates the readiness score daily.</td><td><span class="tag t-live">LIVE</span></td></tr>
+    <tr><td><strong>14-step access gate</strong></td><td><code>checkModuleAccess</code> evaluates kill switch, subscription, tier, consent, screener, measures, profile, today's check-in, routing, readiness track, safety plan, prerequisites, specialist unlock, daily cap, and SUDS cooldown — in that order, first failure blocks with a member-visible reason and a resolution link.</td><td><span class="tag t-live">LIVE</span></td></tr>
+    <tr><td><strong>In-session distress rules</strong></td><td>SUDS rated between every set. Hard stop at ≥9, pause at ≥8, rise-of-3 pause, 35-minute wind-down, 45-minute hard cap, 1 processing session per 24h, 24-hour cooldown after a high-distress ending.</td><td><span class="tag t-live">LIVE</span></td></tr>
+    <tr><td><strong>"Ground me" control</strong></td><td>Fixed, always visible in-session. One tap, no confirmation, halts stimulation, pivots to grounding, logs a coded safety event.</td><td><span class="tag t-live">LIVE</span></td></tr>
+    <tr><td><strong>SOS panic panel</strong></td><td>Persistent button on every screen, both platforms. Opens the member's own calm place, grounding tools, one-tap call to their named safe person, crisis line, and 911. Logs a coded event only — never content.</td><td><span class="tag t-live">LIVE</span></td></tr>
+    <tr><td><strong>Crisis routing</strong></td><td>Region-aware resources, always reachable without login. A deterministic regex pre-filter runs <em>before</em> any model call and routes to a versioned scripted response — never model improvisation.</td><td><span class="tag t-live">LIVE</span></td></tr>
+    <tr><td><strong>Tamper-evident audit log</strong></td><td>Append-only hash chain across identity, consent, clinical, module-runtime, specialist, billing, safety, and security events.</td><td><span class="tag t-live">LIVE</span></td></tr>
+    <tr><td><strong>Kill switches</strong></td><td>Global new-session disable plus per-capability switches (generative conversation, provider sharing, escalation automation) — production-safe within minutes.</td><td><span class="tag t-live">LIVE</span></td></tr>
+  </tbody>
+</table>
+
+<h3>3.2 Base layer — the daily habit ($6.99/mo)</h3>
+<p>This is the acquisition engine and the retention engine. It is deliberately priced below every
+major competitor and deliberately generous.</p>
+
+<table>
+  <thead><tr><th style="width:26%">Feature</th><th>Detail</th><th style="width:12%">Status</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Breathwork</strong> — 5 patterns</td><td>Coherent breathing, longer exhale, physiological sigh, box breathing, 4-7-8. Visual pacer with haptics on iOS. No-breath-hold variants always available; holds are flagged.</td><td><span class="tag t-live">LIVE</span></td></tr>
+    <tr><td><strong>Meditation</strong> — 6 practices</td><td>Orienting to now, breath anchor, calm place, self-compassion, gentle body scan, containment. Trauma-informed: eyes-open options, explicit permission to skip or stop.</td><td><span class="tag t-live">LIVE</span></td></tr>
+    <tr><td><strong>Movement</strong> — 5 practices</td><td>Orienting turns, rooting down, easing tension, shaking it off (stress-cycle discharge), strong-and-contained pressing. Seated options throughout.</td><td><span class="tag t-live">LIVE</span></td></tr>
+    <tr><td><strong>Sleep</strong> — 4 wind-downs</td><td>Winding down, melting into rest, putting the day down, safe and warm. Slower pacing, no "return to the room" ending — each trails off into permission to sleep.</td><td><span class="tag t-live">LIVE</span></td></tr>
+    <tr><td><strong>Safety titration</strong></td><td>On an elevated check-in day, gentler and no-hold practices are automatically surfaced first. The library reorders itself around the person's nervous system.</td><td><span class="tag t-live">LIVE</span></td></tr>
+    <tr><td><strong>Psychoeducation</strong> — 7 lessons</td><td>Window of tolerance, why the method works, understanding triggers, grounding the nervous system, titration &amp; dual attention, self-compassion, building a calm place. Read-tracked, cross-linked to modules, surfaced inside sessions.</td><td><span class="tag t-live">LIVE</span></td></tr>
+    <tr><td><strong>Grounding + safety plan</strong></td><td>Personalized page built from the member's own tools, reminder phrase, and named support contact.</td><td><span class="tag t-live">LIVE</span></td></tr>
+    <tr><td><strong>AI companion — 1×/week</strong></td><td>Full companion access, capped at one conversation per week. <strong>Crisis messages are exempt from the cap, twice over.</strong> The cap is the primary, humane upgrade trigger.</td><td><span class="tag t-live">LIVE</span></td></tr>
+  </tbody>
+</table>
+<p class="note">Total shipped guided content: <strong>20 practices, ~49 scripted minutes</strong>, plus
+7 lessons (~22 read-minutes). All deterministic text — no media pipeline required to ship, and
+narrated on-device with zero marginal cost per play.</p>
+
+<h3>3.3 Plus layer — the program that remembers you ($19.99/mo)</h3>
+<table>
+  <thead><tr><th style="width:26%">Feature</th><th>Detail</th><th style="width:12%">Status</th></tr></thead>
+  <tbody>
+    <tr><td><strong>11-module clinical program</strong></td><td>Calm place → containment → body scan → trigger map → resourcing → recent-trigger → safe-target → installation → future template → relational → maintenance. 5 are specialist-gated by design.</td><td><span class="tag t-live">LIVE</span></td></tr>
+    <tr><td><strong>Unlimited companion + memory bank</strong></td><td>Long-term memory across 9 typed categories with provenance and graceful forgetting. Remembers triggers, grounding tools, focus areas, session patterns. Member-viewable, editable, deletable.</td><td><span class="tag t-live">LIVE</span></td></tr>
+    <tr><td><strong>Validated measures</strong></td><td>PC-PTSD-5, PCL-5, ITQ (ICD-11 complex-PTSD criteria), PHQ-9, GAD-7. Baseline plus weekly cadence, trend charts, automatic worsening alerts.</td><td><span class="tag t-live">LIVE</span></td></tr>
+    <tr><td><strong>Care paths</strong> — 10 routes</td><td>Goal-based pathways (PTSD, anxiety &amp; panic, phobias, recent event, grief, confidence, low mood, complex-trauma readiness, cravings, pain &amp; somatic) each with an honest evidence grade and clinician-review level.</td><td><span class="tag t-live">LIVE</span></td></tr>
+    <tr><td><strong>AI program plan</strong></td><td>Sequences the member's own triggers lowest-intensity-first, flags intensity ≥7 as specialist territory, with a deterministic rules fallback so a model outage never leaves a member planless.</td><td><span class="tag t-live">LIVE</span></td></tr>
+    <tr><td><strong>Therapy knowledge base</strong></td><td>16 modalities, 70 clinician-reviewable techniques, retrieved deterministically by tier / activation / dissociation state. Crisis tier receives none.</td><td><span class="tag t-live">LIVE</span></td></tr>
+    <tr><td><strong>Specialist review</strong></td><td>Clinician console: alert queue, member detail, unlock decisions with documented reasons, consent and audit ledgers.</td><td><span class="tag t-live">LIVE</span></td></tr>
+  </tbody>
+</table>
+
+<h3>3.4 Premium layer — Autopilot, the autonomous care loop ($34.99/mo)</h3>
+<p><strong>This is the tier that has no competitive equivalent.</strong> Plus <em>remembers</em> you
+between sessions; Premium <em>acts</em> between them.</p>
+
+<table>
+  <thead><tr><th style="width:26%">Pillar</th><th>Detail</th><th style="width:12%">Status</th></tr></thead>
+  <tbody>
+    <tr><td><strong>1. Daily plan composer</strong></td><td>Each morning, composes a concrete plan from that day's check-in, the program plan, titrated practice selection, and unread lessons. Recomposes the moment a check-in lands. Every session item passes the same server-side gate as the session player.</td><td><span class="tag t-live">LIVE</span></td></tr>
+    <tr><td><strong>2. Proactive outreach</strong></td><td>The companion speaks first on coded signals: a 3+ day check-in gap, worsening measures (PCL-5 +10, ITQ +8, PHQ-9/GAD-7 +5), or a 5-practice week worth celebrating. Cooldowns and audit on every send.</td><td><span class="tag t-live">LIVE</span><br><span class="note">in-app; push pending</span></td></tr>
+    <tr><td><strong>3. Adaptive pacing, made visible</strong></td><td>Every plan carries a note explaining what Autopilot adjusted and why — "sessions are set aside today; protecting your window is progress too." The engine's caution reframed as the benefit it is.</td><td><span class="tag t-live">LIVE</span></td></tr>
+    <tr><td><strong>4. Continuous risk watch</strong></td><td>Worsening trends open an early clinician alert before the member has to ask. Coded types only, never content.</td><td><span class="tag t-live">LIVE</span></td></tr>
+    <tr><td><strong>5. Priority specialist review</strong></td><td>Premium unlock requests queue at elevated severity. The <em>clinical bar for the decision is identical</em> on every tier — only the queue position differs.</td><td><span class="tag t-live">LIVE</span></td></tr>
+    <tr><td><strong>Live spoken sessions</strong></td><td>Hands-free voice: the member speaks during a session without pressing anything; the system responds from memory, rules, and the therapy KB. The deterministic engine still owns every clinical decision.</td><td><span class="tag t-gated">GATED</span></td></tr>
+  </tbody>
+</table>
+
+<div class="box">
+<h4>The safety invariant that makes Autopilot defensible</h4>
+<p style="margin-bottom:0">Autopilot <strong>only ever narrows a day.</strong> It can make a day
+gentler; it can never make one riskier. Every session it proposes is validated against the same
+14-step gate the member would hit manually, crisis days compose a support-only plan, and
+<strong>no model call composes any plan</strong> — it is fully deterministic and reproducible.
+This is the difference between "AI that decides your therapy" (uninvestable) and "automation of
+clinician-validated rules" (defensible).</p>
+</div>
+
+<h3>3.5 Platform &amp; infrastructure</h3>
+<ul class="tight">
+  <li><strong>Web application</strong> — Next.js 16, server components, ~25,000 lines across 159 source files.</li>
+  <li><strong>Native iOS app</strong> — SwiftUI, 50 files / ~6,300 lines, full feature parity including SOS, all four practice libraries, lessons, companion, and the Autopilot plan.</li>
+  <li><strong>Shared backend</strong> — 29 mobile API endpoints; one memory bank, one safety engine, one source of truth. Calm place saved on web appears on the phone.</li>
+  <li><strong>Encryption</strong> — AES-256-GCM at the application layer for all member free text, memory values, and chat messages.</li>
+  <li><strong>Privacy architecture</strong> — no advertising trackers, no analytics pixels, no third-party data brokers. On-device speech synthesis and recognition; audio never leaves the device.</li>
+  <li><strong>Test coverage</strong> — 259 automated tests across 30 suites plus 17 end-to-end browser tests, including adversarial red-team harnesses. CI blocks on safety tests, accessibility (WCAG AA), dependency vulnerabilities, and a banned-marketing-vocabulary grep.</li>
+</ul>
+</div>
+
+<!-- ============ 4. ACTIVATION ============ -->
+<div class="section">
+<p class="kicker">Section 4</p>
+<h2>What it takes to make the top-tier items fully usable</h2>
+
+<p>The honest picture: <strong>four of the five Autopilot pillars are live and working today.</strong>
+What remains is a bounded, well-documented list — and critically, almost none of it is engineering
+risk. It is external review, external accounts, and signatures.</p>
+
+<h3>4.1 Live today — no further work required</h3>
+<ul class="tight">
+  <li>Autopilot daily plan composer, adaptive pacing, risk watch, priority review</li>
+  <li>Proactive outreach (delivered in-app; the message is waiting the moment the app opens)</li>
+  <li>All 20 practices, 7 lessons, SOS, the 11-module program, memory bank, measures, care paths</li>
+  <li>Three-tier billing, the 7-day Premium trial, plan changes, the upsell engine</li>
+</ul>
+
+<h3>4.2 Gated — what unblocks each, who owns it, and what it costs</h3>
+<table>
+  <thead><tr><th style="width:20%">Capability</th><th style="width:30%">What unblocks it</th><th style="width:14%">Owner</th><th style="width:13%">Cost</th><th>Time</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Push-delivered outreach</strong><br><span class="note">makes "reaches out" literal</span></td><td>Paid Apple Developer account + APNs implementation</td><td>Founder → eng</td><td>$99/yr + ~1 wk eng</td><td>1–2 weeks</td></tr>
+    <tr><td><strong>Live spoken sessions</strong></td><td>Clinician sign-off on the <code>LIVE_SESSION_*</code> register rows, then a config flag flip</td><td>Clinicians</td><td>Review session</td><td>1 session + flip</td></tr>
+    <tr><td><strong>Autonomous governance</strong><br><span class="note">engine governs, not shadows</span></td><td>(a) Independent privacy/security review, (b) human-factors testing, (c) marketing-claims rewrite, (d) counsel confirmation, (e) divergence-report walk</td><td>External + founder + counsel</td><td>~$15–40k est.</td><td>6–10 weeks</td></tr>
+    <tr><td><strong>Autonomous BLS</strong><br><span class="note">self-guided reprocessing</span></td><td>Part-6 execution: BLS human-factors testing, red-team closure, staged Phase-4 rollout (cohorts 12 → 6 → 12), then a separate clinician sign-off</td><td>External + clinicians</td><td>~$20–50k est.</td><td>3–6 months</td></tr>
+    <tr><td><strong>Studio-quality voice</strong></td><td>Founder decision: human voice actor vs. pre-rendered neural TTS; then record the fixed scripts</td><td>Founder</td><td>$500–2k</td><td>1–2 weeks</td></tr>
+    <tr><td><strong>Apple Watch + HealthKit</strong></td><td>Apple Developer account; watchOS target; HealthKit consent flow</td><td>Founder → eng</td><td>Incl. above</td><td>4–6 weeks</td></tr>
+    <tr><td><strong>Real payments</strong></td><td>Stripe account with three prices + trial configured (integration seam already built)</td><td>Founder</td><td>% of revenue</td><td>Days</td></tr>
+    <tr><td><strong>Scale infrastructure</strong></td><td>Provision Postgres, one-time data load, raise instance count (code is complete and verified)</td><td>Founder</td><td>~$7–25/mo</td><td>1 day</td></tr>
+  </tbody>
+</table>
+<p class="note">Cost estimates are engineering judgment for planning purposes, not quotes. Obtain
+real quotes before they enter a funding ask.</p>
+
+<div class="box box-accent">
+<h4>Why this list is a strength, not a weakness</h4>
+<p style="margin-bottom:0">Nearly every remaining item is <strong>external validation, not
+construction</strong>. The company is not asking for capital to find out whether the product can be
+built — it is built, tested, and deployed on two platforms. Capital buys the security review, the
+human-factors study, the clinical staged rollout, and the go-to-market. That is a materially
+lower-risk use of funds than "we will build it."</p>
+</div>
+
+<h3>4.3 Sequencing — the critical path</h3>
+<ol class="tight">
+  <li><strong>Weeks 0–2 —</strong> Apple Developer account, Stripe, email provider, auth provider. Unblocks push, real revenue, and the operational drills.</li>
+  <li><strong>Weeks 0–2 (parallel) —</strong> Commission the independent security review and the UX-research human-factors study. These are the reviewers' explicit precondition and have the longest lead time — start them first.</li>
+  <li><strong>Weeks 2–6 —</strong> Clinician session A: accept the drafted evidence package, sign the live-session rows, walk the divergence report. Counsel engagement in parallel (three items, one retainer).</li>
+  <li><strong>Weeks 6–10 —</strong> External results land → clinician session B → claims rewrite → staged flag flip, one capability at a time.</li>
+  <li><strong>Months 3–6 —</strong> BLS Part-6 execution and the staged clinical rollout.</li>
+</ol>
+</div>
+
+<!-- ============ 5. DIFFERENTIATION ============ -->
+<div class="section">
+<p class="kicker">Section 5</p>
+<h2>What sets Steady apart</h2>
+
+<h3>5.1 Head-to-head</h3>
+<table>
+  <thead><tr><th style="width:31%">Capability</th><th style="width:12%">Calm</th><th style="width:12%">Headspace</th><th style="width:12%">Insight&nbsp;Timer</th><th style="width:12%">Sanvello</th><th style="width:12%">Steady</th></tr></thead>
+  <tbody>
+    <tr><td>Relaxation / meditation content</td><td>Yes</td><td>Yes</td><td>Yes</td><td>Yes</td><td><strong>Yes</strong></td></tr>
+    <tr><td>Clinical intake screening with hard stops</td><td>No</td><td>No</td><td>No</td><td>Partial</td><td><strong>Yes</strong></td></tr>
+    <tr><td>Daily gate deciding what is safe today</td><td>No</td><td>No</td><td>No</td><td>No</td><td><strong>Yes</strong></td></tr>
+    <tr><td>Validated symptom measures + trends</td><td>No</td><td>No</td><td>No</td><td>Yes</td><td><strong>Yes</strong></td></tr>
+    <tr><td>Structured trauma-processing program</td><td>No</td><td>No</td><td>No</td><td>No</td><td><strong>Yes</strong></td></tr>
+    <tr><td>Deterministic in-session stop rules</td><td>N/A</td><td>N/A</td><td>N/A</td><td>N/A</td><td><strong>Yes</strong></td></tr>
+    <tr><td>Persistent clinical memory across sessions</td><td>No</td><td>No</td><td>No</td><td>Limited</td><td><strong>Yes</strong></td></tr>
+    <tr><td>Autonomous daily care loop</td><td>No</td><td>No</td><td>No</td><td>No</td><td><strong>Yes</strong></td></tr>
+    <tr><td>Licensed-clinician oversight in product</td><td>No</td><td>Separate paid service</td><td>No</td><td>Separate paid service</td><td><strong>Yes</strong></td></tr>
+    <tr><td>Tamper-evident clinical audit trail</td><td>No</td><td>No</td><td>No</td><td>No</td><td><strong>Yes</strong></td></tr>
+    <tr><td>Entry price</td><td>~$14.99</td><td>~$12.99</td><td>~$9.99</td><td>~$8.99</td><td><strong>$6.99</strong></td></tr>
+  </tbody>
+</table>
+<p class="note">Competitor rows reflect publicly listed consumer plans and standard feature sets;
+re-verify against live pages before presenting.</p>
+
+<h3>5.2 The four defensible moats</h3>
+
+<h4>1. The engine, not the content — and they are inseparable</h4>
+<p>A competitor can license 500 meditations tomorrow. What they cannot quickly obtain is a
+deterministic rules engine that has been reviewed and signed by licensed psychologists, with a
+documented conflict-resolution ledger and an auditable decision trail. In Steady, the content is
+worthless without the engine that decides <em>which</em> content this person gets <em>today</em>.
+That pairing took a clinical corpus, a rules architecture, and a signed clinical review.</p>
+
+<h4>2. Compounding memory as switching cost</h4>
+<p>Every conversation, trigger, calm place, and session outcome deepens a personal model the member
+can see, edit, and delete. Month 12 is meaningfully better than month 1 — and starting over
+elsewhere means starting from zero. This is the same retention dynamic that makes a personal
+CRM sticky, applied to something far more personal.</p>
+
+<h4>3. Structural AI safety — increasingly the licence to operate</h4>
+<p>The companion is <em>architecturally prevented</em> from making, reversing, or clearing any
+safety decision. A deterministic crisis filter runs before every model call. An output guard blocks
+a documented list of never-say outputs (simulated feelings, asserted internal states, diagnosis,
+cure claims, false monitoring claims, dependency-inducing language). As the category faces
+regulatory pressure over LLM-as-therapist, this architecture converts from cost centre to moat.</p>
+
+<h4>4. Cost structure</h4>
+<p>Twenty guided practices and seven lessons are <strong>deterministic text</strong>, narrated
+on-device. There is no per-play content cost, no CDN video bill, and no studio required to expand
+the library — a new practice is a writing session plus a clinician review. Competitors carry
+production and licensing costs that scale with catalogue size; Steady's marginal content cost is
+approximately zero.</p>
+
+<div class="box">
+<h4>The question every investor will ask: "Why won't Calm just add EMDR?"</h4>
+<p style="margin-bottom:0">They would need to: commission a clinical corpus; build a deterministic
+safety engine; obtain independent licensed-clinician ratification; accept liability for adverse
+events in trauma processing; add clinical screening that <em>turns away</em> paying customers
+(Steady auto-refunds anyone the screener excludes); and staff clinician oversight. That is a
+different company with a different risk appetite and a different regulatory posture — and it
+directly threatens the mass-market, low-liability positioning that makes their business work.
+The rational move for an incumbent is to <strong>acquire</strong>, which is itself the exit thesis.</p>
+</div>
+</div>
+
+<!-- ============ 6. MONETIZATION ============ -->
+<div class="section">
+<p class="kicker">Section 6</p>
+<h2>How Steady makes money</h2>
+
+<h3>6.1 The ladder</h3>
+<table>
+  <thead><tr><th style="width:12%">Tier</th><th style="width:11%">Price</th><th style="width:30%">Positioning</th><th>What unlocks</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Base</strong></td><td class="num">$6.99/mo</td><td>A calmer daily practice</td><td>Check-ins, all 20 practices, 7 lessons, grounding, SOS, companion 1×/week</td></tr>
+    <tr><td><strong>Plus</strong></td><td class="num">$19.99/mo</td><td>A program that remembers you</td><td>+ 11-module program, measures &amp; trends, unlimited companion with full memory</td></tr>
+    <tr><td><strong>Premium</strong></td><td class="num">$34.99/mo</td><td>Steady runs your program with you</td><td>+ Autopilot, live sessions, priority specialist review</td></tr>
+  </tbody>
+</table>
+
+<h3>6.2 The trial mechanic — trial the top, then descend</h3>
+<p><strong>Every new member starts with 7 days of Premium, free — regardless of which tier they
+select for billing.</strong> This is the single most important design decision in the monetization
+model, and it is already built.</p>
+<ul class="tight">
+  <li>Every member <em>experiences</em> Autopilot, unlimited companion, and the full program before they pay anything.</li>
+  <li>Members who fall back to Base or Plus have a concrete memory of what they gave up — the upsell references their own experience, not a feature list.</li>
+  <li>The lower tiers are not a downgrade path; they are a <strong>retention floor</strong>. A member who would have churned at $34.99 stays at $6.99, remains in the funnel, and keeps building memory that makes upgrading more attractive later.</li>
+</ul>
+
+<h3>6.3 The upsell engine — revenue expansion as a product feature</h3>
+<p>Built and shipped. Recommendations fire only when the member's own behavior earns them:</p>
+<table>
+  <thead><tr><th style="width:20%">Trigger</th><th style="width:15%">Recommends</th><th>Fires when</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Weekly cap reached</strong></td><td>Base → Plus</td><td>A Base member reaches out to the companion and the weekly window has closed. The most frequent, most natural trigger.</td></tr>
+    <tr><td><strong>Trial win-back</strong></td><td>Base/Plus → up</td><td>A recently-converted member is referenced back to what they had during the free Premium week.</td></tr>
+    <tr><td><strong>Fit detected</strong></td><td>Base → Plus</td><td>The member has named 2+ recurring triggers — exactly what the guided program addresses.</td></tr>
+    <tr><td><strong>Strain detected</strong></td><td>Plus → Premium</td><td>A hard-stopped session or 3+ elevated check-ins in 14 days — the member needs between-session support, which is what Premium is.</td></tr>
+  </tbody>
+</table>
+<p><strong>Discipline is enforced in code:</strong> a 5-day global cooldown, a 14-day per-type
+cooldown, Premium members are never pitched, and <strong>nothing is ever attached to a crisis or
+risk-flagged exchange</strong>. Every recommendation is logged for conversion analysis. The
+companion never becomes a salesperson — suggestions render as a distinct, dismissible card,
+visually separate from companion speech.</p>
+
+<h3>6.4 Revenue lines beyond consumer subscription</h3>
+<ol class="tight">
+  <li><strong>Consumer subscription</strong> — live today, three tiers.</li>
+  <li><strong>Annual plans</strong> — not yet built; the standard category lever (~2 months free) for improving cash collection and reducing churn. Low engineering effort.</li>
+  <li><strong>Employer / EAP channel</strong> — the clinician console, audit trail, and aggregate reporting are already built. Sold per-seat, this is the highest-ARPU channel in the category.</li>
+  <li><strong>Clinician-adjunct licensing</strong> — therapists assign Steady between sessions and monitor via the existing console. Converts the clinical-oversight cost centre into a revenue line, and turns clinicians from skeptics into a distribution channel.</li>
+  <li><strong>Payer / health-plan</strong> — long-horizon, requires outcomes data. The measures infrastructure (PCL-5, ITQ, PHQ-9, GAD-7 with trends) is already collecting exactly the evidence a payer contract requires.</li>
+</ol>
+</div>
+
+<!-- ============ 7. GROWTH ============ -->
+<div class="section">
+<p class="kicker">Section 7</p>
+<h2>The growth engine: low CAC, high retention, expanding ARPU</h2>
+
+<p>The strategy is one loop with three reinforcing stages. <strong>Acquire cheaply at the bottom,
+retain structurally in the middle, expand revenue from behavior at the top.</strong></p>
+
+<h3>7.1 Stage one — the entry tier lowers acquisition cost</h3>
+<ul>
+  <li><strong>Price is the first CAC lever.</strong> At $6.99, Steady is the cheapest credible
+  option in the category — roughly half of Calm and Headspace. Lower price means higher landing-page
+  conversion, which directly divides blended CAC. The <em>same ad spend</em> buys more members.</li>
+  <li><strong>The free Premium week removes the remaining risk.</strong> The offer is not "start a
+  trial" but "have all of it for a week, then pay as little as $6.99." That is one of the lowest
+  friction propositions in consumer health.</li>
+  <li><strong>Cheap tiers make paid acquisition mathematically viable earlier.</strong> A $6.99 entry
+  with strong retention can support paid channels that a $34.99-only product cannot, because the
+  payback period is driven by retention, not by first-month revenue.</li>
+  <li><strong>Non-paid channels the product itself generates:</strong> the psychoeducation lessons
+  are genuine SEO surface area on high-intent searches ("window of tolerance," "why do I get
+  triggered"); the always-free crisis and grounding pages attract high-intent traffic and build the
+  trust the category badly lacks; and clinicians recommending Steady as homework is a zero-CAC
+  channel that the console is already built to serve.</li>
+</ul>
+
+<h3>7.2 Stage two — the daily layer drives retention</h3>
+<p>This is why the practice suite matters commercially, not just clinically. <strong>A trauma
+program alone is episodic — people engage in bursts and lapse.</strong> A daily practice suite is a
+habit.</p>
+<ul>
+  <li><strong>Daily reasons to open the app</strong> — check-in, a two-minute breath, a wind-down at
+  bedtime. Sleep content in particular creates a nightly ritual.</li>
+  <li><strong>Titration removes the failure mode.</strong> On a hard day, the app doesn't ask for
+  something the member can't give — it offers something gentler. The most common churn moment in
+  mental-health apps (feeling like you failed the app) is designed out.</li>
+  <li><strong>Memory compounds.</strong> Month 6 is better than month 1. Churn means losing it.</li>
+  <li><strong>Autopilot removes the decision.</strong> For Premium members the plan is already made
+  — the highest-friction moment in any wellness app ("what should I do today?") is eliminated.</li>
+  <li><strong>No dark patterns, deliberately.</strong> No streaks, no guilt, no manufactured scarcity
+  — these are explicitly banned in the safety rules. In trauma care, pressure tactics cause harm
+  and churn; the trust this buys is the retention strategy.</li>
+</ul>
+
+<h3>7.3 Stage three — the upsell expands monetization</h3>
+<p>Once a member is retained cheaply, <strong>revenue growth requires no additional acquisition
+spend.</strong> The upsell engine converts usage into ARPU:</p>
+<ul class="tight">
+  <li>A Base → Plus upgrade is a <strong>2.9× revenue increase</strong> on an already-acquired member.</li>
+  <li>A Base → Premium upgrade is a <strong>5.0× increase</strong>.</li>
+  <li>Marginal CAC on these upgrades is <strong>zero</strong> — the trigger is the member's own behavior.</li>
+</ul>
+<p>Because the recommendation is earned and specific ("you've named a few triggers you keep running
+into — that's exactly what the guided program works through"), it converts better than a generic
+paywall and does not damage trust when declined.</p>
+
+<h3>7.4 The unit-economics framework <span class="tag t-plan">MODEL — NOT RESULTS</span></h3>
+<p>Steady has no production users. The following is the <strong>model shape</strong> the deck should
+present, with the assumption cells filled from real data once the pilot runs. Present these as
+scenario mechanics, never as performance.</p>
+
+<table>
+  <thead><tr><th style="width:34%">Driver</th><th style="width:22%">Source</th><th>Why it matters</th></tr></thead>
+  <tbody>
+    <tr><td>Trial → paid conversion</td><td>To be measured</td><td>Set by the Premium-week experience; the single highest-leverage metric in the model</td></tr>
+    <tr><td>Initial tier mix (Base/Plus/Premium)</td><td>To be measured</td><td>Determines entry ARPU; the ladder is designed so a Base-heavy mix is still healthy</td></tr>
+    <tr><td>Monthly churn by tier</td><td>To be measured</td><td>Expect materially lower churn on Base than category norms because of price and the daily habit layer</td></tr>
+    <tr><td>Upgrade rate / month</td><td>To be measured</td><td>Every upgrade is a step-change in ARPU at zero marginal CAC — this is the compounding term</td></tr>
+    <tr><td>Blended CAC by channel</td><td>To be measured</td><td>Organic (lessons/SEO, clinician referral) should carry a materially lower CAC than paid</td></tr>
+    <tr><td>Gross margin</td><td>Structural</td><td>Software margins: no per-play content cost, on-device narration, no human delivery capacity constraint</td></tr>
+  </tbody>
+</table>
+
+<div class="box box-accent">
+<h4>The mechanic to put on the slide</h4>
+<p style="margin-bottom:0">Most subscription businesses fight churn to protect a fixed ARPU. Steady
+inverts it: <strong>acquire at a price low enough that retention is easy, then let ARPU rise over
+the member's lifetime as the product earns it.</strong> Lifetime value grows with tenure rather than
+decaying — and the upsell trigger (a member reaching for support more than once a week) is also the
+clearest signal that the product is working for them. <em>Commercial interest and clinical interest
+point the same direction.</em></p>
+</div>
+
+<h3>7.5 Growth phases</h3>
+<ol class="tight">
+  <li><strong>Phase 1 — Validate (0–6 months).</strong> Small supervised pilot cohort. Prove
+  retention, trial conversion, and safety-event rates. Complete the external gates. Turn on real
+  payments and push.</li>
+  <li><strong>Phase 2 — Consumer scale (6–18 months).</strong> Paid acquisition against a measured
+  CAC, content/SEO engine, App Store presence, annual plans, Watch and HealthKit.</li>
+  <li><strong>Phase 3 — Channel expansion (18–36 months).</strong> Employer/EAP with the existing
+  console, clinician-adjunct licensing, and outcomes data assembled toward payer conversations.</li>
+</ol>
+</div>
+
+<!-- ============ 8. RISKS ============ -->
+<div class="section">
+<p class="kicker">Section 8</p>
+<h2>Risks, and how each is already mitigated</h2>
+<p>Investors will find these anyway. Naming them first, with the mitigation already in the product,
+is stronger than being asked.</p>
+
+<table>
+  <thead><tr><th style="width:24%">Risk</th><th style="width:38%">The concern</th><th>Mitigation in place</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Clinical / adverse event</strong></td><td>A member is harmed during self-guided trauma work</td><td>Mandatory screener with hard stops and auto-refund; daily gate; deterministic stop rules; one-tap Ground-Me; 24h cooldowns; specialist review; kill switches; adversarial red-team test harnesses. Autonomous reprocessing stays disabled pending staged clinical validation.</td></tr>
+    <tr><td><strong>Regulatory</strong></td><td>Classified as a medical device, or claims challenged</td><td>Deliberate wellness-lane posture; no diagnosis or treatment claims; CI blocks banned marketing vocabulary automatically; versioned consent ledger; counsel review on the critical path before any autonomy governs.</td></tr>
+    <tr><td><strong>Professional-body friction</strong></td><td>EMDR bodies discourage self-administration</td><td>Known and explicitly scoped to counsel. Stabilization and resourcing (the shipped core) are far less contested than reprocessing, which remains gated behind staged validation and separate sign-off.</td></tr>
+    <tr><td><strong>AI safety</strong></td><td>A model says something harmful</td><td>The model cannot make safety decisions by architecture. Deterministic crisis filter runs before every model call; output guard blocks a documented never-say list; scripted fallbacks; full rules-engine fallback if the model is unavailable.</td></tr>
+    <tr><td><strong>Competitive</strong></td><td>An incumbent adds trauma content</td><td>Requires clinical governance, liability appetite, and screening that turns customers away — contrary to their model. Acquisition is the rational incumbent response.</td></tr>
+    <tr><td><strong>Concentration</strong></td><td>Small team, key-person dependency</td><td>Fully documented: README as handoff spec, architecture decision records, go-live runbook, sign-off ledger, 259 tests encoding intended behavior. The system is transferable.</td></tr>
+    <tr><td><strong>Execution</strong></td><td>Remaining gates slip</td><td>Every gate has a named owner, a defined deliverable, and a written acceptance criterion in the consolidated sign-off checklist. Two are on the critical path and can start immediately.</td></tr>
+  </tbody>
+</table>
+</div>
+
+<!-- ============ 9. USE OF FUNDS ============ -->
+<div class="section">
+<p class="kicker">Section 9</p>
+<h2>Use of funds — what capital actually buys</h2>
+<p class="note">Allocation shape for the deck; replace percentages with the real raise amount and
+quoted figures.</p>
+
+<table>
+  <thead><tr><th style="width:26%">Category</th><th style="width:12%">Weight</th><th>What it delivers</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Clinical validation &amp; external gates</strong></td><td>~20%</td><td>Independent security/privacy review, human-factors studies (session UI + BLS), staged clinical rollout, ongoing clinician oversight. <em>Unlocks the top tier and the autonomous claim.</em></td></tr>
+    <tr><td><strong>Go-to-market</strong></td><td>~35%</td><td>Paid acquisition against a measured CAC, the content/SEO engine, App Store presence, clinician-referral channel development.</td></tr>
+    <tr><td><strong>Product &amp; engineering</strong></td><td>~25%</td><td>Push notifications, Apple Watch, HealthKit, annual plans, produced audio, employer/console features, infrastructure scale-out.</td></tr>
+    <tr><td><strong>Clinical &amp; support staffing</strong></td><td>~12%</td><td>Specialist review capacity as the member base grows; member support.</td></tr>
+    <tr><td><strong>Legal, compliance &amp; insurance</strong></td><td>~8%</td><td>Counsel engagements, cyber-liability cover, ongoing compliance.</td></tr>
+  </tbody>
+</table>
+
+<h3>Milestones this capital reaches</h3>
+<ul class="tight">
+  <li><strong>Month 3</strong> — external gates commissioned and running; real payments live; push shipped; pilot cohort recruited.</li>
+  <li><strong>Month 6</strong> — pilot retention, trial-conversion, and safety data in hand; autonomous governance flag flipped stage-by-stage; first real unit economics.</li>
+  <li><strong>Month 12</strong> — measured CAC and LTV; paid acquisition scaling against known payback; Watch and HealthKit shipped; annual plans live.</li>
+  <li><strong>Month 18</strong> — employer/EAP channel in market; clinician-adjunct programme; outcomes dataset accumulating toward payer conversations.</li>
+</ul>
+</div>
+
+<!-- ============ 10. DECK MAP ============ -->
+<div class="section">
+<p class="kicker">Section 10</p>
+<h2>Deck-builder handoff</h2>
+
+<h3>10.1 Suggested slide map</h3>
+<table>
+  <thead><tr><th style="width:6%">#</th><th style="width:24%">Slide</th><th style="width:16%">Source</th><th>The one thing it must land</th></tr></thead>
+  <tbody>
+    <tr><td>1</td><td>Title + positioning line</td><td>Cover</td><td>"Runs a clinician-governed trauma program with you, daily, for less than streaming."</td></tr>
+    <tr><td>2</td><td>The problem</td><td>§2</td><td>$150–350/hr and months of waitlist, or a meditation app with no clinical structure. Nothing in between.</td></tr>
+    <tr><td>3</td><td>Market gap</td><td>§2 table</td><td>Two poles, empty middle — with prices on screen.</td></tr>
+    <tr><td>4</td><td>What Steady is</td><td>§3 overview</td><td>Three layers on one safety substrate. Show the product, not a diagram.</td></tr>
+    <tr><td>5</td><td>Live product demo</td><td>Demo site</td><td>It is real and running on web and iOS <em>today</em>.</td></tr>
+    <tr><td>6</td><td>The safety engine</td><td>§3.1</td><td>30 deterministic rules, 14-step gate, ratified by two licensed psychologists. This is the asset.</td></tr>
+    <tr><td>7</td><td>Autopilot</td><td>§3.4</td><td>No competitor has this. Plus remembers; Premium acts. Only ever makes a day gentler.</td></tr>
+    <tr><td>8</td><td>Competitive matrix</td><td>§5.1</td><td>The row of "No / No / No / No / <strong>Yes</strong>."</td></tr>
+    <tr><td>9</td><td>Moats</td><td>§5.2</td><td>Engine+content inseparable; memory switching cost; structural AI safety; near-zero content marginal cost.</td></tr>
+    <tr><td>10</td><td>Pricing ladder</td><td>§6.1</td><td>Three tiers, and everyone starts on Premium free for a week.</td></tr>
+    <tr><td>11</td><td>The funnel loop</td><td>§7</td><td><strong>Cheap entry → habit retention → earned upsell.</strong> Make this one diagram.</td></tr>
+    <tr><td>12</td><td>Upsell engine</td><td>§6.3</td><td>2.9× / 5.0× ARPU at zero marginal CAC, triggered by the member's own behavior.</td></tr>
+    <tr><td>13</td><td>Unit economics</td><td>§7.4</td><td>Model shape, clearly labeled as assumptions.</td></tr>
+    <tr><td>14</td><td>Traction &amp; status</td><td>§3, §4.1</td><td>Built, tested, deployed, clinically ratified. Pre-revenue by choice — gates first.</td></tr>
+    <tr><td>15</td><td>Path to full activation</td><td>§4.2</td><td>Remaining work is external validation, not construction.</td></tr>
+    <tr><td>16</td><td>Growth plan</td><td>§7.5</td><td>Validate → consumer scale → channel expansion.</td></tr>
+    <tr><td>17</td><td>Risks &amp; mitigations</td><td>§8</td><td>Name them first; every one already has a mitigation in the product.</td></tr>
+    <tr><td>18</td><td>Use of funds &amp; milestones</td><td>§9</td><td>Capital buys validation and go-to-market, not discovery.</td></tr>
+    <tr><td>19</td><td>Team</td><td>—</td><td><em>To be supplied — not covered in this document.</em></td></tr>
+    <tr><td>20</td><td>The ask</td><td>—</td><td><em>To be supplied — amount, structure, valuation.</em></td></tr>
+  </tbody>
+</table>
+
+<h3>10.2 Design direction</h3>
+<ul class="tight">
+  <li><strong>Palette:</strong> ground <code>#2f3a33</code>, olive <code>#545e53</code>, sage
+  <code>#a8b8a1</code>, sage-deep <code>#93a58b</code>, ivory <code>#f7f1e8</code>, linen
+  <code>#fbf8f2</code>, moss <code>#dce4d4</code>. Accents: support/red <code>#9a4f42</code>
+  (crisis only), pause/amber <code>#d7a85f</code>, safe/green <code>#7fa37b</code>.</li>
+  <li><strong>Type:</strong> serif for headlines (the product uses Cormorant Garamond), clean sans
+  for body. Generous whitespace — calm is the brand.</li>
+  <li><strong>Tone:</strong> calm conviction. No hype adjectives, no exclamation marks, no stock
+  photos of people staring wistfully out of windows. The restraint <em>is</em> the credibility.</li>
+  <li><strong>Screenshots to feature:</strong> the Autopilot plan card on the dashboard; the SOS
+  panel; the breathing pacer mid-practice; the clinician review console; the check-in routing a
+  hard day to grounding.</li>
+</ul>
+
+<h3>10.3 Language rules — non-negotiable</h3>
+<div class="box box-warn">
+<ul class="tight" style="margin-bottom:0">
+  <li><strong>Never</strong> use: cure, heal, treats PTSD, clinically proven, AI therapist,
+  guaranteed results. These are blocked in the product by an automated CI check and must not appear
+  in the deck either.</li>
+  <li><strong>Always</strong> say: "built on the EMDR method," "self-guided wellness program,"
+  "not therapy, not medical care." Research claims describe <strong>the method</strong>, never
+  Steady's own outcomes.</li>
+  <li><strong>Never</strong> present the unit-economics model as achieved performance, or imply
+  users exist. "Pre-revenue, built and clinically ratified" is a stronger and safer story than a
+  vague implication of traction.</li>
+  <li><strong>Always</strong> note that autonomous reprocessing and full autonomous governance
+  remain gated pending validation — the discipline is a selling point to any investor who has seen
+  a digital-health blow-up.</li>
+</ul>
+</div>
+
+<h3>10.4 Assets and where to get them</h3>
+<ul class="tight">
+  <li><strong>Live demo</strong> — <code>steady-emdr-demo.onrender.com</code>. Sign in as the seeded
+  Premium member to show the Autopilot plan as the dashboard centerpiece.</li>
+  <li><strong>Product screenshots</strong> — capture from the live demo (web) and Xcode simulator (iOS).</li>
+  <li><strong>Clinical sign-off</strong> — signed PDFs in <code>docs/autonomous/</code>; a redacted
+  cover page makes a strong credibility slide.</li>
+  <li><strong>Research citations</strong> — the three RCT/meta-analysis sources with DOIs are on the
+  live landing page and repeated in §2 of this document.</li>
+  <li><strong>Full technical spec</strong> — the repository README is the complete handoff document
+  covering workflow, instruments, scoring, and gating.</li>
+</ul>
+
+<div class="footer-note">
+<strong>Steady — Investor Deck Source Document · 29 July 2026 · Confidential.</strong>
+Product counts, test counts, and capability claims verified against the shipping codebase on the
+date of preparation. Financial figures are models with stated assumptions, not results. Competitor
+pricing reflects publicly listed plans and should be re-verified before presentation. Steady is a
+development prototype: not a medical device, not for emergency use, and not cleared for clinical
+use. Nothing in this document is an offer to sell securities.
+</div>
+</div>
+
+</body>
+</html>
