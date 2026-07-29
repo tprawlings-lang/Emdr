@@ -1,10 +1,14 @@
 # Steady — self-guided wellness program built on the EMDR method (prototype)
 
 A calm, private, **self-guided wellness program** for adults: guided EMDR-based sessions,
-daily readiness check-ins, grounding tools, goal-based care paths, an AI companion with
-member-controlled memory, and engineered safety rails. Launching in the **wellness lane**
-(see [`COMPLIANCE.md`](COMPLIANCE.md)): not therapy, not medical care, no diagnosis or
-treatment claims. Membership is **$34.99/month** after a 7-day free trial.
+daily readiness check-ins, a Prepare & Regulate practice suite (breathwork, meditation,
+movement, sleep wind-downs), psychoeducation micro-lessons, an always-available SOS panel,
+grounding tools, goal-based care paths, an AI companion with member-controlled memory, and
+engineered safety rails. Launching in the **wellness lane** (see
+[`COMPLIANCE.md`](COMPLIANCE.md)): not therapy, not medical care, no diagnosis or treatment
+claims. Membership is three-tier — **Base $6.99 / Plus $19.99 / Premium $34.99 per month**
+— and every membership starts with **7 days of Premium free** (§8.4). Crisis support,
+Ground, and SOS are never tier-gated.
 
 > **This is a development prototype.** It is not a medical device and is **not for
 > emergency use** — US users in crisis should call/text 988 or 911. Remaining launch
@@ -38,7 +42,8 @@ to the member with a link to resolve it (never a dead end).
 
 ```
 Signup (18+ DOB gate, wellness acknowledgment)
-  → Subscribe ($34.99/mo, 7-day trial; demo billing provider)
+  → Subscribe (pick Base $6.99 / Plus $19.99 / Premium $34.99; every tier starts
+    with a 7-day Premium trial; demo billing provider)
     → Informed consent (versioned stepper → consent ledger, scope care_program_full)
       → Program-fit screener (8 yes/no items; hard stop ⇒ 24h cooldown + auto-refund)
         → Baseline measures (PC-PTSD-5, PCL-5, ITQ, PHQ-9, GAD-7)
@@ -250,7 +255,9 @@ dissociation); sleep 0–10 mapped to good ≥7 / okay ≥5 / poor ≥3 / very_p
 member-visible reason + action link:
 
 1. **Kill switch** — `EMDR_DISABLE_NEW_SESSIONS=1` blocks all new sessions globally.
-2. **Active subscription.**
+2. **Active subscription + membership tier** — the guided module program is a
+   Plus/Premium entitlement (§8.4); a Base member is blocked with an `upgrade`
+   action (practices, lessons, Ground, and SOS all remain open — never a dead end).
 3. **Informed consent** — scope `care_program_full`, unrevoked (the signup wellness
    acknowledgment does *not* satisfy this).
 4. **Program-fit screener** — unanswered ⇒ blocked to `/screening`; hard-stop cooldown ⇒
@@ -319,7 +326,7 @@ Pain & Somatic (adjunct). Each carries an honest **evidence grade**
 
 ---
 
-## 8. Program plan & AI companion
+## 8. Program plan, AI companion & the member feature suite
 
 **Program plan** (`program_plans`): regenerated when Module 5 completes (AI-drafted via
 Claude with a strict JSON contract; deterministic rules fallback so a model outage never
@@ -340,6 +347,110 @@ and the program plan. Tools: `record_trigger`, `remember` (memory types incl.
 chat messages are AES-256-GCM encrypted at the app layer (`enc1:` prefix,
 `EMDR_DATA_KEY`). Companion memory is member-viewable, editable, and deletable. If no
 `ANTHROPIC_API_KEY` is set, deterministic scripted flows run instead.
+
+### 8.1 Prepare & Regulate practices (breathwork · meditation · movement · sleep)
+
+One content-service pattern (`src/lib/practices.ts`) serves all practice types to both
+web and iOS: **code-defined catalogs** (like `MODULES` / `INSTRUMENTS`), only
+**completions** touch the DB (`practice_completions` + audit + a light companion-memory
+note). All content is **deterministic data — no produced media, no content pipeline**:
+
+- **Breathwork** (5 patterns, paced visual pacer; iOS adds Core Haptics): no-hold
+  variants always exist, holds are flagged, and **titration** surfaces gentler/no-hold
+  patterns first when today's check-in is elevated (dissociation ≥ 4, activation ≥ 7, or
+  a grounding/stabilization day).
+- **Meditation, sleep wind-downs, and gentle movement** are guided **segment scripts**
+  (beat-by-beat text with pacing), read aloud by the same on-device TTS the sessions use
+  (voice toggle; text always shown). Trauma-informed copy: orienting/eyes-open options
+  first, explicit permission to skip or stop, seated options for movement, and sleep
+  scripts that deliberately trail off into permission to sleep. Movement ships only the
+  form-free subset (nothing needing demonstrated technique).
+- **Prepare-for-session on-ramp**: the session player offers the gentlest breathwork
+  before starting; prepared starts are audited (content-free) so prepared-vs-unprepared
+  hard-stop rates are measurable.
+
+Web: `/practices/breathe|meditate|move|sleep`. Mobile: `GET /api/mobile/v1/practices?type=…`
+(safety-ordered per member per day) + `POST /practices/complete`.
+
+### 8.2 Psychoeducation micro-lessons
+
+`src/lib/lessons.ts`: 7 short trauma-informed reads (window of tolerance, why the method
+works, triggers, grounding, titration, self-compassion, calm place) — code-defined
+markdown, safe server-side renderer (no `dangerouslySetInnerHTML`), per-user read
+tracking (`lesson_reads`, idempotent). Lessons cross-link to related modules and appear
+inside the session player intro. Web `/learn`; mobile `GET /lessons` + `POST /lessons/read`.
+
+### 8.3 SOS panic button (member-initiated relief)
+
+A persistent SOS button on every member screen (web `SosMount`/`SosButton`; iOS overlay
+on all tabs). One tap opens relief assembled from the member's **own plan**: a paced
+grounding breath, their saved calm place, their grounding tools, a one-tap call/text to
+the safe person they named (tel:/mailto: auto-detected), the crisis line, and 911.
+Distinct from `/crisis` (the escalation the safety gate forces): SOS is relief the member
+reaches for. Opening it logs a **coded** safety event only (`sos_opened` — types/ids,
+never content; compliance 4B.4). Never tier-gated. Mobile: `GET /sos` + `POST /sos/open`.
+
+### 8.4 Membership tiers, entitlements & the upsell engine
+
+Three tiers (`src/lib/billing.ts` `PLANS`; competitive analysis vs. Calm / Headspace /
+Insight Timer / Sanvello / Balance, which cluster at $9–15/mo for content-only products):
+
+| Tier | Price | Positioning | Includes |
+|---|---|---|---|
+| **Base** | $6.99 | A calmer daily practice | Check-ins, all §8.1 practices, lessons, Ground, SOS, companion **1×/week** |
+| **Plus** | $19.99 | A program that remembers you | + guided module program, measures/trends, **unlimited companion with memory** |
+| **Premium** | $34.99 | Steady runs your program with you | + **Autopilot** (§8.5), live/voice sessions, priority specialist review |
+
+Every new membership starts as a **7-day trial that runs at Premium** (status `trialing`
+⇒ premium entitlements) — billing then starts on the chosen tier
+(trial-the-top-then-downsell is the conversion engine). Legacy `monthly` $34.99 rows
+grandfather to Premium. `src/lib/entitlements.ts` is the **single source of truth**
+(`getTier` / `getEntitlements`); **safety surfaces are never tier-gated** (hard
+invariant).
+
+**Enforcement:** the module gate (§5 step 2); the **Base weekly companion cap**
+(`src/lib/upsell.ts` `companionAllowance` — the first non-risk message opens a
+"companion day," that calendar day stays open, then the window rests 7 days; **crisis is
+exempt twice over**: checked before the cap, and risk-flagged messages never count);
+and **memory recall gating** (`getModelExposableMemoryItems` returns nothing on Base —
+writes continue, so nothing is lost on upgrade, and members always see their own memory
+in Settings).
+
+**Earned upsell engine** (`maybeUpsell`): recommendations fire only on a real signal
+from the member's own data — `trial_winback` (fresh post-trial members, referencing
+their Premium week), `plus_fit` (Base + ≥2 recurring named triggers), `premium_fit`
+(Plus + a hard-stopped session or ≥3 elevated check-ins in 14 days). Global 5-day +
+per-kind 14-day cooldowns; Premium members never pitched; nothing attached to crisis or
+risk-flagged exchanges; every suggestion recorded (`upsell_events` + audit) for
+conversion analysis. The UI renders suggestions as a distinct dismissible card — never
+companion speech.
+
+### 8.5 Autopilot — the Premium autonomous care loop
+
+`src/lib/autopilot.ts`. Plus *remembers* you between sessions; Premium *acts* between
+them. Deterministic (no model call composes anything), auditable, and **only ever
+narrows a day**:
+
+1. **Daily plan composer** — on the first open of the day, composes a concrete plan from
+   today's check-in, the program plan, titrated practice selection, and unread lessons.
+   No check-in yet ⇒ the plan leads with it and **recomposes when the check-in lands**
+   (stable otherwise; idempotent per day in `autopilot_plans`). Every session item
+   passes `checkModuleAccess` — the same server-side gate as the session player; crisis
+   days compose a support-only plan.
+2. **Proactive outreach** — the companion speaks first on coded signals:
+   `missed_checkins` (3+ day gap), `measure_worsening` (two-score deltas: PCL-5 +10,
+   ITQ +8, PHQ-9/GAD-7 +5), `streak_milestone` (5+ practices this week). Delivered into
+   the companion thread *and* onto the plan (honest in-app delivery until push exists).
+   Global 3-day + per-kind 7-day cooldowns (`autopilot_events`); every send audited.
+3. **Adaptive pacing, made visible** — each plan carries a `pacingNote` explaining what
+   Autopilot adjusted and why.
+4. **Continuous risk watch** — worsening measures also open an early clinician alert
+   (`autopilot_risk_watch`, coded types only, 14-day cooldown).
+5. **Priority specialist review** — Premium unlock requests queue at high severity with
+   a priority label; the clinical bar for the decision is identical on every tier.
+
+Dashboard renders the plan as the day's centerpiece for Premium members;
+`GET /api/mobile/v1/autopilot/today` serves iOS.
 
 ---
 
@@ -404,7 +515,7 @@ intensity." Autonomy here means *more deterministic automation of clinician-vali
 6. **Governance** — kill switches (generative conversation / provider sharing / escalation
    automation), config-as-code snapshot, and `/api/safety-status` (mode, version, stages).
 
-~197 tests across the safety suite (`tests/*.test.ts`, run by `npm run test:safety`),
+~200 safety-suite tests (259 total across `tests/*.test.ts`, run by `npm run test:safety`),
 including end-to-end red-team harnesses (`tests/safety-redteam.test.ts`, `tests/bls-redteam.test.ts`).
 
 ### How a clinician validates and signs off
@@ -446,8 +557,10 @@ onboarding/checkin) · `user_profiles` / `user_triggers` / `early_warning_signs`
 `override`, decision reason) · `alerts` (severity, review note) · `care_tracks` /
 `care_track_intake` · `program_plans` (encrypted plan JSON, generated_by ai/rules) ·
 `ai_conversations` / `ai_messages` / `ai_memory_items` / `ai_companion_preferences` ·
-`subscriptions` / `payments` · `audit_log` (append-only; identity, consent, clinical,
-module runtime, specialist actions, security).
+`subscriptions` (plan base/plus/premium; trialing ⇒ premium entitlements) / `payments` ·
+`practice_completions` (§8.1) · `lesson_reads` (§8.2) · `upsell_events` (§8.4) ·
+`autopilot_plans` / `autopilot_events` (§8.5) · `audit_log` (append-only; identity,
+consent, clinical, module runtime, specialist actions, billing, safety, security).
 
 Encrypted-at-app-layer fields carry the `enc1:` prefix (AES-256-GCM, `EMDR_DATA_KEY`,
 legacy plaintext passthrough).
@@ -465,13 +578,17 @@ Open http://localhost:3000. SQLite data lives in `.data/` (gitignored).
 
 **Demo accounts** (seeded on first run, development only):
 Member `demo@example.com` / `demo1234` · Clinician `clinician@example.com` / `demo1234`.
-With `EMDR_DEMO=1` a rich fictional dataset seeds instead.
+With `EMDR_DEMO=1` a rich fictional dataset seeds instead (Alex pays for **Premium** —
+so the Autopilot plan renders — and Sam is mid **Premium trial** with billing set to
+start on Plus).
 
 **Tests & CI:** `npm run test:safety` runs the CI-blocking `@safety` suite (screener
 hard stops, SUDS rules, check-in routing, crisis regex, track-recommender safety gate)
 plus the **autonomous safety-core suite** (the deterministic engine, scoring, session
 runtime, companion guard, journey orchestration, governance, resourcing/BLS, and a
-red-team harness — §10). ~197 tests total across `tests/*.test.ts`.
+red-team harness — §10) plus the member-feature suites (practices, lessons, SOS,
+entitlements/tiers, upsell + companion cap, Autopilot). **259 tests** total across
+`tests/*.test.ts`.
 `npm run test:e2e` runs the Playwright smoke suite (critical unauthenticated surfaces +
 security headers; hermetic by default, or point at a deploy with `E2E_BASE_URL`).
 CI (`.github/workflows/safety.yml`) blocks on `@safety` + build + `npm audit`
@@ -496,7 +613,7 @@ after clinician sign-off), and the emergency kill switches `EMDR_KILL_GENERATIVE
 Next.js (App Router, server actions, standalone output) · TypeScript · Tailwind CSS ·
 better-sqlite3 · Anthropic SDK. No ad-tech, no analytics pixels, no third-party
 trackers — by design. The clinician-designed **deterministic safety core** lives in
-[`src/lib/safety/`](src/lib/safety/) (pure, ~197-test suite, shadow-mode, flag-gated — §10),
+[`src/lib/safety/`](src/lib/safety/) (pure, ~200-test suite, shadow-mode, flag-gated — §10),
 surfaced for review at `/clinician/autonomous` and `/api/safety-status`.
 
 ## 14. Before any real-world use (wellness-lane launch gates)
@@ -515,8 +632,11 @@ demo; they are the gates to a real launch:
 - [ ] **Email provider** (e.g. Resend — already coded, just needs the API key) —
   unblocks password reset, lockout notices, pre-charge reminders, retention
   warnings, and backup-failure alerts.
-- [ ] **Stripe** — real hosted checkout. Safety auto-refund and 2-click cancel
-  already work against the demo provider.
+- [ ] **Stripe** — real hosted checkout with **three prices** (Base $6.99 / Plus
+  $19.99 / Premium $34.99) + the 7-day Premium trial (§8.4). Safety auto-refund,
+  2-click cancel, and plan changes already work against the demo provider. Before
+  public launch, also re-verify competitor pricing (the §8.4 analysis is from
+  training-data snapshots, not live pages).
 - [x] **EMDR-trained clinical advisor** — ✅ **DONE (with conditions), 2026-07-22.** Two
   independent licensed psychologists ratified the screener wording (finalized `fit-v2-clinrev`),
   crisis script, session scripts, and the **autonomous safety rules** (§10) at config
@@ -567,7 +687,7 @@ detail in [`docs/go-live-runbook.md`](docs/go-live-runbook.md) §4 and
 ### 14.4 Autonomous safety system (§10) — status
 
 - [x] Built from the clinician corpus (safety core, scoring, session engine, companion
-  guard, journey orchestration, governance) — pure, ~197 tests, red-team harness.
+  guard, journey orchestration, governance) — pure, ~200 tests, red-team harness.
 - [x] Deployed + clinician review console with per-rule Agree / Needs-change sign-off and
   CSV export. **Ratified (with conditions) 2026-07-22.** Still shadow — the flag swaps legal
   copy + audit label only; the engine is **not yet wired to govern module gating** (see below).
