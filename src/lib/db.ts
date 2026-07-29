@@ -354,6 +354,14 @@ function migrate(db: Database.Database) {
   );
   CREATE INDEX IF NOT EXISTS idx_practice_completions_user ON practice_completions(user_id, created_at);
 
+  CREATE TABLE IF NOT EXISTS upsell_events (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL REFERENCES users(id),
+    kind TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+  CREATE INDEX IF NOT EXISTS idx_upsell_events_user ON upsell_events(user_id, created_at);
+
   CREATE TABLE IF NOT EXISTS lesson_reads (
     id TEXT PRIMARY KEY,
     user_id TEXT NOT NULL REFERENCES users(id),

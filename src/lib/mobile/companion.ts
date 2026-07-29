@@ -70,7 +70,7 @@ export async function openDailyChat(userId: string): Promise<{ conversationId: s
 
 export async function sendMessage(
   userId: string, conversationId: string | null, text: string, contextType?: string
-): Promise<{ conversationId: string; reply: string; riskFlag: boolean; aiEnabled: boolean }> {
+): Promise<{ conversationId: string; reply: string; riskFlag: boolean; aiEnabled: boolean; suggestion?: string | null }> {
   const trimmed = text.trim().slice(0, 2000);
   const c = await data();
   const context = ["general", "onboarding"].includes(contextType ?? "") ? (contextType as string) : "general";
@@ -87,6 +87,25 @@ export async function sendMessage(
 
   const ctx = await buildCompanionContext(userId);
   const isCrisis = detectRisk(trimmed);
+
+  // Base weekly cap (pricing Phase B) — never applied to crisis messages.
+  if (!isCrisis) {
+    const { companionAllowance } = await import("../upsell");
+    const allowance = await companionAllowance(userId);
+    if (!allowance.ok) {
+      const insertCapped =
+        "INSERT INTO ai_messages (id, conversation_id, user_id, sender, message_text, risk_flag) VALUES (?, ?, ?, ?, ?, 0)";
+      await c.run(insertCapped, [newId(), convId, userId, "member", encryptField(trimmed)]);
+      await c.run(insertCapped, [newId(), convId, userId, "companion", encryptField(allowance.reply)]);
+      await audit({
+        actorId: userId, actorRole: "member", family: "clinical",
+        type: "companion_weekly_capped", target: convId,
+        detail: { nextAvailable: allowance.nextAvailable, via: "mobile" },
+      });
+      return { conversationId: convId, reply: allowance.reply, riskFlag: false, aiEnabled: aiCompanionEnabled(), suggestion: null };
+    }
+  }
+
   let reply;
   if (isCrisis || !aiCompanionEnabled()) {
     reply = generateReply(ctx, trimmed);
@@ -106,7 +125,14 @@ export async function sendMessage(
     await createAlert(userId, "companion_risk_language", "urgent", "Risk language detected in a companion conversation (mobile). Routed to crisis resources.");
   }
   await audit({ actorId: userId, actorRole: "member", family: "clinical", type: "companion_message", target: convId, detail: { mode: reply.mode, riskFlag: reply.riskFlag, via: "mobile" } });
-  return { conversationId: convId, reply: reply.text, riskFlag: reply.riskFlag, aiEnabled: aiCompanionEnabled() };
+
+  // Earned upgrade suggestion — only on calm exchanges, cooldowns in maybeUpsell.
+  let suggestion: string | null = null;
+  if (!isCrisis && !reply.riskFlag) {
+    const { maybeUpsell } = await import("../upsell");
+    suggestion = (await maybeUpsell(userId))?.message ?? null;
+  }
+  return { conversationId: convId, reply: reply.text, riskFlag: reply.riskFlag, aiEnabled: aiCompanionEnabled(), suggestion };
 }
 
 // ---------- conversation history ----------

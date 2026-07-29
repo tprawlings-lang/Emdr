@@ -139,6 +139,17 @@ export async function getMemoryItems(userId: string): Promise<MemoryItem[]> {
  *  (canExposeToModel) and gracefully-forgotten items are dropped (decayState).
  *  The member still sees everything via getMemoryItems in Settings → Memory. */
 export async function getModelExposableMemoryItems(userId: string, nowMs = Date.now()): Promise<MemoryItem[]> {
+  // Tier gate (pricing Phase B): companion long-term memory is a Plus/Premium
+  // feature. On Base the companion still sees today's context (check-in,
+  // safety plan, triggers — that's buildCompanionContext, unaffected here),
+  // but the accumulated memory bank stays out of the prompt. Members always
+  // see their own memory in Settings → Memory regardless of tier, and writes
+  // continue so nothing is lost if they upgrade.
+  {
+    const { getEntitlements } = await import("./entitlements");
+    const ent = await getEntitlements(userId);
+    if (ent && !ent.companionMemory) return [];
+  }
   return (await getMemoryItems(userId)).filter((m) => {
     const c = classifyMemory(m.memory_type, m.source_type);
     if (!canExposeToModel(c.memoryClass)) return false;

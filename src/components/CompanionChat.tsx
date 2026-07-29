@@ -37,6 +37,7 @@ export default function CompanionChat({
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [input, setInput] = useState("");
   const [showRiskBanner, setShowRiskBanner] = useState(false);
+  const [suggestion, setSuggestion] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const bottomRef = useRef<HTMLDivElement>(null);
   const autoStarted = useRef(false);
@@ -62,6 +63,7 @@ export default function CompanionChat({
       setConversationId(res.conversationId);
       setMessages((m) => [...m, { sender: "companion", text: res.reply, riskFlag: res.riskFlag }]);
       if (res.riskFlag) setShowRiskBanner(true);
+      if (res.suggestion) setSuggestion(res.suggestion);
       setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: "smooth" }), 50);
     });
   };
@@ -100,6 +102,23 @@ export default function CompanionChat({
             </div>
           </div>
         ))}
+        {suggestion && (
+          <div className="flex justify-start">
+            <div className="max-w-[85%] rounded-3xl border border-sage-deep/40 bg-moss px-5 py-3 text-sm leading-relaxed text-ground">
+              {suggestion}{" "}
+              <a href="/settings/billing" className="font-medium underline">
+                See memberships
+              </a>
+              <button
+                type="button"
+                onClick={() => setSuggestion(null)}
+                className="ml-3 text-xs text-olive underline"
+              >
+                Dismiss
+              </button>
+            </div>
+          </div>
+        )}
         {pending && (
           <div className="flex justify-start">
             <div className="rounded-3xl border border-ground/10 bg-linen px-5 py-3 text-olive shadow-soft">

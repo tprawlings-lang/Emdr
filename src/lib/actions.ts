@@ -637,7 +637,7 @@ export async function sendCompanionMessage(
   conversationId: string | null,
   text: string,
   contextType?: string
-): Promise<{ conversationId: string; reply: string; riskFlag: boolean }> {
+): Promise<{ conversationId: string; reply: string; riskFlag: boolean; suggestion?: string | null }> {
   const user = await requireMember();
   const trimmed = text.trim().slice(0, 2000);
   const c = await data();
@@ -663,6 +663,25 @@ export async function sendCompanionMessage(
   // as fallback so the demo still works without an API key or network.
   const ctx = await buildCompanionContext(user.id);
   const isCrisis = detectRisk(trimmed);
+
+  // Base weekly cap (pricing Phase B) — never applied to crisis messages.
+  if (!isCrisis) {
+    const { companionAllowance } = await import("./upsell");
+    const allowance = await companionAllowance(user.id);
+    if (!allowance.ok) {
+      const insertCapped =
+        "INSERT INTO ai_messages (id, conversation_id, user_id, sender, message_text, risk_flag) VALUES (?, ?, ?, ?, ?, 0)";
+      await c.run(insertCapped, [newId(), convId, user.id, "member", encryptField(trimmed)]);
+      await c.run(insertCapped, [newId(), convId, user.id, "companion", encryptField(allowance.reply)]);
+      await audit({
+        actorId: user.id, actorRole: "member", family: "clinical",
+        type: "companion_weekly_capped", target: convId,
+        detail: { nextAvailable: allowance.nextAvailable },
+      });
+      return { conversationId: convId, reply: allowance.reply, riskFlag: false, suggestion: null };
+    }
+  }
+
   let reply;
   if (isCrisis || !aiCompanionEnabled()) {
     // Crisis routing and the rules engine never call the paid model, and crisis
@@ -707,7 +726,16 @@ export async function sendCompanionMessage(
     target: convId,
     detail: { mode: reply.mode, riskFlag: reply.riskFlag },
   });
-  return { conversationId: convId, reply: reply.text, riskFlag: reply.riskFlag };
+
+  // Earned upgrade suggestion (pricing Phase B): only on calm exchanges —
+  // never on crisis or risk-flagged ones — and only when the member's own
+  // data shows a fit. Cooldowns live in maybeUpsell.
+  let suggestion: string | null = null;
+  if (!isCrisis && !reply.riskFlag) {
+    const { maybeUpsell } = await import("./upsell");
+    suggestion = (await maybeUpsell(user.id))?.message ?? null;
+  }
+  return { conversationId: convId, reply: reply.text, riskFlag: reply.riskFlag, suggestion };
 }
 
 // ---------- Account deletion (compliance 6.4) ----------
