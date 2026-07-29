@@ -14,6 +14,24 @@ Ground, and SOS are never tier-gated.
 > emergency use** — US users in crisis should call/text 988 or 911. Remaining launch
 > gates are tracked item-by-item in [`COMPLIANCE.md`](COMPLIANCE.md).
 
+## Start here — pick your path
+
+| If you are… | Read this | Why |
+|---|---|---|
+| **Building an investor deck** | [`docs/investor/Steady-Investor-Deck-Source.pdf`](docs/investor/) **first**, then §3 and §8 below | The PDF is the purpose-built handoff: complete product inventory, differentiation, monetization, growth model, risks, and a 20-slide map with design direction and non-negotiable language rules. Source HTML sits beside it — edit and re-render to update. |
+| **Evaluating / diligencing** | §1–§9 (what governs members today), §10 (autonomous engine), then [`docs/signoff-checklist.md`](docs/signoff-checklist.md) | The honest picture of what is live, what is gated, and exactly what each gate needs. |
+| **Building on the API** | §1–§9, then §11 (data model) and [`openapi.yaml`](openapi.yaml) | The full gate chain, instruments, and scoring rules that any integration must respect. |
+| **A clinician reviewing** | §2, §4, §5, §10, then [`docs/autonomous/`](docs/autonomous/) | Instruments and scoring, the gate chain, the deterministic engine, and the signed sign-off ledger. |
+| **Seeing it work** | The live demo (see §12) | Web + iOS, running the current build. |
+
+**A note for deck builders:** everything a member sees is real and running — do not
+describe any feature in §3 or §8 as planned. Conversely, items marked 🔴 or "gated" in
+§14 are **not** live and must not be presented as shipped. §10.3 of the investor PDF
+lists the marketing language that is banned in this product (and enforced automatically
+in CI); those rules apply to the deck too.
+
+---
+
 **Who this document is for.** This README is the handoff spec for anyone building
 skills/automation on top of Steady. It documents the **entire member workflow**, every
 **instrument and questionnaire**, exactly **how each is scored**, and **how ongoing scores
@@ -452,6 +470,35 @@ narrows a day**:
 Dashboard renders the plan as the day's centerpiece for Premium members;
 `GET /api/mobile/v1/autopilot/today` serves iOS.
 
+### 8.6 The public marketing surface (what a prospect/investor sees)
+
+Useful for deck builders: this is exactly what the live site shows, in order, and where
+each claim comes from.
+
+| Landing section (anchor) | Content | Sourced from |
+|---|---|---|
+| Hero | Positioning, the daily suite, "7 days of Premium free · from $6.99/month after" | — |
+| Research band | 3 RCT/meta-analysis cards **with DOI citations**, WHO/NICE/VA guidelines line, and an honesty caveat that findings describe clinician-delivered EMDR | Published literature; claims are about **the method**, never Steady's own outcomes |
+| Companion | Purpose-built companion + a real exchange shape | Shipped behavior |
+| Conditions | Six areas trauma travels with | — |
+| Every day, not just sessions (`#your-day`) | Six tiles: Breathe, Meditate, Move, Sleep, Learn, SOS + the titration line | §8.1–8.3 |
+| How it works (`#how-it-works`) | Five steps: Check in → Ground → Practice → Process → Reflect | §1 |
+| Autopilot (`#autopilot`) | The Premium story, a composed-plan glimpse, four pillars | §8.5 |
+| Differentiators | Memory, chosen focus, the daily gate, specialist review | §5, §8 |
+| Stories | Illustrative composites, **labeled as such** | — |
+| Pricing (`#pricing`) | Three tier cards rendered **from `lib/billing` PLANS** | §8.4 |
+| FAQ (`#faq`) | Safety, experience, overwhelm, therapy-replacement, Autopilot, cost | — |
+| Roadmap strip | Push outreach, Watch, HealthKit, natural voice — **renders only when `EMDR_DEMO=1`** | §14.6, roadmap |
+
+Because the pricing cards read from `lib/billing`, the landing page, `/subscribe`, and
+signup **cannot drift apart** — change a price in one place and all three follow. The
+iOS first-run mirrors the same content (`Views/MarketingContent.swift`), so the story is
+identical on both platforms.
+
+**Copy guardrails:** a CI step greps product copy for banned outcome/medical claims
+(`cure`, `heal your`, `treats PTSD`, `AI therapist`, `clinically proven`) and fails the
+build on a match. The same rules apply to any deck built from this material.
+
 ---
 
 ## 9. Current human-oversight touchpoints (what exists today)
@@ -576,6 +623,10 @@ npm run dev
 
 Open http://localhost:3000. SQLite data lives in `.data/` (gitignored).
 
+**Live demo:** <https://steady-emdr-demo.onrender.com> — runs with `EMDR_DEMO=1`, so the
+seeded dataset and the demo-only roadmap strip are visible. Sign in as the member below to
+see the Premium dashboard with the Autopilot plan as its centerpiece.
+
 **Demo accounts** (seeded on first run, development only):
 Member `demo@example.com` / `demo1234` · Clinician `clinician@example.com` / `demo1234`.
 With `EMDR_DEMO=1` a rich fictional dataset seeds instead (Alex pays for **Premium** —
@@ -589,8 +640,11 @@ runtime, companion guard, journey orchestration, governance, resourcing/BLS, and
 red-team harness — §10) plus the member-feature suites (practices, lessons, SOS,
 entitlements/tiers, upsell + companion cap, Autopilot). **259 tests** total across
 `tests/*.test.ts`.
-`npm run test:e2e` runs the Playwright smoke suite (critical unauthenticated surfaces +
-security headers; hermetic by default, or point at a deploy with `E2E_BASE_URL`).
+`npm run test:e2e` runs the Playwright suite — **17 tests**: critical unauthenticated
+surfaces, security headers, signup gates, the clinician console, and an axe-core WCAG-AA
+audit that blocks on any serious/critical violation. Hermetic by default, or point at a
+deploy with `E2E_BASE_URL`. (In a sandbox with a pre-installed browser, set
+`PLAYWRIGHT_CHROMIUM_PATH` rather than downloading one.)
 CI (`.github/workflows/safety.yml`) blocks on `@safety` + build + `npm audit`
 (high/critical) + the e2e smoke suite + a banned-vocabulary grep over product copy;
 a nightly `load` job (`.github/workflows/load.yml`) runs `npm run loadcheck`
@@ -598,7 +652,12 @@ a nightly `load` job (`.github/workflows/load.yml`) runs `npm run loadcheck`
 baseline (`docs/load-test/README.md`).
 
 **Deploy:** production `Dockerfile` (standalone output); Render blueprint
-(`render.yaml`) with persistent disk at `/data`; nightly encrypted backups to
+(`render.yaml`) with persistent disk at `/data`. **The deploy branch must be `main`** —
+`render.yaml` declares it, but a Render service can hold its own branch setting that
+overrides the blueprint. If the live site is serving stale content while `main` is
+current, check the service's branch first (a July 2026 repo restore left the service
+pinned to a recovery branch, and it silently redeployed the same old commit for days —
+the tell is a build log where every Docker layer reads `CACHED`). Nightly encrypted backups to
 Cloudflare R2 with 30-day retention once `R2_*`, `BACKUP_AGE_RECIPIENT`, and Resend
 alert vars are set (see [`docs/backups.md`](docs/backups.md), `make restore-test`).
 Env vars of note: `ANTHROPIC_API_KEY` (companion + AI plans), `EMDR_DATA_KEY`
@@ -620,6 +679,13 @@ surfaced for review at `/clinician/autonomous` and `/api/safety-status`.
 
 Full detail in [`COMPLIANCE.md`](COMPLIANCE.md); the live founder checklist with
 severities is [`docs/audit-open-items.md`](docs/audit-open-items.md).
+
+**One-page consolidated tracker:** [`docs/signoff-checklist.md`](docs/signoff-checklist.md)
+merges this section with the sign-off ledger, the evidence package, and the BLS Part-6
+package into three buckets — signatures still needed (counsel / clinicians / founder),
+gates needing execution + evidence + acceptance, and built work deliberately on hold
+until a signature lands — plus **§4 "signing packets"**, which groups every item by who
+signs it so engagements can be booked in parallel rather than serially.
 
 ### 14.1 Founder to-do — outside accounts you need to set up 🔴
 
