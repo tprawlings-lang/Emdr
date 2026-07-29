@@ -270,6 +270,16 @@ export default async function DashboardPage() {
           </p>
         </Link>
         <Link
+          href="/practices/move"
+          className="rounded-3xl border border-ground/10 bg-linen p-5 shadow-soft transition-colors hover:bg-moss"
+        >
+          <p className="text-sm text-olive">Prepare &amp; regulate</p>
+          <p className="mt-1 font-serif text-2xl font-medium">Move</p>
+          <p className="mt-2 text-sm leading-relaxed text-olive">
+            Gentle guided movement — orienting turns, rooting down, easy stretches, shaking it off.
+          </p>
+        </Link>
+        <Link
           href="/practices/sleep"
           className="rounded-3xl border border-ground/10 bg-linen p-5 shadow-soft transition-colors hover:bg-moss"
         >

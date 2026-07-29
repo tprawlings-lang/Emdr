@@ -283,7 +283,101 @@ export const SLEEP: Practice[] = [
   },
 ];
 
-const ALL_PRACTICES: Practice[] = [...BREATHWORK, ...MEDITATIONS, ...SLEEP];
+// ── Movement catalog (roadmap F1). Gentle, trauma-informed movement done to a
+// spoken script — orienting turns, discharging held stress ("shaking it off"),
+// grounding stances, easy stretches, and proprioceptive pressing for a sense of
+// containment. This slice is deliberately the form-free subset (nothing that
+// needs demonstrated technique), so it ships as deterministic text like the
+// other practices — no video pipeline. Reuses the segment player. Ordered
+// gentlest-first. ──
+export const MOVEMENT: Practice[] = [
+  {
+    id: "orienting-turns", type: "movement", title: "Orienting turns",
+    intro: "Slow head and neck turns that let your body take in the room and register that you're safe. Seated or standing.",
+    durationSec: 120, intensity: 1, tags: ["orienting", "grounding", "seated-option"], hasHold: false,
+    note: "Move only as far as feels easy — never into pain. Do it seated if that's more comfortable, and skip anything that doesn't feel right.",
+    segments: [
+      { text: "Let's do a few slow, gentle movements to help your body feel settled. Move only as far as feels comfortable — and skip anything that doesn't.", seconds: 12 },
+      { text: "Sit or stand, whichever you prefer. Let your shoulders drop.", seconds: 10 },
+      { text: "Slowly turn your head to look over your right shoulder — just far enough to feel an easy stretch.", seconds: 14 },
+      { text: "Come back to center, and slowly turn to look over your left shoulder.", seconds: 14 },
+      { text: "Let your gaze travel around the room as you turn — noticing you're safe, taking in where you are.", seconds: 14 },
+      { text: "Bring your head back to center. Let your chin drop gently toward your chest, and roll it slowly side to side.", seconds: 16 },
+      { text: "Lift your head back up. Notice how your neck feels a little freer.", seconds: 12 },
+      { text: "One more slow look to each side, at your own pace.", seconds: 16 },
+      { text: "Come back to center. Your body has oriented — it knows where it is, and that it's okay.", seconds: 12 },
+    ],
+  },
+  {
+    id: "grounding-stance", type: "movement", title: "Rooting down",
+    intro: "Find your feet and your steadiness — a short practice to feel solid and grounded when things feel shaky.",
+    durationSec: 106, intensity: 1, tags: ["grounding", "steadying", "seated-option"], hasHold: false,
+    note: "Do it seated or standing. If you sway, keep it small and stay in control — the point is to feel steady, not to challenge your balance.",
+    segments: [
+      { text: "This is a grounding practice to help you feel steady and rooted. You can do it seated or standing.", seconds: 12 },
+      { text: "Feel your feet — on the floor if standing, or flat on the ground if seated. Press them down.", seconds: 14 },
+      { text: "Notice the floor pressing back up. It's solid. It's holding you.", seconds: 12 },
+      { text: "If standing, gently sway a little — forward and back, side to side — feeling how you stay balanced.", seconds: 16 },
+      { text: "Come to stillness with your weight even across both feet. Strong and settled.", seconds: 14 },
+      { text: "Press your palms together in front of your chest, firmly, and feel your own strength.", seconds: 14 },
+      { text: "Release. Let your arms rest. Feel the steadiness that's still there.", seconds: 12 },
+      { text: "You are grounded. Rooted. Here.", seconds: 12 },
+    ],
+  },
+  {
+    id: "gentle-stretch", type: "movement", title: "Easing tension",
+    intro: "A few slow, simple stretches to release tension the day leaves in the neck, shoulders, and sides.",
+    durationSec: 132, intensity: 1, tags: ["stretch", "release", "seated-option"], hasHold: false,
+    note: "Move slowly and never past an easy, comfortable stretch. Everything here works seated if you prefer.",
+    segments: [
+      { text: "A few gentle stretches to release held tension. Move slowly, and never past an easy, comfortable stretch.", seconds: 14 },
+      { text: "Reach both arms up overhead, as high as feels good, and lengthen through your sides.", seconds: 14 },
+      { text: "Let your arms float back down. Roll your shoulders slowly backward a few times.", seconds: 16 },
+      { text: "Now roll them forward a few times, feeling the joints loosen.", seconds: 14 },
+      { text: "Gently drop your right ear toward your right shoulder. Hold for a soft breath or two.", seconds: 16 },
+      { text: "Come back to center, and tilt your left ear toward your left shoulder. Easy and slow.", seconds: 16 },
+      { text: "Return to center. Reach your right arm up and over into a gentle side bend.", seconds: 14 },
+      { text: "Come back through center, and bend gently to the other side.", seconds: 14 },
+      { text: "Return upright. Let your arms rest, and notice the openness you've made.", seconds: 14 },
+    ],
+  },
+  {
+    id: "shake-it-out", type: "movement", title: "Shaking it off",
+    intro: "Animals tremble to discharge stress after a threat passes. This gently does the same — letting held tension rattle loose and leave.",
+    durationSec: 126, intensity: 2, tags: ["discharge", "release", "activating"], hasHold: false,
+    note: "Keep it light and stay in control — this isn't exercise. If shaking feels overwhelming or activating, slow down or stop and feel your feet instead.",
+    segments: [
+      { text: "Animals shake off stress after a threat passes — trembling to discharge it. We can do the same, gently.", seconds: 14 },
+      { text: "Start with your hands. Let them go loose and shake them out, like flicking off water.", seconds: 14 },
+      { text: "Let the shaking travel up into your wrists and forearms. Easy and loose.", seconds: 14 },
+      { text: "If it feels okay, add your arms and shoulders. There's no right way — just let them move.", seconds: 14 },
+      { text: "You might bounce gently at the knees, letting the whole body loosen and jiggle.", seconds: 14 },
+      { text: "Keep it light. This isn't exercise — it's letting tension rattle loose and leave.", seconds: 14 },
+      { text: "Now slow the movement down, little by little, until you come to stillness.", seconds: 14 },
+      { text: "Stand or sit quietly. Notice any buzzing, warmth, or aliveness where you were shaking.", seconds: 16 },
+      { text: "That's your body completing the stress cycle. Let it settle.", seconds: 12 },
+    ],
+  },
+  {
+    id: "push-and-press", type: "movement", title: "Strong and contained",
+    intro: "Pushing against something steady can help a scattered system feel strong, gathered, and contained.",
+    durationSec: 130, intensity: 2, tags: ["proprioceptive", "containment", "strengthening"], hasHold: false,
+    note: "Press firmly but comfortably — never to strain. Skip the wall press if you'd rather stay seated; the palm press and self-hug work anywhere.",
+    segments: [
+      { text: "When we feel scattered, pushing against something steady can help us feel strong and contained.", seconds: 14 },
+      { text: "Press your palms flat together in front of you and push, firmly but comfortably, for a few seconds.", seconds: 16 },
+      { text: "Release. Notice the sensation in your arms and hands.", seconds: 12 },
+      { text: "Now, if there's a wall nearby, place both palms on it and press, as if gently pushing it away.", seconds: 16 },
+      { text: "Feel your feet root and your whole body engage. You are solid and strong.", seconds: 14 },
+      { text: "Release, and shake your arms out lightly.", seconds: 12 },
+      { text: "Finally, wrap your arms around yourself in a gentle hug, and give a light, steady squeeze.", seconds: 16 },
+      { text: "Feel the containment of your own arms — the sense of being held, and holding yourself.", seconds: 16 },
+      { text: "Release when you're ready. Notice you feel a little more gathered, a little more here.", seconds: 14 },
+    ],
+  },
+];
+
+const ALL_PRACTICES: Practice[] = [...BREATHWORK, ...MEDITATIONS, ...SLEEP, ...MOVEMENT];
 
 /** Whether today's check-in indicates we should surface gentler, no-hold work
  *  first (roadmap §9 titration). Best-effort — defaults to false. */
