@@ -19,10 +19,13 @@ test("clinician can open the autonomous review console and see gated decisions",
   await expect(page.getByText(/DAILY_HARM_URGE/).first()).toBeVisible();
   await expect(page.getByText(/Blocked —/)).toBeVisible();
 
-  // A clear scenario passes to a session.
+  // A clear scenario reaches the steady ceiling — but activating sessions
+  // still show blocked: the signed beta config (beta-clinrev-2026-07) keeps
+  // autonomous stimulation OFF, a clinician sign-off condition. The safe
+  // behavior IS the expected behavior.
   await page.goto("/clinician/autonomous?track=steady");
   await expect(page.getByText(/access ceiling: steady/i)).toBeVisible();
-  await expect(page.getByText(/✓ allowed/)).toBeVisible();
+  await expect(page.getByText(/✗ blocked/)).toBeVisible();
 
   // Sign-off register: record Agree for a rule and confirm it persists.
   await expect(page.getByRole("heading", { name: "Rule sign-off register", exact: true })).toBeVisible();

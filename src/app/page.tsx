@@ -3,6 +3,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { SteadyMark, Wordmark } from "@/components/Brand";
 import { CalmScene, LeafSprig, SoftWave, WarmWash } from "@/components/Illustrations";
+import { PLANS, TRIAL_DAYS, type PlanId } from "@/lib/billing";
 
 // Marketing landing page. The voice is "calm conviction": the benefit-led
 // structure of direct-to-consumer EMDR marketing (outcomes, research,
@@ -29,6 +30,10 @@ const STEPS = [
     body: "Your calm place, your tools, your companion. Settle your nervous system before anything else is asked of it.",
   },
   {
+    title: "Practice",
+    body: "A few minutes of paced breathing, guided meditation, gentle movement, or a sleep wind-down — the daily work that makes the deeper work possible.",
+  },
+  {
     title: "Process",
     body: "Guided eye-movement sessions with a chosen focus, short sets, and distress ratings between every one. You are in control the whole way.",
   },
@@ -36,6 +41,16 @@ const STEPS = [
     title: "Reflect",
     body: "Watch your distress scores drop across sessions. Your companion remembers what helped and builds on it.",
   },
+];
+
+// The Base-tier daily toolkit — every tile is shipped product.
+const DAILY_TOOLKIT = [
+  { name: "Breathe", note: "Five paced patterns, from a quick reset to a slow wind-down. No-hold options always available." },
+  { name: "Meditate", note: "Short guided practices — orienting, calm place, self-compassion — read aloud or as text." },
+  { name: "Move", note: "Gentle guided movement: orienting turns, rooting down, shaking off held stress. Seated options throughout." },
+  { name: "Sleep", note: "Wind-downs to do lying down in the dark, that trail off into permission to sleep." },
+  { name: "Learn", note: "Two-to-four-minute reads that make sense of the work — the window of tolerance, triggers, why the method helps." },
+  { name: "SOS", note: "One tap, on every screen: your calm place, your grounding tools, your safe person, and the crisis line." },
 ];
 
 const STORIES = [
@@ -47,7 +62,7 @@ const STORIES = [
   },
   {
     quote:
-      "The check-in stopped me from pushing on a bad day, and honestly that's when I started trusting it. It paces you the way a good therapist would.",
+      "The check-in stopped me from pushing on a bad day, and honestly that's when I started trusting it. Now the two-minute breath before work is the habit that makes the rest possible.",
     name: "Daniel",
     detail: "12 weeks in",
   },
@@ -77,8 +92,12 @@ const FAQS = [
     a: "No — and we won't pretend otherwise. Steady is structured care software: validated screening, daily readiness checks, guided stabilization and processing modules, and progress measurement, with a licensed specialist reviewing your trajectory. Many members use it alongside a therapist; it never replaces emergency care.",
   },
   {
+    q: "What is Autopilot?",
+    a: "Autopilot is Premium's autonomous care loop. Each morning it composes your day — the right practice, the next safe program step, a short read — from your check-in and your history. It reaches out through your companion when you've gone quiet or your measures show a rough stretch, adapts your pacing automatically, and surfaces worsening trends to your specialist early. It works inside the same safety gates as everything else: it can make a day gentler, never riskier.",
+  },
+  {
     q: "What does it cost?",
-    a: "From $6.99 a month, after 7 days of Premium free. Base ($6.99) is the daily practice — breathing, meditation, movement, sleep, and grounding. Plus ($19.99) adds the guided program and an unlimited companion that remembers you. Premium ($34.99) adds Autopilot: Steady plans each day with you, reaches out between sessions, and adapts your pacing — a fraction of a single traditional session. Crisis support and grounding tools stay open to everyone, regardless of membership.",
+    a: "Three memberships: Base ($6.99/month) is the daily practice, Plus ($19.99) adds the guided program and unlimited companion with memory, and Premium ($34.99) adds Autopilot, live sessions, and priority review. Every membership starts with 7 days of Premium, free — and crisis support and grounding stay open to everyone, regardless of membership.",
   },
 ];
 
@@ -96,6 +115,7 @@ function Cta({ label = "Start your free week" }: { label?: string }) {
 export default async function Home() {
   const user = await getCurrentUser();
   if (user) redirect(user.role === "member" ? "/dashboard" : "/clinician");
+  const demo = process.env.EMDR_DEMO === "1";
 
   return (
     <main className="overflow-x-clip">
@@ -106,6 +126,13 @@ export default async function Home() {
           <Wordmark className="text-2xl sm:text-3xl" />
         </div>
         <div className="flex items-center gap-3 text-sm sm:gap-5">
+          <nav className="hidden items-center gap-5 text-olive md:flex" aria-label="Page sections">
+            <a href="#how-it-works" className="transition-colors hover:text-ground">How it works</a>
+            <a href="#your-day" className="transition-colors hover:text-ground">Your day</a>
+            <a href="#autopilot" className="transition-colors hover:text-ground">Autopilot</a>
+            <a href="#pricing" className="transition-colors hover:text-ground">Pricing</a>
+            <a href="#faq" className="transition-colors hover:text-ground">FAQ</a>
+          </nav>
           <Link href="/crisis" className="font-semibold whitespace-nowrap text-support underline">
             Need help now?
           </Link>
@@ -134,8 +161,8 @@ export default async function Home() {
             <p className="mt-6 max-w-xl text-lg leading-relaxed text-ground/85">
               EMDR doesn&apos;t just talk about what happened — it helps your brain finish
               processing it. Steady brings that method home: guided eye-movement sessions,
-              a companion that remembers what helps you, and safety rails a clinician would
-              recognize.
+              daily breathwork, meditation, movement, and sleep practices, a companion that
+              remembers what helps you, and safety rails a clinician would recognize.
             </p>
             <div className="mt-8 flex flex-wrap items-center gap-4">
               <Cta label="Start your free week" />
@@ -147,7 +174,8 @@ export default async function Home() {
               </Link>
             </div>
             <p className="mt-5 text-sm text-olive">
-              7 days free · cancel anytime · no equipment needed — just a quiet moment
+              7 days of Premium free · from $6.99/month after · cancel anytime — no
+              equipment needed, just a quiet moment
             </p>
           </div>
 
@@ -340,6 +368,33 @@ export default async function Home() {
         </div>
       </section>
 
+      {/* The daily toolkit — the Base-tier engagement story: Steady is a daily
+          practice first, a session program second. Every tile is shipped. */}
+      <section id="your-day" className="mx-auto max-w-5xl scroll-mt-8 px-6 pt-20">
+        <h2 className="text-center font-serif text-3xl font-medium sm:text-4xl">
+          Every day, not just sessions
+        </h2>
+        <p className="mx-auto mt-3 max-w-2xl text-center text-olive">
+          Healing mostly happens between the big moments. Steady gives you a daily toolkit —
+          and on harder days, gentler practices surface first, automatically.
+        </p>
+        <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {DAILY_TOOLKIT.map((t) => (
+            <div
+              key={t.name}
+              className="rounded-3xl border border-ground/10 bg-linen p-6 shadow-soft transition-colors hover:bg-moss"
+            >
+              <h3 className="font-serif text-2xl font-medium">{t.name}</h3>
+              <p className="mt-1.5 text-sm leading-relaxed text-olive">{t.note}</p>
+            </div>
+          ))}
+        </div>
+        <p className="mt-6 text-center text-xs text-olive">
+          All six are part of every membership, starting at $6.99/month. SOS, grounding, and
+          crisis support stay open to everyone — members or not.
+        </p>
+      </section>
+
       {/* How it works — organic wave softens the seam into the dark band */}
       <SoftWave className="mt-20 block h-16 w-full sm:h-24" fill="var(--color-ground)" />
       <section id="how-it-works" className="-mt-px scroll-mt-8 bg-ground py-20 text-ivory">
@@ -350,7 +405,7 @@ export default async function Home() {
           <p className="mx-auto mt-3 max-w-xl text-center text-ivory/70">
             No appointments. No equipment. A few quiet minutes, whenever you have them.
           </p>
-          <div className="mt-12 grid gap-6 sm:grid-cols-4">
+          <div className="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-5">
             {STEPS.map((s, i) => (
               <div key={s.title}>
                 <p className="font-serif text-4xl font-medium text-sage">{i + 1}</p>
@@ -362,6 +417,55 @@ export default async function Home() {
           <div className="mt-12 text-center">
             <Cta label="Begin when you feel ready" />
           </div>
+        </div>
+      </section>
+
+      {/* Autopilot — the Premium differentiator. Claims describe shipped
+          behavior; the safety framing ("only ever makes a day gentler") is the
+          engine's real invariant, not marketing. */}
+      <section id="autopilot" className="mx-auto max-w-5xl scroll-mt-8 px-6 pt-20">
+        <div className="grid items-center gap-10 sm:grid-cols-[3fr_2fr]">
+          <div>
+            <p className="text-sm font-semibold tracking-wide text-olive uppercase">
+              Premium · Autopilot
+            </p>
+            <h2 className="mt-3 font-serif text-3xl font-medium sm:text-4xl">
+              Steady runs the program with you
+            </h2>
+            <p className="mt-4 leading-relaxed text-ground/85">
+              Most apps wait for you to show up. Autopilot acts between sessions: it composes
+              your day each morning from your check-in and your history, reaches out when
+              you&apos;ve gone quiet or a rough stretch shows in your measures, and adapts your
+              pacing automatically — always inside the same safety gates, only ever making a
+              day gentler.
+            </p>
+          </div>
+          {/* Product glimpse: a real composed plan shape */}
+          <div className="rounded-3xl border border-sage-deep/40 bg-moss p-5 shadow-soft" aria-hidden="true">
+            <p className="text-xs text-olive">Autopilot · today&apos;s plan</p>
+            <p className="mt-1 font-serif text-xl font-medium text-ground">A gentle day, on purpose</p>
+            <div className="mt-3 space-y-2 text-sm">
+              <div className="rounded-2xl border border-ground/10 bg-linen px-4 py-2.5">Orienting to now · 2 min</div>
+              <div className="rounded-2xl border border-ground/10 bg-linen px-4 py-2.5">Your grounding tools</div>
+              <div className="rounded-2xl border border-ground/10 bg-linen px-4 py-2.5">Read: your nervous system on high alert</div>
+            </div>
+            <p className="mt-3 text-xs leading-relaxed text-olive">
+              Sessions set aside today — protecting your window is progress too.
+            </p>
+          </div>
+        </div>
+        <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {[
+            { t: "A plan, every morning", d: "Composed from your check-in, your program, and what you haven't tried yet." },
+            { t: "It reaches out first", d: "Miss a few days or trend downward on your measures, and your companion checks in — warmly, without pressure." },
+            { t: "Pacing that adapts", d: "Hard days automatically narrow to grounding; steady days move the program forward. You see what changed and why." },
+            { t: "Earlier human review", d: "Worsening trends surface to your specialist before you have to ask — and Premium requests go to the top of the queue." },
+          ].map((c) => (
+            <div key={c.t} className="rounded-3xl border border-ground/10 bg-ivory p-5 shadow-soft">
+              <h3 className="text-sm font-semibold">{c.t}</h3>
+              <p className="mt-1 text-sm leading-relaxed text-olive">{c.d}</p>
+            </div>
+          ))}
         </div>
       </section>
 
@@ -437,44 +541,74 @@ export default async function Home() {
         </p>
       </section>
 
-      {/* Pricing */}
-      <section className="mx-auto max-w-3xl px-6 pt-20">
-        <div className="rounded-3xl border border-ground/10 bg-linen p-10 text-center shadow-soft">
-          <h2 className="font-serif text-3xl font-medium sm:text-4xl">
-            A fraction of one traditional session
-          </h2>
-          <p className="mx-auto mt-3 max-w-md text-olive">
-            In-office EMDR often runs $150–350 an hour. Steady is built to be sustainable for
-            as long as the work takes.
-          </p>
-          <p className="mt-8 font-serif text-6xl font-medium">
-            From $6.99<span className="text-2xl text-olive">/month</span>
-          </p>
-          <p className="mt-2 text-sm text-olive">First 7 days of Premium free — then Base $6.99, Plus $19.99, or Premium $34.99</p>
-          <ul className="mx-auto mt-6 max-w-md space-y-2 text-left text-sm text-ground/90">
-            {[
-              "Base: daily check-ins, breathe / meditate / move / sleep, lessons, and SOS",
-              "Plus: the guided program, and an unlimited companion that remembers you",
-              "Premium: Autopilot — a daily plan, proactive outreach, adaptive pacing, live sessions",
-              "Specialist-informed safety review across every tier",
-            ].map((line) => (
-              <li key={line} className="flex items-start gap-3">
-                <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-sage" aria-hidden="true" />
-                {line}
-              </li>
-            ))}
-          </ul>
-          <div className="mt-8">
-            <Cta label="Start free — decide in a week" />
-          </div>
-          <p className="mt-4 text-sm text-olive">
-            If it doesn&apos;t feel right within your first week, cancel and pay nothing.
-          </p>
+      {/* Pricing — mirrors /subscribe word-for-word so the story never shifts
+          between pages. Plus is the highlighted anchor. */}
+      <section id="pricing" className="mx-auto max-w-5xl scroll-mt-8 px-6 pt-20">
+        <h2 className="text-center font-serif text-3xl font-medium sm:text-4xl">
+          A fraction of one traditional session
+        </h2>
+        <p className="mx-auto mt-3 max-w-xl text-center text-olive">
+          In-office EMDR often runs $150–350 an hour. Steady starts at{" "}
+          <strong>$6.99 a month</strong>, and every membership begins with{" "}
+          <strong>{TRIAL_DAYS} days of Premium, free</strong> — the full program, the
+          companion, Autopilot, everything.
+        </p>
+        <div className="mt-10 grid gap-5 lg:grid-cols-3">
+          {(["base", "plus", "premium"] as PlanId[]).map((id) => {
+            const plan = PLANS[id];
+            const highlighted = id === "plus";
+            return (
+              <div
+                key={id}
+                className={`flex flex-col rounded-3xl border p-7 shadow-soft ${
+                  highlighted ? "border-sage-deep bg-moss" : "border-ground/10 bg-linen"
+                }`}
+              >
+                <div className="flex items-baseline justify-between gap-2">
+                  <h3 className="font-serif text-2xl font-medium">{plan.label}</h3>
+                  {highlighted && (
+                    <span className="rounded-full bg-sage/40 px-3 py-1 text-xs font-medium text-ground">
+                      Most popular
+                    </span>
+                  )}
+                </div>
+                <p className="mt-1 text-sm text-olive">{plan.tagline}</p>
+                <p className="mt-4 font-serif text-4xl font-medium">
+                  ${(plan.priceCents / 100).toFixed(2)}
+                  <span className="text-base font-normal text-olive">/month</span>
+                </p>
+                <ul className="mt-5 flex-1 space-y-2 text-sm text-ground/90">
+                  {plan.includes.map((line) => (
+                    <li key={line} className="flex items-start gap-2.5">
+                      <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-sage" aria-hidden="true" />
+                      {line}
+                    </li>
+                  ))}
+                </ul>
+                <div className="mt-6">
+                  <Link
+                    href="/signup"
+                    className={`block rounded-full px-6 py-3 text-center font-medium transition-colors ${
+                      highlighted
+                        ? "bg-sage text-ground hover:bg-sage-deep"
+                        : "border border-ground/20 text-ground hover:bg-moss"
+                    }`}
+                  >
+                    Start free — then {plan.label}
+                  </Link>
+                </div>
+              </div>
+            );
+          })}
         </div>
+        <p className="mt-6 text-center text-sm text-olive">
+          If it doesn&apos;t feel right within your first week, cancel and pay nothing. Crisis
+          support, grounding, and SOS stay open to everyone — on every tier, and on none.
+        </p>
       </section>
 
       {/* FAQ */}
-      <section className="mx-auto max-w-3xl px-6 pt-20">
+      <section id="faq" className="mx-auto max-w-3xl scroll-mt-8 px-6 pt-20">
         <h2 className="text-center font-serif text-3xl font-medium sm:text-4xl">
           Honest answers first
         </h2>
@@ -500,6 +634,35 @@ export default async function Home() {
           ))}
         </div>
       </section>
+
+      {/* Roadmap strip — DEMO ONLY (EMDR_DEMO=1): shown to investors/preview
+          audiences, never rendered in production. Everything above this line is
+          shipped; everything in this strip is explicitly labeled as coming. */}
+      {demo && (
+        <section className="mx-auto max-w-5xl px-6 pt-16">
+          <div className="rounded-3xl border border-pause/40 bg-pause-soft p-7">
+            <p className="text-xs font-semibold tracking-wide text-olive uppercase">
+              Preview build · on the roadmap
+            </p>
+            <h2 className="mt-2 font-serif text-2xl font-medium">
+              Everything above is live today. Here&apos;s what&apos;s next.
+            </h2>
+            <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-4 text-sm">
+              {[
+                { t: "Push-delivered outreach", d: "Autopilot's check-ins arrive on your phone, not just in the app." },
+                { t: "Apple Watch", d: "Grounding and paced breathing from the wrist, with haptic bilateral taps." },
+                { t: "HealthKit-informed pacing", d: "Sleep and heart-rate trends (with consent) sharpen the daily plan." },
+                { t: "A naturally narrated voice", d: "Studio-quality session narration — pre-rendered, still nothing leaving the device." },
+              ].map((r) => (
+                <div key={r.t} className="rounded-2xl border border-ground/10 bg-ivory p-4">
+                  <h3 className="font-semibold">{r.t}</h3>
+                  <p className="mt-1 leading-relaxed text-olive">{r.d}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* Who this is for */}
       <section className="mx-auto max-w-3xl px-6 pt-16">

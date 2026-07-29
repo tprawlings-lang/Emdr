@@ -42,25 +42,31 @@ export default async function SignupPage({
             pace your nervous system can trust. No streaks, no pressure, no rush — just
             structure that always knows what to offer next.
           </p>
-          <ul className="mt-6 space-y-3 text-ground/90">
-            {PLANS.premium.includes.map((line) => (
-              <li key={line} className="flex items-start gap-3">
-                <span className="mt-2 h-2 w-2 shrink-0 rounded-full bg-sage" aria-hidden="true" />
-                {line}
-              </li>
-            ))}
-          </ul>
-          <div className="mt-8 rounded-3xl border border-ground/10 bg-linen p-6 shadow-soft">
+          <div className="mt-6 space-y-3">
+            {(["base", "plus", "premium"] as const).map((id) => {
+              const plan = PLANS[id];
+              return (
+                <div
+                  key={id}
+                  className="flex items-baseline justify-between gap-3 rounded-3xl border border-ground/10 bg-linen px-5 py-3.5 shadow-soft"
+                >
+                  <div>
+                    <span className="font-serif text-lg font-medium">{plan.label}</span>
+                    <span className="ml-2 text-sm text-olive">{plan.tagline}</span>
+                  </div>
+                  <span className="text-sm font-semibold whitespace-nowrap">{plan.priceLabel}</span>
+                </div>
+              );
+            })}
+          </div>
+          <div className="mt-4 rounded-3xl border border-ground/10 bg-linen p-6 shadow-soft">
             <p className="font-serif text-2xl font-medium">
-              From {PLANS.base.priceLabel}
-              <span className="ml-2 text-base font-normal text-olive">
-                · first {TRIAL_DAYS} days of Premium free
-              </span>
+              First {TRIAL_DAYS} days of Premium, free
             </p>
             <p className="mt-2 text-sm leading-relaxed text-olive">
-              Begin with a free week of everything, then choose the membership that fits —
-              Base, Plus, or Premium. Cancel anytime — pausing is always allowed here, in
-              billing as much as in sessions.
+              Begin with a free week of everything — the full program, the companion,
+              Autopilot — then billing starts on the membership you choose. Cancel anytime;
+              pausing is always allowed here, in billing as much as in sessions.
             </p>
           </div>
           <p className="mt-6 text-sm text-olive">
