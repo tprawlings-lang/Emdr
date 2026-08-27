@@ -194,9 +194,9 @@ export const CAPABILITIES: Capability[] = [
     layer: "intelligence",
     name: "Tamper-evident audit log",
     summary:
-      "A hash-chained, append-only record of who did what. Breaking the chain is detectable.",
+      "A hash-chained, append-only record of who did what. Breaking the chain is detectable, and the check runs and is displayed rather than asserted. Clinician-facing views are tenant-scoped and withhold free-text fields.",
     status: "working_demo",
-    evidence: "ADR 0005 · tests/audit-chain.test.ts",
+    evidence: "ADR 0005 · tests/audit-chain.test.ts · src/lib/clinical/audit-history.ts",
     owner: "Engineering",
     lastReviewed: "2026-08-27",
     audiences: ["public", "organization", "payer", "security", "investor"],
@@ -216,11 +216,11 @@ export const CAPABILITIES: Capability[] = [
   {
     id: "bls-part-6",
     layer: "clinical",
-    name: "BLS Part 6 workflow",
+    name: "BLS Part 6 workflow and oversight",
     summary:
-      "A separately gated clinical-validation workstream. The environment can demonstrate the intended protocol states, stop conditions, and escalation paths using fabricated scenarios.",
+      "A separately gated clinical-validation workstream. A clinician oversight console reports the six protocol gates, the staged rollout, the pre-registered thresholds, and the hard stopping criteria against the configuration actually running — so a signed document and a live flag cannot quietly disagree.",
     status: "simulation",
-    evidence: "docs/autonomous/ · docs/clinical/clinical-pilot-2026-09.md §7",
+    evidence: "docs/autonomous/ · src/lib/clinical/bls-oversight.ts · /clinician/bls",
     owner: "Clinical",
     lastReviewed: "2026-08-27",
     audiences: ["public", "clinical", "investor"],

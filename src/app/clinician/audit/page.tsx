@@ -1,10 +1,32 @@
 import Link from "next/link";
 import { requireClinician } from "@/lib/auth";
-import { recentAuditEvents } from "@/lib/audit";
+import { data } from "@/lib/data";
+import { PLATFORM_TENANT_ID } from "@/lib/db";
+import { scopedAuditFeed, scopeNote } from "@/lib/clinical/audit-history";
+import { ChainBanner, AuditTable } from "@/components/clinical/AuditView";
 
+export const dynamic = "force-dynamic";
+
+// Audit console.
+//
+// Two things changed here in Phase 4, both of which were defects rather than
+// missing features:
+//
+//   The feed was unscoped. Every clinician read every organization's audit
+//   trail, which contradicts the isolation the platform states publicly.
+//
+//   The feed rendered `detail_json` raw. A failed sign-in records the attempted
+//   address verbatim, and correction rationales, alert resolutions, and review
+//   notes are all free text a member never expected a list view to surface.
 export default async function AuditConsolePage() {
-  await requireClinician();
-  const events = await recentAuditEvents(300);
+  const clinician = await requireClinician();
+
+  const c = await data();
+  const me = (await c.get("SELECT tenant_id FROM users WHERE id = ?", [clinician.id])) as
+    | { tenant_id: string } | undefined;
+  const tenantId = me?.tenant_id ?? PLATFORM_TENANT_ID;
+
+  const feed = await scopedAuditFeed({ tenantId, limit: 300 });
 
   return (
     <main className="mx-auto max-w-5xl px-6 py-10">
@@ -17,36 +39,20 @@ export default async function AuditConsolePage() {
         security events. Most recent first.
       </p>
 
-      <div className="mt-6 overflow-x-auto rounded-3xl border border-ground/10 bg-linen shadow-soft">
-        <table className="w-full text-sm">
-          <thead className="bg-sand/40 text-left">
-            <tr>
-              <th className="px-3 py-2">Time</th>
-              <th className="px-3 py-2">Family</th>
-              <th className="px-3 py-2">Event</th>
-              <th className="px-3 py-2">Actor</th>
-              <th className="px-3 py-2">Target</th>
-              <th className="px-3 py-2">Detail</th>
-            </tr>
-          </thead>
-          <tbody>
-            {events.map((e) => (
-              <tr key={e.id} className="border-t border-ground/10 align-top">
-                <td className="whitespace-nowrap px-3 py-2 text-xs text-olive">
-                  {e.created_at}
-                </td>
-                <td className="px-3 py-2">{e.event_family}</td>
-                <td className="px-3 py-2 font-medium">{e.event_type}</td>
-                <td className="px-3 py-2 text-xs">{e.actor_role ?? "system"}</td>
-                <td className="px-3 py-2 text-xs">{e.target ?? "—"}</td>
-                <td className="max-w-md px-3 py-2 text-xs text-olive">
-                  {e.detail_json !== "{}" ? e.detail_json : "—"}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      <ChainBanner chain={feed.chain} />
+
+      <p className="mt-3 rounded-2xl border border-ground/15 bg-linen px-4 py-3 text-xs text-ground/80">
+        {scopeNote()}
+        {feed.outOfScope > 0 && (
+          <>
+            {" "}
+            <strong>{feed.outOfScope}</strong> entr{feed.outOfScope === 1 ? "y" : "ies"} in this
+            window were outside your organization and are not shown.
+          </>
+        )}
+      </p>
+
+      <AuditTable entries={feed.entries} showTarget />
     </main>
   );
 }

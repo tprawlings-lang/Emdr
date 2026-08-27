@@ -114,9 +114,10 @@ Status is one of **Complete** / **Partial** / **Missing** / **Superseded**.
 | Surface | Status |
 |---|---|
 | Clinician caseload, timeline, alerts, AI summaries, approve/correct/override | ✅ **Built** — `src/lib/clinical/`, `/clinician/clinical`. Summary generation is deterministic at T0/T1 (`deterministic-v1`) so demos reproduce; the citation contract is enforced by `validateSummary` independently of the generator |
+| Clinical audit history and alert trail | ✅ **Built** — `src/lib/clinical/audit-history.ts`, `/clinician/alerts/[id]`. Tenant-scoped, free text withheld, chain verification displayed |
 | Payer / population view | **Missing** — Phase 6 |
-| Configurable clinical policy modes (§6) | **Missing** (**F5**) |
-| BLS Part 6 labelled simulation | **Partial** — resourcing exists and is flag-gated; no Part 6 protocol simulation |
+| Configurable clinical policy modes (§6) | ✅ **Built** — `src/lib/clinical-policy.ts` (closes **F5**) |
+| BLS Part 6 labelled simulation | ✅ **Oversight built** — `/clinician/bls` reports gates, stages, thresholds, and stop criteria against live configuration. Resourcing sessions remain flag-gated and off by default; there is still no desensitization simulation, and none is planned while gate 6 is blocked |
 
 ---
 
@@ -206,6 +207,7 @@ Ordered. Findings **F1, F7, F10** are the demo-integrity floor and come first.
 | 7 | `clinical-pilot-2026-09` proposed packet | F6 | ✅ `../clinical/clinical-pilot-2026-09.md` |
 | 8 | Phase 4 — Steady Clinical prototype | Handoff §9 | ✅ Service layer + console; 23 unit cases, 4 e2e |
 | 9 | Institutional website redesign, phases 0–6 | Redesign handoff | ✅ Claims registry, 14 institutional pages, review gateway, copy guard — [`../site/release-acceptance.md`](../site/release-acceptance.md) |
+| 10 | Phase 4 completion — clinical audit history, alert trail, BLS Part 6 oversight | Handoff §9 | ✅ `src/lib/clinical/audit-history.ts`, `bls-oversight.ts`; 18 unit cases, 6 e2e. Fixed two defects found while building: an unscoped audit console and raw `detail_json` rendering |
 
 ### Findings still open after this work
 
@@ -234,6 +236,25 @@ Ordered. Findings **F1, F7, F10** are the demo-integrity floor and come first.
 | `npm run build` | Compiles |
 
 Detail, including what was **not** tested, in [`../site/release-acceptance.md`](../site/release-acceptance.md).
+
+### Verification after Phase 4 completion (2026-08-27)
+
+| Command | Result |
+|---|---|
+| `npm run test:safety` | **428 pass, 0 fail** (+18 `clinical-oversight.test.ts`) |
+| `npm run test:e2e` | **83/83** (+6 audit history, alert trail, BLS oversight) |
+| `npm run build` | Compiles |
+
+**Two defects found and fixed while building, not features:**
+
+| | Defect | Fix |
+|---|---|---|
+| 1 | `/clinician/audit` read the whole `audit_log` unscoped — every clinician saw every organization's trail, contradicting the isolation stated publicly on `/trust` | Tenant scope by resolving actor and target through `users`; `recentAuditEvents` now takes an optional tenant and the clinician console passes one. Covered by a cross-tenant attack case in both directions |
+| 2 | The same console rendered `detail_json` verbatim, surfacing correction rationales, alert resolutions, review notes, and the address typed into a failed sign-in | One shared `AuditView` component over content-stripped entries; withholding is disclosed on the row rather than silent |
+
+`audit_log` is still deliberately outside `TENANT_SCOPED_TABLES` — its rows are actor/target
+references, not person-scoped records — so this is a **view filter, not row-level security**,
+and `scopeNote()` says exactly that on every page that uses it.
 
 **Not authorised here:** ADR 0010 Step 5 (its own gated window), any real data, any claim of
 clinical, security, or production readiness.

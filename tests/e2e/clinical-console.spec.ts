@@ -78,3 +78,85 @@ test("the clinical console is reachable from the specialist dashboard", async ({
   await page.getByRole("link", { name: "Steady Clinical" }).click();
   await expect(page).toHaveURL(/\/clinician\/clinical$/);
 });
+
+// ---------------------------------------------------------------------------
+// Phase 4 completion: audit history, alert trail, BLS Part 6 oversight
+// ---------------------------------------------------------------------------
+
+test("a member record carries its audit history with the chain verified", async ({ page }) => {
+  await signInAsClinician(page);
+  await page.goto("/clinician/clinical");
+  await page.getByTestId("caseload-row").first().getByRole("link").first().click();
+
+  await expect(page.getByRole("heading", { name: "Audit history" })).toBeVisible();
+  // Tamper-evidence is shown, not asserted in prose. A chain nobody checks is
+  // a claim rather than a control.
+  await expect(page.getByTestId("chain-banner").first()).toContainText(/Chain intact/);
+  // The scoping caveat reaches the screen rather than living in a comment.
+  await expect(page.getByText(/view filter/)).toBeVisible();
+});
+
+test("the audit console is tenant-scoped and never prints raw detail", async ({ page }) => {
+  await signInAsClinician(page);
+  await page.goto("/clinician/audit");
+
+  await expect(page.getByRole("heading", { name: "Audit console" })).toBeVisible();
+  await expect(page.getByTestId("chain-banner")).toBeVisible();
+  await expect(page.getByText(/view filter/)).toBeVisible();
+
+  // The console used to render detail_json verbatim, which surfaced attempted
+  // sign-in addresses and clinician free text. Nothing that looks like a real
+  // address may appear.
+  const body = await page.locator("body").innerText();
+  const emails = body.match(/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g) ?? [];
+  for (const found of emails) {
+    expect(found, `the audit console rendered "${found}"`).toMatch(
+      /@(?:example\.(?:com|org|net)|[a-z0-9-]+\.(?:test|invalid|example))$/i
+    );
+  }
+});
+
+test("an alert links to its trail, and the trail reads as a sequence", async ({ page }) => {
+  await signInAsClinician(page);
+  await page.goto("/clinician/clinical");
+
+  const trailLink = page.getByRole("link", { name: "audit trail" }).first();
+  if ((await trailLink.count()) === 0) test.skip(true, "no open alerts in the demo dataset");
+
+  await trailLink.click();
+  await expect(page).toHaveURL(/\/clinician\/alerts\//);
+  await expect(page.getByRole("heading", { name: "Alert trail" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Sequence" })).toBeVisible();
+  await expect(page.getByText("Oldest first.")).toBeVisible();
+});
+
+test("an alert outside the tenant is not found rather than forbidden", async ({ page }) => {
+  await signInAsClinician(page);
+  await page.goto("/clinician/alerts/not-a-real-alert-id");
+  await expect(page.getByRole("heading", { name: "Not found" })).toBeVisible();
+});
+
+test("BLS Part 6 oversight shows live configuration, not the protocol's claims", async ({ page }) => {
+  await signInAsClinician(page);
+  await page.goto("/clinician/bls");
+
+  await expect(page.getByRole("heading", { name: "BLS Part 6 oversight" })).toBeVisible();
+  await expect(page.getByText(/Not approved for real-person use/)).toBeVisible();
+
+  // Six gates, each with a state.
+  await expect(page.getByTestId("bls-gate")).toHaveCount(6);
+  // Five hard stops.
+  await expect(page.getByTestId("hard-stop")).toHaveCount(5);
+  // Three rollout stages, and desensitization must not read as enabled.
+  const stages = page.getByTestId("bls-stage");
+  await expect(stages).toHaveCount(3);
+  await expect(stages.nth(1)).toContainText("not enabled");
+  await expect(stages.nth(1)).toContainText(/no deployment setting can turn 4b on/);
+});
+
+test("the BLS console is reachable from the specialist dashboard", async ({ page }) => {
+  await signInAsClinician(page);
+  await page.goto("/clinician");
+  await page.getByRole("link", { name: "BLS Part 6" }).click();
+  await expect(page).toHaveURL(/\/clinician\/bls$/);
+});

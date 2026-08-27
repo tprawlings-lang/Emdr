@@ -107,7 +107,7 @@ testing, payer review, or public availability. The agreed order:
 | 3 | Permanent data spine — Postgres cutover, RLS active, Step 5 event-authoritative writes, provenance, corrections, retention, replay ops | Target Sep 14–18 |
 | ∥ | BLS Part 6 validation — protocol, test plan, evidence, reviewer checkpoints, staged validation | Active throughout |
 | ∥ | Institutional website redesign — audience pages, one claims registry, Trust Center, Evidence, FAQ, review gateway, demo legal copy, copy guard | ✅ **Built 2026-08-27** — §8.6, [`release-acceptance.md`](docs/site/release-acceptance.md); counsel review and a screen-reader pass are open |
-| 4 | Steady Clinical prototype — caseload view, patient timeline, alerts, evidence-linked AI summaries, clinician feedback, review actions, audit history, BLS oversight | Synthetic clinician testing |
+| 4 | Steady Clinical prototype — caseload view, patient timeline, alerts, evidence-linked AI summaries, clinician feedback, review actions, audit history, BLS oversight | ✅ **Built 2026-08-27** — all eight surfaces; §9. Ready for synthetic clinician testing, which has not been run |
 | 5 | Pilot readiness — rescoped clinical configuration, consent, protocol, training, support, monitoring, security review, counsel review, BAA completion | Before any real participant |
 | 6 | Payer and enterprise testing — org administration, reporting, eligibility, population workflows, interoperability sandbox, pilot economics | After pilot foundation |
 | 7 | Public or consumer decision — separate product posture, claims, support, safety monitoring, privacy, payments, accessibility, release review | Only after clinical and security review |
@@ -675,6 +675,20 @@ Skills authors should know exactly where a human is in the loop **today**:
    escalations, symptom worsening, unlock requests) reviewed with a required note.
 3. **Member detail review** — screening history, trends, sessions, unlock + consent
    ledgers, AI-drafted program plan (advisory).
+4. **Steady Clinical console** (`/clinician/clinical`) — caseload banded by clinical need
+   with a mandatory written reason per band, an event-sourced timeline that marks
+   reconstructed history separately, summaries whose every claim cites resolvable events,
+   and approve / correct / override as three distinct actions with three distinct audit
+   records. An override relaxes pacing only and can never relax a safety stop.
+5. **Audit history and alert trails** (`/clinician/clinical/[id]`, `/clinician/alerts/[id]`)
+   — who touched a record and when, and one alert followed from creation to closure. Both
+   are tenant-scoped, withhold free-text fields, and display the hash-chain verification
+   result rather than asserting the log is append-only.
+6. **BLS Part 6 oversight** (`/clinician/bls`) — the six protocol gates, the 4a/4b/4c
+   rollout ladder, the pre-registered thresholds, and the five hard stopping criteria,
+   reported against the configuration **actually running**. A signed protocol and a live
+   flag disagreeing is the failure this page exists to make visible; desensitization is
+   disabled in the safety configuration itself, so no environment variable can open it.
 
 Everything else — screeners, check-in routing, SUDS rules, cooldowns, caps, readiness,
 the recommender — is **already deterministic and autonomous**.

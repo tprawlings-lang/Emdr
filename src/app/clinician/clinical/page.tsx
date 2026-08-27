@@ -109,7 +109,10 @@ export default async function ClinicalConsole({
                 <p className="mt-1 text-sm">{a.detail}</p>
                 <p className="mt-1 text-xs opacity-75">
                   Raised {a.createdAt}
-                  {a.dueAt ? ` · due ${a.dueAt}` : " · no deadline for this band"}
+                  {a.dueAt ? ` · due ${a.dueAt}` : " · no deadline for this band"} ·{" "}
+                  <Link href={`/clinician/alerts/${a.id}`} className="underline">
+                    audit trail
+                  </Link>
                 </p>
 
                 <form action={closeAlertAction} className="mt-2 flex flex-wrap items-center gap-2">

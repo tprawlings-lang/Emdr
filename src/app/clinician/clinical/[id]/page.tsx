@@ -9,6 +9,8 @@ import {
   approveSummaryAction, correctRecordAction, overrideAction, feedbackAction,
 } from "@/lib/clinical/actions";
 import { OVERRIDABLE } from "@/lib/clinical/review";
+import { memberAuditHistory, scopeNote } from "@/lib/clinical/audit-history";
+import { ChainBanner, AuditTable } from "@/components/clinical/AuditView";
 
 export const dynamic = "force-dynamic";
 
@@ -64,6 +66,7 @@ export default async function MemberClinicalRecord({
 
   const timeline = await memberTimeline(id, { asOf, policy });
   const summary = buildSummary(timeline);
+  const history = await memberAuditHistory({ personId: id, tenantId });
 
   return (
     <main className="mx-auto max-w-4xl px-6 py-10">
@@ -274,6 +277,30 @@ export default async function MemberClinicalRecord({
             Record override
           </button>
         </form>
+      </section>
+
+      {/* ---------------- Audit history ---------------- */}
+      {/* The timeline answers "what happened to this member". This answers
+          "who touched this record, and when" — a different question, and the
+          one a quality review or an incident actually starts from. */}
+      <section className="mt-10">
+        <h2 className="font-serif text-2xl font-medium">Audit history</h2>
+        <p className="mt-1 text-sm text-olive">
+          Every recorded action on this member, most recent first ·{" "}
+          {(["clinical", "safety", "alert", "consent", "access", "other"] as const)
+            .filter((k) => history.kindCounts[k] > 0)
+            .map((k) => `${history.kindCounts[k]} ${k}`)
+            .join(" · ") || "no entries"}
+        </p>
+
+        <ChainBanner chain={history.chain} />
+
+        <p className="mt-3 rounded-2xl border border-ground/15 bg-linen px-4 py-3 text-xs text-ground/80">
+          {scopeNote()} Free-text fields — notes, rationales, resolutions — are withheld from
+          this view and remain in the record.
+        </p>
+
+        <AuditTable entries={history.entries} />
       </section>
     </main>
   );

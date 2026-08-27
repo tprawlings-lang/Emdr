@@ -132,9 +132,32 @@ export interface AuditRow {
   entry_hash: string | null;
 }
 
-export async function recentAuditEvents(limit = 200): Promise<AuditRow[]> {
+/** Recent audit rows.
+ *
+ *  `tenantId` scopes the result to entries whose actor or target resolves to a
+ *  user in that tenant. `audit_log` carries no tenant column — it is
+ *  deliberately outside TENANT_SCOPED_TABLES, since its rows are actor/target
+ *  references rather than person-scoped records — so this is a view filter, not
+ *  row-level security. Any clinician-facing caller must pass a tenant: without
+ *  one, a clinician in one organization reads every organization's audit trail,
+ *  which is precisely the isolation the platform claims to hold. Omit it only
+ *  for platform-administration callers that are meant to see everything. */
+export async function recentAuditEvents(
+  limit = 200,
+  tenantId?: string
+): Promise<AuditRow[]> {
   const c = await data();
-  return (await c.all("SELECT * FROM audit_log ORDER BY id DESC LIMIT ?", [limit])) as AuditRow[];
+  if (!tenantId) {
+    return (await c.all("SELECT * FROM audit_log ORDER BY id DESC LIMIT ?", [limit])) as AuditRow[];
+  }
+  return (await c.all(
+    `SELECT a.* FROM audit_log a
+      WHERE a.actor_id IN (SELECT id FROM users WHERE tenant_id = ?)
+         OR a.target   IN (SELECT id FROM users WHERE tenant_id = ?)
+      ORDER BY a.id DESC
+      LIMIT ?`,
+    [tenantId, tenantId, limit]
+  )) as AuditRow[];
 }
 
 export interface ChainVerification {
