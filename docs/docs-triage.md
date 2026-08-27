@@ -26,15 +26,15 @@ accurately describes a company we are no longer building.
 | `adr/0001-wellness-lane-posture.md` | 🛑 Superseded | Superseded by ADR 0009. Its own Consequences section anticipated this reclassification and named counsel sign-off as the mechanism — keep it as the provenance for that decision. |
 | `adr/0002-app-layer-field-encryption.md` | ➕ Current, elevated | Correct, and now load-bearing for PHI rather than for consumer free text. |
 | `adr/0003-security-headers-and-csp.md` | 🛑 Superseded | Superseded by ADR 0008 (already noted there). |
-| `adr/0004-single-instance-architecture.md` | 🛑 Superseded | Incompatible with enterprise tenancy. Status still reads "Accepted" — **update the status field**, it is the only ADR whose header is now actively misleading. |
+| `adr/0004-single-instance-architecture.md` | 🛑 Superseded | Incompatible with enterprise tenancy. Header updated to Superseded (by 0007, 0009). |
 | `adr/0005-tamper-evident-audit-chain.md` | ➕ Current, elevated | Partially satisfies Handoff E7 (reconstruct a patient journey from original evidence). Built early; keep. |
 | `adr/0006-stateless-hmac-sessions.md` | ⚠️ Needs rescope | Must accommodate enterprise SSO/SCIM (Handoff C2). Revocation-via-account-status does not cover enterprise deprovisioning. |
 | `adr/0007-scaling-and-zero-downtime-deploys.md` | ➕ Current, elevated | Moves from optional to prerequisite. Postgres is Handoff A infrastructure. |
 | `adr/0008-nonce-based-csp.md` | ✅ Current | Security reviewers will expect exactly this. |
-| `adr/README.md` | ⚠️ Needs rescope | Index table needs 0009 added and 0001/0004 marked superseded. |
-| **ADR 0010 — event-sourced longitudinal spine** | 🆕 Missing | Required by Master §4. The load-bearing Handoff A decision. |
-| **ADR 0011 — tenancy and person/account separation** | 🆕 Missing | Required by A2. Cheapest to make now, most expensive to defer. |
-| **ADR 0012 — AI Gateway** | 🆕 Missing | Required by A7. No feature may call a model provider directly. |
+| `adr/README.md` | ✅ Current | Updated: 0009–0012 added; 0001/0003/0004 marked superseded; Handoff A prerequisite note. |
+| `adr/0010-event-sourced-longitudinal-spine.md` | ✅ Current | Written. Proposed; ship as one migration with 0011. |
+| `adr/0011-tenancy-and-person-account-separation.md` | ✅ Current | Written. Proposed; highest cost-of-delay item in the programme. |
+| `adr/0012-ai-gateway.md` | ✅ Current | Written. Proposed; consumes 0010 and 0011. |
 
 ## Compliance and governance
 
@@ -134,8 +134,8 @@ consumer-thesis deck** so the two are never circulated together.
 1. **ADR 0009 to counsel.** Everything below is contingent on the reclassification.
 2. **Mark ADR 0004 superseded; add 0009 to the ADR index.** Ten minutes; removes the one
    actively misleading header.
-3. **ADRs 0010–0012** (event spine, tenancy, AI Gateway) — required before Handoff A code,
-   per the governing rule.
+3. ~~**ADRs 0010–0012**~~ — ✅ written. Ship 0010 + 0011 as a single migration; 0012
+   follows, since it depends on both.
 4. **Rewrite `COMPLIANCE.md`** with a parallel clinical track.
 5. **Security artifacts** — threat model, PHI data-flow, vendor/BAA register. Longest
    external lead time; start early.

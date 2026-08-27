@@ -14,17 +14,22 @@ accepted; supersede rather than edit.
 | [0007](0007-scaling-and-zero-downtime-deploys.md) | Sequenced path to zero-downtime deploys & horizontal scale | Accepted — start now |
 | [0008](0008-nonce-based-csp.md) | Nonce-based CSP; drop `'unsafe-inline'` from scripts | Accepted |
 | [0009](0009-clinical-lane-reclassification.md) | Reclassify to the clinical/PHI lane; environment tiers govern un-gating | **Proposed — counsel** |
+| [0010](0010-event-sourced-longitudinal-spine.md) | Event-sourced longitudinal spine; current tables become projections | **Proposed** |
+| [0011](0011-tenancy-and-person-account-separation.md) | Tenancy from day one; person identity separate from account | **Proposed** |
+| [0012](0012-ai-gateway.md) | All model calls route through a Steady AI Gateway | **Proposed** |
 
-## Pending — required before Handoff A code lands
+## Handoff A prerequisites
 
-Per the A→E governing rule ("no phase may make a local implementation choice that blocks
-a downstream requirement without a written ADR"), these three are outstanding:
+ADRs 0010, 0011, and 0012 are the architectural decisions the A→E governing rule requires
+**before** Handoff A code lands ("no phase may make a local implementation choice that
+blocks a downstream requirement without a written ADR"). They are not independent:
 
-| # | Decision | Blocks |
-|---|---|---|
-| 0010 | Event-sourced longitudinal spine | Handoffs B, D, E — replay and point-in-time reconstruction |
-| 0011 | Tenancy + person/account separation | Handoff C — population ingestion, tenant isolation |
-| 0012 | AI Gateway; no direct provider calls | Handoff A7, B5 evaluation, D5 Learning Ledger |
+- **0010 (event spine)** and **0011 (tenancy + person/account)** rewrite the same 29
+  tables and should ship as **one migration** — doing them separately pays the cost twice.
+- **0012 (AI Gateway)** consumes both: it needs 0010 for provenance records and 0011 for
+  purpose-scoped, tenant-aware retrieval.
+
+Cost of delay is highest for 0011 — a tenancy retrofit after enterprise data exists is
+both expensive and a cross-tenant PHI risk.
 
 See [`../docs-triage.md`](../docs-triage.md) for the full documentation status.
-
