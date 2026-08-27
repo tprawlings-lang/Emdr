@@ -28,6 +28,7 @@ test("flag OFF: gated module blocked specifically at the manual unlock gate", as
   delete process.env.EMDR_AUTONOMOUS_SAFETY;
   const r = await checkModuleAccess(alexId, GATED);
   assert.equal(r.allowed, false);
+  if (r.allowed) assert.fail("gated module unexpectedly allowed");
   // action "unlock" proves every UPSTREAM gate passed (sub/consent/fitness/
   // screening/profile/check-in/readiness/safety-plan/prereqs) and only the manual
   // clinician unlock is missing.
@@ -37,6 +38,7 @@ test("flag OFF: gated module blocked specifically at the manual unlock gate", as
 test("flag ON: engine governs the unlock — manual-unlock gate gone; processing stays CLOSED (autonomous stimulation off in beta)", async () => {
   process.env.EMDR_AUTONOMOUS_SAFETY = "1";
   const r = await checkModuleAccess(alexId, GATED);
+  if (r.allowed) assert.fail("processing module unexpectedly allowed");
   // The manual clinician-unlock requirement is no longer the gate — the engine is.
   assert.notEqual(r.action, "unlock");
   // And because the signed beta config keeps autonomous stimulation OFF, the
