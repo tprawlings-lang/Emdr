@@ -5,7 +5,15 @@ import AxeBuilder from "@axe-core/playwright";
 // zero *serious* or *critical* violations against WCAG 2.0/2.1 A & AA rules;
 // moderate/minor findings are reported in the attachment but do not fail the
 // build (they are triaged, not ignored).
-const PAGES = ["/", "/crisis", "/login", "/signup"];
+// Every public institutional page is audited, not a sample. A reviewer using a
+// screen reader arrives at whichever page was linked to them, and an untested
+// page is where the contrast failure lives.
+const PAGES = [
+  "/", "/platform", "/clinical", "/organizations", "/payers",
+  "/about", "/trust", "/evidence", "/faq", "/request-review",
+  "/demo", "/terms", "/privacy", "/accessibility",
+  "/crisis", "/login", "/signup",
+];
 
 for (const path of PAGES) {
   test(`a11y: ${path} has no serious/critical WCAG violations`, async ({ page }, testInfo) => {

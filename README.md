@@ -106,6 +106,7 @@ testing, payer review, or public availability. The agreed order:
 | 2 | Security foundation — threat model, risk register, vendor and BAA register, tenant/identity/secrets/logging, incident response, backup and recovery evidence | ◐ **Drafted 2026-08-27** — [`docs/security/`](docs/security/); needs external review, and its ten findings need owners |
 | 3 | Permanent data spine — Postgres cutover, RLS active, Step 5 event-authoritative writes, provenance, corrections, retention, replay ops | Target Sep 14–18 |
 | ∥ | BLS Part 6 validation — protocol, test plan, evidence, reviewer checkpoints, staged validation | Active throughout |
+| ∥ | Institutional website redesign — audience pages, one claims registry, Trust Center, Evidence, FAQ, review gateway, demo legal copy, copy guard | ✅ **Built 2026-08-27** — §8.6, [`release-acceptance.md`](docs/site/release-acceptance.md); counsel review and a screen-reader pass are open |
 | 4 | Steady Clinical prototype — caseload view, patient timeline, alerts, evidence-linked AI summaries, clinician feedback, review actions, audit history, BLS oversight | Synthetic clinician testing |
 | 5 | Pilot readiness — rescoped clinical configuration, consent, protocol, training, support, monitoring, security review, counsel review, BAA completion | Before any real participant |
 | 6 | Payer and enterprise testing — org administration, reporting, eligibility, population workflows, interoperability sandbox, pilot economics | After pilot foundation |
@@ -146,6 +147,9 @@ Tracked so they are not lost between sessions:
 | 5 | Decide what stays in the public repository vs a private security/clinical workspace | Phase 2 |
 | 6 | Provide the expected vendor inventory (hosting, model, email, storage, monitoring, auth, analytics, support, billing) for the BAA register | Phase 2 |
 | 7 | Repository governance: set `main` as protected default, require PRs and green checks, and close/update/supersede draft **PR #10** (opened against a long-superseded `main`) | Now |
+| 8 | Set `EMDR_REVIEW_ACCESS_CODE` on the deployed instance and hand it to reviewers privately. Unset = the gateway is closed | Before any reviewer session |
+| 9 | Run `npm run demo -- reset` against the deployed instance. Enrollment is now closed, so the reset will hold — run *before* sharing, not after | Before sharing the environment externally |
+| 10 | Counsel review of the Demo Terms and Demo Privacy Notice, and a screen-reader pass over the institutional pages | Removing the "unreviewed" markings |
 
 ---
 
@@ -612,34 +616,52 @@ narrows a day**:
 Dashboard renders the plan as the day's centerpiece for Premium members;
 `GET /api/mobile/v1/autopilot/today` serves iOS.
 
-### 8.6 The public marketing surface (what a prospect/investor sees)
+### 8.6 The public surface — institutional, not retail
 
-Useful for deck builders: this is exactly what the live site shows, in order, and where
-each claim comes from.
+**Replaced 2026-08-27** under the Institutional Website Redesign Handoff. The previous
+surface was a well-built page for a transaction Steady is no longer making: a pricing
+hero, tier cards, a free-trial CTA, and a testimonial band. Public enrollment and
+subscription billing are closed, so a page whose primary action is "subscribe" was not
+merely off-message — it was offering something that does not exist.
 
-| Landing section (anchor) | Content | Sourced from |
-|---|---|---|
-| Hero | Positioning, the daily suite, "7 days of Premium free · from $6.99/month after" | — |
-| Research band | 3 RCT/meta-analysis cards **with DOI citations**, WHO/NICE/VA guidelines line, and an honesty caveat that findings describe clinician-delivered EMDR | Published literature; claims are about **the method**, never Steady's own outcomes |
-| Companion | Purpose-built companion + a real exchange shape | Shipped behavior |
-| Conditions | Six areas trauma travels with | — |
-| Every day, not just sessions (`#your-day`) | Six tiles: Breathe, Meditate, Move, Sleep, Learn, SOS + the titration line | §8.1–8.3 |
-| How it works (`#how-it-works`) | Five steps: Check in → Ground → Practice → Process → Reflect | §1 |
-| Autopilot (`#autopilot`) | The Premium story, a composed-plan glimpse, four pillars | §8.5 |
-| Differentiators | Memory, chosen focus, the daily gate, specialist review | §5, §8 |
-| Stories | Illustrative composites, **labeled as such** | — |
-| Pricing (`#pricing`) | Three tier cards rendered **from `lib/billing` PLANS** | §8.4 |
-| FAQ (`#faq`) | Safety, experience, overwhelm, therapy-replacement, Autopilot, cost | — |
-| Roadmap strip | Push outreach, Watch, HealthKit, natural voice — **renders only when `EMDR_DEMO=1`** | §14.6, roadmap |
+The site now addresses four audiences (clinical, organization, payer, security) with
+investor material in a secondary band, and its single call to action is **request a
+review**. There is no purchase path anywhere on it.
 
-Because the pricing cards read from `lib/billing`, the landing page, `/subscribe`, and
-signup **cannot drift apart** — change a price in one place and all three follow. The
-iOS first-run mirrors the same content (`Views/MarketingContent.swift`), so the story is
-identical on both platforms.
+| Route | Purpose |
+|---|---|
+| `/` | What Steady is, who it is for, what can be reviewed today, what it is not approved to do |
+| `/platform` · `/clinical` · `/organizations` · `/payers` | The three layers, and one page per audience |
+| `/about` | Why Steady exists, the stage it is honestly at, and how we build |
+| `/trust` | Control status (current / dormant / planned), egress table, and the known-gap register |
+| `/evidence` | Method evidence, software evidence with runnable commands, evidence still needed, BLS Part 6 |
+| `/faq` | Seven groups, every answer leading with Yes / No / Not yet / In the fabricated demo only |
+| `/demo` → `/demo/[path]` | The four-step review gateway (§12) |
+| `/terms` · `/privacy` · `/accessibility` | Demo-scoped, marked **pending counsel review** |
+| `/crisis` | Unchanged. No chrome, no navigation, no marketing — one thing to do |
+| `/signup` · `/subscribe` | Retired. Closed pages that explain themselves; nothing links to them |
 
-**Copy guardrails:** a CI step greps product copy for banned outcome/medical claims
-(`cure`, `heal your`, `treats PTSD`, `AI therapist`, `clinically proven`) and fails the
-build on a match. The same rules apply to any deck built from this material.
+**One registry, not per-page copy.** Every status label comes from
+`src/lib/site/registry.ts`, where each capability carries a status, an owner, a review
+date, evidence, and the audiences it may be shown to. A page cannot label itself. This is
+what stops two pages from disagreeing about whether a control is active — a disagreement
+neither author would notice, and that a security reviewer has no way to resolve.
+
+**The review gateway (`/demo`).** No credential appears on any page. A reviewer enters a
+code given privately (`EMDR_REVIEW_ACCESS_CODE`; **unset means closed, not open**), chooses
+a review path, and picks a fabricated persona. Scope is enforced server-side: a read-only
+path is never offered a write-capable role, and the grant cookie — not the URL — decides
+which path opens. Every attempt is audited.
+
+**Copy guardrails.** `tests/public-copy-guard.test.ts` (27 cases) scans **source**, so a
+violation fails in the commit that introduces it rather than after a deploy. It is not a
+banned-word list: "HIPAA compliant" is permitted inside an explicit denial and forbidden as
+a claim, and every occurrence is checked, not just the first. It also enforces registry-sourced
+statuses, FAQ verdicts, control evidence discipline, and that the demo legal documents still
+say counsel has not reviewed them. The guard was verified adversarially — see
+`docs/site/release-acceptance.md` §2.
+
+`src/app/robots.ts` disallows all crawling. The review environment is not a public site.
 
 ---
 

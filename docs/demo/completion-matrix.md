@@ -205,6 +205,7 @@ Ordered. Findings **F1, F7, F10** are the demo-integrity floor and come first.
 | 6 | Guided scenario scripts | F8 | ✅ `scenario-scripts.md` |
 | 7 | `clinical-pilot-2026-09` proposed packet | F6 | ✅ `../clinical/clinical-pilot-2026-09.md` |
 | 8 | Phase 4 — Steady Clinical prototype | Handoff §9 | ✅ Service layer + console; 23 unit cases, 4 e2e |
+| 9 | Institutional website redesign, phases 0–6 | Redesign handoff | ✅ Claims registry, 14 institutional pages, review gateway, copy guard — [`../site/release-acceptance.md`](../site/release-acceptance.md) |
 
 ### Findings still open after this work
 
@@ -222,6 +223,17 @@ Ordered. Findings **F1, F7, F10** are the demo-integrity floor and come first.
 | `npm run test:rls` | 12 assertions pass |
 | `npm run demo -- verify` | Deterministic seed, idempotent backfill, byte-identical replay |
 | `npm run build` | Compiles |
+
+### Verification after the website redesign (2026-08-27)
+
+| Command | Result |
+|---|---|
+| `npm run test:safety` | **410 pass, 0 fail** (397 at the phase 0–2 commit `d188c8e`; +13 from extending the copy guard to the new routes and content) |
+| `npm run test:e2e` | **77/77** (+40 `institutional-site.spec.ts`, +13 accessibility pages) |
+| `npm run test:rls` | 12 assertions pass |
+| `npm run build` | Compiles |
+
+Detail, including what was **not** tested, in [`../site/release-acceptance.md`](../site/release-acceptance.md).
 
 **Not authorised here:** ADR 0010 Step 5 (its own gated window), any real data, any claim of
 clinical, security, or production readiness.

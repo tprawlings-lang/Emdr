@@ -42,6 +42,10 @@ export default defineConfig({
           EMDR_DATA_DIR: ".e2e-data",
           EMDR_SESSION_SECRET: "e2e-placeholder-session-secret-not-a-real-secret",
           EMDR_DATA_KEY: "e2e-placeholder-data-key",
+          // The review gateway is closed when no code is set, so the suite must
+          // configure one to exercise the open path. This value is local to the
+          // ephemeral e2e server and never reaches a deployed environment.
+          EMDR_REVIEW_ACCESS_CODE: "e2e-placeholder-review-code",
         },
       },
 });
