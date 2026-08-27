@@ -14,14 +14,76 @@ Ground, and SOS are never tier-gated.
 > emergency use** — US users in crisis should call/text 988 or 911. Remaining launch
 > gates are tracked item-by-item in [`COMPLIANCE.md`](COMPLIANCE.md).
 
+## Platform pivot in progress — read this before the rest of the document
+
+Everything below (§1–§14) documents the **wellness-lane prototype that is live today** —
+it is accurate and should not be revised to sound aspirational. But the company's
+direction changed: Steady is expanding from this consumer product into a longitudinal
+behavioral-health platform (Steady Personal → Clinical → Intelligence, the **Handoff A→E**
+series) aimed at three audiences simultaneously — **venture capital investment, clinician
+piloting, and cybersecurity/compliance oversight.** The planning corpus for that pivot
+lives in [`docs/strategy/`](docs/strategy/) (start with its `README.md`, then
+[`gap-analysis.md`](docs/strategy/gap-analysis.md)); the architectural decisions it forced
+are [ADR 0009](docs/adr/0009-clinical-lane-reclassification.md) (clinical-lane data zones),
+[ADR 0010](docs/adr/0010-event-sourced-longitudinal-spine.md) (event-sourced history),
+[ADR 0011](docs/adr/0011-tenancy-and-person-account-separation.md) (multi-tenancy + person/
+account split), and [ADR 0012](docs/adr/0012-ai-gateway.md) (AI gateway). The working rule
+across all of it: **design from Handoff E backward, implement from Handoff A forward.**
+
+### Migration status (ADR 0010 + 0011, executed together)
+
+| Step | What | Status |
+|---|---|---|
+| 0010.1–2 | Event table, schema registry, dual-write (every mutation writes its current-state row *and* an event) | ✅ Shipped |
+| 0010.3 | Genesis backfill — pre-existing rows reconstructed as marked, non-authoritative events | ✅ Shipped |
+| 0010.4 | Projections rebuilt from events, verified **byte-identical** against both the live path and the demo dataset (`tests/projections*.test.ts`) | ✅ Shipped |
+| 0010.5 | Remove direct writes — the event append becomes the *only* write path | 🔴 Not started — **the risky cutover step; needs a go/no-go decision (below)** |
+| 0011.1–4 | `tenants`/`persons`/`accounts` split, `tenant_id` backfilled everywhere, role moved off `users` | ✅ Shipped |
+| 0011.6 | Repository layer enforcing `TenantContext` + Postgres row-level security, both proven with cross-tenant attack cases (`tests/tenant-isolation.test.ts`, `scripts/verify-rls.sh` / `npm run test:rls`) | ✅ Shipped |
+| 0011.5, .7 | Repoint FKs from `user_id` to `person_id`; retire `users` | 🔴 Deferred — low urgency (persons.id == users.id makes this a rename, not a data migration) |
+
+All of this is additive and non-breaking: 327 tests pass, e2e is 17/17, and the app still
+runs entirely on SQLite for local/demo use. **The Postgres cutover itself (ADR 0007) has
+not happened** — RLS is built and attack-tested against a real Postgres cluster in CI, but
+it is dormant in the running app until that cutover, and it requires a real secret-
+management decision (how `steady_app`'s login credential is provisioned) that has not been
+made.
+
+### Decisions to make before the migration continues
+
+1. **ADR 0010 step 5 (the cutover)** — proceed to make the event log the sole write path,
+   or hold at "dual-write, verified projections" while other work proceeds? Dual-write is a
+   legitimate resting place; the ADR's own risk section just warns it cannot be permanent.
+2. **Postgres cutover timing and secret store** — which credential/secrets system provisions
+   `steady_app` and `steady_platform_admin` in each environment.
+3. **BLS Part-6 scope** — needs reviewer confirmation; if out of scope it removes 9–15 months
+   from the critical path, so resolving it early is worth more than resolving it late.
+
+### The largest remaining gaps (untouched)
+
+These block full use by two of the three target audiences and have not been started:
+
+- **Security artifacts for the cybersecurity-oversight audience** — threat model, a PHI
+  data-flow diagram across the six governance zones (ADR 0009 §1), a vendor/BAA register,
+  a HIPAA risk analysis, and a rewritten security-review handoff packet. This is the single
+  biggest gap for that audience.
+- **Steady Clinical design spec** — Handoff B3 requires a clinician workflow spec that does
+  not yet exist; this blocks the clinician-piloting audience entirely.
+- **Doc rewrites named by the triage** ([`docs/docs-triage.md`](docs/docs-triage.md)) —
+  `COMPLIANCE.md` (highest priority), `competitive-positioning.md`, `architecture.md`, and
+  retiring the old consumer-only investor deck in favor of the platform narrative.
+
+---
+
 ## Start here — pick your path
 
 | If you are… | Read this | Why |
 |---|---|---|
-| **Building an investor deck** | [`docs/investor/Steady-Investor-Deck-Source.pdf`](docs/investor/) **first**, then §3 and §8 below | The PDF is the purpose-built handoff: complete product inventory, differentiation, monetization, growth model, risks, and a 20-slide map with design direction and non-negotiable language rules. Source HTML sits beside it — edit and re-render to update. |
+| **Building an investor deck** | [`docs/investor/Steady-Investor-Deck-Source.pdf`](docs/investor/) **first**, then §3 and §8 below — but see the pivot section above, since the platform narrative now supersedes the consumer-only deck | The PDF is the purpose-built handoff: complete product inventory, differentiation, monetization, growth model, risks, and a 20-slide map with design direction and non-negotiable language rules. Source HTML sits beside it — edit and re-render to update. |
 | **Evaluating / diligencing** | §1–§9 (what governs members today), §10 (autonomous engine), then [`docs/signoff-checklist.md`](docs/signoff-checklist.md) | The honest picture of what is live, what is gated, and exactly what each gate needs. |
 | **Building on the API** | §1–§9, then §11 (data model) and [`openapi.yaml`](openapi.yaml) | The full gate chain, instruments, and scoring rules that any integration must respect. |
 | **A clinician reviewing** | §2, §4, §5, §10, then [`docs/autonomous/`](docs/autonomous/) | Instruments and scoring, the gate chain, the deterministic engine, and the signed sign-off ledger. |
+| **A security/compliance reviewer** | The pivot section above, then [`docs/adr/`](docs/adr/) 0009–0012 and [`scripts/verify-rls.sh`](scripts/verify-rls.sh) | The tenancy, event-history, and data-zone decisions and their attack-case proof. The fuller security artifact set (threat model, BAA register) is a named gap, not yet written. |
 | **Seeing it work** | The live demo (see §12) | Web + iOS, running the current build. |
 
 **A note for deck builders:** everything a member sees is real and running — do not
