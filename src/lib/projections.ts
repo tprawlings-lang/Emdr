@@ -136,7 +136,16 @@ const bit = (v: unknown) => (v === true || v === 1 || v === "1" ? 1 : 0);
 const str = (v: unknown) => (v === null || v === undefined ? null : String(v));
 const num = (v: unknown) => (v === null || v === undefined ? null : Number(v));
 
-type Projector = (c: DataClient, ev: LongitudinalEvent, pid: string) => Promise<void>;
+/** Resolves a logical table name to the physical one being written: the live
+ *  table during a command, the shadow copy during verification. */
+export type TableTarget = (table: ProjectedTable) => string;
+
+const LIVE: TableTarget = (t) => t;
+const SHADOW: TableTarget = (t) => shadow(t);
+
+type Projector = (
+  c: DataClient, ev: LongitudinalEvent, pid: string, at: TableTarget
+) => Promise<void>;
 
 /** Which current-state row each event type produces, and how.
  *
@@ -145,9 +154,9 @@ type Projector = (c: DataClient, ev: LongitudinalEvent, pid: string) => Promise<
  *  projected: the rebuild reports them rather than inventing an id, because an
  *  invented id is silent drift and a reported gap is a fact. */
 const PROJECTORS: Partial<Record<string, Projector>> = {
-  "daily_checkin.completed": async (c, ev, pid) => {
+  "daily_checkin.completed": async (c, ev, pid, at) => {
     const p = ev.payload;
-    await upsert(c, shadow("checkins"), pid, {
+    await upsert(c, at("checkins"), pid, {
       user_id: ev.person_id,
       tenant_id: ev.tenant_id,
       checkin_date: str(p.checkinDate),
@@ -163,9 +172,9 @@ const PROJECTORS: Partial<Record<string, Projector>> = {
     }, { created_at: ev.occurred_at });
   },
 
-  "session.started": async (c, ev, pid) => {
+  "session.started": async (c, ev, pid, at) => {
     const p = ev.payload;
-    await upsert(c, shadow("therapy_sessions"), pid, {
+    await upsert(c, at("therapy_sessions"), pid, {
       user_id: ev.person_id,
       tenant_id: ev.tenant_id,
       module_id: str(p.moduleId),
@@ -177,12 +186,12 @@ const PROJECTORS: Partial<Record<string, Projector>> = {
     });
   },
 
-  "session.completed": async (c, ev, pid) => projectSessionEnd(c, ev, pid),
-  "session.hard_stopped": async (c, ev, pid) => projectSessionEnd(c, ev, pid),
+  "session.completed": async (c, ev, pid, at) => projectSessionEnd(c, ev, pid, at),
+  "session.hard_stopped": async (c, ev, pid, at) => projectSessionEnd(c, ev, pid, at),
 
-  "intervention.completed": async (c, ev, pid) => {
+  "intervention.completed": async (c, ev, pid, at) => {
     const p = ev.payload;
-    await upsert(c, shadow("practice_completions"), pid, {
+    await upsert(c, at("practice_completions"), pid, {
       user_id: ev.person_id,
       tenant_id: ev.tenant_id,
       practice_id: str(p.interventionId),
@@ -194,8 +203,8 @@ const PROJECTORS: Partial<Record<string, Projector>> = {
 
   // A re-read of a lesson is a no-op on the current-state row (the live write is
   // ON CONFLICT DO NOTHING), so the projection keeps the first read's timestamp.
-  "lesson.read": async (c, ev, pid) => {
-    await insertIfAbsent(c, shadow("lesson_reads"), pid, {
+  "lesson.read": async (c, ev, pid, at) => {
+    await insertIfAbsent(c, at("lesson_reads"), pid, {
       user_id: ev.person_id,
       tenant_id: ev.tenant_id,
       lesson_id: str(ev.payload.lessonId),
@@ -203,9 +212,9 @@ const PROJECTORS: Partial<Record<string, Projector>> = {
     });
   },
 
-  "consent.granted": async (c, ev, pid) => {
+  "consent.granted": async (c, ev, pid, at) => {
     const p = ev.payload;
-    await upsert(c, shadow("consents"), pid, {
+    await upsert(c, at("consents"), pid, {
       user_id: ev.person_id,
       tenant_id: ev.tenant_id,
       policy_version: str(p.policyVersion),
@@ -216,16 +225,16 @@ const PROJECTORS: Partial<Record<string, Projector>> = {
   },
 
   // A withdrawal closes an existing grant; it never opens a row of its own.
-  "consent.withdrawn": async (c, ev, pid) => {
-    await patch(c, shadow("consents"), pid, { revoked_at: ev.occurred_at });
+  "consent.withdrawn": async (c, ev, pid, at) => {
+    await patch(c, at("consents"), pid, { revoked_at: ev.occurred_at });
   },
 
-  "module_unlock.requested": async (c, ev, pid) => {
+  "module_unlock.requested": async (c, ev, pid, at) => {
     const p = ev.payload;
     // Mirrors the live upsert exactly: a re-request resets the status, note,
     // and timestamps but leaves the clinician and override flag from any earlier
     // decision in place.
-    await upsert(c, shadow("module_unlocks"), pid, {
+    await upsert(c, at("module_unlocks"), pid, {
       user_id: ev.person_id,
       tenant_id: ev.tenant_id,
       module_id: str(p.moduleId),
@@ -240,9 +249,9 @@ const PROJECTORS: Partial<Record<string, Projector>> = {
   // A clinician can decide on a request that was never made through the product
   // (a direct grant), so this opens the row when it is absent rather than
   // assuming a preceding request event.
-  "module_unlock.decided": async (c, ev, pid) => {
+  "module_unlock.decided": async (c, ev, pid, at) => {
     const p = ev.payload;
-    await upsert(c, shadow("module_unlocks"), pid, {
+    await upsert(c, at("module_unlocks"), pid, {
       user_id: ev.person_id,
       tenant_id: ev.tenant_id,
       module_id: str(p.moduleId),
@@ -255,7 +264,9 @@ const PROJECTORS: Partial<Record<string, Projector>> = {
   },
 };
 
-async function projectSessionEnd(c: DataClient, ev: LongitudinalEvent, pid: string): Promise<void> {
+async function projectSessionEnd(
+  c: DataClient, ev: LongitudinalEvent, pid: string, at: TableTarget
+): Promise<void> {
   const p = ev.payload;
   const values: Record<string, unknown> = {
     status: str(p.status),
@@ -266,7 +277,7 @@ async function projectSessionEnd(c: DataClient, ev: LongitudinalEvent, pid: stri
     ended_at: ev.occurred_at,
   };
   if (p.detail && typeof p.detail === "object") values.detail_json = JSON.stringify(p.detail);
-  await patch(c, shadow("therapy_sessions"), pid, values);
+  await patch(c, at("therapy_sessions"), pid, values);
 }
 
 // ---------------------------------------------------------------------------
@@ -322,10 +333,44 @@ export async function rebuildProjections(opts: RebuildOptions = {}): Promise<Reb
       });
       continue;
     }
-    await project(c, ev, pid);
+    await project(c, ev, pid, SHADOW);
     result.applied++;
   }
   return result;
+}
+
+// ---------------------------------------------------------------------------
+// Live application (ADR 0013 §3)
+// ---------------------------------------------------------------------------
+
+/** Apply one event to the LIVE current-state tables.
+ *
+ *  This is the other half of the transaction an authoritative command opens:
+ *  append the event, then fold it into the projection, both or neither.
+ *
+ *  It shares its projectors with `rebuildProjections` on purpose. The whole
+ *  claim of ADR 0010 step 4 is that replay reproduces what the incremental path
+ *  wrote — a claim that only holds if the two ARE the same code. A separate
+ *  live implementation that happens to agree today is a byte-identity test
+ *  measuring a coincidence.
+ *
+ *  Returns false when the event type has no projector (safety, inference and
+ *  memory events carry history the current-state tables never held), so a
+ *  caller can tell "nothing to project" from "projected". */
+export async function applyProjection(c: DataClient, ev: LongitudinalEvent): Promise<boolean> {
+  const project = PROJECTORS[ev.event_type];
+  if (!project) return false;
+
+  const pid = ev.payload.projectionId;
+  if (typeof pid !== "string" || pid.length === 0) {
+    throw new Error(
+      `Event ${ev.id} (${ev.event_type}, payload_version ${ev.payload_version}) has no ` +
+      `projectionId, so the row it should produce cannot be identified. An authoritative ` +
+      `command may not fall back to inventing one.`
+    );
+  }
+  await project(c, ev, pid, LIVE);
+  return true;
 }
 
 // ---------------------------------------------------------------------------

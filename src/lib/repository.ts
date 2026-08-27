@@ -21,7 +21,7 @@
 // security (scripts/pg-schema.sql) is the other half, so a bug here still
 // cannot cross tenants once the Postgres cutover lands.
 
-import { data } from "./data";
+import { data, currentTx, type DataClient } from "./data";
 import { TENANT_SCOPED_TABLES } from "./db";
 import { requireTenant, type TenantContext } from "./tenancy";
 import { audit } from "./audit";
@@ -139,6 +139,65 @@ export class Repository {
 /** The sanctioned entry point for person-scoped data access. */
 export function repo(ctx: TenantContext): Repository {
   return new Repository(ctx);
+}
+
+// ---------------------------------------------------------------------------
+// Tenant-aware transactions (ADR 0013 §5)
+// ---------------------------------------------------------------------------
+
+/** Run `fn` in a transaction bound to one tenant.
+ *
+ *  This is the piece that makes Postgres row-level security *active* rather
+ *  than merely present. The policies test `current_setting('app.tenant_id')`,
+ *  and until something sets it every policy matches nothing — so an application
+ *  that never set it would see zero rows, not all rows. That failure direction
+ *  is deliberate (ADR 0011 §3): forgetting the tenant is an outage, never a
+ *  breach.
+ *
+ *  Two properties worth stating because they are easy to get wrong:
+ *
+ *  `set_config(..., true)` is used rather than `SET LOCAL app.tenant_id = $1`
+ *  because **Postgres does not accept bind parameters in SET**. Interpolating
+ *  the tenant into SET text would make the isolation boundary itself a string
+ *  concatenation. `set_config`'s third argument means "local to this
+ *  transaction", so the value reverts at COMMIT or ROLLBACK and a pooled
+ *  connection cannot carry one request's tenant into the next one's.
+ *
+ *  A nested call naming a DIFFERENT tenant throws. Silently honouring the outer
+ *  tenant would be a cross-tenant read wearing the costume of a scoping bug;
+ *  silently re-binding would be worse. */
+export async function withTenantTransaction<T>(
+  ctx: TenantContext,
+  fn: (c: DataClient) => Promise<T>
+): Promise<T> {
+  requireTenant(ctx);
+  const c = await data();
+  return c.tx(async (t) => {
+    const frame = currentTx();
+    const bound = frame?.tenantId;
+
+    if (bound !== undefined && bound !== ctx.tenantId) {
+      throw new Error(
+        `Tenant mismatch inside a transaction: it is bound to "${bound}" and this ` +
+        `call asked for "${ctx.tenantId}". A single transaction may not span tenants — ` +
+        `commit the first and open a second, or fix the context being passed.`
+      );
+    }
+
+    if (bound === undefined) {
+      if (frame) frame.tenantId = ctx.tenantId;
+      if (c.backend === "postgres" && !ctx.crossTenant) {
+        await t.run("SELECT set_config('app.tenant_id', ?, true)", [ctx.tenantId]);
+      }
+    }
+    return fn(t);
+  });
+}
+
+/** The tenant the enclosing transaction is bound to, if any. Exists so a test
+ *  can assert the binding rather than infer it from query results. */
+export function boundTenantId(): string | undefined {
+  return currentTx()?.tenantId;
 }
 
 /** Cross-tenant access for platform administration only.

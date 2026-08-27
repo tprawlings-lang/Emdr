@@ -20,9 +20,9 @@ the readiness review held it for cause. Seven findings block it:
 |---|---|---|
 | 1 | Projection scope | Six tables rebuild fully; credentials, encrypted screenings, and encrypted memory are partial by design. No document says which are in scope. |
 | 2 | Failure behavior | `appendEventSafe` swallows append failures and lets the current-state write succeed. Correct for dual-write, fatal for authoritative writes. |
-| 3 | Atomicity | Append and projection update must commit together, and a failure must roll back both. Today they are separate statements. |
+| 3 | Atomicity | Append and projection update must commit together, and a failure must roll back both. **Mechanism closed 2026-08-27** (§3); routing the eight commands through it remains. |
 | 4 | Tenant call sites | The repository layer enforces `TenantContext` when used; product call sites were never migrated behind it. |
-| 5 | Postgres RLS context | The data layer never issues `SET LOCAL app.tenant_id`, so the RLS policies would match no rows. |
+| 5 | Postgres RLS context | The data layer never set `app.tenant_id`, so the RLS policies would match no rows. **Closed 2026-08-27** — `withTenantTransaction` sets it per transaction (§5). |
 | 6 | RLS CI | The attack suite existed but was not CI-blocking. **Closed 2026-08-27** — `tenant-isolation` is now a blocking job. |
 | 7 | Operations | Secret manager, database roles, one-time load, restore proof, and rollback rehearsal are open. |
 
@@ -84,23 +84,31 @@ withTenantTransaction(ctx, async (c) => {
 });
 ```
 
-Three changes make this possible, all mechanical:
+**Implemented 2026-08-27** (`lib/data.ts`, `lib/repository.ts`, `lib/projections.ts`;
+`tests/tenant-transaction.test.ts`, 12 cases). Three changes, and the first turned out
+better than this ADR originally specified:
 
-- `appendEvent(args, c?)` accepts an optional `DataClient` so it can join a caller's
-  transaction instead of opening its own.
-- The projectors in `lib/projections.ts` are lifted to take a target table prefix, so the
-  same code writes shadow tables during verification and live tables during a command.
-  **The projection logic that runs in production is the logic replay proves**, rather than a
-  second implementation that happens to agree today.
-- `withTenantTransaction` wraps `data().tx()` and, on Postgres, issues
-  `SET LOCAL app.tenant_id = $1` as the transaction's first statement (§5).
+- **Transactions are ambient, not threaded.** The original plan was
+  `appendEvent(args, c?)` — pass the client down by hand. That only works if *every*
+  helper on the path is rewritten to accept and forward it, and it fails silently the
+  first time one is missed. Instead `data()` now returns the enclosing transaction's
+  client via `AsyncLocalStorage`, so existing helpers join the transaction without being
+  changed and cannot opt out by accident.
 
-*A known defect to fix first:* the SQLite `tx()` in `lib/data.ts` passes the shared `base`
-client to its callback rather than a transaction-scoped one, and issues bare
-`BEGIN`/`COMMIT`. That is harmless for a single-connection SQLite process but silently
-breaks under nesting — an authoritative command calling a helper that also opens a
-transaction would commit early. Nesting must either be made re-entrant (savepoints) or
-made an error. This is Sep 2–4 work.
+  This also fixed a latent Postgres defect nobody had hit: a write issued through
+  `data()` inside `tx()` previously executed **on a pooled connection, outside the
+  transaction**, and survived a rollback. Harmless on SQLite (one connection), and a
+  correctness bug the moment authoritative commands wrap helpers — which is exactly what
+  step 5 does.
+- **Nesting is re-entrant.** A nested `tx()` opens a `SAVEPOINT` on the same connection
+  rather than a second transaction. The savepoint SQL is identical on both backends, so
+  this needed no dialect branch. Previously the inner `COMMIT` ended the *outer*
+  transaction, making an in-flight command permanent before it finished.
+- **Projectors are parameterised by target table**, so the same code writes shadow tables
+  during verification and live tables during a command (`applyProjection`). **The
+  projection logic that runs in production is the logic replay proves** — otherwise the
+  byte-identity test measures a coincidence between two implementations rather than a
+  property of one.
 
 ### 4. Failure policy: authoritative appends fail closed
 
@@ -129,24 +137,36 @@ successful write.
 Finding #5 is the gap that makes RLS decorative: the policies test the session variable
 `app.tenant_id`, and nothing sets it. On the authoritative path:
 
+**Implemented 2026-08-27** as `withTenantTransaction(ctx, fn)` in `lib/repository.ts`.
+
 ```
 withTenantTransaction(ctx, fn)
   → data().tx(async (c) => {
-      if (backend === "postgres") await c.run("SET LOCAL app.tenant_id = ?", [ctx.tenantId]);
+      if (postgres) await c.run("SELECT set_config('app.tenant_id', ?, true)", [ctx.tenantId]);
       return fn(c);
     })
 ```
 
-`SET LOCAL` is scoped to the transaction and reverts on commit or rollback, so a pooled
-connection can never leak one tenant's context into the next request — the failure mode
-that would turn a connection pool into a cross-tenant data leak. Cross-tenant
-administration sets no variable and instead connects as `steady_platform_admin`, whose
-policy is role-based and cannot be assumed by the application role (verified in
-`scripts/verify-rls.sh`).
+`set_config(..., true)` rather than `SET LOCAL app.tenant_id = $1`, because **Postgres does
+not accept bind parameters in `SET`**. Interpolating the tenant into `SET` statement text
+would make the isolation boundary itself a string concatenation — an injection surface
+guarding the thing most worth attacking. `set_config`'s third argument means "local to this
+transaction", giving identical semantics with a real parameter.
 
-A test must assert the negative directly: **a transaction that fails to set the tenant sees
-zero rows, never all rows.** That property is already proven at the database level; Step 5
-extends it to the application's own transaction helper.
+The value reverts at COMMIT or ROLLBACK, and the pooled connection is released afterwards,
+so one request's tenant can never leak into the next — the failure mode that would turn a
+connection pool into a cross-tenant data leak. Cross-tenant administration sets no variable
+and instead connects as `steady_platform_admin`, whose policy is role-based and cannot be
+assumed by the application role (`scripts/verify-rls.sh`).
+
+**A nested call naming a different tenant throws.** Silently honouring the outer tenant
+would be a cross-tenant write wearing the costume of a scoping bug; silently re-binding
+mid-transaction would be worse.
+
+The negative is asserted directly: **a transaction that fails to set the tenant sees zero
+rows, never all rows.** That direction is what makes forgetting the tenant an outage rather
+than a breach. It is proven at the database level by the CI-blocking attack suite, and at
+the application level by `tests/tenant-transaction.test.ts`.
 
 ### 6. Idempotency and retry
 
@@ -242,8 +262,18 @@ Step 5 executes only when **all ten** show PASS. A partial pass is a no-go.
 | G9 | Rollback | One documented command or configuration change restores dual-write, rehearsed before cutover | Engineering |
 | G10 | Data restriction | Only fabricated data exists in the environment during cutover — no patient or staff health data | Founder + Compliance |
 
-**Status: G4 partially closed** (CI job added 2026-08-27; `SET LOCAL` wiring outstanding).
-All others open.
+**Status as of 2026-08-27.**
+
+- **G2 — substantially closed.** Ambient re-entrant transactions, `applyProjection` sharing
+  the verified projectors, and atomicity tests (an event whose command fails is not
+  history). Remaining: routing the eight commands through it.
+- **G4 — application half closed.** The attack suite is CI-blocking and
+  `withTenantTransaction` sets the tenant. Remaining: the non-owner role and secret
+  provisioning, which depend on the infrastructure decision (Sep 3–5).
+- **G3 — partially closed.** The mechanism exists and is tested; product call sites are not
+  yet routed through it.
+- **G1, G5** — closed by this document and by ADR 0010 step 4 respectively.
+- **G6, G7, G8, G9, G10** — open.
 
 ## Execution schedule
 
