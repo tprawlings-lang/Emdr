@@ -35,6 +35,22 @@ import { seedDemo, syncIdentitySpine } from "./db";
 /** Every table holding data, in an order safe for unconditional deletion.
  *  Children first: SQLite enforces the foreign keys these tables declare, so
  *  deleting `users` before `checkins` would fail. */
+/** Tables a reset deliberately PRESERVES.
+ *
+ *  Reviewer change requests are the output of a review session, not fabricated
+ *  member data. A reset exists to return the environment to a reproducible
+ *  baseline before the next reviewer walks it — wiping what the last reviewer
+ *  told us would destroy the only durable product of their hour, and would do
+ *  it silently, at exactly the moment someone is preparing for a demo.
+ *
+ *  Reviewer ids survive a reset because the seed is deterministic, so the notes
+ *  still resolve to a named author afterwards.
+ *
+ *  Anything added here needs a reason of that kind. The schema guard in
+ *  `tests/demo-reset.test.ts` checks that every table is either cleared or
+ *  listed here, so a new table cannot escape the reset by being forgotten. */
+export const PRESERVED_TABLES = ["review_notes"] as const;
+
 export const DEMO_DATA_TABLES = [
   // Spine — references persons and tenants.
   "longitudinal_events",

@@ -124,8 +124,10 @@ export function rolloutStages(): RolloutStage[] {
       because: killed
         ? "EMDR_KILL_BLS is set — the kill switch disables all bilateral stimulation globally, overriding the stage flag."
         : resourcing
-          ? "EMDR_BLS_RESOURCING=1 and the kill switch is off. Each member still needs an unrevoked processing-session consent."
-          : "EMDR_BLS_RESOURCING is not set. Resourcing BLS is off by default.",
+          ? (process.env.EMDR_DEMO === "1"
+              ? "On in this demonstration environment, so a clinical reviewer can actually walk the workflow rather than read about it. Each member still needs an unrevoked processing-session consent, and the kill switch still overrides. Set EMDR_BLS_RESOURCING=0 to force it off and review the refusal path."
+              : "EMDR_BLS_RESOURCING=1 and the kill switch is off. Each member still needs an unrevoked processing-session consent.")
+          : "Off. Set EMDR_BLS_RESOURCING=1, or run a demonstration environment with EMDR_DEMO=1.",
       cohort: 12,
       window: "14 days plus review before 4b",
       entry: [

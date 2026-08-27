@@ -78,6 +78,9 @@ export default async function ClinicianDashboard({
           <Link href="/clinician/bls" className="text-sm text-olive underline">
             BLS Part 6
           </Link>
+          <Link href="/clinician/testing" className="text-sm text-olive underline">
+            Testing
+          </Link>
           <Link href="/clinician/audit" className="text-sm text-olive underline">
             Audit console
           </Link>

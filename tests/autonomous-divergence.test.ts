@@ -74,18 +74,34 @@ test("cautious tier is the floor for gated", () => {
   assert.equal(engineModuleVerdict(decision({ tier: AccessTier.STABILIZATION }), gated, NOW), false);
 });
 
-test("testOpenGated is inert unless BOTH EMDR_OPEN_GATED=1 and EMDR_DEMO=1", () => {
+test("testOpenGated is inert outside a demo build, whatever the flag says", () => {
+  // The contract changed: a demo environment now opens the gated set BY DEFAULT,
+  // so a reviewer who is not a clinician — an executive, an investor — can walk
+  // the product instead of hitting a lock they have no way to open. Fabricated
+  // data means there is nobody to protect by keeping it shut.
+  //
+  // The half that must never change is asserted first and in both directions:
+  // EMDR_DEMO is load-bearing, and no value of EMDR_OPEN_GATED opens a module
+  // on a real deployment.
   const prevOpen = process.env.EMDR_OPEN_GATED;
   const prevDemo = process.env.EMDR_DEMO;
   try {
     delete process.env.EMDR_OPEN_GATED; delete process.env.EMDR_DEMO;
-    assert.equal(testOpenGated(), false);
+    assert.equal(testOpenGated(), false, "opened with no demo and no flag");
     process.env.EMDR_OPEN_GATED = "1"; // flag on but not a demo build → still inert
+    assert.equal(testOpenGated(), false, "the flag opened modules outside a demo build");
+    process.env.EMDR_OPEN_GATED = "0";
     assert.equal(testOpenGated(), false);
+
+    // Inside a demo build: on by default, and explicitly closable so the
+    // request-and-approve workflow can itself be reviewed.
     process.env.EMDR_DEMO = "1";
+    delete process.env.EMDR_OPEN_GATED;
+    assert.equal(testOpenGated(), true, "a demo build did not open the gated set");
+    process.env.EMDR_OPEN_GATED = "1";
     assert.equal(testOpenGated(), true);
-    delete process.env.EMDR_OPEN_GATED; // demo but flag off
-    assert.equal(testOpenGated(), false);
+    process.env.EMDR_OPEN_GATED = "0";
+    assert.equal(testOpenGated(), false, "EMDR_OPEN_GATED=0 did not close the gated set");
   } finally {
     if (prevOpen === undefined) delete process.env.EMDR_OPEN_GATED; else process.env.EMDR_OPEN_GATED = prevOpen;
     if (prevDemo === undefined) delete process.env.EMDR_DEMO; else process.env.EMDR_DEMO = prevDemo;

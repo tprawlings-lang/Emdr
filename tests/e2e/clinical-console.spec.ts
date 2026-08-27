@@ -160,3 +160,41 @@ test("the BLS console is reachable from the specialist dashboard", async ({ page
   await page.getByRole("link", { name: "BLS Part 6" }).click();
   await expect(page).toHaveURL(/\/clinician\/bls$/);
 });
+
+test("the testing console shows what is exercisable and takes a change request", async ({ page }) => {
+  await signInAsClinician(page);
+  await page.goto("/clinician/testing");
+
+  await expect(page.getByRole("heading", { name: "Clinician testing" })).toBeVisible();
+  // The matrix reads live configuration, so a reviewer is never told a feature
+  // is available with nowhere to go.
+  const rows = page.getByTestId("exercise-row");
+  expect(await rows.count()).toBeGreaterThan(5);
+
+  // Resourcing BLS must be exercisable in a demo build — it is the flagship
+  // clinical workstream and the thing a clinical reviewer most needs to walk.
+  await expect(page.getByText(/Resourcing BLS session/)).toBeVisible();
+  const blsRow = rows.filter({ hasText: "Resourcing BLS session" });
+  await expect(blsRow.getByTestId("exercise-state")).toHaveText("Yes");
+
+  // File a change request and see it land.
+  const form = page.getByTestId("note-form").first();
+  await form.locator("summary").click();
+  await form.getByRole("combobox").first().selectOption("Alert handling");
+  await form.locator('textarea[name="observed"]').fill("A high-band alert on a Friday evening carried a four-hour deadline.");
+  await form.locator('textarea[name="requested"]').fill("Out-of-hours high-band alerts should use the next business day.");
+  await form.getByRole("button", { name: "File change request" }).click();
+
+  await expect(page.getByText(/Change request filed/)).toBeVisible();
+  await expect(page.getByTestId("note-row").first()).toContainText("Friday evening");
+  // The configuration travels with the note without the reviewer knowing it matters.
+  await expect(page.getByTestId("note-row").first()).toContainText(/safety config/);
+});
+
+test("a change request can be filed from the screen where it was noticed", async ({ page }) => {
+  await signInAsClinician(page);
+  await page.goto("/clinician/clinical");
+  // The same form is on the working screens, so a reviewer never has to leave
+  // what they are looking at to record what they think about it.
+  await expect(page.getByTestId("note-form")).toBeVisible();
+});

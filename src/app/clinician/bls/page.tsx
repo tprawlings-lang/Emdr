@@ -4,6 +4,7 @@ import {
   PART6_GATES, GATE_STATE_LABEL, rolloutStages, runningConfig, oversightStatus,
   HARD_STOPS, PRE_REGISTERED, REAL_USE_NOTE, type GateState,
 } from "@/lib/clinical/bls-oversight";
+import { NoteForm } from "@/components/clinical/NoteForm";
 
 export const dynamic = "force-dynamic";
 
@@ -89,9 +90,9 @@ export default async function BlsOversightPage() {
             offText="Not set — the switch is available and not engaged"
           />
           <Flag
-            on={cfg.resourcingFlagOn} label="Resourcing flag (EMDR_BLS_RESOURCING)"
-            onText="Set — stage 4a resourcing may run, per-member consent still required"
-            offText="Not set — resourcing BLS is off by default"
+            on={cfg.resourcingFlagOn} label="Resourcing (stage 4a)"
+            onText="Enabled — sessions may run; per-member consent is still required for each one"
+            offText="Disabled — set EMDR_BLS_RESOURCING=1, or run with EMDR_DEMO=1"
           />
           <Flag
             on={cfg.desensitizationEnabled} label="Desensitization (safety config)"
@@ -245,6 +246,8 @@ export default async function BlsOversightPage() {
           </ol>
         </div>
       </section>
+
+      <NoteForm surface="BLS Part 6 oversight" returnTo="/clinician/bls" defaultCategory="Clinical safety" />
     </main>
   );
 }

@@ -11,6 +11,7 @@ import {
 import { OVERRIDABLE } from "@/lib/clinical/review";
 import { memberAuditHistory, scopeNote } from "@/lib/clinical/audit-history";
 import { ChainBanner, AuditTable } from "@/components/clinical/AuditView";
+import { NoteForm } from "@/components/clinical/NoteForm";
 
 export const dynamic = "force-dynamic";
 
@@ -302,6 +303,13 @@ export default async function MemberClinicalRecord({
 
         <AuditTable entries={history.entries} />
       </section>
+
+      <NoteForm
+        surface="Member record / timeline"
+        returnTo={`/clinician/clinical/${id}`}
+        subjectId={id}
+        defaultCategory="Clinical accuracy"
+      />
     </main>
   );
 }

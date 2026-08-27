@@ -6,7 +6,13 @@
 process.env.EMDR_DATA_DIR = `/tmp/steady-governance-${process.pid}-${Date.now()}`;
 process.env.EMDR_DEMO = "1"; // seeds the fictional dataset + refreshes today's check-in
 delete process.env.EMDR_AUTONOMOUS_SAFETY;
-delete process.env.EMDR_OPEN_GATED;
+// Pin the demo module override OFF. A demo environment now opens the gated set
+// by default so a non-clinician reviewer can walk the product — but this file
+// tests the GATE CHAIN, and specifically that flipping the autonomous flag does
+// not auto-open a processing module. With the override on, the module opens for
+// an unrelated and benign reason and the safety assertion below stops testing
+// anything. Deleting the variable is no longer enough to express that intent.
+process.env.EMDR_OPEN_GATED = "0";
 
 import { strict as assert } from "node:assert";
 import test from "node:test";

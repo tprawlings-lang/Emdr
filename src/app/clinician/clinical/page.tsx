@@ -6,6 +6,7 @@ import { buildCaseload, isCoverageAction, type PriorityBand } from "@/lib/clinic
 import { alertQueue, overdueAlerts, type AlertBand } from "@/lib/clinical/alerts";
 import { activePolicy, policyBanner } from "@/lib/clinical-policy";
 import { closeAlertAction } from "@/lib/clinical/actions";
+import { NoteForm } from "@/components/clinical/NoteForm";
 
 export const dynamic = "force-dynamic";
 
@@ -195,6 +196,8 @@ export default async function ClinicalConsole({
             );
           })}
         </ul>
+
+        <NoteForm surface="Caseload" returnTo="/clinician/clinical" defaultCategory="Caseload and prioritisation" />
       </section>
     </main>
   );

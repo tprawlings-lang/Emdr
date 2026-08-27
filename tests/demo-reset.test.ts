@@ -15,7 +15,7 @@ import { strict as assert } from "node:assert";
 import test from "node:test";
 import { getDb, newId } from "../src/lib/db";
 import {
-  resetDemoData, demoBaseline, demoHealth, DEMO_DATA_TABLES,
+  resetDemoData, demoBaseline, demoHealth, DEMO_DATA_TABLES, PRESERVED_TABLES,
 } from "../src/lib/demo-reset";
 import { DEMO_SEED_VERSION, demoId } from "../src/lib/demo-seed";
 
@@ -39,6 +39,46 @@ test("two resets produce the same baseline hash", () => {
     "the seed is not deterministic — a reset cannot be verified to have restored the same state");
   assert.equal(a.baseline.version, DEMO_SEED_VERSION);
   assert.deepEqual(b.baseline.counts, a.baseline.counts);
+});
+
+test("no seeded value carries sub-day time precision outside the excluded columns", () => {
+  // The determinism guarantee failed intermittently once: `current_period_end`
+  // was seeded from Date.now() WITHOUT pinning the time of day, and the column
+  // does not end in `_at`, so the baseline's timestamp exclusion never covered
+  // it. Two resets a second apart then produced different data and the hash
+  // disagreed with itself — roughly one run in three, which is the worst way
+  // for this property to fail.
+  //
+  // Repeating the reset is not enough to catch it: the values only diverge when
+  // the two runs straddle a second boundary. So this scans the seeded data for
+  // any hashed value that looks like a timestamp carrying a non-pinned time of
+  // day, which fails deterministically on the first run.
+  const db = getDb();
+  resetDemoData(db);
+
+  const VOLATILE = /_at$|^created$|^updated$|^plan_date$|^checkin_date$|^effective_from$|^effective_to$/;
+  const TIMESTAMP = /^\d{4}-\d{2}-\d{2}[ T](\d{2}):(\d{2}):(\d{2})/;
+  const offenders: string[] = [];
+
+  for (const table of DEMO_DATA_TABLES) {
+    const rows = db.prepare(`SELECT * FROM ${table}`).all() as Record<string, unknown>[];
+    for (const row of rows) {
+      for (const [col, value] of Object.entries(row)) {
+        if (VOLATILE.test(col) || typeof value !== "string") continue;
+        const m = TIMESTAMP.exec(value);
+        if (!m) continue;
+        // The seed pins every timestamp to a fixed minute and second. Anything
+        // else was derived from the clock at seed time and will drift.
+        if (m[2] !== "15" || m[3] !== "00") {
+          offenders.push(`${table}.${col} = ${value}`);
+        }
+      }
+    }
+  }
+
+  assert.deepEqual(offenders, [],
+    "these seeded values carry the clock time at seed, so two resets can disagree: " +
+    offenders.join(", ") + ". Pin the time of day at the source, or exclude the column.");
 });
 
 test("a reset removes activity created after seeding", () => {
@@ -86,9 +126,11 @@ test("the baseline is stable across a boot, not merely within one", () => {
   assert.equal(b.hash, a.hash);
 });
 
-test("every data table is covered by the reset", () => {
+test("every data table is either cleared by the reset or deliberately preserved", () => {
   const db = getDb();
-  const known = new Set<string>(DEMO_DATA_TABLES);
+  // A table escapes the reset only by being named in PRESERVED_TABLES with a
+  // stated reason. Being forgotten is not a way onto that list.
+  const known = new Set<string>([...DEMO_DATA_TABLES, ...PRESERVED_TABLES]);
   const actual = (db.prepare(
     `SELECT name FROM sqlite_master WHERE type = 'table'
        AND name NOT LIKE 'sqlite_%' AND name NOT LIKE 'spine_rebuild_%'`
@@ -97,7 +139,38 @@ test("every data table is covered by the reset", () => {
   const uncovered = actual.filter((t) => !known.has(t));
   assert.deepEqual(uncovered, [],
     `these tables would survive a reset: ${uncovered.join(", ")}. ` +
-    "Add them to DEMO_DATA_TABLES, in an order that respects their foreign keys.");
+    "Add them to DEMO_DATA_TABLES, in an order that respects their foreign keys — " +
+    "or to PRESERVED_TABLES with a reason, if surviving is the point.");
+
+  // The two lists must not overlap: a table that is both cleared and "preserved"
+  // is preserved in name only.
+  const both = DEMO_DATA_TABLES.filter((t) => (PRESERVED_TABLES as readonly string[]).includes(t));
+  assert.deepEqual(both, [], `listed as both cleared and preserved: ${both.join(", ")}`);
+});
+
+test("reviewer change requests survive a reset", () => {
+  // The output of a review session outlives the environment it was written in.
+  // Wiping it would destroy the only durable product of a reviewer's hour, and
+  // would do it at exactly the moment someone is preparing for the next demo.
+  const db = getDb();
+  assert.ok(
+    (PRESERVED_TABLES as readonly string[]).includes("review_notes"),
+    "review_notes is not preserved across a reset"
+  );
+  db.prepare(
+    `INSERT INTO review_notes
+       (id, reviewer_id, reviewer_role, surface, category, priority, observed, requested)
+     SELECT 'note-survives', id, 'clinician', 'Caseload', 'Workflow fit', 'change',
+            'observed something', 'wants something else'
+       FROM users LIMIT 1`
+  ).run();
+  const before = (db.prepare("SELECT COUNT(*) AS n FROM review_notes").get() as { n: number }).n;
+  assert.ok(before > 0, "the note was not inserted, so the assertion below would be vacuous");
+
+  resetDemoData(db);
+
+  const after = (db.prepare("SELECT COUNT(*) AS n FROM review_notes").get() as { n: number }).n;
+  assert.equal(after, before, "a reset destroyed reviewer change requests");
 });
 
 test("reset refuses to run outside a demo environment", () => {

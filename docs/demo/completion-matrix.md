@@ -208,6 +208,7 @@ Ordered. Findings **F1, F7, F10** are the demo-integrity floor and come first.
 | 8 | Phase 4 — Steady Clinical prototype | Handoff §9 | ✅ Service layer + console; 23 unit cases, 4 e2e |
 | 9 | Institutional website redesign, phases 0–6 | Redesign handoff | ✅ Claims registry, 14 institutional pages, review gateway, copy guard — [`../site/release-acceptance.md`](../site/release-acceptance.md) |
 | 10 | Phase 4 completion — clinical audit history, alert trail, BLS Part 6 oversight | Handoff §9 | ✅ `src/lib/clinical/audit-history.ts`, `bls-oversight.ts`; 18 unit cases, 6 e2e. Fixed two defects found while building: an unscoped audit console and raw `detail_json` rendering |
+| 11 | Operational demo posture + reviewer change requests | Founder direction, 2026-08-27 | ✅ Demo enables everything gated only by caution; `/clinician/testing` and a note form on every clinical screen |
 
 ### Findings still open after this work
 
@@ -255,6 +256,45 @@ Detail, including what was **not** tested, in [`../site/release-acceptance.md`](
 `audit_log` is still deliberately outside `TENANT_SCOPED_TABLES` — its rows are actor/target
 references, not person-scoped records — so this is a **view filter, not row-level security**,
 and `scopeNote()` says exactly that on every page that uses it.
+
+---
+
+## 6. Demo posture — operational for review (2026-08-27)
+
+Founder direction: *"we want as many things operational so a clinician can test and tell me
+what they want changed… make sure you aren't gating things out of fear of it being
+operational."* Reviewed every gate and split them into caution and decision.
+
+**Turned on in `EMDR_DEMO=1`, previously off for no reason that survived the question:**
+
+| Capability | Was | Now |
+|---|---|---|
+| Resourcing BLS (Part 6 stage 4a) | Off unless `EMDR_BLS_RESOURCING=1`. The flagship clinical workstream was the one thing a *clinical* reviewer could not exercise | On in demo. Kill switch still overrides; per-member processing consent still required |
+| Processing-session consent in the seed | Not seeded, so BLS was doubly unreachable | Seeded for Alex. **Deliberately not** for Sam — the refusal path is worth seeing too |
+| Full gated module set | Off unless `EMDR_OPEN_GATED=1`. A non-clinician reviewer has no way to unlock a module, so most of the product was unreachable for most of the intended audience | On in demo, closable with `EMDR_OPEN_GATED=0` to review the unlock workflow itself |
+
+**Held back, each for a reason that is not caution** — recorded in `HELD_BACK`
+(`src/lib/clinical/demo-posture.ts`) and shown on `/clinician/testing`:
+autonomous desensitization (signed clinical configuration, and not implemented), the
+autonomous engine governing access (running it in shadow alongside the human chain *is*
+the review), and event-authoritative writes (held for the migration window).
+
+**Guardrails that did not move.** Every demo default is inert without `EMDR_DEMO=1`,
+asserted in both directions. Kill switches still override the demo posture. Two safety
+tests in `autonomous-governance.test.ts` now pin `EMDR_OPEN_GATED=0` explicitly, because
+they test the gate chain rather than the demo posture and the new default would have
+masked their assertion — the tests keep their strength rather than being relaxed.
+
+### Reviewer change requests
+
+`/clinician/testing`, plus a form on every clinical screen. Two fields — what you saw and
+what you want instead — because a single box produces a feeling about a screen and the
+pair produces something actionable. Priority is the reviewer's and is recorded as given.
+Policy and safety-config versions are stamped automatically. Exports as Markdown.
+
+Notes **survive `npm run demo -- reset`** (`PRESERVED_TABLES`). The reset guard caught the
+foreign key this created — preserving notes while re-seeding users — so `review_notes`
+carries no FK and stores tenant and reviewer name at write time instead.
 
 **Not authorised here:** ADR 0010 Step 5 (its own gated window), any real data, any claim of
 clinical, security, or production readiness.

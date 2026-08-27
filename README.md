@@ -690,8 +690,36 @@ Skills authors should know exactly where a human is in the loop **today**:
    flag disagreeing is the failure this page exists to make visible; desensitization is
    disabled in the safety configuration itself, so no environment variable can open it.
 
+7. **Clinician testing console** (`/clinician/testing`) — what a reviewer can exercise,
+   read from live configuration, and a change-request form on every clinical screen.
+   Notes capture what was seen and what is wanted as separate fields, stamp the policy
+   and safety-config versions automatically, keep the reviewer's own priority, and
+   export as Markdown. They **survive a demo reset** — a reviewer's hour outlives the
+   environment it was spent in.
+
 Everything else — screeners, check-in routing, SUDS rules, cooldowns, caps, readiness,
 the recommender — is **already deterministic and autonomous**.
+
+### Demo posture — operational for review, not gated by caution
+
+**In a demo environment (`EMDR_DEMO=1`), everything gated only by deployment caution is
+on.** The data is fabricated, so there is nobody to protect by keeping a workflow shut,
+and a reviewer who cannot run a workflow cannot give feedback on it. On by default:
+resourcing BLS (Part 6 stage 4a), the full gated module set, voice input, live spoken
+sessions, and the companion output guard in **enforcing** rather than log-only mode.
+
+Three things stay off, and none of them is caution:
+
+| Held back | Why | Who can change it |
+|---|---|---|
+| Autonomous desensitization (BLS 4b) | Disabled in the safety configuration two licensed psychologists signed, and **not implemented**. Professional-body policy opposes self-administered desensitization and that question is unresolved | The clinicians who signed it, with counsel |
+| The autonomous engine *governing* access | It computes and logs a parallel decision while the human-authored chain decides. Running both side by side is what makes the comparison reviewable — promoting it early removes the thing under review | Clinical reviewers, against their stated conditions |
+| Event-authoritative writes | ADR 0013; held for its gated migration window rather than switched on mid-review | Founder, at the Postgres cutover |
+
+Both directions of the module gate are reachable: `EMDR_OPEN_GATED=0` closes the gated
+set so the **request-and-approve workflow itself** can be reviewed. The kill switches
+still override everything, and none of this reaches a real deployment — every demo
+default is inert without `EMDR_DEMO=1`, asserted in both directions by tests.
 
 ---
 

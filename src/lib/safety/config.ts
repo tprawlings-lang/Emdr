@@ -104,12 +104,26 @@ export const BLS_RESOURCING = {
   cueWordRequired: true,
 } as const;
 
-/** Phase-4a resourcing BLS gate. OFF by default; enabled explicitly for the
- *  monitored pilot. Desensitization stays governed by autonomousStimulationEnabled
- *  (which remains false) — this flag never enables trauma-memory processing. The
- *  `EMDR_KILL_BLS` kill switch (governance) overrides this to false. */
+/** Phase-4a resourcing BLS gate.
+ *
+ *  ON in demo, so a clinician reviewing the environment can actually walk a
+ *  resourcing session and say what they would change. It was previously off
+ *  even in demo, which meant the flagship clinical workstream was the one thing
+ *  a clinical reviewer could not exercise — a reviewer who cannot run the
+ *  workflow cannot give feedback on it, and unusable-by-default is not a safety
+ *  property when the data is fabricated.
+ *
+ *  Off by default everywhere else, and enabled explicitly for a monitored
+ *  pilot. Two things still hold regardless: `EMDR_KILL_BLS` overrides this to
+ *  false, and each member needs an unrevoked processing-session consent.
+ *
+ *  Desensitization is NOT this flag. It stays governed by
+ *  `autonomousStimulationEnabled`, which is false in the signed configuration
+ *  and which no environment variable can reach. Set `EMDR_BLS_RESOURCING=0` to
+ *  force it off in demo — useful for demonstrating the refusal path. */
 export function blsResourcingEnabled(): boolean {
-  return process.env.EMDR_BLS_RESOURCING === "1";
+  if (process.env.EMDR_BLS_RESOURCING === "0") return false;
+  return process.env.EMDR_BLS_RESOURCING === "1" || process.env.EMDR_DEMO === "1";
 }
 
 // ── Finalized program-fit gate wording (ledger A8) ──────────────────────────

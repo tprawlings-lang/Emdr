@@ -14,6 +14,10 @@ import { data } from "../data";
 import { PLATFORM_TENANT_ID } from "../db";
 import { closeAlert, AlertClosureError } from "./alerts";
 import { approve, correct, override, recordFeedback, ReviewError, type FeedbackCategory } from "./review";
+import {
+  fileNote, setNoteStatus, ReviewNoteError,
+  type NotePriority, type NoteStatus,
+} from "./review-notes";
 
 /** The tenant the acting clinician belongs to.
  *
@@ -112,4 +116,45 @@ export async function feedbackAction(formData: FormData) {
   });
   revalidatePath(`/clinician/clinical/${personId}`);
   redirect(`/clinician/clinical/${personId}?done=${r.requiresImmediateReview ? "flagged" : "feedback"}`);
+}
+
+// ---------------------------------------------------------------------------
+// Reviewer change requests (Phase 4 testing cycle)
+// ---------------------------------------------------------------------------
+
+export async function fileNoteAction(formData: FormData) {
+  const clinician = await requireClinician();
+  const returnTo = String(formData.get("returnTo") ?? "/clinician/testing");
+
+  try {
+    await fileNote({
+      reviewerId: clinician.id,
+      reviewerRole: clinician.role,
+      surface: String(formData.get("surface") ?? "Other"),
+      category: String(formData.get("category") ?? "Workflow fit"),
+      priority: String(formData.get("priority") ?? "change") as NotePriority,
+      observed: String(formData.get("observed") ?? ""),
+      requested: String(formData.get("requested") ?? ""),
+      subjectId: (formData.get("subjectId") as string) || null,
+    });
+  } catch (e) {
+    if (e instanceof ReviewNoteError) {
+      redirect(`${returnTo}?error=${encodeURIComponent(e.message)}`);
+    }
+    throw e;
+  }
+
+  revalidatePath("/clinician/testing");
+  redirect(`${returnTo}?done=note`);
+}
+
+export async function setNoteStatusAction(formData: FormData) {
+  const clinician = await requireClinician();
+  await setNoteStatus({
+    noteId: String(formData.get("noteId") ?? ""),
+    status: String(formData.get("status") ?? "acknowledged") as NoteStatus,
+    actorId: clinician.id,
+  });
+  revalidatePath("/clinician/testing");
+  redirect("/clinician/testing?done=status");
 }

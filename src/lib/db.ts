@@ -362,6 +362,40 @@ function migrate(db: Database.Database) {
   );
   CREATE INDEX IF NOT EXISTS idx_signoffs_rule ON autonomous_signoffs(rule_id, config_version, created_at);
 
+  -- Reviewer change requests (Phase 4 testing cycle).
+  --
+  -- The point of a review environment is that someone walks it and says what
+  -- they would change. Without somewhere for that to land, feedback arrives as
+  -- a verbal aside and is lost between the session and the next commit.
+  --
+  -- subject_id is nullable and holds a member id only when a note is about a
+  -- specific record. It is NOT a user_id column: a note is authored by a
+  -- reviewer about a surface, and most notes are about no one. Tenant scope
+  -- comes from reviewer_id.
+  -- reviewer_id deliberately carries NO foreign key, and tenant/name are stored
+  -- rather than joined. A demo reset deletes and re-seeds users; a change
+  -- request has to outlive that, because it is feedback about the product, not
+  -- a record about a person. A note that vanished when the environment was
+  -- refreshed would take the reviewer's hour with it.
+  CREATE TABLE IF NOT EXISTS review_notes (
+    id TEXT PRIMARY KEY,
+    reviewer_id TEXT NOT NULL,
+    reviewer_name TEXT NOT NULL DEFAULT '',
+    tenant_id TEXT NOT NULL DEFAULT '00000000000000000000000000',
+    reviewer_role TEXT NOT NULL,
+    surface TEXT NOT NULL,
+    category TEXT NOT NULL,
+    priority TEXT NOT NULL CHECK (priority IN ('blocker','change','question','idea')),
+    observed TEXT NOT NULL,
+    requested TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'open' CHECK (status IN ('open','acknowledged','actioned','declined')),
+    subject_id TEXT,
+    config_version TEXT,
+    policy_version TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+  CREATE INDEX IF NOT EXISTS idx_review_notes ON review_notes(status, created_at);
+
   CREATE TABLE IF NOT EXISTS practice_completions (
     id TEXT PRIMARY KEY,
     user_id TEXT NOT NULL REFERENCES users(id),
@@ -566,6 +600,7 @@ export const TENANT_SCOPED_TABLES = [
   "ai_conversations", "ai_messages", "subscriptions", "payments",
   "program_plans", "care_tracks", "care_track_intake", "practice_completions",
   "upsell_events", "autopilot_plans", "autopilot_events", "lesson_reads",
+  "review_notes",
 ] as const;
 
 /** Create the platform tenant and mirror `users` onto the identity spine

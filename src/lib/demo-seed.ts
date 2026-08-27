@@ -55,6 +55,18 @@ export function seedDemoData(db: Database.Database) {
     "INSERT INTO consents (id, user_id, policy_version, scope, granted_at) VALUES (?, ?, ?, ?, ?)"
   ).run(id(), alexId, "v1.0-dev", "care_program_full", daysAgo(21));
 
+  // Processing-session consent: a DISTINCT, versioned grant, separate from the
+  // care-program consent, required before any bilateral-stimulation set
+  // (docs/autonomous/bls-validation/01-processing-session-consent.md).
+  //
+  // Seeded for Alex so a reviewer can walk the resourcing BLS flow. Deliberately
+  // NOT seeded for Sam below — a reviewer needs to see the refusal path too, and
+  // a demo where every gate is pre-satisfied demonstrates nothing about the
+  // gates.
+  db.prepare(
+    "INSERT INTO consents (id, user_id, policy_version, scope, granted_at) VALUES (?, ?, ?, ?, ?)"
+  ).run(id(), alexId, "processing-consent-v1.0", "processing_session", daysAgo(14));
+
   const insScreening = db.prepare(
     `INSERT INTO screenings (id, user_id, instrument, instrument_version, total_score, answers_json, risk_flags_json, created_at)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
@@ -178,8 +190,16 @@ export function seedDemoData(db: Database.Database) {
     `INSERT INTO subscriptions (user_id, plan, status, price_cents, currency, provider, current_period_end, created_at)
      VALUES (?, ?, ?, ?, 'usd', 'demo', ?, ?)`
   );
-  const inFuture = (d: number) => {
+  // Pins the time of day, exactly as daysAgo does. Without this the value
+  // carried the current SECOND, so two resets a second apart produced different
+  // data and the baseline hash disagreed with itself — intermittently, which is
+  // the worst way for a determinism guarantee to fail. `current_period_end` does
+  // not end in `_at`, so the baseline's timestamp exclusion never covered it and
+  // the drift was hashed as if it were real. Fixed at the source rather than by
+  // widening the exclusion, so the value stays under the baseline's protection.
+  const inFuture = (d: number, hour = 10) => {
     const t = new Date(Date.now() + d * 86400000);
+    t.setUTCHours(hour, 15, 0, 0);
     return t.toISOString().slice(0, 19).replace("T", " ");
   };
   insSub.run(alexId, "premium", "active", 3499, inFuture(16), daysAgo(22));

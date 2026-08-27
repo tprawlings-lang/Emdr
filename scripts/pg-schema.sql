@@ -310,6 +310,31 @@ CREATE TABLE IF NOT EXISTS autonomous_signoffs (
 );
 CREATE INDEX IF NOT EXISTS idx_signoffs_rule ON autonomous_signoffs(rule_id, config_version, created_at);
 
+-- Reviewer change requests (Phase 4 testing cycle).
+--
+-- reviewer_id carries NO foreign key, and tenant/name are stored rather than
+-- joined: a demo reset deletes and re-seeds users, and a change request has to
+-- outlive that because it is feedback about the product, not a record about a
+-- person. tenant_id is stamped at write time from the reviewer's own row, so
+-- the RLS policy generated below scopes it like every other tenanted table.
+CREATE TABLE IF NOT EXISTS review_notes (
+  id text PRIMARY KEY,
+  reviewer_id text NOT NULL,
+  reviewer_name text NOT NULL DEFAULT '',
+  reviewer_role text NOT NULL,
+  surface text NOT NULL,
+  category text NOT NULL,
+  priority text NOT NULL CHECK (priority IN ('blocker','change','question','idea')),
+  observed text NOT NULL,
+  requested text NOT NULL,
+  status text NOT NULL DEFAULT 'open' CHECK (status IN ('open','acknowledged','actioned','declined')),
+  subject_id text,
+  config_version text,
+  policy_version text,
+  created_at text NOT NULL DEFAULT steady_now()
+);
+CREATE INDEX IF NOT EXISTS idx_review_notes ON review_notes(status, created_at);
+
 -- Practice, lesson, upsell, and Autopilot tables. These were added to the
 -- SQLite schema during the tiering and Autopilot work and had drifted out of
 -- this file — the tenancy ALTERs below referenced tables Postgres had never
@@ -491,6 +516,7 @@ ALTER TABLE upsell_events ADD COLUMN IF NOT EXISTS tenant_id text NOT NULL DEFAU
 ALTER TABLE autopilot_plans ADD COLUMN IF NOT EXISTS tenant_id text NOT NULL DEFAULT '00000000000000000000000000';
 ALTER TABLE autopilot_events ADD COLUMN IF NOT EXISTS tenant_id text NOT NULL DEFAULT '00000000000000000000000000';
 ALTER TABLE lesson_reads ADD COLUMN IF NOT EXISTS tenant_id text NOT NULL DEFAULT '00000000000000000000000000';
+ALTER TABLE review_notes ADD COLUMN IF NOT EXISTS tenant_id text NOT NULL DEFAULT '00000000000000000000000000';
 
 -- ---------------------------------------------------------------------------
 -- Row-level security (ADR 0011 §3 — the second half of tenant isolation)

@@ -326,3 +326,206 @@ test("oversight status reports gate counts that match the register", () => {
   assert.equal(s.blockedGates.length, PART6_GATES.filter((g) => g.state === "blocked").length);
   assert.ok(s.headline.length > 0);
 });
+
+// ---------------------------------------------------------------------------
+// Demo posture — operational for review, not gated by caution
+// ---------------------------------------------------------------------------
+
+test("a demo environment enables what only deployment caution was holding back", async () => {
+  const saved = { ...process.env };
+  try {
+    process.env.EMDR_DEMO = "1";
+    delete process.env.EMDR_BLS_RESOURCING;
+    delete process.env.EMDR_OPEN_GATED;
+    delete process.env.EMDR_KILL_BLS;
+
+    const { blsResourcingEnabled } = await import("../src/lib/safety/config");
+    const { testOpenGated } = await import("../src/lib/gating");
+
+    // A clinical reviewer who cannot run the flagship clinical workflow cannot
+    // give feedback on it. With fabricated data there is nobody to protect by
+    // leaving it off.
+    assert.equal(blsResourcingEnabled(), true, "resourcing BLS is off in a demo environment");
+    // A non-clinician reviewer cannot unlock a module for themselves, so an
+    // exec or investor would find most of the product unreachable.
+    assert.equal(testOpenGated(), true, "gated modules are closed in a demo environment");
+  } finally {
+    process.env = saved;
+  }
+});
+
+test("the demo posture never leaks into a real deployment", async () => {
+  const saved = { ...process.env };
+  try {
+    delete process.env.EMDR_DEMO;
+    delete process.env.EMDR_BLS_RESOURCING;
+    process.env.EMDR_OPEN_GATED = "1";
+
+    const { blsResourcingEnabled } = await import("../src/lib/safety/config");
+    const { testOpenGated } = await import("../src/lib/gating");
+
+    assert.equal(blsResourcingEnabled(), false, "resourcing BLS defaulted on outside demo");
+    // Even explicitly set, the open-gated override is inert without EMDR_DEMO.
+    assert.equal(testOpenGated(), false, "gated modules opened outside a demo environment");
+  } finally {
+    process.env = saved;
+  }
+});
+
+test("both directions of the gating switch are reachable for review", async () => {
+  // A clinician reviewing the UNLOCK WORKFLOW needs modules closed; a clinician
+  // reviewing the modules needs them open. Neither is the only option.
+  const saved = { ...process.env };
+  try {
+    process.env.EMDR_DEMO = "1";
+    const { testOpenGated } = await import("../src/lib/gating");
+    process.env.EMDR_OPEN_GATED = "0";
+    assert.equal(testOpenGated(), false, "EMDR_OPEN_GATED=0 did not close the modules");
+    process.env.EMDR_OPEN_GATED = "1";
+    assert.equal(testOpenGated(), true);
+  } finally {
+    process.env = saved;
+  }
+});
+
+test("the kill switch still wins over the demo posture", async () => {
+  const saved = { ...process.env };
+  try {
+    process.env.EMDR_DEMO = "1";
+    process.env.EMDR_KILL_BLS = "1";
+    const { blsDisabled } = await import("../src/lib/safety/governance");
+    assert.equal(blsDisabled(), true);
+    assert.equal(rolloutStages().find((s) => s.id === "4a")!.enabled, false,
+      "a demo environment overrode the kill switch");
+  } finally {
+    process.env = saved;
+  }
+});
+
+test("the exercise matrix reads live configuration and states what is held back", async () => {
+  const saved = { ...process.env };
+  try {
+    process.env.EMDR_DEMO = "1";
+    delete process.env.EMDR_KILL_BLS;
+    const { exerciseMatrix, HELD_BACK, postureNote } = await import("../src/lib/clinical/demo-posture");
+
+    const rows = exerciseMatrix();
+    assert.ok(rows.length > 5);
+    for (const r of rows) {
+      assert.ok(r.note.length > 0, `matrix row "${r.id}" gives no explanation`);
+      // An available capability must say where to go, or the matrix sends a
+      // reviewer looking for something they cannot find.
+      if (r.available) assert.ok(r.href, `"${r.id}" is available with nowhere to go`);
+    }
+
+    // Anything unavailable is unavailable for a stated reason.
+    assert.ok(HELD_BACK.length > 0);
+    for (const h of HELD_BACK) {
+      assert.ok(h.why.length > 0, `"${h.what}" gives no reason`);
+      assert.ok(h.whoDecides.length > 0, `"${h.what}" names nobody who can change it`);
+    }
+    assert.match(postureNote(), /fabricated/i);
+  } finally {
+    process.env = saved;
+  }
+});
+
+test("desensitization is described as a clinical decision, not a deployment setting", async () => {
+  const { HELD_BACK } = await import("../src/lib/clinical/demo-posture");
+  const d = HELD_BACK.find((h) => /desensitization/i.test(h.what));
+  assert.ok(d, "the desensitization hold is not listed");
+  assert.match(d!.whoDecides, /psychologist|clinic|counsel/i,
+    "the desensitization hold does not name who can lift it");
+});
+
+// ---------------------------------------------------------------------------
+// Reviewer change requests — the output of a testing cycle
+// ---------------------------------------------------------------------------
+
+test("a change request needs both what was seen and what is wanted", async () => {
+  const { fileNote, ReviewNoteError } = await import("../src/lib/clinical/review-notes");
+
+  // Only the complaint: cannot be acted on.
+  await assert.rejects(
+    () => fileNote({
+      reviewerId: CLIN, reviewerRole: "clinician", surface: "Alerts",
+      category: "Alert handling", priority: "change",
+      observed: "The deadline felt wrong.", requested: "",
+    }),
+    ReviewNoteError
+  );
+  // Only the request: loses the evidence behind it.
+  await assert.rejects(
+    () => fileNote({
+      reviewerId: CLIN, reviewerRole: "clinician", surface: "Alerts",
+      category: "Alert handling", priority: "change",
+      observed: "", requested: "Use next business day.",
+    }),
+    ReviewNoteError
+  );
+});
+
+test("a filed note stamps the configuration it was written against", async () => {
+  const { fileNote, listNotes } = await import("../src/lib/clinical/review-notes");
+  await fileNote({
+    reviewerId: CLIN, reviewerRole: "clinician", surface: "Alerts",
+    category: "Alert handling", priority: "blocker",
+    observed: "A high-band alert raised on Friday evening carried a four-hour deadline.",
+    requested: "Out-of-hours high-band alerts should carry the next-business-day deadline.",
+  });
+
+  const notes = await listNotes({ tenantId: PLATFORM_TENANT_ID });
+  const n = notes.find((x) => x.surface === "Alerts");
+  assert.ok(n, "the note was not stored");
+  // A note about alert deadlines means nothing without the coverage model that
+  // was active. The reviewer should not have to know that matters.
+  assert.ok(n!.policyVersion, "the note did not record the active policy version");
+  assert.ok(n!.configVersion, "the note did not record the safety config version");
+  assert.equal(n!.status, "open");
+});
+
+test("reviewer priority is recorded as given, and blockers sort first", async () => {
+  const { fileNote, listNotes, summarise } = await import("../src/lib/clinical/review-notes");
+  await fileNote({
+    reviewerId: CLIN, reviewerRole: "clinician", surface: "Caseload",
+    category: "Wording and framing", priority: "idea",
+    observed: "The band names read as severity rather than urgency.",
+    requested: "Consider renaming to reflect time-to-action.",
+  });
+
+  const notes = await listNotes({ tenantId: PLATFORM_TENANT_ID });
+  // Nobody downgrades a clinician's blocker on the way in.
+  assert.equal(notes[0].priority, "blocker", "a blocker did not sort first");
+  const s = summarise(notes);
+  assert.ok(s.openBlockers >= 1);
+  assert.equal(s.total, notes.length);
+});
+
+test("ATTACK: notes do not cross tenants", async () => {
+  const { fileNote, listNotes } = await import("../src/lib/clinical/review-notes");
+  await user("oc-clin-other", "clinician", OTHER_TENANT);
+  await fileNote({
+    reviewerId: "oc-clin-other", reviewerRole: "clinician", surface: "Caseload",
+    category: "Workflow fit", priority: "change",
+    observed: "Foreign tenant observation.", requested: "Foreign tenant request.",
+  });
+
+  const mine = await listNotes({ tenantId: PLATFORM_TENANT_ID });
+  assert.ok(
+    !mine.some((n) => n.reviewerId === "oc-clin-other"),
+    "a note from another tenant appeared in this tenant's list"
+  );
+  const theirs = await listNotes({ tenantId: OTHER_TENANT });
+  assert.equal(theirs.length, 1);
+});
+
+test("the export is something a founder can act on without transcribing a screen", async () => {
+  const { listNotes, toMarkdown } = await import("../src/lib/clinical/review-notes");
+  const md = toMarkdown(await listNotes({ tenantId: PLATFORM_TENANT_ID }));
+  assert.match(md, /# Reviewer change requests/);
+  assert.match(md, /\*\*Observed:\*\*/);
+  assert.match(md, /\*\*Requested:\*\*/);
+  // The configuration travels with the note, so a change request read a month
+  // later still says what it was written against.
+  assert.match(md, /safety config/);
+});

@@ -187,15 +187,27 @@ export type ModuleAccess =
 
 // GROUNDING_MODULES is imported from safety/module-verdict (single source of truth).
 
-// TEST/DEMO ONLY. EMDR_OPEN_GATED=1 (honored only when EMDR_DEMO=1) opens the
-// gated modules without a per-member clinician unlock, so the full module set
-// can be exercised in a testing cycle. It behaves like a clinician override —
-// relaxing the unlock requirement + readiness track + prerequisites — but NEVER
-// the daily safety read (crisis / grounding-only / stabilization), the cooldown,
-// the per-day cap, or the kill switch. Inert on any real deployment (EMDR_DEMO
-// unset), so it can never open processing modules for a real member.
+// DEMO ONLY. Opens the gated modules without a per-member clinician unlock, so
+// the full module set can be exercised in a testing cycle. It behaves like a
+// clinician override — relaxing the unlock requirement + readiness track +
+// prerequisites — but NEVER the daily safety read (crisis / grounding-only /
+// stabilization), the cooldown, the per-day cap, or the kill switch. Inert on
+// any real deployment (EMDR_DEMO unset), so it can never open processing
+// modules for a real member.
+//
+// ON by default in demo. A reviewer who is not a clinician — an executive, an
+// investor, a security reviewer — has no way to unlock a module for themselves,
+// so leaving this off meant most of the product was unreachable for most of the
+// people the environment exists for.
+//
+// Set EMDR_OPEN_GATED=0 to turn it off in a demo environment. That is the
+// setting a clinician wants when reviewing the UNLOCK WORKFLOW itself: with
+// modules already open, the request-and-approve path never runs. Both
+// directions are useful, so both are available and the clinician testing page
+// says which one is active.
 export function testOpenGated(): boolean {
-  return process.env.EMDR_OPEN_GATED === "1" && process.env.EMDR_DEMO === "1";
+  if (process.env.EMDR_DEMO !== "1") return false;
+  return process.env.EMDR_OPEN_GATED !== "0";
 }
 
 export async function checkModuleAccess(userId: string, mod: TherapyModule): Promise<ModuleAccess> {
