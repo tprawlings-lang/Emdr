@@ -170,7 +170,7 @@ aspirational.
 
 | Class | Examples | Handling |
 |---|---|---|
-| **Sensitive-encrypted** | Screening item answers, companion message text, memory values, safety-plan free text, trigger notes, clinician sign-off notes | AES-256-GCM at the application layer (ADR 0002); the key is never in source; **never carried in a longitudinal event** |
+| **Sensitive-encrypted** | Screening item answers, companion message text, memory values, safety-plan free text, trigger notes, clinician sign-off notes | AES-256-GCM at the application layer (ADR 0002); the key is never in source; **never carried in a longitudinal event**. ⚠ "Encrypted" means **at rest**: companion messages and memories are decrypted when sent to the model provider (security/01 §4). |
 | **Sensitive-coded** | Scores, risk flags, SUDS, recommended action, unlock status | Stored in clear so the deterministic gates can read them; carried in events |
 | **Identifying** | Email, name, date of birth | Operational zone; `users`/`accounts` only |
 | **Credential** | Password hashes, session secrets | Operational; **never event-sourced, never logged, never in a projection** |
@@ -199,8 +199,13 @@ threat model (Phase 2) has a subject.
    safety plan ───────► [patient memory] ───┘
                                   │
                                   ├─ companion reply ──► AI Gateway ──► model provider ⚠ BAA
-                                  │      (coded memory + policy text; never raw transcripts
-                                  │       or item-level answers)
+                                  │      (system prompt + model-exposable memories +
+                                  │       goals/trauma areas + THE FULL DECRYPTED
+                                  │       CONVERSATION TRANSCRIPT + current message.
+                                  │       Not sent: item-level answers, check-ins,
+                                  │       SUDS trails, safety-plan text, clinician notes.
+                                  │       See security/01 §4 — this is the largest
+                                  │       PHI egress in the system.)
                                   │
                                   ├─ alert ───────────► clinician (same tenant only)
                                   ├─ audit entry ─────► [operational, append-only]
@@ -215,7 +220,7 @@ exhaustive:**
 
 | # | Egress | Carries | Control required before real PHI |
 |---|---|---|---|
-| 1 | Model provider | Companion context: coded memory, policy text, member message | BAA; gateway enforcing zone and purpose; zero-retention terms |
+| 1 | Model provider | Companion context **including the full decrypted conversation transcript** — see security/01 §4 | BAA; gateway enforcing zone and purpose; zero-retention terms |
 | 2 | Object storage (backups) | Full database | BAA; encryption at rest; tested restore; key custody |
 | 3 | Error reporting | Stack traces | Scrubbing proven by test, or no PHI-capable service at all |
 | 4 | Email | Notifications | BAA; no clinical content in message bodies |

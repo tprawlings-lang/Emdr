@@ -3,6 +3,15 @@
 Compliance packet 6.3. Keep this current; it is referenced by the privacy
 policy and (typically) required by cyber liability insurers.
 
+> **This runbook is written for the wellness lane and remains the operative
+> process today** — Steady holds no PHI and is nobody's Business Associate.
+> Once the lane reclassification (ADR 0009) completes and real health data
+> exists, the HIPAA obligations, Steady-specific incident scenarios, and role
+> assignments in
+> [`security/09-incident-and-breach-response-update.md`](security/09-incident-and-breach-response-update.md)
+> apply **in addition** to what follows. That document's §1 decides which
+> regime governs in one question.
+
 ## Who declares an incident
 The founder (or the on-call engineer if unreachable for 1 hour) declares an
 incident the moment unauthorized access, data exposure, or a safety defect is

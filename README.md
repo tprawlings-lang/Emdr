@@ -103,7 +103,7 @@ testing, payer review, or public availability. The agreed order:
 | Phase | Theme | Release boundary |
 |---|---|---|
 | 1 | Truth and workflow definition — current vs target architecture, Steady Clinical workflow, user/role map, PHI data flow, data classification, claims boundary | ✅ **Drafted 2026-08-27** — [`current-vs-target.md`](docs/architecture/current-vs-target.md), [`steady-clinical-workflow.md`](docs/clinical/steady-clinical-workflow.md); both need reviewer sign-off |
-| 2 | Security foundation — threat model, risk register, vendor and BAA register, tenant/identity/secrets/logging, incident response, backup and recovery evidence | Before supervised pilot |
+| 2 | Security foundation — threat model, risk register, vendor and BAA register, tenant/identity/secrets/logging, incident response, backup and recovery evidence | ◐ **Drafted 2026-08-27** — [`docs/security/`](docs/security/); needs external review, and its ten findings need owners |
 | 3 | Permanent data spine — Postgres cutover, RLS active, Step 5 event-authoritative writes, provenance, corrections, retention, replay ops | Target Sep 14–18 |
 | ∥ | BLS Part 6 validation — protocol, test plan, evidence, reviewer checkpoints, staged validation | Active throughout |
 | 4 | Steady Clinical prototype — caseload view, patient timeline, alerts, evidence-linked AI summaries, clinician feedback, review actions, audit history, BLS oversight | Synthetic clinician testing |
@@ -116,11 +116,12 @@ testing, payer review, or public availability. The agreed order:
 Phase 1 and Phase 2 deliverables, none of which exist yet. These block two of the three
 target audiences:
 
-- **Security package** — system context and trust boundaries, PHI data-flow diagram across
-  the six governance zones (ADR 0009 §1), threat model and abuse cases, HIPAA security risk
-  register, vendor and subprocessor register, BAA status and data-access map, identity/
-  tenant/privilege model, logging and monitoring plan, incident and breach-response update,
-  and the security-review handoff packet.
+- ~~**Security package**~~ ✅ **Drafted** — [`docs/security/`](docs/security/). Ten
+  documents covering trust boundaries, the threat model and nine behavioural-health abuse
+  cases, the HIPAA Security Rule register, the vendor/BAA register and data-access map, the
+  identity and privilege model, logging and monitoring, and a clinical-lane incident-response
+  supplement. **Still needed:** an external reviewer, a named Security Official, and the
+  founder inputs the vendor register depends on.
 - **Clinical package** — caseload and priority workflow, patient timeline and evidence
   views, alert severity and response ownership, AI summaries with citations, clinician
   approval/correction/override, feedback taxonomy, escalation and re-entry workflow, pilot
