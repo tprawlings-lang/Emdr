@@ -15,6 +15,69 @@ works" — which is the only way it gets to be right.
 
 ---
 
+## Before starting this handoff: confirm the current codebase
+
+This repository is changing quickly, and this handoff may describe work that has already
+landed by the time another coding session begins. **The coding agent must confirm what is
+already complete before starting this handoff.** Do not trust a status label in this file
+without checking the code and evidence behind it.
+
+Before writing or changing code, the coding agent must:
+
+1. Record the branch and head commit being reviewed.
+2. Read the current root README, ADR index, ADRs 0009 through 0013, recent commits, open pull
+   requests, migrations, and the files named by this handoff.
+3. Run or inspect the latest unit, safety, browser, RLS, build, dependency, and secret-scan
+   results that apply to the current head.
+4. Produce a short completion matrix for every handoff requirement: **complete, partial,
+   missing, or superseded**, with links to the implementing files and tests.
+5. Reuse and extend completed foundations. Do not replace working event, tenancy, safety,
+   audit, encryption, or projection code merely because this document describes the same
+   requirement in different words.
+6. If the handoff and the code disagree, record the discrepancy and update the handoff in
+   the same change. Work from verified current state rather than rebuilding an older plan.
+
+The first commit or pull-request summary for this handoff must include that confirmation.
+
+---
+
+## Demo-first execution posture
+
+This handoff is being implemented first for **T0 investor demonstration and T1 synthetic
+clinical/security review**. These environments use fabricated, resettable data only. They
+are not public, do not provide care, and may not contain real patient, payer, employee, or
+tester health information.
+
+Within T0/T1, the open reviewer decisions in section 12 **do not block building or showing
+the system**. Engineering should implement the capabilities as configurable policies and
+use documented provisional defaults so reviewers can compare the alternatives in a working
+demo:
+
+- companion-content access: `never` | `escalation` | `always`, provisional default
+  `escalation` with minimum-necessary excerpts and audited access;
+- caseload assignment: `owned` | `pooled` | `hybrid`, provisional default `hybrid`;
+- coverage schedule and out-of-hours copy, provisional default business-hours review with
+  no promise of continuous clinical monitoring;
+- Immediate-alert consequence, re-entry criteria, and autonomous-engine mode as versioned,
+  visible configuration rather than hardcoded assumptions.
+
+All planned surfaces may be built and demonstrated with synthetic scenarios, including the
+Clinical console, evidence-linked summaries, alerts, overrides, escalation, re-entry, payer
+and enterprise flows, and BLS Part 6 oversight. BLS and other unapproved clinical behavior
+may be shown as clearly labelled **simulation**, using fabricated or non-personal scenarios;
+it must not be represented as approved, validated, or available for real use.
+
+Demo-first does not mean safety-off. The deterministic crisis check before model calls,
+crisis resources, output guard, one-tap stop, grounding closure, global kill switch, audit
+logging, tenant boundaries, and a persistent **DEMO - FABRICATED DATA - NOT CLINICAL CARE**
+banner remain active in every mode. No demo flag may disable that floor.
+
+Reviewer decisions change the approved defaults and the requirements for promotion to T2;
+they do not prevent T0/T1 implementation. A capability that is complete for demonstration
+must still be labelled separately from one approved for supervised pilot or production.
+
+---
+
 ## 0. The governing constraints
 
 Six constraints bound every design choice below. They are not negotiable within this
@@ -110,8 +173,10 @@ had to come first. The timeline **is** the events; it is not a summary of them.
 
 Does the clinician see companion conversation content at all, and under what conditions?
 Three defensible answers — never; only on escalation; always within the caseload — with very
-different member-trust and privacy consequences. **The reviewers decide this, not the
-build.** It is the highest-stakes open question in this document.
+different member-trust and privacy consequences. **The reviewers decide the T2/T3 default.** The T0/T1 demo implements the supported
+policies as configuration and uses the provisional `escalation` default so reviewers can
+compare a real workflow rather than an abstract choice. It remains the highest-stakes open
+question for promotion beyond demo.
 
 ---
 
@@ -248,8 +313,10 @@ otherwise-good product does harm by being too easy to resume.
 
 ## 8. Pilot inclusion and exclusion
 
-To be finalised with the clinical reviewers. Current assumption, requiring confirmation:
-**adults only, supervised, synthetic-first, one organization, one limited care team.**
+To be finalised with the clinical reviewers for T2. Current assumption, requiring
+confirmation: **adults only, supervised, one organization, one limited care team.** T0/T1
+may use synthetic personas outside these criteria to prove that exclusion, hard-stop,
+escalation, and audit behavior work correctly; no synthetic persona is a participant.
 
 | | |
 |---|---|
@@ -287,8 +354,10 @@ must be settled before the first participant — not defined in response to the 
 Bilateral stimulation Part 6 continues as a **parallel clinical validation workstream** with
 its own reviewer, protocol owner, evidence owner, and schedule. Within this workflow:
 
-- Member-facing BLS access stays **gated** until Part 6's own clinical and security
-  conditions pass. It is not covered by any other sign-off.
+- Member-facing BLS access stays **gated in T2/T3** until Part 6's own clinical and
+  security conditions pass. T0/T1 may demonstrate the complete workflow in clearly labelled
+  simulation with fabricated or non-personal scenarios. It is not covered by any other
+  sign-off.
 - Member-initiated resourcing (Phase 4a) is live and flag-gated; **autonomous stimulation
   remains OFF** — an explicit condition of the existing clinician sign-off.
 - The clinician surface shows BLS participation, session outcomes, and adverse events under
@@ -334,5 +403,8 @@ Ordered by how much downstream work each unblocks.
 | 7 | Re-entry criteria after hard stop or escalation | Gate chain changes |
 | 8 | Whether the autonomous engine may govern anything during the pilot | Flag policy, §10 of the README |
 
-Nothing in §1–§11 should be built before decisions 1, 2, and 3 are settled — each of them
-changes the data model, not just the interface.
+For T0/T1 demo work, none of these decisions blocks implementation. Build the relevant
+capabilities as configurable policies, use the provisional defaults in the demo-first
+section, and make each assumption visible to reviewers. Decisions 1, 2, and 3 must be
+settled before promotion to T2 because they finalise the permission model, accountability,
+consent language, and operating commitments.
