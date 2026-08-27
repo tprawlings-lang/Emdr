@@ -113,8 +113,8 @@ Status is one of **Complete** / **Partial** / **Missing** / **Superseded**.
 
 | Surface | Status |
 |---|---|
-| Clinician caseload, timeline, alerts, AI summaries, approve/correct/override | **Missing** — Phase 4, specified in the clinical workflow doc |
-| Payer / population view | **Missing** |
+| Clinician caseload, timeline, alerts, AI summaries, approve/correct/override | ✅ **Built** — `src/lib/clinical/`, `/clinician/clinical`. Summary generation is deterministic at T0/T1 (`deterministic-v1`) so demos reproduce; the citation contract is enforced by `validateSummary` independently of the generator |
+| Payer / population view | **Missing** — Phase 6 |
 | Configurable clinical policy modes (§6) | **Missing** (**F5**) |
 | BLS Part 6 labelled simulation | **Partial** — resourcing exists and is flag-gated; no Part 6 protocol simulation |
 
@@ -204,7 +204,7 @@ Ordered. Findings **F1, F7, F10** are the demo-integrity floor and come first.
 | 5 | Configurable clinical policy modes, versioned and environment-scoped | F5 | ✅ `src/lib/clinical-policy.ts` |
 | 6 | Guided scenario scripts | F8 | ✅ `scenario-scripts.md` |
 | 7 | `clinical-pilot-2026-09` proposed packet | F6 | ✅ `../clinical/clinical-pilot-2026-09.md` |
-| 8 | Phase 4 — Steady Clinical prototype | Handoff §9 | ⏳ Next |
+| 8 | Phase 4 — Steady Clinical prototype | Handoff §9 | ✅ Service layer + console; 23 unit cases, 4 e2e |
 
 ### Findings still open after this work
 

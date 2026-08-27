@@ -69,6 +69,9 @@ export default async function ClinicianDashboard({
           <p className="text-sm text-olive">Signed in as {clinician.name}</p>
         </div>
         <div className="flex items-center gap-4">
+          <Link href="/clinician/clinical" className="text-sm text-olive underline">
+            Steady Clinical
+          </Link>
           <Link href="/clinician/autonomous" className="text-sm text-olive underline">
             Autonomous review
           </Link>
