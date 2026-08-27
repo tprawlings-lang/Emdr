@@ -42,14 +42,15 @@ export default function RootLayout({
     <html lang="en" className={`h-full antialiased ${inter.variable} ${cormorant.variable}`}>
       <body className="min-h-full flex flex-col bg-ivory font-sans text-ground">
         {demo && (
-          // Demo-First handoff §1: every surface must carry this label, in these
-          // words. It is deliberately the first thing in the document and is not
-          // dismissible — a viewer who lands mid-journey, or sees a screenshot
-          // out of context, must still be told what they are looking at.
+          // Handoff §1 and §3: every surface carries this label, in these
+          // words, and it is not dismissible.
           //
-          // The previous copy claimed data "resets periodically", which was not
-          // true: no reset existed. It is now an explicit operation
-          // (`npm run demo -- reset`), so the wording says what actually holds.
+          // Credentials were removed from this banner deliberately. §3 forbids
+          // exposing shared passwords here — a password printed on every page
+          // of an environment shaped like a clinical record is an invitation
+          // that survives every other access control. Reviewers now enter
+          // through /request-review, which issues access and selects a
+          // fabricated persona without ever showing a password.
           <div
             role="note"
             aria-label="Demonstration environment notice"
@@ -57,10 +58,9 @@ export default function RootLayout({
           >
             <strong className="tracking-wide">DEMO — FABRICATED DATA — NOT CLINICAL CARE</strong>
             <span className="block text-ivory/90">
-              Every person, record, and clinician in this environment is invented. Nothing here
-              is a real member, real health information, or approved care. Sign in as
-              demo@example.com or clinician@example.com with password demo1234, or{" "}
-              <a href="/signup" className="underline">create your own fabricated account</a>.
+              Every person, record, and clinician here is invented. Nothing in this
+              environment is a real member, real health information, or approved care.{" "}
+              <a href="/request-review" className="underline">Request review access</a>
             </span>
             <Suspense fallback={null}>
               <PersonaIndicator />

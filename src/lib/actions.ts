@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { hashPassword, newId, verifyPassword } from "./db";
 import { data } from "./data";
+import { checkAgeEligibility } from "./age-gate";
 import { safetyRefundAndCancel, setCancelAtPeriodEnd, startDemoSubscription, subscriptionActive } from "./billing";
 import { provisionPerson, recordCheckin, recordAssessment, recordSessionStarted, recordSessionFinished, grantConsent as spineGrantConsent, withdrawConsent as spineWithdrawConsent, recordUnlockRequested, recordUnlockDecision, upsertRowId, nowStamp } from "./spine";
 import { recordFitnessScreening } from "./fitness-screener";
@@ -132,11 +133,8 @@ export async function signup(formData: FormData) {
   // Age gate at account creation (compliance packet 4A.7): minors are out of
   // scope, full stop. The fitness screener re-checks fit later; age is a
   // hard requirement before an account exists at all.
-  const birth = new Date(dob);
-  if (!dob || Number.isNaN(birth.getTime())) redirect("/signup?error=dob");
-  const age = (Date.now() - birth.getTime()) / (365.25 * 24 * 3600 * 1000);
-  if (age < 18) redirect("/signup?error=age");
-  if (age > 120) redirect("/signup?error=dob");
+  const ageVerdict = checkAgeEligibility(dob);
+  if (ageVerdict !== "ok") redirect(`/signup?error=${ageVerdict}`);
 
   // Wellness-lane acknowledgment: explicit, never pre-checked, logged with a
   // timestamp and version in the consent ledger (compliance packet 3.4).

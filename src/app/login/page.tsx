@@ -13,8 +13,10 @@ export default async function LoginPage({
         <SteadyMark className="h-9 w-9 text-olive" />
         <Wordmark className="text-4xl" />
       </div>
-      <h1 className="mt-8 font-serif text-3xl font-medium">Welcome back</h1>
-      <p className="mt-2 text-sm text-olive">This is your private space. Take your time.</p>
+      <h1 className="mt-8 font-serif text-3xl font-medium">Review sign in</h1>
+      <p className="mt-2 text-sm text-olive">
+        Access to the Steady review environment. Every person and record in it is fabricated.
+      </p>
       {error && (
         <p className="mt-4 rounded-2xl border border-support/40 bg-support/10 px-4 py-3 text-sm text-support-deep">
           {error === "locked"
@@ -50,16 +52,21 @@ export default async function LoginPage({
           Continue
         </button>
       </form>
+      {/* Public enrollment is closed (§12), and shared credentials are never
+          shown on a public page (§3). Reviewers arrive with scoped access
+          arranged through /request-review. */}
       <p className="mt-5 text-center text-sm text-olive">
-        New here?{" "}
-        <a href="/signup" className="font-medium underline">
-          Create your space — first week free
+        Need access?{" "}
+        <a href="/request-review" className="font-medium underline">
+          Request a review
         </a>
       </p>
       <div className="mt-8 rounded-3xl border border-ground/10 bg-linen p-5 text-sm text-olive shadow-soft">
-        <p className="font-semibold text-ground">Demo accounts (development only)</p>
-        <p className="mt-1">Member: demo@example.com / demo1234</p>
-        <p>Clinician: clinician@example.com / demo1234</p>
+        <p className="font-semibold text-ground">Development prototype</p>
+        <p className="mt-1">
+          This environment contains fabricated data only. It does not provide clinical care and
+          is not monitored in real time.
+        </p>
         <p className="mt-2 text-xs">
           Production requires multi-factor authentication (AAL2) for all accounts.
         </p>
