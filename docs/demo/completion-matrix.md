@@ -120,6 +120,26 @@ Status is one of **Complete** / **Partial** / **Missing** / **Superseded**.
 
 ---
 
+## 3b. Reconciliation with the workflow specification (`d593b46`)
+
+While this work was in progress the workflow specification gained a **demo-first execution
+posture** section (`d593b46`, founder). That commit is preserved and this work was rebased
+onto it rather than over it, per handoff §3's rule on parallel changes.
+
+One naming discrepancy was found and resolved in favour of the specification:
+
+| | Specification (`d593b46`) | Implementation as first written | Resolved |
+|---|---|---|---|
+| Companion-content access modes | `never` / `escalation` / `always` | `never` / `escalation_excerpt` / `member_shared` / `always` | Renamed to `escalation`. `member_shared` is retained as an **additional** comparison mode — an addition, not a divergence |
+
+Everything else in that section is satisfied by this work: configurable policies with
+documented provisional defaults (`clinical-policy.ts`), the non-removable safety floor
+(unchanged — crisis check, crisis resources, output guard, stop control, grounding closure,
+kill switches, audit, tenancy), and the persistent `DEMO — FABRICATED DATA — NOT CLINICAL
+CARE` banner.
+
+---
+
 ## 4. Handoff snapshot versus live code
 
 §4 lists a dated snapshot to verify. Result:

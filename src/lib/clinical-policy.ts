@@ -40,10 +40,15 @@ export const CLINICAL_POLICY_VERSION = "clinical-policy-2026-08-t1";
  *  cannot act on what they are told; too much and members learn the "private"
  *  companion is read by their clinician, which changes what they say to it. */
 export type CompanionVisibility =
-  | "never"              // clinicians never see conversation content
-  | "escalation_excerpt" // only the excerpt that triggered an escalation
-  | "member_shared"      // only what the member explicitly shares
-  | "always";            // full transcripts within the caseload
+  | "never"          // clinicians never see conversation content
+  | "escalation"     // only the minimum-necessary excerpt that triggered an escalation
+  | "member_shared"  // only what the member explicitly chose to share
+  | "always";        // full transcripts within the caseload
+
+// Naming follows the workflow specification's demo-first posture section, which
+// is the authority: never | escalation | always. `member_shared` is an
+// additional mode offered here so reviewers can compare a member-controlled
+// middle ground against the specified three — an addition, not a divergence.
 
 /** Who owns a member's care within a tenant. */
 export type CaseloadModel =
@@ -97,7 +102,7 @@ export interface ClinicalPolicy {
 export const T1_DEFAULT_POLICY: ClinicalPolicy = {
   version: CLINICAL_POLICY_VERSION,
   // Minimum necessary: enough to act on a risk signal, not a reading habit.
-  companionVisibility: "escalation_excerpt",
+  companionVisibility: "escalation",
   // A named owner for accountability, a pool so absence does not mean silence.
   caseload: "hybrid",
   // Honest about what can actually be staffed. Steady is available at 3am; a
@@ -226,7 +231,7 @@ export function companionContentAllowed(
 ): boolean {
   switch (p.companionVisibility) {
     case "never": return false;
-    case "escalation_excerpt": return context === "escalation";
+    case "escalation": return context === "escalation";
     case "member_shared": return context === "escalation" || context === "member_shared";
     case "always": return true;
   }

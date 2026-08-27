@@ -71,7 +71,7 @@ below is a demonstration assumption. A default is not an approval.**
 
 | Policy | T0/T1 default | Alternatives available to demonstrate | Decision needed |
 |---|---|---|---|
-| Companion content visibility | `escalation_excerpt` | `never`, `member_shared`, `always` | Consent basis, minimum necessary, member disclosure, model egress |
+| Companion content visibility | `escalation` | `never`, `member_shared`, `always` | Consent basis, minimum necessary, member disclosure, model egress |
 | Caseload model | `hybrid` | `owned`, `pooled` | Accountability, staffing, licensure, handoff |
 | Out-of-hours coverage | `business_hours` | `none`, `extended`, `24_hour` | Operating schedule and the exact member-facing language |
 | Immediate alert consequence | `pause_processing` | `notify_only`, `lock_workflow`, `emergency_path` | Named responder, deadline, severity bands |

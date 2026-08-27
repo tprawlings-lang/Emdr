@@ -80,7 +80,7 @@ The eight synthetic scenarios the handoff §9 requires:
 | S1 | Routine progress, no alert, fully cited summary | Timeline, citations | Is the timeline enough to act on? |
 | S2 | An uncitable AI claim is suppressed before display | Summary contract | Is suppression the right behaviour, or should it show with a warning? |
 | S3 | Immediate alert inside, then outside, configured coverage hours | Alert ownership, coverage | What should happen at 3am? |
-| S4 | Companion excerpt access allowed, denied, later audited | Companion visibility policy | Which mode is right — `never`, `escalation_excerpt`, `member_shared`, `always`? |
+| S4 | Companion excerpt access allowed, denied, later audited | Companion visibility policy | Which mode is right — `never`, `escalation`, `member_shared`, `always`? |
 | S5 | Primary clinician unavailable; coverage pool takes ownership | Caseload model | Owned, pooled, or hybrid? |
 | S6 | Processing paused, member uses grounding, re-entry approved or denied | Alert consequence, re-entry | What must be true before someone resumes? |
 | S7 | Cross-tenant access attempt and privilege change attempt | Isolation | Is the denial behaviour and its audit trail sufficient? |

@@ -28,7 +28,7 @@ function withPolicy<T>(name: string | undefined, fn: () => T): T {
 test("the default policy matches the handoff's T0/T1 assumptions", () => {
   const p = withPolicy(undefined, activePolicy);
   assert.equal(p.version, CLINICAL_POLICY_VERSION);
-  assert.equal(p.companionVisibility, "escalation_excerpt");
+  assert.equal(p.companionVisibility, "escalation");
   assert.equal(p.caseload, "hybrid");
   assert.equal(p.coverage, "business_hours");
   assert.equal(p.alertConsequence, "pause_processing");
@@ -89,8 +89,8 @@ test("companion visibility is enforced per context, not as a single switch", () 
     ({ ...T1_DEFAULT_POLICY, companionVisibility: v });
 
   assert.equal(companionContentAllowed("escalation", at("never")), false);
-  assert.equal(companionContentAllowed("escalation", at("escalation_excerpt")), true);
-  assert.equal(companionContentAllowed("routine", at("escalation_excerpt")), false,
+  assert.equal(companionContentAllowed("escalation", at("escalation")), true);
+  assert.equal(companionContentAllowed("routine", at("escalation")), false,
     "an escalation grant must not become a reading habit");
   assert.equal(companionContentAllowed("member_shared", at("member_shared")), true);
   assert.equal(companionContentAllowed("routine", at("member_shared")), false);
