@@ -86,7 +86,7 @@ replay and having it.
    table as it does today. Both paths active, nothing depends on events yet. ✅
 3. Backfill existing rows as synthetic genesis events (`payload_version: 0`,
    `source_system: 'backfill'`, `occurred_at` from the row's own timestamp). These are
-   explicitly marked as reconstructed, never presented as original evidence.
+   explicitly marked as reconstructed, never presented as original evidence. ✅
 4. Flip reads to projections rebuilt from events; verify byte-identical output.
 5. Remove direct writes to the current tables. The event append becomes the only path.
 
@@ -108,6 +108,20 @@ role assignment before any event is appended.
 Recorders are best-effort (`appendEventSafe`): during dual-write a spine failure must
 never break a working product path. A test asserts exactly this — a completion for an
 unprovisioned person still writes its current-state row and simply records no event.
+
+**Implementation note (step 3, shipped).** Idempotency is achieved without a tracking
+table: a genesis event's id is `ulidFrom(sourceTimestamp, "table:rowId")` — the time
+component is the source row's own timestamp, and the random component is a hash of the
+source row's identity. Re-running therefore produces identical ids, and the insert is a
+no-op. The same construction gives chronological ordering for free: reconstructed events
+sort into their true position relative to each other and to live events, rather than
+bunching at the moment the backfill ran.
+
+`occurred_at` is the source row's timestamp; `recorded_at` defaults to now. That
+asymmetry is exactly what the two columns are for, and it is asserted in the tests.
+
+Verified against the demo dataset: 69 events reconstructed across 8 types spanning the
+full multi-week history, chronologically ordered, and a second run inserts nothing.
 
 ### 5. Scope boundary for Handoff A
 

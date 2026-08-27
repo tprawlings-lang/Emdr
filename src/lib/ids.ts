@@ -72,6 +72,21 @@ export function ulid(now: number = Date.now()): string {
   return encodeTime(lastTime) + lastRandom.map((c) => ENCODING[c]).join("");
 }
 
+/** A ULID derived deterministically from a timestamp and a seed string.
+ *
+ *  Used by the genesis backfill (ADR 0010 step 3): the time component comes from
+ *  the source row's own timestamp, so reconstructed events sort into their true
+ *  chronological position, and the random component is a hash of the source
+ *  row's identity, so re-running the backfill produces the *same* id and the
+ *  insert conflicts instead of duplicating. Idempotency without a tracking
+ *  table. */
+export function ulidFrom(timestampMs: number, seed: string): string {
+  const digest = crypto.createHash("sha256").update(seed).digest();
+  let out = "";
+  for (let i = 0; i < RANDOM_LEN; i++) out += ENCODING[digest[i] % 32];
+  return encodeTime(Math.max(0, Math.floor(timestampMs))) + out;
+}
+
 /** Milliseconds encoded in a ULID's time component; null if malformed. */
 export function ulidTime(id: string): number | null {
   if (!isUlid(id)) return null;
