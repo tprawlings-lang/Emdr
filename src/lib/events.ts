@@ -25,25 +25,30 @@ import { PLATFORM_TENANT_ID } from "./db";
 
 // ---------- Type catalog ----------
 
+// Version 2 marks the payloads that carry a `projectionId` — the primary key of
+// the current-state row the event produces. Step 4 (rebuilding projections from
+// events) is what forced it: without the key, a rebuild invents new ids and the
+// result can never be byte-identical to the incremental path. See PROJECTORS in
+// projections.ts for which key each type carries.
 export const EVENT_TYPES = {
   // Identity / consent
   "person.registered": 1,
-  "consent.granted": 1,
-  "consent.withdrawn": 1,
+  "consent.granted": 2,
+  "consent.withdrawn": 2,
 
   // State and measurement
-  "daily_checkin.completed": 1,
+  "daily_checkin.completed": 2,
   "assessment.scored": 1,
   "readiness.recalculated": 1,
 
   // Care / intervention
   "intervention.assigned": 1,
-  "intervention.completed": 1,
+  "intervention.completed": 2,
   "intervention.response_recorded": 1,
-  "session.started": 1,
-  "session.completed": 1,
-  "session.hard_stopped": 1,
-  "lesson.read": 1,
+  "session.started": 2,
+  "session.completed": 2,
+  "session.hard_stopped": 2,
+  "lesson.read": 2,
 
   // AI / memory
   "memory.recorded": 1,
@@ -57,7 +62,8 @@ export const EVENT_TYPES = {
 
   // Clinical action
   "clinician.reviewed": 1,
-  "module_unlock.decided": 1,
+  "module_unlock.requested": 2,
+  "module_unlock.decided": 2,
 } as const;
 
 export type EventType = keyof typeof EVENT_TYPES;

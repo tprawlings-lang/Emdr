@@ -17,6 +17,7 @@ import { selectTechniques } from "../therapy-kb/select";
 import { composeSessionResponse, buildSessionRephrasePrompt, type SessionResponse } from "../session-companion";
 import { validateCompanionOutput, SAFE_FALLBACK } from "../safety/companion-guard";
 import { aiCompanionEnabled } from "../companion-ai";
+import { grantConsent, withdrawConsent } from "../spine";
 
 // ---------- consent + availability ----------
 
@@ -40,8 +41,7 @@ export async function grantVoice(userId: string) {
     [userId]
   );
   if (!active) {
-    await c.run("INSERT INTO consents (id, user_id, policy_version, scope) VALUES (?, ?, ?, ?)",
-      [newId(), userId, VOICE_CONSENT_VERSION, "voice_biometric"]);
+    await grantConsent({ userId, policyVersion: VOICE_CONSENT_VERSION, scope: "voice_biometric" });
     await audit({ actorId: userId, actorRole: "member", family: "consent", type: "voice_consent_granted", detail: { policy_version: VOICE_CONSENT_VERSION, scope: "voice_biometric", via: "mobile" } });
   }
   return voiceInfo(userId);
@@ -49,7 +49,7 @@ export async function grantVoice(userId: string) {
 
 export async function withdrawVoice(userId: string) {
   const c = await data();
-  await c.run("UPDATE consents SET revoked_at = CURRENT_TIMESTAMP WHERE user_id = ? AND scope = 'voice_biometric' AND revoked_at IS NULL", [userId]);
+  await withdrawConsent({ userId, scope: "voice_biometric" });
   await audit({ actorId: userId, actorRole: "member", family: "consent", type: "voice_consent_withdrawn", detail: { scope: "voice_biometric", via: "mobile" } });
   return voiceInfo(userId);
 }

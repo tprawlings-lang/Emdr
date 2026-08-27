@@ -33,7 +33,7 @@ import {
 } from "../profile";
 import { MODULES, getModule, type TherapyModule } from "../modules";
 import { audit } from "../audit";
-import { recordCheckin, recordSessionStarted, recordSessionFinished } from "../spine";
+import { recordCheckin, recordSessionStarted, recordSessionFinished, upsertRowId, nowStamp } from "../spine";
 import { writeMemory } from "../companion";
 import { getSavedCalmPlace } from "../session-focus";
 import { shadowDecide } from "../safety/decide";
@@ -185,25 +185,31 @@ export async function submitCheckinMobile(
   const action = evaluateCheckin(values);
   const c = await data();
   const date = todayISO();
+  // Identical to submitCheckin in lib/actions.ts: resolve the upsert's id first
+  // so the event names the row the write actually lands on.
+  const checkinId = await upsertRowId(
+    "checkins", "user_id = ? AND checkin_date = ?", [userId, date]
+  );
+  const checkinAt = nowStamp();
   await c.run(
     `INSERT INTO checkins (id, user_id, checkin_date, activation, shutdown, harm_urge, feels_safe,
-       dissociation, sleep_quality, substance_flag, recommended_action, triggers_json)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+       dissociation, sleep_quality, substance_flag, recommended_action, triggers_json, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT(user_id, checkin_date) DO UPDATE SET
        activation=excluded.activation, shutdown=excluded.shutdown, harm_urge=excluded.harm_urge,
        feels_safe=excluded.feels_safe, dissociation=excluded.dissociation,
        sleep_quality=excluded.sleep_quality, substance_flag=excluded.substance_flag,
        recommended_action=excluded.recommended_action, triggers_json=excluded.triggers_json`,
     [
-      newId(), userId, date,
+      checkinId, userId, date,
       values.activation, values.shutdown,
       values.harm_urge ? 1 : 0, values.feels_safe ? 1 : 0,
       values.dissociation, values.sleep_quality, values.substance_flag ? 1 : 0,
-      action, JSON.stringify(values.triggers ?? []),
+      action, JSON.stringify(values.triggers ?? []), checkinAt,
     ]
   );
   await recordCheckin({
-    userId, checkinDate: date,
+    userId, checkinId, occurredAt: checkinAt, checkinDate: date,
     activation: values.activation, shutdown: values.shutdown,
     dissociation: values.dissociation, sleepQuality: values.sleep_quality,
     harmUrge: values.harm_urge, feelsSafe: values.feels_safe,
@@ -286,12 +292,14 @@ export async function startSessionMobile(
   const chosenFocus = focus?.trim().slice(0, 200) || null;
   const c = await data();
   const id = newId();
+  const startedAt = nowStamp();
   await c.run(
-    "INSERT INTO therapy_sessions (id, user_id, module_id, detail_json) VALUES (?, ?, ?, ?)",
-    [id, userId, mod.id, JSON.stringify(chosenFocus ? { focus: chosenFocus } : {})]
+    "INSERT INTO therapy_sessions (id, user_id, module_id, detail_json, started_at) VALUES (?, ?, ?, ?, ?)",
+    [id, userId, mod.id, JSON.stringify(chosenFocus ? { focus: chosenFocus } : {}), startedAt]
   );
   await recordSessionStarted({
-    userId, sessionId: id, moduleId: mod.id, focus: chosenFocus ?? null, via: "mobile",
+    userId, sessionId: id, moduleId: mod.id, focus: chosenFocus ?? null,
+    occurredAt: startedAt, via: "mobile",
   });
 
   // Persist the focus (and, for the calm place, its durable slot) to companion
@@ -340,17 +348,19 @@ export async function finishSessionMobile(
   try { detail = JSON.parse(session.detail_json) as Record<string, unknown>; } catch { detail = {}; }
   detail.sudsTrail = args.sudsTrail;
 
+  const endedAt = nowStamp();
   await c.run(
     `UPDATE therapy_sessions SET status = ?, pre_suds = ?, post_suds = ?, peak_suds = ?,
-       hard_stop_reason = ?, detail_json = ?, ended_at = CURRENT_TIMESTAMP
+       hard_stop_reason = ?, detail_json = ?, ended_at = ?
      WHERE id = ?`,
     [args.outcome, args.preSuds, args.postSuds, args.peakSuds, args.hardStopReason ?? null,
-     JSON.stringify(detail), args.sessionId]
+     JSON.stringify(detail), endedAt, args.sessionId]
   );
   await recordSessionFinished({
     userId, sessionId: args.sessionId, moduleId: session.module_id,
     status: args.outcome, preSuds: args.preSuds, postSuds: args.postSuds,
-    peakSuds: args.peakSuds, hardStopReason: args.hardStopReason ?? null, via: "mobile",
+    peakSuds: args.peakSuds, hardStopReason: args.hardStopReason ?? null,
+    detail, occurredAt: endedAt, via: "mobile",
   });
   await audit({
     actorId: userId, actorRole: "member", family: "module_runtime",

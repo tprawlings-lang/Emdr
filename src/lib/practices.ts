@@ -15,7 +15,7 @@ import { newId } from "./db";
 import { audit } from "./audit";
 import { getTodayCheckin } from "./gating";
 import { writeMemory } from "./companion";
-import { recordInterventionCompleted } from "./spine";
+import { recordInterventionCompleted, nowStamp } from "./spine";
 
 export type PracticeType = "breathwork" | "meditation" | "movement" | "sleep" | "soundscape";
 
@@ -423,9 +423,11 @@ export async function recordPracticeCompletion(
   if (!practice) return { ok: false };
   const secs = Math.max(0, Math.min(3600, Math.round(durationSec)));
   const c = await data();
+  const completionId = newId();
+  const completedAt = nowStamp();
   await c.run(
-    "INSERT INTO practice_completions (id, user_id, practice_id, practice_type, duration_sec) VALUES (?, ?, ?, ?, ?)",
-    [newId(), userId, practice.id, practice.type, secs]
+    "INSERT INTO practice_completions (id, user_id, practice_id, practice_type, duration_sec, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+    [completionId, userId, practice.id, practice.type, secs, completedAt]
   );
   await writeMemory({
     userId,
@@ -442,7 +444,8 @@ export async function recordPracticeCompletion(
   // Dual-write to the longitudinal spine (ADR 0010 step 2). Shared by web and
   // mobile — both reach this function.
   await recordInterventionCompleted({
-    userId, interventionId: practice.id, interventionType: practice.type, durationSec: secs,
+    userId, completionId, interventionId: practice.id,
+    interventionType: practice.type, durationSec: secs, occurredAt: completedAt,
   });
   return { ok: true };
 }

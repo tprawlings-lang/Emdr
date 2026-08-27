@@ -87,10 +87,71 @@ replay and having it.
 3. Backfill existing rows as synthetic genesis events (`payload_version: 0`,
    `source_system: 'backfill'`, `occurred_at` from the row's own timestamp). These are
    explicitly marked as reconstructed, never presented as original evidence. ✅
-4. Flip reads to projections rebuilt from events; verify byte-identical output.
+4. Flip reads to projections rebuilt from events; verify byte-identical output. ✅
 5. Remove direct writes to the current tables. The event append becomes the only path.
 
 Steps 1–3 are non-breaking and can ship incrementally. Step 4 is the cutover.
+
+**Implementation note (step 4, shipped).** `lib/projections.ts` folds the event log into
+the current-state tables, and `tests/projections.test.ts` + `tests/projections-demo.test.ts`
+assert the byte-identical property this ADR calls the difference between claiming replay
+and having it.
+
+*The rebuild never writes live tables.* It folds into `spine_rebuild_*` shadow tables and
+diffs. A verifier that truncates production tables to prove itself is a worse liability
+than the drift it detects, and it could not be run against a PHI database at all.
+
+*Writing the test is what found the real work.* The dual-write payloads could not rebuild
+anything, and none of it was visible by reading the code:
+
+- **No payload carried the current-state row's primary key**, so every rebuild invented
+  new ids. Fixed by adding `projectionId` to the payloads that produce a row, which is
+  what `payload_version: 2` marks. A version-1 event is reported as an unreconstructable
+  gap rather than given a fabricated id — an invented id is silent drift, a reported gap
+  is a fact.
+- **Consent was written at seven places and recorded an event at two.** The other five
+  wrote history the spine never saw. The write and the event now live together in
+  `spine.grantConsent` / `withdrawConsent`, and all seven call it; the fix is structural
+  rather than "instrument five more call sites and hope the eighth remembers."
+- **The unlock workflow had no request event at all** — only the clinician's decision, so
+  a replay had no row to decide *on*. `module_unlock.requested` was added.
+- **Upsert-keyed writes named a row that did not exist.** A second check-in on a day, or a
+  re-read of a lesson, updates the existing row and keeps its id; the call sites minted a
+  fresh id inline and passed *that* to the recorder, so a replay produced a duplicate
+  instead of an update. `spine.upsertRowId` resolves the id the write will actually land
+  on, and the projectors distinguish insert-only columns (`created_at`, `requested_at`)
+  from ones an update overwrites.
+- **`detail_json` was unrecoverable**: it accrues at both session start and finish, so the
+  terminal event now carries it.
+- **Two clock reads could straddle a second.** The row took `CURRENT_TIMESTAMP` and the
+  event took its own moments later, which would make a replay differ occasionally and
+  unreproducibly. Instrumented writes now compute the timestamp once (`spine.nowStamp`)
+  and pass the same value to both — which also removes the last backend-specific date
+  functions from these queries.
+
+*What is deliberately NOT a full projection.* `users`/`accounts` hold credentials,
+`screenings` holds encrypted item responses, and `ai_memory_items` holds encrypted values;
+in each case the event carries the coded structure and the protected content stays in its
+own governance zone (ADR 0009 §1). You cannot rebuild from events what the events were
+designed never to contain, so these are partial projections and `PROJECTED_TABLES` is the
+honest list of the six rebuilt in full.
+
+*Scope boundary.* Reads already ran against the current-state tables, so nothing had to be
+repointed; what changed is that those tables are now *verified* projections rather than
+asserted ones. The event append is not yet the only write path — that is step 5, and it is
+the point at which dual-write stops being a safe resting place.
+
+Verified end to end: the live product path (check-in, repeat check-in, practices, lessons,
+a full session lifecycle, consent grant and withdrawal) and the genesis-backfilled demo
+dataset (three weeks, nine sessions including a hard stop, unlock requests and decisions)
+both replay byte-identically, and a point-in-time replay excludes facts recorded after the
+cut.
+
+One migration note: the genesis seed for an unlock decision changed from
+`module_unlocks:<id>` to `module_unlocks:<id>:decided` to match the request event's
+naming. A database already backfilled under the old seed will gain a second, differently
+identified decision event on the next run; re-seeding or deleting the old rows is the fix
+while history is still demo data.
 
 **Implementation note (step 2, shipped).** The check-in, screening, and session writes
 are duplicated between the web path (`lib/actions.ts`) and the mobile path

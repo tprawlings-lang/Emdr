@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 import { hashPassword, newId, verifyPassword } from "./db";
 import { data } from "./data";
 import { safetyRefundAndCancel, setCancelAtPeriodEnd, startDemoSubscription, subscriptionActive } from "./billing";
-import { provisionPerson, recordCheckin, recordAssessment, recordSessionStarted, recordSessionFinished, recordConsent } from "./spine";
+import { provisionPerson, recordCheckin, recordAssessment, recordSessionStarted, recordSessionFinished, grantConsent as spineGrantConsent, withdrawConsent as spineWithdrawConsent, recordUnlockRequested, recordUnlockDecision, upsertRowId, nowStamp } from "./spine";
 import { recordFitnessScreening } from "./fitness-screener";
 import { decryptField, encryptField } from "./crypto";
 import { audit } from "./audit";
@@ -167,10 +167,8 @@ export async function signup(formData: FormData) {
     role: wantsClinician ? "clinician" : "member",
     passwordHash: hashPassword(password),
   });
-  const insertConsentSql =
-    "INSERT INTO consents (id, user_id, policy_version, scope) VALUES (?, ?, ?, ?)";
-  await c.run(insertConsentSql, [newId(), userId, "wellness-ack-v1", "wellness_acknowledgment"]);
-  await c.run(insertConsentSql, [newId(), userId, currentTermsVersion(), "terms_acceptance"]);
+  await spineGrantConsent({ userId, policyVersion: "wellness-ack-v1", scope: "wellness_acknowledgment" });
+  await spineGrantConsent({ userId, policyVersion: currentTermsVersion(), scope: "terms_acceptance" });
   await setSessionCookie(userId);
   await audit({
     actorId: userId,
@@ -335,17 +333,13 @@ export async function grantConsent() {
   const c = await data();
   const existing = await c.get("SELECT id FROM consents WHERE user_id = ? AND scope = 'care_program_full' AND revoked_at IS NULL", [user.id]);
   if (!existing) {
-    await c.run("INSERT INTO consents (id, user_id, policy_version, scope) VALUES (?, ?, ?, ?)", [newId(), user.id, currentConsentVersion(), "care_program_full"]);
+    await spineGrantConsent({ userId: user.id, policyVersion: currentConsentVersion(), scope: "care_program_full" });
     await audit({
       actorId: user.id,
       actorRole: "member",
       family: "consent",
       type: "consent_granted",
       detail: { policy_version: currentConsentVersion(), scope: "care_program_full" },
-    });
-    await recordConsent({
-      userId: user.id, policyVersion: currentConsentVersion(),
-      scope: "care_program_full", granted: true,
     });
   }
   redirect("/screening");
@@ -858,14 +852,20 @@ export async function submitCheckin(formData: FormData) {
     .map(String)
     .filter((id) => knownIds.has(id));
   const c = await data();
+  // Upsert-keyed: a second check-in today updates the existing row and keeps its
+  // id, so resolve the id the write will land on before recording the event.
+  const checkinId = await upsertRowId(
+    "checkins", "user_id = ? AND checkin_date = ?", [user.id, todayISO()]
+  );
+  const checkinAt = nowStamp();
   await c.run(`INSERT INTO checkins (id, user_id, checkin_date, activation, shutdown, harm_urge, feels_safe,
-       dissociation, sleep_quality, substance_flag, recommended_action, triggers_json)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+       dissociation, sleep_quality, substance_flag, recommended_action, triggers_json, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT(user_id, checkin_date) DO UPDATE SET
        activation=excluded.activation, shutdown=excluded.shutdown, harm_urge=excluded.harm_urge,
        feels_safe=excluded.feels_safe, dissociation=excluded.dissociation,
        sleep_quality=excluded.sleep_quality, substance_flag=excluded.substance_flag,
-       recommended_action=excluded.recommended_action, triggers_json=excluded.triggers_json`, [newId(),
+       recommended_action=excluded.recommended_action, triggers_json=excluded.triggers_json`, [checkinId,
     user.id,
     todayISO(),
     values.activation,
@@ -876,9 +876,10 @@ export async function submitCheckin(formData: FormData) {
     values.sleep_quality,
     values.substance_flag ? 1 : 0,
     action,
-    JSON.stringify(triggersToday)]);
+    JSON.stringify(triggersToday),
+    checkinAt]);
   await recordCheckin({
-    userId: user.id, checkinDate: todayISO(),
+    userId: user.id, checkinId, occurredAt: checkinAt, checkinDate: todayISO(),
     activation: values.activation, shutdown: values.shutdown,
     dissociation: values.dissociation, sleepQuality: values.sleep_quality,
     harmUrge: values.harm_urge, feelsSafe: values.feels_safe,
@@ -1014,9 +1015,11 @@ export async function startSession(moduleId: string, focus?: string) {
   const chosenFocus = focus?.trim().slice(0, 200) || null;
   const c = await data();
   const id = newId();
-  await c.run("INSERT INTO therapy_sessions (id, user_id, module_id, detail_json) VALUES (?, ?, ?, ?)", [id, user.id, mod.id, JSON.stringify(chosenFocus ? { focus: chosenFocus } : {})]);
+  const startedAt = nowStamp();
+  await c.run("INSERT INTO therapy_sessions (id, user_id, module_id, detail_json, started_at) VALUES (?, ?, ?, ?, ?)", [id, user.id, mod.id, JSON.stringify(chosenFocus ? { focus: chosenFocus } : {}), startedAt]);
   await recordSessionStarted({
-    userId: user.id, sessionId: id, moduleId: mod.id, focus: chosenFocus ?? null, via: "web",
+    userId: user.id, sessionId: id, moduleId: mod.id, focus: chosenFocus ?? null,
+    occurredAt: startedAt, via: "web",
   });
 
   if (chosenFocus) {
@@ -1079,19 +1082,22 @@ export async function finishSession(args: {
   }
   detail.sudsTrail = args.sudsTrail;
 
+  const endedAt = nowStamp();
   await c.run(`UPDATE therapy_sessions SET status = ?, pre_suds = ?, post_suds = ?, peak_suds = ?,
-       hard_stop_reason = ?, detail_json = ?, ended_at = CURRENT_TIMESTAMP
+       hard_stop_reason = ?, detail_json = ?, ended_at = ?
      WHERE id = ?`, [args.outcome,
     args.preSuds,
     args.postSuds,
     args.peakSuds,
     args.hardStopReason ?? null,
     JSON.stringify(detail),
+    endedAt,
     args.sessionId]);
   await recordSessionFinished({
     userId: user.id, sessionId: args.sessionId, moduleId: session.module_id,
     status: args.outcome, preSuds: args.preSuds, postSuds: args.postSuds,
-    peakSuds: args.peakSuds, hardStopReason: args.hardStopReason ?? null, via: "web",
+    peakSuds: args.peakSuds, hardStopReason: args.hardStopReason ?? null,
+    detail, occurredAt: endedAt, via: "web",
   });
 
   await audit({
@@ -1192,11 +1198,19 @@ export async function requestUnlock(formData: FormData) {
   if (!mod || mod.tier !== "gated") redirect("/dashboard");
 
   const c = await data();
-  await c.run(`INSERT INTO module_unlocks (id, user_id, module_id, member_note)
-     VALUES (?, ?, ?, ?)
+  const unlockId = await upsertRowId(
+    "module_unlocks", "user_id = ? AND module_id = ?", [user.id, moduleId]
+  );
+  const requestedAt = nowStamp();
+  await c.run(`INSERT INTO module_unlocks (id, user_id, module_id, member_note, requested_at)
+     VALUES (?, ?, ?, ?, ?)
      ON CONFLICT(user_id, module_id) DO UPDATE SET
        status = 'requested', member_note = excluded.member_note,
-       requested_at = CURRENT_TIMESTAMP, decided_at = NULL, decision_reason = NULL`, [newId(), user.id, moduleId, note || null]);
+       requested_at = excluded.requested_at, decided_at = NULL, decision_reason = NULL`, [unlockId, user.id, moduleId, note || null, requestedAt]);
+  await recordUnlockRequested({
+    personId: user.id, unlockId, moduleId, memberNote: note || null,
+    occurredAt: requestedAt,
+  });
 
   // Priority specialist review is a Premium benefit: the request queues at a
   // higher severity so it sorts to the top of the clinician's list. The
@@ -1234,8 +1248,14 @@ export async function decideUnlock(formData: FormData) {
   const unlock = await c.get("SELECT id, user_id, module_id FROM module_unlocks WHERE id = ?", [unlockId]) as { id: string; user_id: string; module_id: string } | undefined;
   if (!unlock) return;
 
-  await c.run(`UPDATE module_unlocks SET status = ?, clinician_id = ?, decision_reason = ?, decided_at = CURRENT_TIMESTAMP
-     WHERE id = ?`, [decision, clinician.id, reason, unlockId]);
+  const decidedAt = nowStamp();
+  await c.run(`UPDATE module_unlocks SET status = ?, clinician_id = ?, decision_reason = ?, decided_at = ?
+     WHERE id = ?`, [decision, clinician.id, reason, decidedAt, unlockId]);
+  await recordUnlockDecision({
+    personId: unlock.user_id, unlockId, moduleId: unlock.module_id,
+    decision, clinicianId: clinician.id, decisionReason: reason,
+    occurredAt: decidedAt,
+  });
 
   await audit({
     actorId: clinician.id,
@@ -1267,12 +1287,21 @@ export async function clinicianOpenModule(formData: FormData) {
   const member = await c.get("SELECT id FROM users WHERE id = ? AND role = 'member'", [memberId]) as { id: string } | undefined;
   if (!member) redirect("/clinician");
 
-  await c.run(`INSERT INTO module_unlocks (id, user_id, module_id, status, clinician_id, decision_reason, override, decided_at)
-     VALUES (?, ?, ?, 'unlocked', ?, ?, 1, CURRENT_TIMESTAMP)
+  const overrideId = await upsertRowId(
+    "module_unlocks", "user_id = ? AND module_id = ?", [memberId, moduleId]
+  );
+  const overrideAt = nowStamp();
+  await c.run(`INSERT INTO module_unlocks (id, user_id, module_id, status, clinician_id, decision_reason, override, requested_at, decided_at)
+     VALUES (?, ?, ?, 'unlocked', ?, ?, 1, ?, ?)
      ON CONFLICT(user_id, module_id) DO UPDATE SET
        status = 'unlocked', clinician_id = excluded.clinician_id,
        decision_reason = excluded.decision_reason, override = 1,
-       decided_at = CURRENT_TIMESTAMP`, [newId(), memberId, moduleId, clinician.id, reason]);
+       decided_at = excluded.decided_at`, [overrideId, memberId, moduleId, clinician.id, reason, overrideAt, overrideAt]);
+  await recordUnlockDecision({
+    personId: memberId, unlockId: overrideId, moduleId,
+    decision: "unlocked", clinicianId: clinician.id, decisionReason: reason,
+    isOverride: true, occurredAt: overrideAt,
+  });
 
   await audit({
     actorId: clinician.id,
@@ -1295,9 +1324,20 @@ export async function clinicianCloseModule(formData: FormData) {
   if (!reason.trim()) redirect(`/clinician/member/${memberId}?error=reason_required`);
 
   const c = await data();
+  const closing = (await c.get(
+    "SELECT id FROM module_unlocks WHERE user_id = ? AND module_id = ?", [memberId, moduleId]
+  )) as { id: string } | undefined;
+  const closedAt = nowStamp();
   await c.run(`UPDATE module_unlocks SET status = 'revoked', clinician_id = ?, decision_reason = ?,
-       override = 0, decided_at = CURRENT_TIMESTAMP
-     WHERE user_id = ? AND module_id = ?`, [clinician.id, reason, memberId, moduleId]);
+       override = 0, decided_at = ?
+     WHERE user_id = ? AND module_id = ?`, [clinician.id, reason, closedAt, memberId, moduleId]);
+  if (closing) {
+    await recordUnlockDecision({
+      personId: memberId, unlockId: closing.id, moduleId,
+      decision: "revoked", clinicianId: clinician.id, decisionReason: reason,
+      isOverride: false, occurredAt: closedAt,
+    });
+  }
 
   await audit({
     actorId: clinician.id,
@@ -1541,7 +1581,7 @@ export async function grantVoiceConsent(): Promise<void> {
   const c = await data();
   const active = await c.get("SELECT id FROM consents WHERE user_id = ? AND scope = 'voice_biometric' AND revoked_at IS NULL LIMIT 1", [user.id]);
   if (!active) {
-    await c.run("INSERT INTO consents (id, user_id, policy_version, scope) VALUES (?, ?, ?, ?)", [newId(), user.id, VOICE_CONSENT_VERSION, "voice_biometric"]);
+    await spineGrantConsent({ userId: user.id, policyVersion: VOICE_CONSENT_VERSION, scope: "voice_biometric" });
     await audit({
       actorId: user.id,
       actorRole: "member",
@@ -1561,7 +1601,7 @@ export async function grantProcessingConsent(): Promise<void> {
   const c = await data();
   const active = await c.get("SELECT id FROM consents WHERE user_id = ? AND scope = 'processing_session' AND revoked_at IS NULL LIMIT 1", [user.id]);
   if (!active) {
-    await c.run("INSERT INTO consents (id, user_id, policy_version, scope) VALUES (?, ?, ?, ?)", [newId(), user.id, PROCESSING_CONSENT_VERSION, "processing_session"]);
+    await spineGrantConsent({ userId: user.id, policyVersion: PROCESSING_CONSENT_VERSION, scope: "processing_session" });
     await audit({
       actorId: user.id,
       actorRole: "member",
@@ -1576,8 +1616,7 @@ export async function grantProcessingConsent(): Promise<void> {
 export async function revokeProcessingConsent(): Promise<void> {
   const user = await requireMember();
   const c = await data();
-  const nowIso = new Date().toISOString();
-  await c.run("UPDATE consents SET revoked_at = ? WHERE user_id = ? AND scope = 'processing_session' AND revoked_at IS NULL", [nowIso, user.id]);
+  await spineWithdrawConsent({ userId: user.id, scope: "processing_session" });
   await audit({ actorId: user.id, actorRole: "member", family: "consent", type: "processing_consent_revoked", detail: { scope: "processing_session" } });
   revalidatePath("/settings/sessions");
 }
@@ -1653,7 +1692,7 @@ export async function recordResourcingEvent(event: "start" | "stop" | "closed"):
 export async function withdrawVoiceConsent(): Promise<void> {
   const user = await requireMember();
   const c = await data();
-  await c.run("UPDATE consents SET revoked_at = CURRENT_TIMESTAMP WHERE user_id = ? AND scope = 'voice_biometric' AND revoked_at IS NULL", [user.id]);
+  await spineWithdrawConsent({ userId: user.id, scope: "voice_biometric" });
   await audit({
     actorId: user.id,
     actorRole: "member",

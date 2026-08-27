@@ -9,7 +9,7 @@ import { makeSessionToken, type SessionUser } from "../auth";
 import { hashPassword, newId } from "../db";
 import { encryptField } from "../crypto";
 import { audit } from "../audit";
-import { provisionPerson, recordAssessment, recordConsent } from "../spine";
+import { provisionPerson, recordAssessment, grantConsent } from "../spine";
 import { currentConsentSections, currentConsentVersion, currentTermsVersion } from "../policy";
 import {
   FITNESS_ITEMS,
@@ -93,14 +93,10 @@ export async function grantConsentMobile(userId: string): Promise<{ ok: boolean 
     [userId]
   );
   if (!existing) {
-    await c.run("INSERT INTO consents (id, user_id, policy_version, scope) VALUES (?, ?, ?, ?)",
-      [newId(), userId, currentConsentVersion(), "care_program_full"]);
+    await grantConsent({ userId, policyVersion: currentConsentVersion(), scope: "care_program_full" });
     await audit({
       actorId: userId, actorRole: "member", family: "consent", type: "consent_granted",
       detail: { policy_version: currentConsentVersion(), scope: "care_program_full", via: "mobile" },
-    });
-    await recordConsent({
-      userId, policyVersion: currentConsentVersion(), scope: "care_program_full", granted: true,
     });
   }
   return { ok: true };

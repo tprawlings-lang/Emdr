@@ -10,7 +10,7 @@
 import { data } from "./data";
 import { newId } from "./db";
 import { audit } from "./audit";
-import { recordLessonRead } from "./spine";
+import { recordLessonRead, upsertRowId, nowStamp } from "./spine";
 
 export interface Lesson {
   id: string;
@@ -182,15 +182,21 @@ export async function markLessonRead(userId: string, lessonId: string): Promise<
   const lesson = getLesson(lessonId);
   if (!lesson) return { ok: false };
   const c = await data();
+  // Idempotent per (user, lesson): a re-read keeps the original row and its id,
+  // so resolve that id rather than minting one the write will discard.
+  const readId = await upsertRowId(
+    "lesson_reads", "user_id = ? AND lesson_id = ?", [userId, lesson.id]
+  );
+  const readAt = nowStamp();
   await c.run(
-    `INSERT INTO lesson_reads (id, user_id, lesson_id) VALUES (?, ?, ?)
+    `INSERT INTO lesson_reads (id, user_id, lesson_id, created_at) VALUES (?, ?, ?, ?)
      ON CONFLICT(user_id, lesson_id) DO NOTHING`,
-    [newId(), userId, lesson.id]
+    [readId, userId, lesson.id, readAt]
   );
   await audit({
     actorId: userId, actorRole: "member", family: "clinical",
     type: "lesson_read", target: lesson.id, detail: {},
   });
-  await recordLessonRead({ userId, lessonId: lesson.id });
+  await recordLessonRead({ userId, readId, lessonId: lesson.id, occurredAt: readAt });
   return { ok: true };
 }

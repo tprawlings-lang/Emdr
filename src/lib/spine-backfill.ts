@@ -90,13 +90,16 @@ export async function backfillGenesisEvents(opts: { limit?: number } = {}): Prom
   )) as { id: string; user_id: string; policy_version: string; scope: string; granted_at: string; revoked_at: string | null }[]) {
     rows.push({
       personId: r.user_id, type: "consent.granted", occurredAt: r.granted_at,
-      payload: { policyVersion: r.policy_version, scope: r.scope },
+      payload: { projectionId: r.id, policyVersion: r.policy_version, scope: r.scope },
       seed: `consents:${r.id}`,
     });
     if (r.revoked_at) {
       rows.push({
         personId: r.user_id, type: "consent.withdrawn", occurredAt: r.revoked_at,
-        payload: { policyVersion: r.policy_version, scope: r.scope },
+        payload: { projectionId: r.id, policyVersion: r.policy_version, scope: r.scope },
+        // A withdrawal recorded in the same second as its grant must still sort
+        // after it, or a replay closes a consent it has not yet opened.
+        idTimeMs: Math.max(toMs(r.revoked_at), toMs(r.granted_at) + 1),
         seed: `consents:${r.id}:revoked`,
       });
     }
@@ -121,13 +124,20 @@ export async function backfillGenesisEvents(opts: { limit?: number } = {}): Prom
   // ---- Daily check-ins ----
   for (const r of (await c.all(
     `SELECT id, user_id, checkin_date, activation, shutdown, harm_urge, feels_safe,
-            dissociation, sleep_quality, substance_flag, recommended_action, created_at
+            dissociation, sleep_quality, substance_flag, recommended_action,
+            triggers_json, created_at
        FROM checkins`, []
   )) as Record<string, string | number>[]) {
+    let triggerIds: string[] = [];
+    try {
+      const v = JSON.parse(String(r.triggers_json ?? "[]"));
+      if (Array.isArray(v)) triggerIds = v.map(String);
+    } catch { /* keep [] */ }
     rows.push({
       personId: String(r.user_id), type: "daily_checkin.completed",
       occurredAt: String(r.created_at ?? r.checkin_date),
       payload: {
+        projectionId: r.id, triggerIds,
         checkinDate: r.checkin_date, activation: r.activation, shutdown: r.shutdown,
         dissociation: r.dissociation, sleepQuality: r.sleep_quality,
         harmUrge: r.harm_urge === 1, feelsSafe: r.feels_safe === 1,
@@ -140,14 +150,21 @@ export async function backfillGenesisEvents(opts: { limit?: number } = {}): Prom
   // ---- Sessions: one start event, and one terminal event if it ended ----
   for (const r of (await c.all(
     `SELECT id, user_id, module_id, status, pre_suds, post_suds, peak_suds,
-            hard_stop_reason, started_at, ended_at
+            hard_stop_reason, detail_json, started_at, ended_at
        FROM therapy_sessions`, []
   )) as Record<string, string | number | null>[]) {
     const sid = String(r.id);
+    let detail: Record<string, unknown> = {};
+    try {
+      const v = JSON.parse(String(r.detail_json ?? "{}"));
+      if (v && typeof v === "object") detail = v as Record<string, unknown>;
+    } catch { /* keep {} */ }
     rows.push({
       personId: String(r.user_id), type: "session.started",
       occurredAt: String(r.started_at),
-      payload: { sessionId: sid, moduleId: r.module_id },
+      // `focus` is the only part of detail_json set at start; the rest accrues
+      // at completion and rides on the terminal event.
+      payload: { projectionId: sid, sessionId: sid, moduleId: r.module_id, focus: detail.focus ?? null },
       correlationId: sid, seed: `therapy_sessions:${sid}:started`,
     });
     if (r.ended_at) {
@@ -160,6 +177,7 @@ export async function backfillGenesisEvents(opts: { limit?: number } = {}): Prom
         occurredAt: String(r.ended_at),
         idTimeMs: Math.max(endedMs, startedMs + 1),
         payload: {
+          projectionId: sid, detail,
           sessionId: sid, moduleId: r.module_id, status: r.status,
           preSuds: r.pre_suds, postSuds: r.post_suds, peakSuds: r.peak_suds,
           hardStopReason: r.hard_stop_reason,
@@ -177,6 +195,7 @@ export async function backfillGenesisEvents(opts: { limit?: number } = {}): Prom
       personId: String(r.user_id), type: "intervention.completed",
       occurredAt: String(r.created_at),
       payload: {
+        projectionId: r.id,
         interventionId: r.practice_id, interventionType: r.practice_type,
         interventionVersion: "unversioned", durationSec: r.duration_sec,
       },
@@ -190,7 +209,8 @@ export async function backfillGenesisEvents(opts: { limit?: number } = {}): Prom
   )) as Record<string, string>[]) {
     rows.push({
       personId: r.user_id, type: "lesson.read", occurredAt: r.created_at,
-      payload: { lessonId: r.lesson_id }, seed: `lesson_reads:${r.id}`,
+      payload: { projectionId: r.id, lessonId: r.lesson_id },
+      seed: `lesson_reads:${r.id}`,
     });
   }
 
@@ -206,18 +226,32 @@ export async function backfillGenesisEvents(opts: { limit?: number } = {}): Prom
     });
   }
 
-  // ---- Clinician unlock decisions ----
+  // ---- Module unlocks: the member's request, then the clinician's decision ----
   for (const r of (await c.all(
-    `SELECT id, user_id, module_id, status, override, decided_at, clinician_id
-       FROM module_unlocks WHERE decided_at IS NOT NULL`, []
+    `SELECT id, user_id, module_id, status, member_note, override,
+            decision_reason, requested_at, decided_at, clinician_id
+       FROM module_unlocks`, []
   )) as Record<string, string | number | null>[]) {
+    const uid = String(r.id);
     rows.push({
-      personId: String(r.user_id), type: "module_unlock.decided",
-      occurredAt: String(r.decided_at),
-      payload: { moduleId: r.module_id, decision: r.status, override: r.override === 1 },
-      actorType: "clinician", actorId: r.clinician_id ? String(r.clinician_id) : null,
-      seed: `module_unlocks:${r.id}`,
+      personId: String(r.user_id), type: "module_unlock.requested",
+      occurredAt: String(r.requested_at),
+      payload: { projectionId: uid, moduleId: r.module_id, memberNote: r.member_note ?? null },
+      correlationId: uid, seed: `module_unlocks:${uid}:requested`,
     });
+    if (r.decided_at) {
+      rows.push({
+        personId: String(r.user_id), type: "module_unlock.decided",
+        occurredAt: String(r.decided_at),
+        idTimeMs: Math.max(toMs(String(r.decided_at)), toMs(String(r.requested_at)) + 1),
+        payload: {
+          projectionId: uid, moduleId: r.module_id, decision: r.status,
+          decisionReason: r.decision_reason ?? null, override: r.override === 1,
+        },
+        actorType: "clinician", actorId: r.clinician_id ? String(r.clinician_id) : null,
+        correlationId: uid, seed: `module_unlocks:${uid}:decided`,
+      });
+    }
   }
 
   // ---- Insert ----

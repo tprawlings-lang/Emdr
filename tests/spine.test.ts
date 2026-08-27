@@ -216,7 +216,10 @@ test("appendEvent writes an ordered, immutable record with provenance", async ()
   assert.equal(first.event_type, "daily_checkin.completed");
   assert.equal(first.payload.activation, 3);
   assert.equal(first.provenance.ruleVersion, "checkin-v1");
-  assert.equal(first.payload_version, 1);
+  // Version 2: the payload carries `projectionId`, the primary key of the
+  // current-state row it produces, without which a rebuild cannot reproduce
+  // that row (ADR 0010 step 4).
+  assert.equal(first.payload_version, 2);
   assert.equal(first.tenant_id, PLATFORM_TENANT_ID);
   assert.equal(first.actor_type, "patient", "defaults to the person");
   assert.equal(mine[1].actor_type, "system");
