@@ -1,34 +1,61 @@
-# Steady — self-guided wellness program built on the EMDR method (prototype)
+# Steady — behavioral-health platform in development (prototype)
 
-A calm, private, **self-guided wellness program** for adults: guided EMDR-based sessions,
-daily readiness check-ins, a Prepare & Regulate practice suite (breathwork, meditation,
-movement, sleep wind-downs), psychoeducation micro-lessons, an always-available SOS panel,
-grounding tools, goal-based care paths, an AI companion with member-controlled memory, and
-engineered safety rails. Launching in the **wellness lane** (see
-[`COMPLIANCE.md`](COMPLIANCE.md)): not therapy, not medical care, no diagnosis or treatment
-claims. Membership is three-tier — **Base $6.99 / Plus $19.99 / Premium $34.99 per month**
-— and every membership starts with **7 days of Premium free** (§8.4). Crisis support,
-Ground, and SOS are never tier-gated.
+> **Read the three states before anything else.** This repository holds one codebase at
+> three different levels of readiness, and conflating them is the single easiest way to
+> misread it.
+>
+> | | |
+> |---|---|
+> | **What runs today** | A self-guided **wellness-lane** program: guided EMDR-based sessions, daily readiness check-ins, a Prepare & Regulate practice suite, psychoeducation micro-lessons, an always-available SOS panel, grounding tools, goal-based care paths, an AI companion with member-controlled memory, and a deterministic safety gate chain. Documented in **§1–§14** and accurate as written. |
+> | **What is being built** | A **longitudinal behavioral-health platform** — Steady Personal → Clinical → Intelligence, the Handoff A→E series — for clinician piloting, enterprise/payer distribution, and outcome intelligence. Foundations are landing now (event spine, tenancy); the clinical and enterprise products are not built. |
+> | **Release status** | **Prototype. Nothing is available to the public or to any real participant.** No real patient, payer, or employee health data exists in any environment, and none may until the clinical, security, privacy, legal, and operational gates complete. Not a medical device; **not for emergency use** — US users in crisis should call or text **988**, or 911. |
 
-> **This is a development prototype.** It is not a medical device and is **not for
-> emergency use** — US users in crisis should call/text 988 or 911. Remaining launch
-> gates are tracked item-by-item in [`COMPLIANCE.md`](COMPLIANCE.md).
+**A note on tense.** §1–§14 describe the live prototype in the present tense because it
+genuinely runs. Everything in the platform section below is *in progress or planned* and
+says which. Where an architectural decision is recorded as "Accepted," that means the
+decision is settled — **not** that the work is done or the control is active. See
+[`docs/adr/README.md`](docs/adr/README.md), which states this explicitly and per-ADR.
 
-## Platform pivot in progress — read this before the rest of the document
+Membership pricing, tiers, and the upsell engine for the consumer product are in **§8.4**.
+They are one distribution channel of the platform thesis rather than the thesis itself, and
+should not be presented to investors as the business model — see
+[`docs/strategy/`](docs/strategy/).
 
-Everything below (§1–§14) documents the **wellness-lane prototype that is live today** —
-it is accurate and should not be revised to sound aspirational. But the company's
-direction changed: Steady is expanding from this consumer product into a longitudinal
-behavioral-health platform (Steady Personal → Clinical → Intelligence, the **Handoff A→E**
-series) aimed at three audiences simultaneously — **venture capital investment, clinician
-piloting, and cybersecurity/compliance oversight.** The planning corpus for that pivot
-lives in [`docs/strategy/`](docs/strategy/) (start with its `README.md`, then
+## The platform build — status, decisions, and gaps
+
+Steady is expanding from the consumer product above into a longitudinal behavioral-health
+platform (Steady Personal → Clinical → Intelligence, the **Handoff A→E** series) aimed at
+three audiences simultaneously — **venture capital investment, clinician piloting, and
+cybersecurity/compliance oversight.** The planning corpus lives in
+[`docs/strategy/`](docs/strategy/) (start with its `README.md`, then
 [`gap-analysis.md`](docs/strategy/gap-analysis.md)); the architectural decisions it forced
 are [ADR 0009](docs/adr/0009-clinical-lane-reclassification.md) (clinical-lane data zones),
 [ADR 0010](docs/adr/0010-event-sourced-longitudinal-spine.md) (event-sourced history),
 [ADR 0011](docs/adr/0011-tenancy-and-person-account-separation.md) (multi-tenancy + person/
-account split), and [ADR 0012](docs/adr/0012-ai-gateway.md) (AI gateway). The working rule
-across all of it: **design from Handoff E backward, implement from Handoff A forward.**
+account split), [ADR 0012](docs/adr/0012-ai-gateway.md) (AI gateway), and
+[ADR 0013](docs/adr/0013-event-authoritative-writes.md) (the event-authoritative cutover
+specification). The working rule across all of it: **design from Handoff E backward,
+implement from Handoff A forward.**
+
+### What is enforced today versus what is built but dormant
+
+This distinction is the one a security reviewer should get first, stated plainly:
+
+| Capability | Built and tested | Active in the running application |
+|---|---|---|
+| Deterministic safety gate chain (`checkModuleAccess`) | ✅ | ✅ — governs every member today |
+| Hash-chained audit log | ✅ | ✅ |
+| App-layer field encryption | ✅ | ✅ |
+| Event log written on every instrumented path | ✅ | ✅ — but **advisory**; the current-state write is still what the app depends on |
+| Projection replay (byte-identical) | ✅ | ⚠️ Verification tool, not a runtime path |
+| Tenant-scoped repository (`TenantContext`) | ✅ | ❌ **Product call sites were never migrated behind it** |
+| Postgres row-level security | ✅ CI-blocking against a real cluster | ❌ **Dormant** — the app still runs on SQLite, and nothing issues `SET LOCAL app.tenant_id` |
+| Autonomous safety engine (§10) | ✅ ratified with conditions | ❌ Shadow mode only |
+
+The repository contains tenant-safe building blocks and tested RLS policies. **The running
+SQLite application does not yet enforce end-to-end tenant isolation.** A building block is
+not a control until it is on the path every request takes; closing that gap is
+[ADR 0013](docs/adr/0013-event-authoritative-writes.md) §3 and §5.
 
 ### Migration status (ADR 0010 + 0011, executed together)
 
@@ -39,39 +66,85 @@ across all of it: **design from Handoff E backward, implement from Handoff A for
 | 0010.4 | Projections rebuilt from events, verified **byte-identical** against both the live path and the demo dataset (`tests/projections*.test.ts`) | ✅ Shipped |
 | 0010.5 | Remove direct writes — the event append becomes the *only* write path | 🔴 Not started — **the risky cutover step; needs a go/no-go decision (below)** |
 | 0011.1–4 | `tenants`/`persons`/`accounts` split, `tenant_id` backfilled everywhere, role moved off `users` | ✅ Shipped |
-| 0011.6 | Repository layer enforcing `TenantContext` + Postgres row-level security, both proven with cross-tenant attack cases (`tests/tenant-isolation.test.ts`, `scripts/verify-rls.sh` / `npm run test:rls`) | ✅ Shipped |
+| 0011.6 | Repository layer enforcing `TenantContext` + Postgres row-level security, both proven with cross-tenant attack cases (`tests/tenant-isolation.test.ts`, `scripts/verify-rls.sh` / `npm run test:rls`, CI-blocking) | ⚠️ Layer shipped — **product call sites not yet migrated behind it** |
 | 0011.5, .7 | Repoint FKs from `user_id` to `person_id`; retire `users` | 🔴 Deferred — low urgency (persons.id == users.id makes this a rename, not a data migration) |
 
 All of this is additive and non-breaking: 327 tests pass, e2e is 17/17, and the app still
-runs entirely on SQLite for local/demo use. **The Postgres cutover itself (ADR 0007) has
-not happened** — RLS is built and attack-tested against a real Postgres cluster in CI, but
-it is dormant in the running app until that cutover, and it requires a real secret-
-management decision (how `steady_app`'s login credential is provisioned) that has not been
-made.
+runs entirely on SQLite. **The Postgres cutover (ADR 0007) has not happened**, so RLS is
+dormant, and product call sites still bypass `TenantContext` — see the enforced-versus-
+dormant table above.
 
-### Decisions to make before the migration continues
+### Decisions taken — Platform Readiness Review, 2026-08-27
 
-1. **ADR 0010 step 5 (the cutover)** — proceed to make the event log the sole write path,
-   or hold at "dual-write, verified projections" while other work proceeds? Dual-write is a
-   legitimate resting place; the ADR's own risk section just warns it cannot be permanent.
-2. **Postgres cutover timing and secret store** — which credential/secrets system provisions
-   `steady_app` and `steady_platform_admin` in each environment.
-3. **BLS Part-6 scope** — needs reviewer confirmation; if out of scope it removes 9–15 months
-   from the critical path, so resolving it early is worth more than resolving it late.
+The founder review recorded in [`docs/adr/0013`](docs/adr/0013-event-authoritative-writes.md)
+settled the three questions that were open here:
 
-### The largest remaining gaps (untouched)
+1. **ADR 0010 step 5 — HOLD, then execute in a gated window.** The cutover targets
+   **2026-09-14 to 2026-09-18**, and runs only when all **ten go/no-go gates** pass. A
+   partial pass is a no-go, and if the infrastructure or tenant-transaction work slips the
+   window moves — the seven-day soak is not compressed to protect a date. Until then the
+   application stays on verified dual-write.
+2. **Next work — security and clinical definition**, not more migration. The clinician
+   workflow determines PHI movement, permissions, alerts, exports, and review
+   responsibilities, so it has to be defined before the enterprise foundations harden
+   around guesses.
+3. **BLS Part 6 — stays active** as a parallel clinical-validation workstream with its own
+   reviewer, protocol owner, evidence owner, and schedule. Member-facing access remains
+   gated until its own clinical and security conditions pass.
 
-These block full use by two of the three target audiences and have not been started:
+**Standing constraint through this entire build period:** only fabricated data. No real
+patient, payer, or employee health data enters any environment (gate **G10**).
 
-- **Security artifacts for the cybersecurity-oversight audience** — threat model, a PHI
-  data-flow diagram across the six governance zones (ADR 0009 §1), a vendor/BAA register,
-  a HIPAA risk analysis, and a rewritten security-review handoff packet. This is the single
-  biggest gap for that audience.
-- **Steady Clinical design spec** — Handoff B3 requires a clinician workflow spec that does
-  not yet exist; this blocks the clinician-piloting audience entirely.
-- **Doc rewrites named by the triage** ([`docs/docs-triage.md`](docs/docs-triage.md)) —
-  `COMPLIANCE.md` (highest priority), `competitive-positioning.md`, `architecture.md`, and
-  retiring the old consumer-only investor deck in favor of the platform narrative.
+### Programme order
+
+Step 5 is one foundation milestone; it does not by itself make Steady ready for clinical
+testing, payer review, or public availability. The agreed order:
+
+| Phase | Theme | Release boundary |
+|---|---|---|
+| 1 | Truth and workflow definition — current vs target architecture, Steady Clinical workflow, user/role map, PHI data flow, data classification, claims boundary | **Work starts now** |
+| 2 | Security foundation — threat model, risk register, vendor and BAA register, tenant/identity/secrets/logging, incident response, backup and recovery evidence | Before supervised pilot |
+| 3 | Permanent data spine — Postgres cutover, RLS active, Step 5 event-authoritative writes, provenance, corrections, retention, replay ops | Target Sep 14–18 |
+| ∥ | BLS Part 6 validation — protocol, test plan, evidence, reviewer checkpoints, staged validation | Active throughout |
+| 4 | Steady Clinical prototype — caseload view, patient timeline, alerts, evidence-linked AI summaries, clinician feedback, review actions, audit history, BLS oversight | Synthetic clinician testing |
+| 5 | Pilot readiness — rescoped clinical configuration, consent, protocol, training, support, monitoring, security review, counsel review, BAA completion | Before any real participant |
+| 6 | Payer and enterprise testing — org administration, reporting, eligibility, population workflows, interoperability sandbox, pilot economics | After pilot foundation |
+| 7 | Public or consumer decision — separate product posture, claims, support, safety monitoring, privacy, payments, accessibility, release review | Only after clinical and security review |
+
+### The largest remaining gaps
+
+Phase 1 and Phase 2 deliverables, none of which exist yet. These block two of the three
+target audiences:
+
+- **Security package** — system context and trust boundaries, PHI data-flow diagram across
+  the six governance zones (ADR 0009 §1), threat model and abuse cases, HIPAA security risk
+  register, vendor and subprocessor register, BAA status and data-access map, identity/
+  tenant/privilege model, logging and monitoring plan, incident and breach-response update,
+  and the security-review handoff packet.
+- **Clinical package** — caseload and priority workflow, patient timeline and evidence
+  views, alert severity and response ownership, AI summaries with citations, clinician
+  approval/correction/override, feedback taxonomy, escalation and re-entry workflow, pilot
+  inclusion and exclusion rules, safety-monitoring responsibilities, the BLS Part 6
+  validation and evidence packet, and a rescoped clinical sign-off packet.
+
+Both packages must describe **current controls and planned controls separately**, and every
+planned control needs an owner, a target phase, and an acceptance test. Contracts, BAAs,
+security findings, account details, and reviewer reports need controlled storage — only
+public-safe architecture belongs in this repository.
+
+### Open founder actions
+
+Tracked so they are not lost between sessions:
+
+| # | Item | Needed for |
+|---|---|---|
+| 1 | Confirm near-term clinical scope: adults-only, supervised, synthetic-first, one organization, limited care team | Phase 1 |
+| 2 | Name BLS Part 6's reviewer, protocol owner, evidence owner, validation schedule | Parallel workstream |
+| 3 | Name clinical reviewers, healthcare and privacy counsel, intended security reviewer | Phase 2, ADR 0009 |
+| 4 | Choose hosting direction; approve initial Postgres, secret, backup, monitoring, and test-environment budget | Phase 3 (Sep 3–5 window) |
+| 5 | Decide what stays in the public repository vs a private security/clinical workspace | Phase 2 |
+| 6 | Provide the expected vendor inventory (hosting, model, email, storage, monitoring, auth, analytics, support, billing) for the BAA register | Phase 2 |
+| 7 | Repository governance: set `main` as protected default, require PRs and green checks, and close/update/supersede draft **PR #10** (opened against a long-superseded `main`) | Now |
 
 ---
 
@@ -79,18 +152,24 @@ These block full use by two of the three target audiences and have not been star
 
 | If you are… | Read this | Why |
 |---|---|---|
-| **Building an investor deck** | [`docs/investor/Steady-Investor-Deck-Source.pdf`](docs/investor/) **first**, then §3 and §8 below — but see the pivot section above, since the platform narrative now supersedes the consumer-only deck | The PDF is the purpose-built handoff: complete product inventory, differentiation, monetization, growth model, risks, and a 20-slide map with design direction and non-negotiable language rules. Source HTML sits beside it — edit and re-render to update. |
+| **Building an investor deck** | The platform section above **first**, then [`docs/strategy/`](docs/strategy/), then [`docs/investor/Steady-Investor-Deck-Source.pdf`](docs/investor/) for the consumer-product inventory | ⚠️ The investor PDF predates the platform pivot and presents the consumer tiers as the thesis. It is still the best inventory of what the product *does*; it is **not** the current business narrative and should not circulate on its own. |
 | **Evaluating / diligencing** | §1–§9 (what governs members today), §10 (autonomous engine), then [`docs/signoff-checklist.md`](docs/signoff-checklist.md) | The honest picture of what is live, what is gated, and exactly what each gate needs. |
 | **Building on the API** | §1–§9, then §11 (data model) and [`openapi.yaml`](openapi.yaml) | The full gate chain, instruments, and scoring rules that any integration must respect. |
 | **A clinician reviewing** | §2, §4, §5, §10, then [`docs/autonomous/`](docs/autonomous/) | Instruments and scoring, the gate chain, the deterministic engine, and the signed sign-off ledger. |
-| **A security/compliance reviewer** | The pivot section above, then [`docs/adr/`](docs/adr/) 0009–0012 and [`scripts/verify-rls.sh`](scripts/verify-rls.sh) | The tenancy, event-history, and data-zone decisions and their attack-case proof. The fuller security artifact set (threat model, BAA register) is a named gap, not yet written. |
+| **A security/compliance reviewer** | The enforced-vs-dormant table above, then [`ADR 0013`](docs/adr/0013-event-authoritative-writes.md), then [`docs/adr/`](docs/adr/) 0009–0012 and [`scripts/verify-rls.sh`](scripts/verify-rls.sh) | ADR 0013 states current-versus-target most precisely and lists the ten cutover gates. The full security package (threat model, PHI data flow, BAA register, risk register) does **not exist yet** — it is Phase 2 and is named as a gap above, not glossed. |
 | **Seeing it work** | The live demo (see §12) | Web + iOS, running the current build. |
 
-**A note for deck builders:** everything a member sees is real and running — do not
-describe any feature in §3 or §8 as planned. Conversely, items marked 🔴 or "gated" in
-§14 are **not** live and must not be presented as shipped. §10.3 of the investor PDF
-lists the marketing language that is banned in this product (and enforced automatically
-in CI); those rules apply to the deck too.
+**A note for deck builders.** Three rules, in order of how easily each is broken:
+
+1. **Everything a member sees in §3 and §8 is real and running** — do not describe it as
+   planned. Conversely, anything marked 🔴 or "gated" in §14, and every platform capability
+   in the enforced-versus-dormant table marked ❌ or ⚠️, is **not** live and must not be
+   presented as shipped.
+2. **"Architected for" is accurate; "compliant with" is not.** Steady is not HIPAA
+   compliant, has no BAAs, and has not been reviewed by counsel or a security assessor. The
+   tenancy and event-history foundations anticipate that lane; they do not establish it.
+3. **§10.3 of the investor PDF lists the marketing language banned in this product** — the
+   ban is enforced automatically in CI and applies to the deck too.
 
 ---
 

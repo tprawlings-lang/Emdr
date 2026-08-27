@@ -16,7 +16,19 @@
 
 set -euo pipefail
 
+# Auto-detect the server binaries so a runner image bumping its Postgres major
+# does not silently skip this gate. Newest first; PGBIN overrides.
+if [ -z "${PGBIN:-}" ]; then
+  for d in $(ls -d /usr/lib/postgresql/*/bin 2>/dev/null | sort -Vr); do
+    [ -x "$d/initdb" ] && PGBIN="$d" && break
+  done
+fi
 PGBIN="${PGBIN:-/usr/lib/postgresql/16/bin}"
+if [ ! -x "$PGBIN/initdb" ]; then
+  echo "FAIL — no Postgres server binaries found (looked for \$PGBIN/initdb at '$PGBIN')." >&2
+  echo "       This gate must not be skipped silently: install postgresql or set PGBIN." >&2
+  exit 1
+fi
 PGDIR="${PGDIR:-/var/tmp/steady-rls-verify-$$}"
 PGPORT="${PGPORT:-55433}"
 PGHOST=/tmp

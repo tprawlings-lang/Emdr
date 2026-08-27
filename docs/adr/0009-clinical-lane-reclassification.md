@@ -1,6 +1,21 @@
 # 0009 — Reclassify to the clinical/PHI lane; environment tiers govern un-gating
 
-**Status:** Proposed — **requires counsel sign-off before Handoff A code lands.**
+**Status:** Proposed — **counsel review has not commenced.** No healthcare or privacy
+counsel has been engaged, and no sign-off exists.
+
+**What has and has not been decided.** Architectural work has proceeded *against this
+ADR's assumptions* — the event spine, tenancy model, and data-zone vocabulary all assume
+the clinical/PHI lane. That is deliberate exploration of a reversible technical direction,
+and it is **not** the lane reclassification itself. The reclassification is a legal and
+regulatory decision that only counsel can make, and until they do:
+>
+> - The live product remains in the **wellness lane** under [ADR 0001](0001-wellness-lane-posture.md)
+>   and `COMPLIANCE.md`, whatever the architecture anticipates.
+> - **No real patient, payer, or employee health data enters any environment.** All
+>   development and demonstration runs on fabricated data ([ADR 0013](0013-event-authoritative-writes.md)
+>   gate G10).
+> - No HIPAA-lane claim may be made to investors, clinicians, or security reviewers.
+>   "Architected for" is accurate; "compliant with" is not.
 Supersedes [ADR 0001](0001-wellness-lane-posture.md). Supersedes the runtime
 assumptions in [ADR 0004](0004-single-instance-architecture.md).
 

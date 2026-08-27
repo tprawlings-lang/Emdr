@@ -41,6 +41,25 @@ jobs:
             | grep -v "diagnosis remains" \
             | grep .
 
+  tenant-isolation:
+    # Cross-tenant isolation gate (ADR 0011 §4, Handoff C1; Step 5 gate G4).
+    #
+    # tests/tenant-isolation.test.ts runs inside the @safety suite above and
+    # covers the APPLICATION layer. This job covers the DATABASE layer, which is
+    # the half that still holds when the application layer has a bug: it stands
+    # up a real Postgres cluster, applies scripts/pg-schema.sql, and attacks it
+    # as the unprivileged application role.
+    #
+    # It is a separate blocking job rather than a manual script because a
+    # security control nobody runs is not a control. Postgres server binaries
+    # ship on the runner image; the script fails loudly if they are missing
+    # rather than passing vacuously.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Postgres row-level security attack cases
+        run: npm run test:rls
+
   e2e:
     # End-to-end suite: builds and starts the production server, then runs
     # Playwright checks on the critical unauthenticated surfaces (home, crisis,

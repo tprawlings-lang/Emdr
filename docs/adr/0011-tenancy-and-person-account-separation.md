@@ -1,6 +1,17 @@
 # 0011 — Tenancy from day one; person identity separate from account identity
 
-**Status:** Proposed — required before Handoff A code lands.
+**Status:** Accepted (2026-08) — **steps 1–4 and 6 implemented; 5 and 7 deferred.**
+
+One limit must be read with this: the tenant-scoping layer and the Postgres row-level
+security policies are built and attack-tested, but **the running application does not yet
+enforce end-to-end tenant isolation.** Product call sites were not migrated behind
+`TenantContext`, and RLS is dormant because the app still runs on SQLite
+([ADR 0007](0007-scaling-and-zero-downtime-deploys.md)). These are tenant-safe *building
+blocks*, and a building block is not a control until it is on the path every request takes.
+Closing that gap is [ADR 0013](0013-event-authoritative-writes.md) §3 and §5 (Sep 2–4,
+2026). Security material must state the difference plainly rather than describe the
+policies as active.
+
 Paired with [ADR 0010](0010-event-sourced-longitudinal-spine.md) — one migration.
 Implements the governance zones named in [ADR 0009](0009-clinical-lane-reclassification.md).
 
@@ -98,8 +109,11 @@ alongside tenant: retrieval is `(tenant, zone, purpose)`, which is what makes
 3. Create `persons`; one Person per existing user; `accounts` referencing them. ✅
 4. Move `role` to `RoleAssignment`, scoped to the platform tenant. ✅
 5. Repoint foreign keys from `user_id` to `person_id`.
-6. Introduce the repository layer and `TenantContext`; migrate call sites. ✅ *(layer and
-   isolation tests shipped; call-site migration follows ADR 0010 step 4)*
+6. Introduce the repository layer and `TenantContext`; migrate call sites. ⚠️ *Partial —
+   the layer and its cross-tenant attack tests are shipped; **product call sites have not
+   been migrated behind it**, so the enforcement is available rather than active. Call-site
+   migration and the `SET LOCAL app.tenant_id` wiring that activates RLS are*
+   [ADR 0013](0013-event-authoritative-writes.md) *§3 and §5 (Sep 2–4, 2026).*
 7. Retire `users` once nothing reads it.
 
 **Implementation refinement (steps 1–4, shipped).** `persons.id` is set **equal to

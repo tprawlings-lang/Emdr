@@ -1,7 +1,15 @@
 # 0010 — Event-sourced longitudinal spine; current-state tables become projections
 
-**Status:** Proposed — required before Handoff A code lands.
-Depends on [ADR 0007](0007-scaling-and-zero-downtime-deploys.md) (Postgres).
+**Status:** Accepted (2026-08) — **steps 1–4 implemented and shipped; step 5 held.**
+
+Step 4 (projections proven byte-identical) is *not* the cutover. The event log is written
+on every instrumented path and is provably sufficient to rebuild the current-state tables,
+but the current-state write is still the one the application depends on. **Step 5 — making
+the event append the only write path — is the cutover**, and it is specified and gated by
+[ADR 0013](0013-event-authoritative-writes.md), target window 2026-09-14 to 2026-09-18.
+
+Depends on [ADR 0007](0007-scaling-and-zero-downtime-deploys.md) (Postgres — decision
+accepted, **not yet executed**).
 Paired with [ADR 0011](0011-tenancy-and-person-account-separation.md) — one migration.
 
 ## Context
@@ -89,8 +97,13 @@ replay and having it.
    explicitly marked as reconstructed, never presented as original evidence. ✅
 4. Flip reads to projections rebuilt from events; verify byte-identical output. ✅
 5. Remove direct writes to the current tables. The event append becomes the only path.
+   🔴 **Held** — specified and gated by [ADR 0013](0013-event-authoritative-writes.md);
+   target window 2026-09-14 to 2026-09-18.
 
-Steps 1–3 are non-breaking and can ship incrementally. Step 4 is the cutover.
+Steps 1–4 are non-breaking and shipped incrementally. **Step 5 is the cutover** — the
+point at which a failed append becomes a failed command. An earlier revision of this ADR
+called step 4 the cutover; that was wrong, and the distinction is the one a reviewer needs:
+step 4 proves the log *could* be authoritative, step 5 makes it so.
 
 **Implementation note (step 4, shipped).** `lib/projections.ts` folds the event log into
 the current-state tables, and `tests/projections.test.ts` + `tests/projections-demo.test.ts`

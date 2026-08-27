@@ -1,7 +1,18 @@
 # 0007 — Scaling & zero-downtime deploys
 
-**Status:** Accepted (2026-07) — founder approved starting the migration now.
+**Status:** Accepted (2026-07) — **decision accepted, execution NOT complete.**
+The application still runs on **SQLite**; the Postgres cutover has not happened.
+`scripts/pg-schema.sql` is maintained and is executed against a real cluster on every CI
+run (`npm run test:rls`), so the schema is verified — but nothing in production reads it
+yet. The row-level security policies added for [ADR 0011](0011-tenancy-and-person-account-separation.md)
+are therefore **dormant until this ADR is executed.**
+Scheduled in [ADR 0013](0013-event-authoritative-writes.md) §"Execution schedule"
+(infrastructure decision Sep 3–5, rehearsal Sep 5–7, 2026).
 Execution tracked in `docs/audit-open-items.md`.
+
+> Accepted here means *the decision is settled*, not *the migration is done*. Anyone
+> diligencing this repository should read every "Accepted" ADR that way unless it says
+> otherwise.
 
 ## Context
 The app runs as a single instance (ADR 0004). Two consequences surfaced during
