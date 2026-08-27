@@ -1,3 +1,5 @@
+import { Suspense } from "react";
+import { getCurrentUser } from "@/lib/auth";
 import type { Metadata } from "next";
 import { Inter, Cormorant_Garamond } from "next/font/google";
 import "./globals.css";
@@ -16,6 +18,22 @@ export const metadata: Metadata = {
     "A calm, private, self-guided wellness program built on the EMDR method — guided sessions, grounding tools, and a companion that remembers. Not therapy, and not for emergency use.",
 };
 
+/** Names the fabricated persona currently signed in.
+ *
+ *  Handoff §2: "any screen that resembles a live service must carry the
+ *  persistent demo banner AND a fabricated persona indicator." The banner says
+ *  the environment is fake; this says *who you are pretending to be*, which is
+ *  the part a viewer forgets three screens into a walkthrough. */
+async function PersonaIndicator() {
+  const user = await getCurrentUser().catch(() => null);
+  if (!user) return null;
+  return (
+    <span className="mt-1 inline-block rounded-full bg-ivory/15 px-2 py-0.5 text-xs text-ivory">
+      Fabricated persona: <strong>{user.name}</strong> ({user.role})
+    </span>
+  );
+}
+
 export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
@@ -24,11 +42,29 @@ export default function RootLayout({
     <html lang="en" className={`h-full antialiased ${inter.variable} ${cormorant.variable}`}>
       <body className="min-h-full flex flex-col bg-ivory font-sans text-ground">
         {demo && (
-          <div className="bg-ground px-4 py-2 text-center text-sm text-ivory/90">
-            <strong>Demonstration environment.</strong> All people and data are fictional and
-            reset periodically. Member: demo@example.com · Clinician: clinician@example.com ·
-            password demo1234 — or{" "}
-            <a href="/signup" className="underline">create your own account</a>
+          // Demo-First handoff §1: every surface must carry this label, in these
+          // words. It is deliberately the first thing in the document and is not
+          // dismissible — a viewer who lands mid-journey, or sees a screenshot
+          // out of context, must still be told what they are looking at.
+          //
+          // The previous copy claimed data "resets periodically", which was not
+          // true: no reset existed. It is now an explicit operation
+          // (`npm run demo -- reset`), so the wording says what actually holds.
+          <div
+            role="note"
+            aria-label="Demonstration environment notice"
+            className="bg-ground px-4 py-2 text-center text-sm text-ivory"
+          >
+            <strong className="tracking-wide">DEMO — FABRICATED DATA — NOT CLINICAL CARE</strong>
+            <span className="block text-ivory/90">
+              Every person, record, and clinician in this environment is invented. Nothing here
+              is a real member, real health information, or approved care. Sign in as
+              demo@example.com or clinician@example.com with password demo1234, or{" "}
+              <a href="/signup" className="underline">create your own fabricated account</a>.
+            </span>
+            <Suspense fallback={null}>
+              <PersonaIndicator />
+            </Suspense>
           </div>
         )}
         <div className="flex-1">{children}</div>

@@ -32,8 +32,14 @@ test("clinician can open the autonomous review console and see gated decisions",
   const ruleForm = page.locator('form:has(input[name="rule_id"][value="FIT_UNDER_18"])');
   await ruleForm.locator('input[name="note"]').fill("Threshold correct per DSM age gate.");
   await ruleForm.getByRole("button", { name: "Agree" }).click();
-  // After the server action + reload, the register shows one agreed verdict.
-  await expect(page.getByText(/1 agreed/)).toBeVisible();
+  // Assert what THIS action did, not what the whole register contains: the rule
+  // now carries an agreed verdict and the note persisted. An absolute count
+  // ("1 agreed") would couple this spec to every other spec's sign-offs, which
+  // is what made it pass on a fresh database and fail on re-runs.
+  const ruleRow = page.locator(
+    'div[class*="bg-linen/40"]:has(input[name="rule_id"][value="FIT_UNDER_18"])'
+  );
+  await expect(ruleRow.getByText("agreed", { exact: true })).toBeVisible();
   await expect(ruleForm.locator('input[name="note"]')).toHaveValue(/DSM age gate/);
 
   // Session-runtime simulator: a +5 jump from a start of 3 must contain.

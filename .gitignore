@@ -36,6 +36,8 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+# ...but the committed reference file, which contains only placeholders.
+!.env.example
 
 # vercel
 .vercel
@@ -52,3 +54,6 @@ next-env.d.ts
 /.restore/
 *.age
 age-key*.txt
+
+# Hermetic e2e database (reset from the versioned demo baseline each run)
+.e2e-data/

@@ -7,8 +7,32 @@ import { hashPassword } from "./db";
 // a member three weeks into the program with improving scores, a pending
 // unlock request, a reviewed hard-stop, and a second member whose screening
 // tripped the urgent risk queue. All people and data are fictional.
+//
+// DETERMINISTIC. Every identifier is derived from DEMO_SEED_VERSION and a
+// counter, so two seedings of the same version produce byte-identical ids. The
+// Demo-First handoff §5 requires seed data to be "deterministic, versioned, and
+// reviewable" — random UUIDs made all three impossible: nothing could be
+// baselined, a reset could not be verified to have restored the same state, and
+// a reviewer could not be handed a hash to check.
+//
+// Wall-clock timestamps still move (the dataset is expressed as "N days ago" so
+// the demo always looks current). demoBaseline() in demo-reset.ts therefore
+// hashes the time-invariant projection — see that file for what is and is not
+// covered.
+
+/** Bump when the dataset changes. The baseline hash changes with it. */
+export const DEMO_SEED_VERSION = "demo-2026-08-v1";
+
+/** UUID-shaped but deterministic: sha256(version:n) rendered in UUID form, so
+ *  it drops into every existing `TEXT` id column unchanged. */
+export function demoId(n: number, version = DEMO_SEED_VERSION): string {
+  const h = crypto.createHash("sha256").update(`${version}:${n}`).digest("hex");
+  return [h.slice(0, 8), h.slice(8, 12), h.slice(12, 16), h.slice(16, 20), h.slice(20, 32)].join("-");
+}
+
 export function seedDemoData(db: Database.Database) {
-  const id = () => crypto.randomUUID();
+  let seq = 0;
+  const id = () => demoId(seq++);
   const daysAgo = (d: number, hour = 10) => {
     const t = new Date(Date.now() - d * 86400000);
     t.setUTCHours(hour, 15, 0, 0);

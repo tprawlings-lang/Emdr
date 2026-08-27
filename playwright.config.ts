@@ -25,13 +25,21 @@ export default defineConfig({
   webServer: useExternal
     ? undefined
     : {
-        command: "npm run build && npm run start",
+        // Hermetic: the e2e database is removed before the server starts, so every
+        // suite run begins from the versioned demo baseline. Resetting here rather
+        // than inside the app keeps the destructive step explicit and outside any
+        // request path.
+        command: "rm -rf .e2e-data && npm run build && npm run start",
         url: "http://127.0.0.1:3000",
         timeout: 240_000,
         reuseExistingServer: !process.env.CI,
         env: {
           NODE_ENV: "production",
           EMDR_DEMO: "1",
+          // A dedicated data directory, cleared by the command above. Without
+          // this the suite writes to .data/ and never clears it, so specs that
+          // assert on aggregate state pass once and fail on every re-run.
+          EMDR_DATA_DIR: ".e2e-data",
           EMDR_SESSION_SECRET: "e2e-placeholder-session-secret-not-a-real-secret",
           EMDR_DATA_KEY: "e2e-placeholder-data-key",
         },

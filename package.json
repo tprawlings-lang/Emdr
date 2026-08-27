@@ -12,7 +12,8 @@
     "test:rls": "bash scripts/verify-rls.sh",
     "loadcheck": "node scripts/loadcheck.mjs",
     "backup": "tsx scripts/backup.ts",
-    "restore": "tsx scripts/restore.ts"
+    "restore": "tsx scripts/restore.ts",
+    "demo": "tsx scripts/demo.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.104.1",

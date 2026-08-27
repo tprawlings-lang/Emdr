@@ -2,8 +2,8 @@ import Database from "better-sqlite3";
 import path from "path";
 import fs from "fs";
 import crypto from "crypto";
-import { seedDemoData } from "./demo-seed";
-import { ulid, NIL_ULID } from "./ids";
+import { seedDemoData, demoId } from "./demo-seed";
+import { ulid, NIL_ULID, ulidFrom } from "./ids";
 
 // Resolved lazily inside getDb() (not at module load) so EMDR_DATA_DIR is
 // honored even when set just before the first DB access — e.g. hermetic tests.
@@ -28,6 +28,15 @@ export function getDb(): Database.Database {
   // migrate) and a fresh one (mirrored now, once seed has created the users).
   // Idempotent, so running twice is harmless.
   backfillIdentitySpine(db);
+
+  // NOTE — deliberately NOT resetting here, even for demo environments.
+  // `db` is module-level state, and Next.js may instantiate this module more
+  // than once per process (route bundles carry their own copies), so any
+  // destructive work on this path can run again partway through a request and
+  // delete data another route just wrote. That failure was observed: a sign-off
+  // recorded by a server action vanished before the export route read it.
+  // Resetting is an explicit operation (`npm run demo -- reset`), never a side
+  // effect of opening the database.
   refreshDemoDaily(db);
   return db;
 }
@@ -49,7 +58,9 @@ function refreshDemoDaily(db: Database.Database) {
       `INSERT INTO checkins (id, user_id, checkin_date, activation, shutdown, harm_urge, feels_safe,
          dissociation, sleep_quality, substance_flag, recommended_action)
        VALUES (?, ?, ?, 3, 1, 0, 1, 1, 6, 0, 'processing_ok')`
-    ).run(newId(), m.id, today);
+      // Deterministic per member per day, so a reset reproduces it and a
+      // second boot on the same day cannot create a duplicate.
+    ).run(demoId(0, `checkin:${m.id}:${today}`), m.id, today);
   }
 }
 
@@ -603,11 +614,17 @@ function backfillIdentitySpine(db: Database.Database) {
   db.transaction(() => {
     for (const u of users) {
       insPerson.run(u.id, PLATFORM_TENANT_ID, u.name);
+      // Derived, not random: the account and role rows for a given user are
+      // reconstructions of facts that already exist, so re-running the backfill
+      // — or resetting a demo environment — must produce the same ids. A random
+      // ULID here made the seeded dataset unreproducible and its baseline hash
+      // meaningless. `ulidFrom` keeps them time-ordered and idempotent, the
+      // same construction the genesis backfill uses (ADR 0010 step 3).
       insAccount.run(
-        ulid(), u.id, PLATFORM_TENANT_ID, u.email,
+        ulidFrom(0, `accounts:${u.id}`), u.id, PLATFORM_TENANT_ID, u.email,
         u.password_hash, u.status ?? "active", u.token_epoch ?? 0
       );
-      insRole.run(ulid(), u.id, PLATFORM_TENANT_ID, u.role);
+      insRole.run(ulidFrom(0, `role_assignments:${u.id}:${u.role}`), u.id, PLATFORM_TENANT_ID, u.role);
     }
   })();
 }
@@ -640,6 +657,17 @@ export function newId(): string {
 // identity provider with AAL2 MFA for all roles (see executive plan).
 // With EMDR_DEMO=1, a rich fictional dataset is seeded instead so demo
 // deployments are interesting on first login.
+/** Unconditionally (re)seed the demo dataset and give it a current check-in.
+ *
+ *  `seed()` below returns early when users exist, which is right for boot and
+ *  wrong for a reset — a reset has just emptied the database and must rebuild
+ *  it through the same path a fresh environment uses, so the two can never
+ *  drift into producing subtly different datasets. */
+export function seedDemo(db: Database.Database) {
+  db.transaction(() => { seedDemoData(db); })();
+  refreshDemoDaily(db);
+}
+
 function seed(db: Database.Database) {
   const count = db.prepare("SELECT COUNT(*) AS n FROM users").get() as { n: number };
   if (count.n > 0) return;
