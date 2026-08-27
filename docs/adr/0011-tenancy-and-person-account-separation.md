@@ -93,15 +93,26 @@ alongside tenant: retrieval is `(tenant, zone, purpose)`, which is what makes
 
 ### 6. Migration path
 
-1. Create `tenants`, insert the platform tenant, add nullable `tenant_id` everywhere.
-2. Backfill every existing row to the platform tenant. Set `NOT NULL`.
-3. Create `persons`; one Person per existing user; `accounts` referencing them.
-   `users` becomes a compatibility view during transition.
-4. Move `role` to `RoleAssignment`, scoped to the platform tenant.
-5. Repoint foreign keys from `user_id` to `person_id`, keeping `user_id` as a
-   deprecated alias until call sites migrate.
+1. Create `tenants`, insert the platform tenant, add `tenant_id` everywhere. ✅
+2. Backfill every existing row to the platform tenant. ✅
+3. Create `persons`; one Person per existing user; `accounts` referencing them. ✅
+4. Move `role` to `RoleAssignment`, scoped to the platform tenant. ✅
+5. Repoint foreign keys from `user_id` to `person_id`.
 6. Introduce the repository layer and `TenantContext`; migrate call sites.
-7. Drop the compatibility view and the alias.
+7. Retire `users` once nothing reads it.
+
+**Implementation refinement (steps 1–4, shipped).** `persons.id` is set **equal to
+`users.id`**. Every existing `user_id` foreign key is therefore already a valid
+`person_id`, which turns step 5 from a data migration across 27 tables into a rename —
+the single largest risk reduction available in this ADR, and the reason to do the
+identity split before any further data accumulates.
+
+`tenant_id` was added with `DEFAULT '<platform tenant>'` rather than as a nullable
+column later tightened, so steps 1 and 2 collapsed into one non-breaking change: existing
+rows are correct by construction and `NOT NULL` holds from the start.
+
+Accounts receive their own ULID rather than reusing the user id, because a person may
+hold more than one account or none — the asymmetry is the point of the split.
 
 Steps 1–2 are mechanical and non-breaking. Steps 3–5 are the substance. Sequence this
 **with ADR 0010** — both rewrite the same tables, and doing them separately means paying

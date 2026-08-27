@@ -3,6 +3,7 @@ import path from "path";
 import fs from "fs";
 import crypto from "crypto";
 import { seedDemoData } from "./demo-seed";
+import { ulid, NIL_ULID } from "./ids";
 
 // Resolved lazily inside getDb() (not at module load) so EMDR_DATA_DIR is
 // honored even when set just before the first DB access — e.g. hermetic tests.
@@ -21,6 +22,12 @@ export function getDb(): Database.Database {
   db.pragma("foreign_keys = ON");
   migrate(db);
   seed(db);
+  // AFTER seed: on a fresh database migrate() runs against an empty users
+  // table, so the identity-spine backfill inside it finds nothing to mirror.
+  // Reconciling here covers both cases — an existing database (mirrored during
+  // migrate) and a fresh one (mirrored now, once seed has created the users).
+  // Idempotent, so running twice is harmless.
+  backfillIdentitySpine(db);
   refreshDemoDaily(db);
   return db;
 }
@@ -387,6 +394,123 @@ function migrate(db: Database.Database) {
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
     UNIQUE(user_id, lesson_id)
   );
+
+  -- ─────────────────────────────────────────────────────────────────────────
+  -- Longitudinal spine (ADR 0010) + identity/tenancy model (ADR 0011).
+  --
+  -- Additive: nothing above this line changes behaviour yet. The application
+  -- still reads and writes the current-state tables; these are populated in
+  -- parallel and become authoritative in a later step.
+  -- ─────────────────────────────────────────────────────────────────────────
+
+  -- A governance boundary. Consumer users belong to the reserved platform
+  -- tenant (NIL_ULID) so tenant_id is never null and the query path is uniform.
+  CREATE TABLE IF NOT EXISTS tenants (
+    id TEXT PRIMARY KEY,
+    kind TEXT NOT NULL CHECK (kind IN ('platform','organization','facility','program')),
+    name TEXT NOT NULL,
+    parent_tenant_id TEXT REFERENCES tenants(id),
+    status TEXT NOT NULL DEFAULT 'active',
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+
+  -- A human Steady holds data about. MAY EXIST WITHOUT AN ACCOUNT: Handoff C3
+  -- ingests covered populations whose members have never logged in. This is the
+  -- subject of every clinical record and every longitudinal event.
+  CREATE TABLE IF NOT EXISTS persons (
+    id TEXT PRIMARY KEY,
+    tenant_id TEXT NOT NULL REFERENCES tenants(id),
+    display_name TEXT,
+    timezone TEXT,
+    locale TEXT,
+    status TEXT NOT NULL DEFAULT 'active',
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+  CREATE INDEX IF NOT EXISTS idx_persons_tenant ON persons(tenant_id);
+
+  -- A login. Optional, and distinct from the person it authenticates.
+  CREATE TABLE IF NOT EXISTS accounts (
+    id TEXT PRIMARY KEY,
+    person_id TEXT NOT NULL REFERENCES persons(id),
+    tenant_id TEXT NOT NULL REFERENCES tenants(id),
+    email TEXT NOT NULL,
+    password_hash TEXT,
+    status TEXT NOT NULL DEFAULT 'active',
+    token_epoch INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    UNIQUE(email)
+  );
+  CREATE INDEX IF NOT EXISTS idx_accounts_person ON accounts(person_id);
+
+  -- Role is a RELATIONSHIP, not an attribute. This fixes a modelling error in
+  -- users.role: a clinician who is also a member is unrepresentable there.
+  CREATE TABLE IF NOT EXISTS role_assignments (
+    id TEXT PRIMARY KEY,
+    person_id TEXT NOT NULL REFERENCES persons(id),
+    tenant_id TEXT NOT NULL REFERENCES tenants(id),
+    role TEXT NOT NULL CHECK (role IN ('member','clinician','care_manager','admin')),
+    scope TEXT,
+    effective_from TEXT NOT NULL DEFAULT (datetime('now')),
+    effective_to TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    UNIQUE(person_id, tenant_id, role)
+  );
+  CREATE INDEX IF NOT EXISTS idx_role_assignments_person ON role_assignments(person_id, tenant_id);
+
+  -- Carries a person into an enterprise program without duplicating identity.
+  -- Time-bounded: historical membership is preserved, never overwritten.
+  CREATE TABLE IF NOT EXISTS enrollments (
+    id TEXT PRIMARY KEY,
+    person_id TEXT NOT NULL REFERENCES persons(id),
+    tenant_id TEXT NOT NULL REFERENCES tenants(id),
+    program_id TEXT,
+    eligibility TEXT,
+    effective_from TEXT NOT NULL DEFAULT (datetime('now')),
+    effective_to TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+  CREATE INDEX IF NOT EXISTS idx_enrollments_person ON enrollments(person_id, tenant_id);
+
+  -- Maps source-system IDs to canonical person IDs. Per Handoff C2, external
+  -- identifiers are NEVER primary keys.
+  CREATE TABLE IF NOT EXISTS external_identifiers (
+    id TEXT PRIMARY KEY,
+    person_id TEXT NOT NULL REFERENCES persons(id),
+    tenant_id TEXT NOT NULL REFERENCES tenants(id),
+    source_system TEXT NOT NULL,
+    external_id TEXT NOT NULL,
+    id_type TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    UNIQUE(tenant_id, source_system, external_id)
+  );
+
+  -- The authoritative history (ADR 0010). Append-only; corrections append a
+  -- superseding event rather than updating. occurred_at (when it happened in
+  -- the world) is distinct from recorded_at (when Steady learned of it) —
+  -- Handoff D4 needs both to reconstruct a prediction's inputs without
+  -- future-data leakage.
+  CREATE TABLE IF NOT EXISTS longitudinal_events (
+    id TEXT PRIMARY KEY,
+    tenant_id TEXT NOT NULL REFERENCES tenants(id),
+    person_id TEXT NOT NULL REFERENCES persons(id),
+    event_type TEXT NOT NULL,
+    payload_version INTEGER NOT NULL DEFAULT 1,
+    payload TEXT NOT NULL DEFAULT '{}',
+    actor_id TEXT,
+    actor_type TEXT NOT NULL DEFAULT 'system'
+      CHECK (actor_type IN ('patient','clinician','care_manager','system','model','integration')),
+    occurred_at TEXT NOT NULL DEFAULT (datetime('now')),
+    recorded_at TEXT NOT NULL DEFAULT (datetime('now')),
+    source_system TEXT NOT NULL DEFAULT 'steady',
+    provenance TEXT NOT NULL DEFAULT '{}',
+    correlation_id TEXT,
+    supersedes_event_id TEXT REFERENCES longitudinal_events(id)
+  );
+  CREATE INDEX IF NOT EXISTS idx_levents_person ON longitudinal_events(person_id, id);
+  CREATE INDEX IF NOT EXISTS idx_levents_tenant ON longitudinal_events(tenant_id, id);
+  CREATE INDEX IF NOT EXISTS idx_levents_type ON longitudinal_events(event_type, id);
+  CREATE INDEX IF NOT EXISTS idx_levents_correlation ON longitudinal_events(correlation_id);
   `);
 
   // Columns added after initial release; SQLite has no ADD COLUMN IF NOT EXISTS.
@@ -404,6 +528,88 @@ function migrate(db: Database.Database) {
   // Session revocation epoch: bumping it invalidates every issued token for the
   // user ("sign out everywhere" / password change). See auth.ts.
   ensureColumn(db, "users", "token_epoch", "INTEGER NOT NULL DEFAULT 0");
+
+  // ── Tenancy backfill (ADR 0011 steps 1–2) ────────────────────────────────
+  // Every durable record carries a tenant, not just the ones where it seems
+  // relevant — so isolation is a single invariant rather than a per-table
+  // judgement call. Existing rows default to the platform tenant, which makes
+  // this a non-breaking additive change.
+  for (const table of TENANT_SCOPED_TABLES) {
+    ensureColumn(db, table, "tenant_id", `TEXT NOT NULL DEFAULT '${PLATFORM_TENANT_ID}'`);
+  }
+  backfillIdentitySpine(db);
+}
+
+/** The reserved platform tenant. Direct-to-consumer records live here so the
+ *  tenant column is never null and every query path is uniform. */
+export const PLATFORM_TENANT_ID = NIL_ULID;
+
+/** Every table holding durable, person-scoped data. A test asserts this list
+ *  matches the schema, so a new table cannot silently escape tenant scoping
+ *  (ADR 0011 §4). */
+export const TENANT_SCOPED_TABLES = [
+  "users", "consents", "screenings", "checkins", "therapy_sessions",
+  "post_session_checks", "module_unlocks", "alerts", "user_profiles",
+  "user_triggers", "early_warning_signs", "readiness_assessments",
+  "safety_plans", "ai_companion_preferences", "ai_memory_items",
+  "ai_conversations", "ai_messages", "subscriptions", "payments",
+  "program_plans", "care_tracks", "care_track_intake", "practice_completions",
+  "upsell_events", "autopilot_plans", "autopilot_events", "lesson_reads",
+] as const;
+
+/** Create the platform tenant and mirror `users` onto the identity spine
+ *  (ADR 0011 steps 3–4).
+ *
+ *  `persons.id` is deliberately set equal to `users.id`. Every existing
+ *  `user_id` foreign key is therefore already a valid `person_id`, which turns
+ *  the ADR's step 5 ("repoint foreign keys") from a data migration into a
+ *  rename. Accounts get their own ULID because a person may later hold more
+ *  than one, or none.
+ *
+ *  Idempotent: safe to call any time to reconcile users created since the last
+ *  run. Exported as `syncIdentitySpine` for that purpose — identity dual-write
+ *  at the signup path is a later migration step. */
+export function syncIdentitySpine(db?: Database.Database) {
+  backfillIdentitySpine(db ?? getDb());
+}
+
+function backfillIdentitySpine(db: Database.Database) {
+  db.prepare(
+    `INSERT INTO tenants (id, kind, name) VALUES (?, 'platform', 'Steady Platform')
+     ON CONFLICT(id) DO NOTHING`
+  ).run(PLATFORM_TENANT_ID);
+
+  const users = db
+    .prepare("SELECT id, email, name, role, password_hash, status, token_epoch FROM users")
+    .all() as {
+      id: string; email: string; name: string; role: string;
+      password_hash: string; status: string; token_epoch: number;
+    }[];
+  if (users.length === 0) return;
+
+  const insPerson = db.prepare(
+    `INSERT INTO persons (id, tenant_id, display_name) VALUES (?, ?, ?)
+     ON CONFLICT(id) DO NOTHING`
+  );
+  const insAccount = db.prepare(
+    `INSERT INTO accounts (id, person_id, tenant_id, email, password_hash, status, token_epoch)
+     VALUES (?, ?, ?, ?, ?, ?, ?) ON CONFLICT(email) DO NOTHING`
+  );
+  const insRole = db.prepare(
+    `INSERT INTO role_assignments (id, person_id, tenant_id, role) VALUES (?, ?, ?, ?)
+     ON CONFLICT(person_id, tenant_id, role) DO NOTHING`
+  );
+
+  db.transaction(() => {
+    for (const u of users) {
+      insPerson.run(u.id, PLATFORM_TENANT_ID, u.name);
+      insAccount.run(
+        ulid(), u.id, PLATFORM_TENANT_ID, u.email,
+        u.password_hash, u.status ?? "active", u.token_epoch ?? 0
+      );
+      insRole.run(ulid(), u.id, PLATFORM_TENANT_ID, u.role);
+    }
+  })();
 }
 
 function ensureColumn(db: Database.Database, table: string, column: string, ddl: string) {

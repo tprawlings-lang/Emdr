@@ -81,7 +81,7 @@ replay and having it.
 
 ### 4. Migration path
 
-1. Introduce the table, the schema registry, and the append helper. No behaviour change.
+1. Introduce the table, the schema registry, and the append helper. No behaviour change. ✅
 2. **Dual-write**: every existing mutation appends its event *and* writes the current
    table as it does today. Both paths active, nothing depends on events yet.
 3. Backfill existing rows as synthetic genesis events (`payload_version: 0`,

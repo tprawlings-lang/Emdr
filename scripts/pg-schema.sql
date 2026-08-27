@@ -309,3 +309,135 @@ CREATE TABLE IF NOT EXISTS autonomous_signoffs (
   created_at text NOT NULL DEFAULT steady_now()
 );
 CREATE INDEX IF NOT EXISTS idx_signoffs_rule ON autonomous_signoffs(rule_id, config_version, created_at);
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- Longitudinal spine (ADR 0010) + identity/tenancy model (ADR 0011).
+-- Mirrors the SQLite definitions in src/lib/db.ts migrate(). Additive: the
+-- application still reads and writes the current-state tables above.
+-- ─────────────────────────────────────────────────────────────────────────────
+
+CREATE TABLE IF NOT EXISTS tenants (
+  id text PRIMARY KEY,
+  kind text NOT NULL CHECK (kind IN ('platform','organization','facility','program')),
+  name text NOT NULL,
+  parent_tenant_id text REFERENCES tenants(id),
+  status text NOT NULL DEFAULT 'active',
+  created_at text NOT NULL DEFAULT steady_now()
+);
+
+CREATE TABLE IF NOT EXISTS persons (
+  id text PRIMARY KEY,
+  tenant_id text NOT NULL REFERENCES tenants(id),
+  display_name text,
+  timezone text,
+  locale text,
+  status text NOT NULL DEFAULT 'active',
+  created_at text NOT NULL DEFAULT steady_now(),
+  updated_at text NOT NULL DEFAULT steady_now()
+);
+CREATE INDEX IF NOT EXISTS idx_persons_tenant ON persons(tenant_id);
+
+CREATE TABLE IF NOT EXISTS accounts (
+  id text PRIMARY KEY,
+  person_id text NOT NULL REFERENCES persons(id),
+  tenant_id text NOT NULL REFERENCES tenants(id),
+  email text NOT NULL UNIQUE,
+  password_hash text,
+  status text NOT NULL DEFAULT 'active',
+  token_epoch integer NOT NULL DEFAULT 0,
+  created_at text NOT NULL DEFAULT steady_now()
+);
+CREATE INDEX IF NOT EXISTS idx_accounts_person ON accounts(person_id);
+
+CREATE TABLE IF NOT EXISTS role_assignments (
+  id text PRIMARY KEY,
+  person_id text NOT NULL REFERENCES persons(id),
+  tenant_id text NOT NULL REFERENCES tenants(id),
+  role text NOT NULL CHECK (role IN ('member','clinician','care_manager','admin')),
+  scope text,
+  effective_from text NOT NULL DEFAULT steady_now(),
+  effective_to text,
+  created_at text NOT NULL DEFAULT steady_now(),
+  UNIQUE(person_id, tenant_id, role)
+);
+CREATE INDEX IF NOT EXISTS idx_role_assignments_person ON role_assignments(person_id, tenant_id);
+
+CREATE TABLE IF NOT EXISTS enrollments (
+  id text PRIMARY KEY,
+  person_id text NOT NULL REFERENCES persons(id),
+  tenant_id text NOT NULL REFERENCES tenants(id),
+  program_id text,
+  eligibility text,
+  effective_from text NOT NULL DEFAULT steady_now(),
+  effective_to text,
+  created_at text NOT NULL DEFAULT steady_now()
+);
+CREATE INDEX IF NOT EXISTS idx_enrollments_person ON enrollments(person_id, tenant_id);
+
+CREATE TABLE IF NOT EXISTS external_identifiers (
+  id text PRIMARY KEY,
+  person_id text NOT NULL REFERENCES persons(id),
+  tenant_id text NOT NULL REFERENCES tenants(id),
+  source_system text NOT NULL,
+  external_id text NOT NULL,
+  id_type text,
+  created_at text NOT NULL DEFAULT steady_now(),
+  UNIQUE(tenant_id, source_system, external_id)
+);
+
+CREATE TABLE IF NOT EXISTS longitudinal_events (
+  id text PRIMARY KEY,
+  tenant_id text NOT NULL REFERENCES tenants(id),
+  person_id text NOT NULL REFERENCES persons(id),
+  event_type text NOT NULL,
+  payload_version integer NOT NULL DEFAULT 1,
+  payload text NOT NULL DEFAULT '{}',
+  actor_id text,
+  actor_type text NOT NULL DEFAULT 'system'
+    CHECK (actor_type IN ('patient','clinician','care_manager','system','model','integration')),
+  occurred_at text NOT NULL DEFAULT steady_now(),
+  recorded_at text NOT NULL DEFAULT steady_now(),
+  source_system text NOT NULL DEFAULT 'steady',
+  provenance text NOT NULL DEFAULT '{}',
+  correlation_id text,
+  supersedes_event_id text REFERENCES longitudinal_events(id)
+);
+CREATE INDEX IF NOT EXISTS idx_levents_person ON longitudinal_events(person_id, id);
+CREATE INDEX IF NOT EXISTS idx_levents_tenant ON longitudinal_events(tenant_id, id);
+CREATE INDEX IF NOT EXISTS idx_levents_type ON longitudinal_events(event_type, id);
+CREATE INDEX IF NOT EXISTS idx_levents_correlation ON longitudinal_events(correlation_id);
+
+-- Tenancy backfill (ADR 0011 steps 1-2). Postgres supports ADD COLUMN IF NOT
+-- EXISTS, so this is the equivalent of ensureColumn() on the SQLite path.
+-- Existing rows default to the platform tenant: non-breaking and additive.
+
+INSERT INTO tenants (id, kind, name) VALUES ('00000000000000000000000000', 'platform', 'Steady Platform')
+  ON CONFLICT (id) DO NOTHING;
+
+ALTER TABLE users ADD COLUMN IF NOT EXISTS tenant_id text NOT NULL DEFAULT '00000000000000000000000000';
+ALTER TABLE consents ADD COLUMN IF NOT EXISTS tenant_id text NOT NULL DEFAULT '00000000000000000000000000';
+ALTER TABLE screenings ADD COLUMN IF NOT EXISTS tenant_id text NOT NULL DEFAULT '00000000000000000000000000';
+ALTER TABLE checkins ADD COLUMN IF NOT EXISTS tenant_id text NOT NULL DEFAULT '00000000000000000000000000';
+ALTER TABLE therapy_sessions ADD COLUMN IF NOT EXISTS tenant_id text NOT NULL DEFAULT '00000000000000000000000000';
+ALTER TABLE post_session_checks ADD COLUMN IF NOT EXISTS tenant_id text NOT NULL DEFAULT '00000000000000000000000000';
+ALTER TABLE module_unlocks ADD COLUMN IF NOT EXISTS tenant_id text NOT NULL DEFAULT '00000000000000000000000000';
+ALTER TABLE alerts ADD COLUMN IF NOT EXISTS tenant_id text NOT NULL DEFAULT '00000000000000000000000000';
+ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS tenant_id text NOT NULL DEFAULT '00000000000000000000000000';
+ALTER TABLE user_triggers ADD COLUMN IF NOT EXISTS tenant_id text NOT NULL DEFAULT '00000000000000000000000000';
+ALTER TABLE early_warning_signs ADD COLUMN IF NOT EXISTS tenant_id text NOT NULL DEFAULT '00000000000000000000000000';
+ALTER TABLE readiness_assessments ADD COLUMN IF NOT EXISTS tenant_id text NOT NULL DEFAULT '00000000000000000000000000';
+ALTER TABLE safety_plans ADD COLUMN IF NOT EXISTS tenant_id text NOT NULL DEFAULT '00000000000000000000000000';
+ALTER TABLE ai_companion_preferences ADD COLUMN IF NOT EXISTS tenant_id text NOT NULL DEFAULT '00000000000000000000000000';
+ALTER TABLE ai_memory_items ADD COLUMN IF NOT EXISTS tenant_id text NOT NULL DEFAULT '00000000000000000000000000';
+ALTER TABLE ai_conversations ADD COLUMN IF NOT EXISTS tenant_id text NOT NULL DEFAULT '00000000000000000000000000';
+ALTER TABLE ai_messages ADD COLUMN IF NOT EXISTS tenant_id text NOT NULL DEFAULT '00000000000000000000000000';
+ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS tenant_id text NOT NULL DEFAULT '00000000000000000000000000';
+ALTER TABLE payments ADD COLUMN IF NOT EXISTS tenant_id text NOT NULL DEFAULT '00000000000000000000000000';
+ALTER TABLE program_plans ADD COLUMN IF NOT EXISTS tenant_id text NOT NULL DEFAULT '00000000000000000000000000';
+ALTER TABLE care_tracks ADD COLUMN IF NOT EXISTS tenant_id text NOT NULL DEFAULT '00000000000000000000000000';
+ALTER TABLE care_track_intake ADD COLUMN IF NOT EXISTS tenant_id text NOT NULL DEFAULT '00000000000000000000000000';
+ALTER TABLE practice_completions ADD COLUMN IF NOT EXISTS tenant_id text NOT NULL DEFAULT '00000000000000000000000000';
+ALTER TABLE upsell_events ADD COLUMN IF NOT EXISTS tenant_id text NOT NULL DEFAULT '00000000000000000000000000';
+ALTER TABLE autopilot_plans ADD COLUMN IF NOT EXISTS tenant_id text NOT NULL DEFAULT '00000000000000000000000000';
+ALTER TABLE autopilot_events ADD COLUMN IF NOT EXISTS tenant_id text NOT NULL DEFAULT '00000000000000000000000000';
+ALTER TABLE lesson_reads ADD COLUMN IF NOT EXISTS tenant_id text NOT NULL DEFAULT '00000000000000000000000000';
