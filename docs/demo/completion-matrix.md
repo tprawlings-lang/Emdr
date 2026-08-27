@@ -175,16 +175,33 @@ Status is one of **Complete** / **Partial** / **Missing** / **Superseded**.
 
 Ordered. Findings **F1, F7, F10** are the demo-integrity floor and come first.
 
-| # | Work | Closes |
+| # | Work | Closes | State |
+|---|---|---|---|
+| 1 | Hermetic e2e + deterministic seed/reset with a versioned baseline | F1, F7 | ✅ `adad442` |
+| 2 | Mandated demo labelling and fabricated-persona indicator | F10 | ✅ `adad442` |
+| 3 | Operator entry points for backfill, replay, verify, and health check | F2, F9 | ✅ `adad442` — `npm run demo` |
+| 4 | `.env.example` | F11 | ✅ `adad442` |
+| 5 | Configurable clinical policy modes, versioned and environment-scoped | F5 | ✅ `src/lib/clinical-policy.ts` |
+| 6 | Guided scenario scripts | F8 | ✅ `scenario-scripts.md` |
+| 7 | `clinical-pilot-2026-09` proposed packet | F6 | ✅ `../clinical/clinical-pilot-2026-09.md` |
+| 8 | Phase 4 — Steady Clinical prototype | Handoff §9 | ⏳ Next |
+
+### Findings still open after this work
+
+| ID | Finding | Why it stays open |
 |---|---|---|
-| 1 | Hermetic e2e + deterministic seed/reset with a versioned baseline | F1, F7 |
-| 2 | Mandated demo labelling and fabricated-persona indicator | F10 |
-| 3 | Operator entry points for backfill, replay, verify, and health check | F2, F9 |
-| 4 | `.env.example` | F11 |
-| 5 | Configurable clinical policy modes, versioned and environment-scoped | F5 |
-| 6 | Guided scenario scripts | F8 |
-| 7 | `clinical-pilot-2026-09` proposed packet | F6 |
-| 8 | Phase 4 — Steady Clinical prototype | Handoff §9 |
+| **F3** | `EMDR_EVENT_AUTHORITATIVE` not implemented | ADR 0010 Step 5 is held for its gated window (Sep 14–18). Reserved and documented in `.env.example` so it is not reinvented |
+| **F4** | Tenant enforcement has zero product adoption | Phase 3 work; requires the Postgres cutover to be meaningful. Disclosed in every document that touches isolation |
+
+### Verification after this work
+
+| Command | Result |
+|---|---|
+| `npm run test:safety` | **355 pass, 0 fail** (339 → 355: +8 demo reset, +8 clinical policy) |
+| `npm run test:e2e` | **17/17**, verified reproducible across three consecutive runs |
+| `npm run test:rls` | 12 assertions pass |
+| `npm run demo -- verify` | Deterministic seed, idempotent backfill, byte-identical replay |
+| `npm run build` | Compiles |
 
 **Not authorised here:** ADR 0010 Step 5 (its own gated window), any real data, any claim of
 clinical, security, or production readiness.
