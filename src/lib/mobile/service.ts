@@ -33,6 +33,7 @@ import {
 } from "../profile";
 import { MODULES, getModule, type TherapyModule } from "../modules";
 import { audit } from "../audit";
+import { recordCheckin, recordSessionStarted, recordSessionFinished } from "../spine";
 import { writeMemory } from "../companion";
 import { getSavedCalmPlace } from "../session-focus";
 import { shadowDecide } from "../safety/decide";
@@ -201,6 +202,14 @@ export async function submitCheckinMobile(
       action, JSON.stringify(values.triggers ?? []),
     ]
   );
+  await recordCheckin({
+    userId, checkinDate: date,
+    activation: values.activation, shutdown: values.shutdown,
+    dissociation: values.dissociation, sleepQuality: values.sleep_quality,
+    harmUrge: values.harm_urge, feelsSafe: values.feels_safe,
+    substanceFlag: values.substance_flag, recommendedAction: action,
+    triggerIds: values.triggers ?? [], via: "mobile",
+  });
 
   // Readiness recompute — identical to submitCheckin in lib/actions.ts.
   try {
@@ -281,6 +290,9 @@ export async function startSessionMobile(
     "INSERT INTO therapy_sessions (id, user_id, module_id, detail_json) VALUES (?, ?, ?, ?)",
     [id, userId, mod.id, JSON.stringify(chosenFocus ? { focus: chosenFocus } : {})]
   );
+  await recordSessionStarted({
+    userId, sessionId: id, moduleId: mod.id, focus: chosenFocus ?? null, via: "mobile",
+  });
 
   // Persist the focus (and, for the calm place, its durable slot) to companion
   // memory — identical to web startSession, so what's set on the phone is
@@ -335,6 +347,11 @@ export async function finishSessionMobile(
     [args.outcome, args.preSuds, args.postSuds, args.peakSuds, args.hardStopReason ?? null,
      JSON.stringify(detail), args.sessionId]
   );
+  await recordSessionFinished({
+    userId, sessionId: args.sessionId, moduleId: session.module_id,
+    status: args.outcome, preSuds: args.preSuds, postSuds: args.postSuds,
+    peakSuds: args.peakSuds, hardStopReason: args.hardStopReason ?? null, via: "mobile",
+  });
   await audit({
     actorId: userId, actorRole: "member", family: "module_runtime",
     type: `session_${args.outcome}`, target: session.module_id,

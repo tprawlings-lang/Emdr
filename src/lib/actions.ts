@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { hashPassword, newId, verifyPassword } from "./db";
 import { data } from "./data";
 import { safetyRefundAndCancel, setCancelAtPeriodEnd, startDemoSubscription, subscriptionActive } from "./billing";
+import { provisionPerson, recordCheckin, recordAssessment, recordSessionStarted, recordSessionFinished, recordConsent } from "./spine";
 import { recordFitnessScreening } from "./fitness-screener";
 import { decryptField, encryptField } from "./crypto";
 import { audit } from "./audit";
@@ -159,6 +160,13 @@ export async function signup(formData: FormData) {
 
   const userId = newId();
   await c.run("INSERT INTO users (id, email, name, role, password_hash, dob) VALUES (?, ?, ?, ?, ?, ?)", [userId, email, name, wantsClinician ? "clinician" : "member", hashPassword(password), dob]);
+  // Identity dual-write (ADR 0011). Must run before any event append: a user
+  // with no person row would fail longitudinal_events' foreign key.
+  await provisionPerson({
+    userId, name, email,
+    role: wantsClinician ? "clinician" : "member",
+    passwordHash: hashPassword(password),
+  });
   const insertConsentSql =
     "INSERT INTO consents (id, user_id, policy_version, scope) VALUES (?, ?, ?, ?)";
   await c.run(insertConsentSql, [newId(), userId, "wellness-ack-v1", "wellness_acknowledgment"]);
@@ -335,6 +343,10 @@ export async function grantConsent() {
       type: "consent_granted",
       detail: { policy_version: currentConsentVersion(), scope: "care_program_full" },
     });
+    await recordConsent({
+      userId: user.id, policyVersion: currentConsentVersion(),
+      scope: "care_program_full", granted: true,
+    });
   }
   redirect("/screening");
 }
@@ -364,6 +376,10 @@ export async function submitScreening(formData: FormData) {
 
   await c.run(`INSERT INTO screenings (id, user_id, instrument, instrument_version, total_score, answers_json, risk_flags_json)
      VALUES (?, ?, ?, ?, ?, ?, ?)`, [newId(), user.id, instrument.id, instrument.version, total, encryptField(JSON.stringify(answers)), JSON.stringify(riskFlags)]);
+  await recordAssessment({
+    userId: user.id, instrument: instrument.id, instrumentVersion: instrument.version,
+    totalScore: total, riskFlags, context, via: "web",
+  });
 
   await audit({
     actorId: user.id,
@@ -861,6 +877,14 @@ export async function submitCheckin(formData: FormData) {
     values.substance_flag ? 1 : 0,
     action,
     JSON.stringify(triggersToday)]);
+  await recordCheckin({
+    userId: user.id, checkinDate: todayISO(),
+    activation: values.activation, shutdown: values.shutdown,
+    dissociation: values.dissociation, sleepQuality: values.sleep_quality,
+    harmUrge: values.harm_urge, feelsSafe: values.feels_safe,
+    substanceFlag: values.substance_flag, recommendedAction: action,
+    triggerIds: triggersToday, via: "web",
+  });
 
   // Readiness recalculates over time: blend today's somatic state with the
   // slower-moving answers from the latest stored assessment.
@@ -991,6 +1015,9 @@ export async function startSession(moduleId: string, focus?: string) {
   const c = await data();
   const id = newId();
   await c.run("INSERT INTO therapy_sessions (id, user_id, module_id, detail_json) VALUES (?, ?, ?, ?)", [id, user.id, mod.id, JSON.stringify(chosenFocus ? { focus: chosenFocus } : {})]);
+  await recordSessionStarted({
+    userId: user.id, sessionId: id, moduleId: mod.id, focus: chosenFocus ?? null, via: "web",
+  });
 
   if (chosenFocus) {
     // The chosen focus feeds the companion's memory so chat can pick up
@@ -1061,6 +1088,11 @@ export async function finishSession(args: {
     args.hardStopReason ?? null,
     JSON.stringify(detail),
     args.sessionId]);
+  await recordSessionFinished({
+    userId: user.id, sessionId: args.sessionId, moduleId: session.module_id,
+    status: args.outcome, preSuds: args.preSuds, postSuds: args.postSuds,
+    peakSuds: args.peakSuds, hardStopReason: args.hardStopReason ?? null, via: "web",
+  });
 
   await audit({
     actorId: user.id,

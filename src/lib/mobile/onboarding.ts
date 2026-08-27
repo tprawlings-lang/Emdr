@@ -9,6 +9,7 @@ import { makeSessionToken, type SessionUser } from "../auth";
 import { hashPassword, newId } from "../db";
 import { encryptField } from "../crypto";
 import { audit } from "../audit";
+import { provisionPerson, recordAssessment, recordConsent } from "../spine";
 import { currentConsentSections, currentConsentVersion, currentTermsVersion } from "../policy";
 import {
   FITNESS_ITEMS,
@@ -53,6 +54,10 @@ export async function signupMobile(input: {
     "INSERT INTO users (id, email, name, role, password_hash, dob) VALUES (?, ?, ?, 'member', ?, ?)",
     [userId, email, name, hashPassword(input.password), input.dob]
   );
+  // Identity dual-write (ADR 0011) — must precede any event append.
+  await provisionPerson({
+    userId, name, email, role: "member", passwordHash: hashPassword(input.password),
+  });
   const insertConsent = "INSERT INTO consents (id, user_id, policy_version, scope) VALUES (?, ?, ?, ?)";
   await c.run(insertConsent, [newId(), userId, "wellness-ack-v1", "wellness_acknowledgment"]);
   await c.run(insertConsent, [newId(), userId, currentTermsVersion(), "terms_acceptance"]);
@@ -93,6 +98,9 @@ export async function grantConsentMobile(userId: string): Promise<{ ok: boolean 
     await audit({
       actorId: userId, actorRole: "member", family: "consent", type: "consent_granted",
       detail: { policy_version: currentConsentVersion(), scope: "care_program_full", via: "mobile" },
+    });
+    await recordConsent({
+      userId, policyVersion: currentConsentVersion(), scope: "care_program_full", granted: true,
     });
   }
   return { ok: true };
@@ -148,6 +156,10 @@ export async function submitMeasureMobile(
     [newId(), userId, instrument.id, instrument.version, total,
      encryptField(JSON.stringify(answers)), JSON.stringify(riskFlags)]
   );
+  await recordAssessment({
+    userId, instrument: instrument.id, instrumentVersion: instrument.version,
+    totalScore: total, riskFlags, context: "baseline", via: "mobile",
+  });
   await audit({
     actorId: userId, actorRole: "member", family: "clinical", type: "screening_submitted",
     target: instrument.id, detail: { total, riskFlags, version: instrument.version, context: "baseline", via: "mobile" },

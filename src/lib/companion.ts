@@ -123,6 +123,12 @@ export async function writeMemory(args: {
       [newId(), args.userId, args.type, args.key, encryptField(args.value), args.source, args.sourceId ?? null]
     );
   }
+  // Dual-write (ADR 0010 step 2). Type/key/source only — the value stays
+  // encrypted in ai_memory_items under its own governance zone.
+  const { recordMemoryWritten } = await import("./spine");
+  await recordMemoryWritten({
+    userId: args.userId, memoryType: args.type, key: args.key, source: args.source,
+  });
 }
 
 export async function getMemoryItems(userId: string): Promise<MemoryItem[]> {

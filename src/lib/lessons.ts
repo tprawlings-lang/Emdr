@@ -10,6 +10,7 @@
 import { data } from "./data";
 import { newId } from "./db";
 import { audit } from "./audit";
+import { recordLessonRead } from "./spine";
 
 export interface Lesson {
   id: string;
@@ -190,5 +191,6 @@ export async function markLessonRead(userId: string, lessonId: string): Promise<
     actorId: userId, actorRole: "member", family: "clinical",
     type: "lesson_read", target: lesson.id, detail: {},
   });
+  await recordLessonRead({ userId, lessonId: lesson.id });
   return { ok: true };
 }

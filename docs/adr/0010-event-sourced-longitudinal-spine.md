@@ -83,7 +83,7 @@ replay and having it.
 
 1. Introduce the table, the schema registry, and the append helper. No behaviour change. ✅
 2. **Dual-write**: every existing mutation appends its event *and* writes the current
-   table as it does today. Both paths active, nothing depends on events yet.
+   table as it does today. Both paths active, nothing depends on events yet. ✅
 3. Backfill existing rows as synthetic genesis events (`payload_version: 0`,
    `source_system: 'backfill'`, `occurred_at` from the row's own timestamp). These are
    explicitly marked as reconstructed, never presented as original evidence.
@@ -91,6 +91,23 @@ replay and having it.
 5. Remove direct writes to the current tables. The event append becomes the only path.
 
 Steps 1–3 are non-breaking and can ship incrementally. Step 4 is the cutover.
+
+**Implementation note (step 2, shipped).** The check-in, screening, and session writes
+are duplicated between the web path (`lib/actions.ts`) and the mobile path
+(`lib/mobile/*.ts`). Instrumenting each independently would double that duplication and
+let the two event streams drift — the same change applied to one path and not the other
+would silently produce different history for web and mobile members. The event *shapes*
+therefore live once in `lib/spine.ts`; both call sites invoke the same recorder.
+
+Identity dual-write (`provisionPerson`) turned out to be a **prerequisite**, not a
+parallel concern: `longitudinal_events.person_id` references `persons(id)`, so a user
+created since the last boot would have had no person row and every append for them would
+have failed the foreign key. Signup on both paths now provisions the person, account, and
+role assignment before any event is appended.
+
+Recorders are best-effort (`appendEventSafe`): during dual-write a spine failure must
+never break a working product path. A test asserts exactly this — a completion for an
+unprovisioned person still writes its current-state row and simply records no event.
 
 ### 5. Scope boundary for Handoff A
 

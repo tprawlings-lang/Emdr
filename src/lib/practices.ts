@@ -15,6 +15,7 @@ import { newId } from "./db";
 import { audit } from "./audit";
 import { getTodayCheckin } from "./gating";
 import { writeMemory } from "./companion";
+import { recordInterventionCompleted } from "./spine";
 
 export type PracticeType = "breathwork" | "meditation" | "movement" | "sleep" | "soundscape";
 
@@ -437,6 +438,11 @@ export async function recordPracticeCompletion(
     actorId: userId, actorRole: "member", family: "clinical",
     type: "practice_completed", target: practice.id,
     detail: { type: practice.type, durationSec: secs },
+  });
+  // Dual-write to the longitudinal spine (ADR 0010 step 2). Shared by web and
+  // mobile — both reach this function.
+  await recordInterventionCompleted({
+    userId, interventionId: practice.id, interventionType: practice.type, durationSec: secs,
   });
   return { ok: true };
 }
