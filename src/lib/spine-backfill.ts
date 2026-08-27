@@ -53,6 +53,13 @@ interface GenesisRow {
   correlationId?: string | null;
   /** Stable identity of the source row: `${table}:${id}[:${discriminator}]`. */
   seed: string;
+  /** Overrides the millisecond used to build the event id, without changing the
+   *  truthful `occurredAt` string. Needed where two events share a source
+   *  timestamp but have a required order — a session that starts and ends
+   *  within the same second must still not appear to end before it began.
+   *  Source timestamps are second-resolution, so a sub-second nudge is below
+   *  the precision of the recorded value. */
+  idTimeMs?: number;
 }
 
 export async function backfillGenesisEvents(opts: { limit?: number } = {}): Promise<BackfillResult> {
@@ -145,10 +152,13 @@ export async function backfillGenesisEvents(opts: { limit?: number } = {}): Prom
     });
     if (r.ended_at) {
       const hardStopped = r.status === "hard_stop";
+      const startedMs = toMs(String(r.started_at));
+      const endedMs = toMs(String(r.ended_at));
       rows.push({
         personId: String(r.user_id),
         type: hardStopped ? "session.hard_stopped" : "session.completed",
         occurredAt: String(r.ended_at),
+        idTimeMs: Math.max(endedMs, startedMs + 1),
         payload: {
           sessionId: sid, moduleId: r.module_id, status: r.status,
           preSuds: r.pre_suds, postSuds: r.post_suds, peakSuds: r.peak_suds,
@@ -211,13 +221,14 @@ export async function backfillGenesisEvents(opts: { limit?: number } = {}): Prom
   }
 
   // ---- Insert ----
-  const ordered = rows.sort((a, b) => toMs(a.occurredAt) - toMs(b.occurredAt));
+  const effective = (r: GenesisRow) => r.idTimeMs ?? toMs(r.occurredAt);
+  const ordered = rows.sort((a, b) => effective(a) - effective(b));
   const slice = opts.limit ? ordered.slice(0, opts.limit) : ordered;
   result.scanned = slice.length;
 
   for (const row of slice) {
     if (!personIds.has(row.personId)) { result.skippedNoPerson++; continue; }
-    const id = ulidFrom(toMs(row.occurredAt), `${row.seed}`);
+    const id = ulidFrom(row.idTimeMs ?? toMs(row.occurredAt), row.seed);
     const before = await c.get("SELECT 1 AS x FROM longitudinal_events WHERE id = ?", [id]);
     if (before) continue;
     await c.run(

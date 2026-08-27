@@ -310,6 +310,56 @@ CREATE TABLE IF NOT EXISTS autonomous_signoffs (
 );
 CREATE INDEX IF NOT EXISTS idx_signoffs_rule ON autonomous_signoffs(rule_id, config_version, created_at);
 
+-- Practice, lesson, upsell, and Autopilot tables. These were added to the
+-- SQLite schema during the tiering and Autopilot work and had drifted out of
+-- this file — the tenancy ALTERs below referenced tables Postgres had never
+-- been told to create. Caught by executing this schema against a real cluster
+-- rather than reading it.
+
+CREATE TABLE IF NOT EXISTS practice_completions (
+  id text PRIMARY KEY,
+  user_id text NOT NULL REFERENCES users(id),
+  practice_id text NOT NULL,
+  practice_type text NOT NULL,
+  duration_sec integer NOT NULL DEFAULT 0,
+  created_at text NOT NULL DEFAULT steady_now()
+);
+CREATE INDEX IF NOT EXISTS idx_practice_completions_user ON practice_completions(user_id, created_at);
+
+CREATE TABLE IF NOT EXISTS lesson_reads (
+  id text PRIMARY KEY,
+  user_id text NOT NULL REFERENCES users(id),
+  lesson_id text NOT NULL,
+  created_at text NOT NULL DEFAULT steady_now(),
+  UNIQUE(user_id, lesson_id)
+);
+
+CREATE TABLE IF NOT EXISTS upsell_events (
+  id text PRIMARY KEY,
+  user_id text NOT NULL REFERENCES users(id),
+  kind text NOT NULL,
+  created_at text NOT NULL DEFAULT steady_now()
+);
+CREATE INDEX IF NOT EXISTS idx_upsell_events_user ON upsell_events(user_id, created_at);
+
+CREATE TABLE IF NOT EXISTS autopilot_plans (
+  user_id text NOT NULL REFERENCES users(id),
+  plan_date text NOT NULL,
+  checkin_state text NOT NULL DEFAULT 'none',
+  plan_json text NOT NULL,
+  created_at text NOT NULL DEFAULT steady_now(),
+  updated_at text NOT NULL DEFAULT steady_now(),
+  PRIMARY KEY (user_id, plan_date)
+);
+
+CREATE TABLE IF NOT EXISTS autopilot_events (
+  id text PRIMARY KEY,
+  user_id text NOT NULL REFERENCES users(id),
+  kind text NOT NULL,
+  created_at text NOT NULL DEFAULT steady_now()
+);
+CREATE INDEX IF NOT EXISTS idx_autopilot_events_user ON autopilot_events(user_id, created_at);
+
 -- ─────────────────────────────────────────────────────────────────────────────
 -- Longitudinal spine (ADR 0010) + identity/tenancy model (ADR 0011).
 -- Mirrors the SQLite definitions in src/lib/db.ts migrate(). Additive: the
@@ -441,3 +491,93 @@ ALTER TABLE upsell_events ADD COLUMN IF NOT EXISTS tenant_id text NOT NULL DEFAU
 ALTER TABLE autopilot_plans ADD COLUMN IF NOT EXISTS tenant_id text NOT NULL DEFAULT '00000000000000000000000000';
 ALTER TABLE autopilot_events ADD COLUMN IF NOT EXISTS tenant_id text NOT NULL DEFAULT '00000000000000000000000000';
 ALTER TABLE lesson_reads ADD COLUMN IF NOT EXISTS tenant_id text NOT NULL DEFAULT '00000000000000000000000000';
+
+-- ---------------------------------------------------------------------------
+-- Row-level security (ADR 0011 §3 — the second half of tenant isolation)
+-- ---------------------------------------------------------------------------
+--
+-- src/lib/repository.ts enforces tenant scoping in the application layer. That
+-- layer is only as good as its own correctness: one raw query that bypasses the
+-- repository, or one bug inside it, is cross-tenant PHI exposure. RLS closes
+-- that gap by moving the predicate into the database, where the application
+-- cannot forget it.
+--
+-- How it fits together:
+--
+--   * The app connects as `steady_app` — deliberately NOT the schema owner, and
+--     not a superuser, because both bypass RLS. It is created NOLOGIN here on
+--     purpose: this file must not mint a passwordless login role. The operator
+--     runs `ALTER ROLE steady_app LOGIN PASSWORD '<from the secret store>'` as a
+--     deployment step, and the same for steady_platform_admin members.
+--   * Every transaction sets `app.tenant_id` from the authenticated session's
+--     TenantContext. A statement issued without it matches no rows at all: the
+--     failure mode of a forgotten scope is "sees nothing", never "sees
+--     everything".
+--   * Cross-tenant access is a ROLE, not a flag. `steady_platform_admin` gets a
+--     second permissive policy. The app's own role cannot grant itself that
+--     policy by setting a GUC, so an application-layer compromise still cannot
+--     cross a tenant boundary. crossTenantContext() in the application layer
+--     mirrors this, and both are audited.
+--
+-- FORCE ROW LEVEL SECURITY is applied so the policies bind the table owner too;
+-- without it a migration run as owner would silently see everything.
+--
+-- Policies are generated from the catalog rather than a hardcoded list: any
+-- table carrying a tenant_id column is covered automatically, so a new
+-- tenant-scoped table cannot be added and left unprotected. Re-running is
+-- idempotent.
+
+DO $$
+DECLARE
+  r record;
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'steady_app') THEN
+    CREATE ROLE steady_app NOLOGIN;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'steady_platform_admin') THEN
+    CREATE ROLE steady_platform_admin NOLOGIN;
+  END IF;
+
+  FOR r IN
+    SELECT c.relname AS table_name
+      FROM pg_class c
+      JOIN pg_namespace n ON n.oid = c.relnamespace
+      JOIN pg_attribute a ON a.attrelid = c.oid
+     WHERE c.relkind = 'r'
+       AND n.nspname = current_schema()
+       AND a.attname = 'tenant_id'
+       AND a.attnum > 0
+       AND NOT a.attisdropped
+  LOOP
+    EXECUTE format('ALTER TABLE %I ENABLE ROW LEVEL SECURITY', r.table_name);
+    EXECUTE format('ALTER TABLE %I FORCE ROW LEVEL SECURITY', r.table_name);
+
+    EXECUTE format('DROP POLICY IF EXISTS tenant_isolation ON %I', r.table_name);
+    EXECUTE format($f$
+      CREATE POLICY tenant_isolation ON %I
+        USING (tenant_id = current_setting('app.tenant_id', true))
+        WITH CHECK (tenant_id = current_setting('app.tenant_id', true))
+    $f$, r.table_name);
+
+    -- Platform administration. Membership in the role is the grant; no session
+    -- variable can substitute for it.
+    EXECUTE format('DROP POLICY IF EXISTS platform_admin_access ON %I', r.table_name);
+    EXECUTE format($f$
+      CREATE POLICY platform_admin_access ON %I
+        USING (pg_has_role(current_user, 'steady_platform_admin', 'member'))
+        WITH CHECK (pg_has_role(current_user, 'steady_platform_admin', 'member'))
+    $f$, r.table_name);
+
+    -- Append-only tables are append-only at the privilege level too, not merely
+    -- by convention: the application role is never granted UPDATE or DELETE on
+    -- the event log, so immutability (ADR 0010 §1) survives a bug in the
+    -- application layer as well as a decision to write around it.
+    IF r.table_name IN ('longitudinal_events', 'audit_log') THEN
+      EXECUTE format('GRANT SELECT, INSERT ON %I TO steady_app', r.table_name);
+      EXECUTE format('REVOKE UPDATE, DELETE ON %I FROM steady_app', r.table_name);
+    ELSE
+      EXECUTE format('GRANT SELECT, INSERT, UPDATE, DELETE ON %I TO steady_app', r.table_name);
+    END IF;
+  END LOOP;
+END
+$$;

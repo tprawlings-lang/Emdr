@@ -98,7 +98,8 @@ alongside tenant: retrieval is `(tenant, zone, purpose)`, which is what makes
 3. Create `persons`; one Person per existing user; `accounts` referencing them. ✅
 4. Move `role` to `RoleAssignment`, scoped to the platform tenant. ✅
 5. Repoint foreign keys from `user_id` to `person_id`.
-6. Introduce the repository layer and `TenantContext`; migrate call sites.
+6. Introduce the repository layer and `TenantContext`; migrate call sites. ✅ *(layer and
+   isolation tests shipped; call-site migration follows ADR 0010 step 4)*
 7. Retire `users` once nothing reads it.
 
 **Implementation refinement (steps 1–4, shipped).** `persons.id` is set **equal to
@@ -117,6 +118,47 @@ hold more than one account or none — the asymmetry is the point of the split.
 Steps 1–2 are mechanical and non-breaking. Steps 3–5 are the substance. Sequence this
 **with ADR 0010** — both rewrite the same tables, and doing them separately means paying
 the migration cost twice.
+
+**Implementation note (step 6, shipped).** Both halves of §3 exist, and both are proven
+by attack cases rather than asserted:
+
+*Application layer* — `src/lib/repository.ts`. A `Repository` cannot be constructed
+without a `TenantContext`, and it ANDs `tenant_id = ?` onto every statement it issues.
+Three properties are deliberate rather than incidental: `insert` stamps the tenant from
+the context and **ignores** any caller-supplied `tenant_id`; `update` strips `tenant_id`
+from the value set, so moving a record between tenants can never be a field write; and a
+table absent from `TENANT_SCOPED_TABLES` is **refused** rather than silently queried
+unscoped — the failure mode of forgetting the scope is a loud error, not a quiet breach.
+Writes return no row count, so a caller cannot infer a foreign row's existence from an
+affected-rows value. `crossTenantContext()` is the only escape hatch, is greppable by
+name, and writes an audit record with its stated reason.
+
+*Database layer* — `scripts/pg-schema.sql`. Row-level security is enabled **and forced**
+(so it binds the table owner too) on every table carrying `tenant_id`, with the policy
+set generated from the system catalog rather than a hardcoded list: a new tenant-scoped
+table cannot be added and left unprotected. The application connects as `steady_app`,
+which is neither superuser nor schema owner, and sets `app.tenant_id` per transaction —
+so a statement issued with no tenant matches **no rows**, never all of them. Cross-tenant
+access is a *role* (`steady_platform_admin`), not a session flag, which is what makes
+this genuine defence in depth: an application-layer compromise cannot grant itself the
+policy by setting a variable. `longitudinal_events` and `audit_log` are additionally
+granted only `SELECT, INSERT`, so ADR 0010's immutability holds at the privilege level
+and not merely by convention.
+
+*Verification* — `tests/tenant-isolation.test.ts` (18 cases) covers the application
+layer. `scripts/verify-rls.sh` covers the database layer by standing up a throwaway
+Postgres cluster, applying the real schema, and attacking it as `steady_app`: reads by
+foreign id, enumeration, aggregates, foreign update and delete, an insert stamped with a
+foreign tenant, a query with no tenant set, an attempt to assume the admin role, and
+attempts to mutate the event log. All twelve are refused; sanctioned platform-admin
+access still works.
+
+Running that schema against a real cluster also surfaced a defect no amount of reading
+would have: `practice_completions`, `lesson_reads`, `upsell_events`, `autopilot_plans`,
+and `autopilot_events` had been added to the SQLite schema during the tiering and
+Autopilot work and never mirrored here, so the tenancy `ALTER`s referenced tables
+Postgres had never been told to create. The Postgres schema had apparently never been
+executed. It now is, twice per run, as part of the check.
 
 ## Consequences
 

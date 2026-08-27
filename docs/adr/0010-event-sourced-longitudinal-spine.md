@@ -120,6 +120,14 @@ bunching at the moment the backfill ran.
 `occurred_at` is the source row's timestamp; `recorded_at` defaults to now. That
 asymmetry is exactly what the two columns are for, and it is asserted in the tests.
 
+One refinement was needed. Source timestamps are second-resolution, so a session that
+starts and ends within the same second produces two events whose ULID time components are
+identical — and `ulidFrom` then breaks the tie by *hash*, which is arbitrary. A session
+could therefore appear to end before it began. The terminal event's id is now built from
+`max(endedAt, startedAt + 1ms)`, a nudge below the precision of the recorded value, while
+`occurred_at` keeps the true source timestamp. Ordering is derived from the same
+expression, so the sort and the ids agree.
+
 Verified against the demo dataset: 69 events reconstructed across 8 types spanning the
 full multi-week history, chronologically ordered, and a second run inserts nothing.
 

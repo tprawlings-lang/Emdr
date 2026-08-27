@@ -9,6 +9,7 @@
     "lint": "eslint",
     "test:safety": "tsx --test tests/*.test.ts",
     "test:e2e": "playwright test",
+    "test:rls": "bash scripts/verify-rls.sh",
     "loadcheck": "node scripts/loadcheck.mjs",
     "backup": "tsx scripts/backup.ts",
     "restore": "tsx scripts/restore.ts"
