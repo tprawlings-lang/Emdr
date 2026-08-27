@@ -1,6 +1,6 @@
 # 0004 — Single-instance runtime
 
-**Status:** Accepted
+**Status:** Superseded by [ADR 0007](0007-scaling-and-zero-downtime-deploys.md) (scaling) and [ADR 0009](0009-clinical-lane-reclassification.md) (enterprise tenancy). Retained as the record of why the single-instance runtime was correct for the consumer prototype.
 
 ## Context
 The SQLite file lives on the web service's persistent disk, and the nightly
