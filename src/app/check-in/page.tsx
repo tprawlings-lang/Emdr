@@ -1,3 +1,4 @@
+import { MemberNav } from "@/components/member/MemberNav";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { requireMember } from "@/lib/auth";
@@ -62,7 +63,9 @@ export default async function CheckinPage() {
   const triggers = await getActiveTriggers(user.id);
 
   return (
-    <main className="mx-auto max-w-2xl px-6 py-12">
+    <>
+      <MemberNav />
+      <main className="mx-auto max-w-2xl px-6 py-12">
       <div className="flex items-center justify-between">
         <h1 className="type-display text-4xl font-medium">Daily check-in</h1>
         <Link href="/crisis" className="text-sm font-semibold text-ground underline">
@@ -141,5 +144,6 @@ export default async function CheckinPage() {
         </button>
       </form>
     </main>
+    </>
   );
 }

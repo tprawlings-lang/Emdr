@@ -1,3 +1,4 @@
+import { MemberNav } from "@/components/member/MemberNav";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { requireMember } from "@/lib/auth";
@@ -119,7 +120,9 @@ export default async function DashboardPage() {
   const autopilot = await getAutopilotPlan(user.id);
 
   return (
-    <main className="mx-auto max-w-4xl px-6 py-12">
+    <>
+      <MemberNav />
+      <main className="mx-auto max-w-4xl px-6 py-12">
       {fitness.status === "none" && (
         <div className="mb-6 rounded-3xl border border-pause/40 bg-pause-soft p-5">
           <p className="font-semibold text-ground">One new step before your next session</p>
@@ -536,5 +539,6 @@ export default async function DashboardPage() {
         })}
       </div>
     </main>
+    </>
   );
 }

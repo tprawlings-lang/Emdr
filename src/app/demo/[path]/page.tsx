@@ -77,7 +77,11 @@ export default async function DemoPath({
       <section className="mt-12">
         <h2 className="type-display text-2xl font-medium text-ground">What to look at</h2>
         <ul className="mt-3 list-disc space-y-1 pl-5 text-sm text-ground/80">
-          {cfg!.focus.map((f) => <li key={f}>{f}</li>)}
+          {cfg!.focus.map((f) => (
+            <li key={f.href + f.label}>
+              <Link href={f.href} className="underline">{f.label}</Link>
+            </li>
+          ))}
         </ul>
         <p className="mt-4 text-sm text-olive">
           Dataset <code className="text-xs">{DEMO_SEED_VERSION}</code>. If the environment looks

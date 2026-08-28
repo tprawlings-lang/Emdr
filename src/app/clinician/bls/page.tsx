@@ -54,9 +54,6 @@ export default async function BlsOversightPage() {
             Bilateral-stimulation validation workstream · protocol signed, not approved for use
           </p>
         </div>
-        <Link href="/clinician" className="text-sm text-olive underline">
-          ← Specialist dashboard
-        </Link>
       </div>
 
       <p className="mt-4 rounded-2xl border border-pause/50 bg-pause-soft px-4 py-3 text-sm text-ground">

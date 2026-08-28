@@ -30,9 +30,6 @@ export default async function AuditConsolePage() {
 
   return (
     <main className="mx-auto max-w-5xl px-6 py-10">
-      <Link href="/clinician" className="text-sm text-olive underline">
-        ← Back to queue
-      </Link>
       <h1 className="mt-3 type-display text-3xl font-medium">Audit console</h1>
       <p className="mt-1 text-sm text-olive">
         Append-only ledger of identity, consent, clinical, module-runtime, specialist, and

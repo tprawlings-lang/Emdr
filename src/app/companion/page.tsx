@@ -1,3 +1,4 @@
+import { MemberNav } from "@/components/member/MemberNav";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { requireMember } from "@/lib/auth";
@@ -36,7 +37,9 @@ export default async function CompanionPage({
   const tools: string[] = ctx.plan ? JSON.parse(ctx.plan.grounding_tools_json) : [];
 
   return (
-    <main className="mx-auto max-w-4xl px-6 py-12">
+    <>
+      <MemberNav />
+      <main className="mx-auto max-w-4xl px-6 py-12">
       <div className="flex items-center justify-between">
         <h1 className="type-display text-4xl font-medium">Your companion</h1>
         <div className="flex items-center gap-4 text-sm">
@@ -107,5 +110,6 @@ export default async function CompanionPage({
         </aside>
       </div>
     </main>
+    </>
   );
 }

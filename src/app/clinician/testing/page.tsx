@@ -59,9 +59,6 @@ export default async function TestingConsole({
             What you can exercise, and what you would change · {clinician.name}
           </p>
         </div>
-        <Link href="/clinician" className="text-sm text-olive underline">
-          ← Specialist dashboard
-        </Link>
       </div>
 
       {error && (

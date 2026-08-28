@@ -1,3 +1,4 @@
+import { MemberNav } from "@/components/member/MemberNav";
 import Link from "next/link";
 import { getCurrentUser } from "@/lib/auth";
 import { getSafetyPlan } from "@/lib/profile";
@@ -11,7 +12,9 @@ export default async function GroundPage() {
   const tools: string[] = plan ? JSON.parse(plan.grounding_tools_json) : [];
 
   return (
-    <main className="mx-auto max-w-xl px-6 py-14">
+    <>
+      <MemberNav />
+      <main className="mx-auto max-w-xl px-6 py-14">
       <h1 className="type-display text-4xl font-medium">Come back to the room</h1>
       <p className="mt-3 text-lg text-olive">No rush. One step at a time.</p>
 
@@ -67,5 +70,6 @@ export default async function GroundPage() {
         </Link>
       </div>
     </main>
+    </>
   );
 }

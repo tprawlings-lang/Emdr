@@ -1,3 +1,4 @@
+import { MemberNav } from "@/components/member/MemberNav";
 import Link from "next/link";
 import { requireMember } from "@/lib/auth";
 import { LESSONS, readLessonIds } from "@/lib/lessons";
@@ -9,7 +10,9 @@ export default async function LearnPage() {
   const read = new Set(await readLessonIds(user.id));
 
   return (
-    <main className="mx-auto max-w-xl px-6 py-12">
+    <>
+      <MemberNav />
+      <main className="mx-auto max-w-xl px-6 py-12">
       <h1 className="type-display text-3xl font-medium">Learn</h1>
       <p className="mt-2 text-olive">
         A few short reads to make sense of what you&apos;re working with — the window of tolerance,
@@ -36,5 +39,6 @@ export default async function LearnPage() {
         ))}
       </div>
     </main>
+    </>
   );
 }

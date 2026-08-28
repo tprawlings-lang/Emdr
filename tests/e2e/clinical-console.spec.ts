@@ -72,11 +72,14 @@ test("a member outside the clinician's tenant is not found rather than forbidden
   await expect(page.getByRole("heading", { name: "Not found" })).toBeVisible();
 });
 
-test("the clinical console is reachable from the specialist dashboard", async ({ page }) => {
+test("the clinical console is reachable from the persistent nav", async ({ page }) => {
   await signInAsClinician(page);
   await page.goto("/clinician");
-  await page.getByRole("link", { name: "Steady Clinical" }).click();
+  const nav = page.getByRole("navigation", { name: "Clinician" });
+  await nav.getByRole("link", { name: "Caseload" }).click();
   await expect(page).toHaveURL(/\/clinician\/clinical$/);
+  // The nav says where you are, not just where you can go.
+  await expect(nav.getByRole("link", { name: "Caseload" })).toHaveAttribute("aria-current", "page");
 });
 
 // ---------------------------------------------------------------------------
@@ -154,11 +157,20 @@ test("BLS Part 6 oversight shows live configuration, not the protocol's claims",
   await expect(stages.nth(1)).toContainText(/no deployment setting can turn 4b on/);
 });
 
-test("the BLS console is reachable from the specialist dashboard", async ({ page }) => {
+test("every console is reachable from the nav, from anywhere", async ({ page }) => {
+  // The trajectory used to sit four hops deep with nothing signposting it.
+  // From any console page, every other one is now one click away.
   await signInAsClinician(page);
-  await page.goto("/clinician");
-  await page.getByRole("link", { name: "BLS Part 6" }).click();
-  await expect(page).toHaveURL(/\/clinician\/bls$/);
+  await page.goto("/clinician/audit");
+  const nav = page.getByRole("navigation", { name: "Clinician" });
+  for (const [label, url] of [
+    ["BLS Part 6", /\/clinician\/bls$/],
+    ["Testing", /\/clinician\/testing$/],
+    ["Caseload", /\/clinician\/clinical$/],
+  ] as const) {
+    await nav.getByRole("link", { name: label }).click();
+    await expect(page).toHaveURL(url);
+  }
 });
 
 test("the testing console shows what is exercisable and takes a change request", async ({ page }) => {

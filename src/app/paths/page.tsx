@@ -1,3 +1,4 @@
+import { MemberNav } from "@/components/member/MemberNav";
 import Link from "next/link";
 import { buildMemberDay } from "@/lib/member/view";
 import { DayCanvas } from "@/components/member/DayCanvas";
@@ -51,7 +52,9 @@ export default async function PathsPage() {
   const completed = await completedModuleIds(user.id);
 
   return (
-    <main className="mx-auto max-w-3xl px-6 py-12">
+    <>
+      <MemberNav />
+      <main className="mx-auto max-w-3xl px-6 py-12">
       <div className="flex items-center justify-between">
         <Link href="/dashboard" className="text-sm text-olive underline">
           ← Dashboard
@@ -263,5 +266,6 @@ export default async function PathsPage() {
         </p>
       </section>
     </main>
+    </>
   );
 }

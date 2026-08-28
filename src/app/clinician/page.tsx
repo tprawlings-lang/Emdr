@@ -68,26 +68,9 @@ export default async function ClinicianDashboard({
           <h1 className="type-display text-3xl font-medium">Specialist dashboard</h1>
           <p className="text-sm text-olive">Signed in as {clinician.name}</p>
         </div>
-        <div className="flex items-center gap-4">
-          <Link href="/clinician/clinical" className="text-sm text-olive underline">
-            Steady Clinical
-          </Link>
-          <Link href="/clinician/autonomous" className="text-sm text-olive underline">
-            Autonomous review
-          </Link>
-          <Link href="/clinician/bls" className="text-sm text-olive underline">
-            BLS Part 6
-          </Link>
-          <Link href="/clinician/testing" className="text-sm text-olive underline">
-            Testing
-          </Link>
-          <Link href="/clinician/audit" className="text-sm text-olive underline">
-            Audit console
-          </Link>
-          <form action={logout}>
-            <button className="text-sm text-olive underline">Sign out</button>
-          </form>
-        </div>
+        {/* The link row that lived here duplicated the nav above it, which
+            gives a reader two competing answers to "where can I go". The nav
+            is the single answer; this page is now just the queue. */}
       </div>
 
       {error && (

@@ -1,3 +1,4 @@
+import { MemberNav } from "@/components/member/MemberNav";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { requireMember } from "@/lib/auth";
@@ -46,7 +47,9 @@ export default async function MeasuresPage({
   );
 
   return (
-    <main className="mx-auto max-w-2xl px-6 py-12">
+    <>
+      <MemberNav />
+      <main className="mx-auto max-w-2xl px-6 py-12">
       <Link href="/dashboard" className="text-sm text-olive underline">
         ← Back to dashboard
       </Link>
@@ -98,5 +101,6 @@ export default async function MeasuresPage({
         })}
       </div>
     </main>
+    </>
   );
 }

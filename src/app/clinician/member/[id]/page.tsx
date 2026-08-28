@@ -93,9 +93,6 @@ export default async function MemberDetailPage({
 
   return (
     <main className="mx-auto max-w-5xl px-6 py-10">
-      <Link href="/clinician" className="text-sm text-olive underline">
-        ← Back to queue
-      </Link>
       <h1 className="mt-3 type-display text-3xl font-medium">{member.name}</h1>
       <p className="text-sm text-olive">
         {member.email} · joined {member.created_at.slice(0, 10)}

@@ -39,8 +39,13 @@ export interface PathConfig {
   /** Read-only paths never reach a write-capable role (§12). */
   writeCapable: boolean;
   personas: PersonaOption[];
-  /** What this reviewer is asked to look at. */
-  focus: string[];
+  /** What this reviewer is asked to look at, and where to go to look.
+   *
+   *  These were plain strings shown once on the gateway and then forgotten,
+   *  which made them a reading list rather than a route. A reviewer who has to
+   *  reconstruct "where was the alert trail again?" from memory is doing
+   *  navigation work instead of review work. */
+  focus: Array<{ label: string; href: string }>;
 }
 
 const MEMBER: PersonaOption = {
@@ -65,11 +70,13 @@ export const REVIEW_PATHS: PathConfig[] = [
     writeCapable: true,
     personas: [CLINICIAN, MEMBER],
     focus: [
-      "Caseload ordering and whether every band's stated reason is defensible",
-      "Whether the timeline is enough to act on, and whether reconstructed history is clearly marked",
-      "Whether suppressing an uncitable claim is right, or whether it should show with a warning",
-      "Alert ownership and deadlines under the configured coverage schedule",
-      "Approve, correct, and override as separate actions",
+      { label: "Caseload ordering — is every band's stated reason defensible?", href: "/clinician/clinical" },
+      { label: "The trajectory — is it enough to act on, and is reconstructed history clearly marked?", href: "/clinician/clinical" },
+      { label: "Suppressed claims — right to hide them, or should they show with a warning?", href: "/clinician/clinical" },
+      { label: "Alert deadlines under the configured coverage schedule", href: "/clinician/clinical" },
+      { label: "Approve, correct, and override as three separate actions", href: "/clinician/clinical" },
+      { label: "BLS Part 6 gates and what is actually running", href: "/clinician/bls" },
+      { label: "Tell us what you would change", href: "/clinician/testing" },
     ],
   },
   {
@@ -79,9 +86,10 @@ export const REVIEW_PATHS: PathConfig[] = [
     writeCapable: true,
     personas: [CLINICIAN, MEMBER],
     focus: [
-      "Caseload ownership model and coverage behaviour",
-      "What a pilot would require operationally",
-      "Tenant separation and what is dormant versus enforcing",
+      { label: "Caseload ownership model and coverage behaviour", href: "/clinician/clinical" },
+      { label: "What a pilot would require operationally", href: "/organizations" },
+      { label: "Tenant separation — what is enforcing and what is dormant", href: "/trust" },
+      { label: "Tell us what you would change", href: "/clinician/testing" },
     ],
   },
   {
@@ -91,9 +99,9 @@ export const REVIEW_PATHS: PathConfig[] = [
     writeCapable: false,
     personas: [MEMBER],
     focus: [
-      "Which candidate measures are worth evaluating",
-      "How aggregate views stay separate from individual clinical records",
-      "What would count as a result worth acting on",
+      { label: "Which candidate measures are worth evaluating", href: "/payers" },
+      { label: "What the platform can actually measure today", href: "/evidence" },
+      { label: "What would count as a result worth acting on", href: "/payers" },
     ],
   },
   {
@@ -103,10 +111,10 @@ export const REVIEW_PATHS: PathConfig[] = [
     writeCapable: false,
     personas: [CLINICIAN, MEMBER],
     focus: [
-      "Whether the threat model's scope framing is right",
-      "Whether an agreement plus zero retention is sufficient for the model egress",
-      "The audit trail behind a single alert, from creation to closure",
-      "Anything missing from the known-gap register",
+      { label: "Control status — what is current, dormant, and planned", href: "/trust" },
+      { label: "The known-gap register — anything missing?", href: "/trust" },
+      { label: "The audit trail behind a single alert, creation to closure", href: "/clinician/audit" },
+      { label: "Runnable evidence — the commands, not the claims", href: "/evidence" },
     ],
   },
   {
@@ -116,9 +124,10 @@ export const REVIEW_PATHS: PathConfig[] = [
     writeCapable: false,
     personas: [MEMBER],
     focus: [
-      "The member experience and the clinician workflow as one system",
-      "Current-versus-target status across the platform",
-      "What is demonstrated versus what remains under review",
+      { label: "The member experience — start here", href: "/dashboard" },
+      { label: "The clinician workflow reading the same events", href: "/clinician/clinical" },
+      { label: "Current versus target across the platform", href: "/platform" },
+      { label: "What is demonstrated versus what remains under review", href: "/evidence" },
     ],
   },
 ];

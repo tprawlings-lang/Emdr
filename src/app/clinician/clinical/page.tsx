@@ -45,9 +45,6 @@ export default async function ClinicalConsole({
             Caseload for {clinician.name} · ordered by clinical need
           </p>
         </div>
-        <Link href="/clinician" className="text-sm text-olive underline">
-          ← Specialist dashboard
-        </Link>
       </div>
 
       {/* Handoff §2: a screen resembling a live service must never imply approval. */}
