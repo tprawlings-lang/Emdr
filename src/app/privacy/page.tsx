@@ -26,7 +26,7 @@ export default function PrivacyPage() {
       <div className="mt-8"><BoundaryNote /></div>
 
       <section className="mt-10">
-        <h2 className="font-serif text-2xl font-medium text-ground">Three different things</h2>
+        <h2 className="type-display text-2xl font-medium text-ground">Three different things</h2>
         <div className="mt-3 overflow-x-auto">
           <table className="w-full min-w-[36rem] border-collapse text-sm">
             <caption className="sr-only">How the public site, the demo, and a future service differ</caption>
@@ -55,7 +55,7 @@ export default function PrivacyPage() {
 
       <div className="mt-10 space-y-8 text-ground/80">
         <section>
-          <h2 className="font-serif text-2xl font-medium text-ground">What we collect</h2>
+          <h2 className="type-display text-2xl font-medium text-ground">What we collect</h2>
           <ul className="mt-2 list-disc space-y-1 pl-5">
             <li><strong>Review requests:</strong> the name, organization, review path, and contact details you provide.</li>
             <li><strong>Access records:</strong> which review path was granted, when access was used, and which fabricated persona was entered. Recorded in a tamper-evident audit log.</li>
@@ -66,7 +66,7 @@ export default function PrivacyPage() {
         </section>
 
         <section>
-          <h2 className="font-serif text-2xl font-medium text-ground">What we do not collect</h2>
+          <h2 className="type-display text-2xl font-medium text-ground">What we do not collect</h2>
           <ul className="mt-2 list-disc space-y-1 pl-5">
             <li>Real patient, payer, or employee health information. None exists in any environment.</li>
             <li>Advertising or cross-site tracking identifiers. No analytics or advertising service is installed.</li>
@@ -75,7 +75,7 @@ export default function PrivacyPage() {
         </section>
 
         <section>
-          <h2 className="font-serif text-2xl font-medium text-ground">Where data goes</h2>
+          <h2 className="type-display text-2xl font-medium text-ground">Where data goes</h2>
           <p className="mt-2">
             The environment runs on a commercial hosting provider. Encrypted backups are stored
             with an object-storage provider. Companion conversations in the demo are sent to a
@@ -90,7 +90,7 @@ export default function PrivacyPage() {
         </section>
 
         <section>
-          <h2 className="font-serif text-2xl font-medium text-ground">Retention</h2>
+          <h2 className="type-display text-2xl font-medium text-ground">Retention</h2>
           <p className="mt-2">
             The demo dataset is reset to a versioned baseline, which removes prior synthetic
             activity. Audit records are append-only by design and are not deleted. Review
@@ -105,7 +105,7 @@ export default function PrivacyPage() {
         </section>
 
         <section>
-          <h2 className="font-serif text-2xl font-medium text-ground">Your choices</h2>
+          <h2 className="type-display text-2xl font-medium text-ground">Your choices</h2>
           <p className="mt-2">
             You can ask what we hold about you as a reviewer, ask for it to be corrected, or ask
             us to end your access and remove your request record. Because the environment holds
@@ -114,7 +114,7 @@ export default function PrivacyPage() {
         </section>
 
         <section>
-          <h2 className="font-serif text-2xl font-medium text-ground">Security</h2>
+          <h2 className="type-display text-2xl font-medium text-ground">Security</h2>
           <p className="mt-2">
             Current and dormant controls, the complete list of places data leaves Steady, and the
             gaps we have already found are published on the{" "}
@@ -124,7 +124,7 @@ export default function PrivacyPage() {
         </section>
 
         <section>
-          <h2 className="font-serif text-2xl font-medium text-ground">Contact</h2>
+          <h2 className="type-display text-2xl font-medium text-ground">Contact</h2>
           <p className="mt-2">
             Privacy questions can be raised through the same route as review access. A named
             privacy contact will be published once counsel is engaged.

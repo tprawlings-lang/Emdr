@@ -24,7 +24,7 @@ export default async function BillingPage() {
       <Link href="/dashboard" className="text-sm text-olive underline">
         ← Back to dashboard
       </Link>
-      <h1 className="mt-3 font-serif text-4xl font-medium">Membership</h1>
+      <h1 className="mt-3 type-display text-4xl font-medium">Membership</h1>
 
       {!sub ? (
         <div className="mt-8 rounded-3xl border border-ground/10 bg-linen p-7 shadow-soft">
@@ -39,7 +39,7 @@ export default async function BillingPage() {
       ) : (
         <div className="mt-8 rounded-3xl border border-ground/10 bg-linen p-7 shadow-soft">
           <div className="flex items-baseline justify-between">
-            <h2 className="font-serif text-2xl font-medium">{plan!.label}</h2>
+            <h2 className="type-display text-2xl font-medium">{plan!.label}</h2>
             <span
               className={`rounded-full px-3 py-1 text-sm font-medium ${
                 sub.status === "canceled" ? "bg-sand/60 text-olive" : "bg-safe/20 text-ground"
@@ -121,7 +121,7 @@ export default async function BillingPage() {
 
       {payments.length > 0 && (
         <section className="mt-8">
-          <h2 className="font-serif text-2xl font-medium">Payment history</h2>
+          <h2 className="type-display text-2xl font-medium">Payment history</h2>
           <div className="mt-3 space-y-2">
             {payments.map((p) => (
               <div

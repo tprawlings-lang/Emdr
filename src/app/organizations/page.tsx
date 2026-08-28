@@ -19,7 +19,7 @@ export default function OrganizationsPage() {
       <div className="mt-8"><BoundaryNote /></div>
 
       <section className="mt-12">
-        <h2 className="font-serif text-2xl font-medium text-ground">Operating model</h2>
+        <h2 className="type-display text-2xl font-medium text-ground">Operating model</h2>
         <p className="mt-2 max-w-3xl text-ground/80">
           Each organization is a separate tenant. A synthetic organization can be created and
           shown separated from another tenant in the review environment, including the attack
@@ -38,7 +38,7 @@ export default function OrganizationsPage() {
       </section>
 
       <section className="mt-12">
-        <h2 className="font-serif text-2xl font-medium text-ground">Care-team workflow</h2>
+        <h2 className="type-display text-2xl font-medium text-ground">Care-team workflow</h2>
         <p className="mt-2 max-w-3xl text-ground/80">
           The demonstration uses a primary-owner plus coverage-pool model, which is a
           configurable assumption rather than a decided policy. A reviewer can switch it to
@@ -48,7 +48,7 @@ export default function OrganizationsPage() {
       </section>
 
       <section className="mt-12">
-        <h2 className="font-serif text-2xl font-medium text-ground">Roles a pilot would require</h2>
+        <h2 className="type-display text-2xl font-medium text-ground">Roles a pilot would require</h2>
         <ul className="mt-4 grid gap-3 sm:grid-cols-2">
           {[
             ["Clinical owner", "Accountable for the workflow, alert response, and escalation."],
@@ -67,7 +67,7 @@ export default function OrganizationsPage() {
       </section>
 
       <section className="mt-12">
-        <h2 className="font-serif text-2xl font-medium text-ground">Integration</h2>
+        <h2 className="type-display text-2xl font-medium text-ground">Integration</h2>
         <p className="mt-2 max-w-3xl text-ground/80">
           Record-system and identity integration are target architecture. No integration exists
           in the reviewed build, and none is claimed.
@@ -79,7 +79,7 @@ export default function OrganizationsPage() {
       </section>
 
       <section className="mt-12 rounded-2xl border border-support/30 bg-support/5 px-6 py-5">
-        <h2 className="font-serif text-2xl font-medium text-ground">What we do not claim</h2>
+        <h2 className="type-display text-2xl font-medium text-ground">What we do not claim</h2>
         <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-ground/80">
           <li>Reduced clinician workload</li>
           <li>Improved patient outcomes</li>

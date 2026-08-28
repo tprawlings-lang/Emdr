@@ -33,7 +33,7 @@ export default async function AuditConsolePage() {
       <Link href="/clinician" className="text-sm text-olive underline">
         ← Back to queue
       </Link>
-      <h1 className="mt-3 font-serif text-3xl font-medium">Audit console</h1>
+      <h1 className="mt-3 type-display text-3xl font-medium">Audit console</h1>
       <p className="mt-1 text-sm text-olive">
         Append-only ledger of identity, consent, clinical, module-runtime, specialist, and
         security events. Most recent first.

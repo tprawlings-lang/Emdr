@@ -19,7 +19,7 @@ export default async function SessionConsentPage() {
       <Link href="/settings/account" className="text-sm text-olive underline">
         ← Settings
       </Link>
-      <h1 className="mt-3 font-serif text-3xl font-medium">Guided calm-place sessions</h1>
+      <h1 className="mt-3 type-display text-3xl font-medium">Guided calm-place sessions</h1>
       <p className="mt-2 text-sm text-olive">
         These sessions add short, gentle rounds of sound and tapping (bilateral stimulation) to a
         calm-place exercise. Because this is a self-guided processing exercise with no clinician

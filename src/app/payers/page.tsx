@@ -20,7 +20,7 @@ export default function PayersPage() {
       <div className="mt-8"><BoundaryNote /></div>
 
       <section className="mt-12">
-        <h2 className="font-serif text-2xl font-medium text-ground">What Steady can measure</h2>
+        <h2 className="type-display text-2xl font-medium text-ground">What Steady can measure</h2>
         <p className="mt-2 max-w-3xl text-ground/80">
           The platform produces structured, timestamped signals: check-in state, instrument
           scores, session participation and outcomes, intervention completion, and safety
@@ -39,7 +39,7 @@ export default function PayersPage() {
       </section>
 
       <section className="mt-12">
-        <h2 className="font-serif text-2xl font-medium text-ground">Candidate measures</h2>
+        <h2 className="type-display text-2xl font-medium text-ground">Candidate measures</h2>
         <p className="mt-2 max-w-3xl text-ground/80">
           These are <strong>candidates for evaluation, not proven leading indicators</strong>.
           Whether any predicts a downstream outcome is exactly the question an evaluation would
@@ -63,7 +63,7 @@ export default function PayersPage() {
       </section>
 
       <section className="mt-12">
-        <h2 className="font-serif text-2xl font-medium text-ground">Possible payment lanes</h2>
+        <h2 className="type-display text-2xl font-medium text-ground">Possible payment lanes</h2>
         <p className="mt-2 max-w-3xl text-ground/80">
           Described broadly and deliberately: partner-sponsored, payer-supported, value-based,
           or self-pay. No billing code is presented as settled, and no reimbursement path is
@@ -72,7 +72,7 @@ export default function PayersPage() {
       </section>
 
       <section className="mt-12 rounded-2xl border border-support/30 bg-support/5 px-6 py-5">
-        <h2 className="font-serif text-2xl font-medium text-ground">What we do not claim</h2>
+        <h2 className="type-display text-2xl font-medium text-ground">What we do not claim</h2>
         <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-ground/80">
           <li>Cost savings</li>
           <li>Reimbursement or coverage</li>

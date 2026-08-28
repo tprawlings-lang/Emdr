@@ -166,7 +166,7 @@ export default async function AutonomousReview({ searchParams }: { searchParams:
     <main className="mx-auto max-w-5xl px-6 py-10">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="font-serif text-3xl font-medium">Autonomous review console</h1>
+          <h1 className="type-display text-3xl font-medium">Autonomous review console</h1>
           <p className="mt-1 text-sm text-olive">Beta sign-off workbench — simulate decisions and review shadow-mode activity.</p>
         </div>
         <Link href="/clinician" className="text-sm text-olive underline">← Clinician dashboard</Link>
@@ -197,7 +197,7 @@ export default async function AutonomousReview({ searchParams }: { searchParams:
       {/* ── Decision simulator ─────────────────────────────────────────── */}
       <section className="mt-8 grid gap-6 md:grid-cols-2">
         <form method="get" className="rounded-2xl border border-ground/15 bg-white p-5">
-          <h2 className="font-serif text-xl">Simulate a decision</h2>
+          <h2 className="type-display text-xl">Simulate a decision</h2>
           <p className="mt-1 text-xs text-olive">Set any scenario and see what would be gated or passed.</p>
 
           <div className="mt-4 grid grid-cols-2 gap-3">
@@ -256,7 +256,7 @@ export default async function AutonomousReview({ searchParams }: { searchParams:
 
         {/* ── Decision result ──────────────────────────────────────────── */}
         <div className="rounded-2xl border border-ground/15 bg-white p-5">
-          <h2 className="font-serif text-xl">What the engine decides</h2>
+          <h2 className="type-display text-xl">What the engine decides</h2>
           <div className={`mt-3 inline-flex rounded-full border px-4 py-1.5 text-sm font-medium ${TIER_STYLE[decision.tier]}`}>
             access ceiling: {decision.tierLabel}
           </div>
@@ -324,7 +324,7 @@ export default async function AutonomousReview({ searchParams }: { searchParams:
 
       {/* ── Companion output tester ────────────────────────────────────── */}
       <section className="mt-8 rounded-2xl border border-ground/15 bg-white p-5">
-        <h2 className="font-serif text-xl">Test a companion message</h2>
+        <h2 className="type-display text-xl">Test a companion message</h2>
         <p className="mt-1 text-xs text-olive">Paste a candidate reply to see whether the output guard would allow it.</p>
         <form method="get" className="mt-3">
           {Object.entries(sp).filter(([k]) => k !== "companionText").map(([k, v]) => (
@@ -348,7 +348,7 @@ export default async function AutonomousReview({ searchParams }: { searchParams:
 
       {/* ── Shadow-mode activity ───────────────────────────────────────── */}
       <section className="mt-8 rounded-2xl border border-ground/15 bg-white p-5">
-        <h2 className="font-serif text-xl">Recent shadow decisions ({shadow.length})</h2>
+        <h2 className="type-display text-xl">Recent shadow decisions ({shadow.length})</h2>
         <p className="mt-1 text-xs text-olive">Real autonomous decisions logged during beta (coded, no free text).</p>
         {shadow.length === 0 ? (
           <p className="mt-3 text-sm text-ground/70">No shadow decisions logged yet — they appear as members use the app.</p>
@@ -375,7 +375,7 @@ export default async function AutonomousReview({ searchParams }: { searchParams:
       {/* ── Session-runtime simulator ──────────────────────────────────── */}
       <section className="mt-8 grid gap-6 md:grid-cols-2">
         <form method="get" className="rounded-2xl border border-ground/15 bg-white p-5">
-          <h2 className="font-serif text-xl">Simulate a session step</h2>
+          <h2 className="type-display text-xl">Simulate a session step</h2>
           <p className="mt-1 text-xs text-olive">Validate the in-session SUDS / containment rules.</p>
           {Object.entries(sp).filter(([k]) => !k.startsWith("s_") && k !== "_ssim").map(([k, v]) => (
             <input key={k} type="hidden" name={k} value={v ?? ""} />
@@ -405,7 +405,7 @@ export default async function AutonomousReview({ searchParams }: { searchParams:
         </form>
 
         <div className="rounded-2xl border border-ground/15 bg-white p-5">
-          <h2 className="font-serif text-xl">What the session engine decides</h2>
+          <h2 className="type-display text-xl">What the session engine decides</h2>
           {!sessionResult ? (
             <p className="mt-3 text-sm text-ground/70">Enter a starting SUDS (and optionally a post-set reading) to evaluate.</p>
           ) : (
@@ -435,7 +435,7 @@ export default async function AutonomousReview({ searchParams }: { searchParams:
       {/* ── Voice responses (hear the member) ──────────────────────────── */}
       <section id="voice" className="mt-8 rounded-2xl border border-ground/15 bg-white p-5">
         <div className="flex items-center justify-between gap-3">
-          <h2 className="font-serif text-xl">Voice responses — hear the member</h2>
+          <h2 className="type-display text-xl">Voice responses — hear the member</h2>
           <span className={`rounded-full px-3 py-1 text-xs ${voiceInputEnabled() ? "bg-safe/20 text-ground" : "bg-linen text-olive"}`}>
             {voiceInputEnabled() ? "on in this demo" : "off"}
           </span>
@@ -467,7 +467,7 @@ export default async function AutonomousReview({ searchParams }: { searchParams:
       {/* ── Rule sign-off register ─────────────────────────────────────── */}
       <section id="register" className="mt-8 rounded-2xl border border-ground/15 bg-white p-5">
         <div className="flex items-center justify-between gap-3">
-          <h2 className="font-serif text-xl">Rule sign-off register</h2>
+          <h2 className="type-display text-xl">Rule sign-off register</h2>
           <a href="/clinician/autonomous/export" className="rounded-full border border-ground/20 bg-linen px-3 py-1 text-xs font-medium text-ground hover:bg-mist/30">
             Export CSV ↓
           </a>
@@ -481,7 +481,7 @@ export default async function AutonomousReview({ searchParams }: { searchParams:
 
       {/* ── Session-rule sign-off register ─────────────────────────────── */}
       <section id="session-register" className="mt-8 rounded-2xl border border-ground/15 bg-white p-5">
-        <h2 className="font-serif text-xl">Session-rule sign-off register</h2>
+        <h2 className="type-display text-xl">Session-rule sign-off register</h2>
         <p className="mt-1 text-xs text-olive">
           The in-session SUDS / containment / closure / BLS thresholds (§ session engine). Same
           Agree / Needs-change record as the access rules; verdicts reset if a threshold changes.
@@ -491,7 +491,7 @@ export default async function AutonomousReview({ searchParams }: { searchParams:
 
       {/* ── Experience & input feature sign-off register ───────────────── */}
       <section id="experience-register" className="mt-8 rounded-2xl border border-ground/15 bg-white p-5">
-        <h2 className="font-serif text-xl">Experience &amp; input feature sign-off</h2>
+        <h2 className="type-display text-xl">Experience &amp; input feature sign-off</h2>
         <p className="mt-1 text-xs text-olive">
           Member-facing interaction features that carry safety, privacy, or accessibility weight
           (e.g. voice responses). Same Agree / Needs-change record; included in the CSV export.
@@ -501,7 +501,7 @@ export default async function AutonomousReview({ searchParams }: { searchParams:
 
       {/* ── Therapy knowledge base ─────────────────────────────────────── */}
       <section id="therapy-kb" className="mt-8 rounded-2xl border border-ground/15 bg-white p-5">
-        <h2 className="font-serif text-xl">Therapy knowledge base</h2>
+        <h2 className="type-display text-xl">Therapy knowledge base</h2>
         <p className="mt-1 text-sm text-ground/80">
           The companion&apos;s technique library — {TECHNIQUES.length} techniques across{" "}
           {MODALITIES.length} modalities, each gated by minimum tier and an activation ceiling.
@@ -541,7 +541,7 @@ export default async function AutonomousReview({ searchParams }: { searchParams:
           })}
         </div>
 
-        <h3 className="mt-6 font-serif text-lg">Knowledge-base sign-off register</h3>
+        <h3 className="mt-6 type-display text-lg">Knowledge-base sign-off register</h3>
         <p className="mt-1 text-xs text-olive">
           Global constraints first, then one verdict per modality (covering its techniques as a
           set). Same Agree / Needs-change record; included in the CSV export.

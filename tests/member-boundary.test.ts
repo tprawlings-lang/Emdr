@@ -279,6 +279,52 @@ function readIf(rel: string): string {
 }
 
 // ---------------------------------------------------------------------------
+// §8 Component contracts
+// ---------------------------------------------------------------------------
+
+test("the member components exist and take only what their contract allows", () => {
+  const DIR = path.join(process.cwd(), "src", "components", "member");
+  assert.ok(fs.existsSync(DIR), "src/components/member does not exist");
+
+  const src = fs.readdirSync(DIR)
+    .filter((n) => n.endsWith(".tsx"))
+    .map((n) => fs.readFileSync(path.join(DIR, n), "utf8"))
+    .join("\n");
+
+  for (const c of ["DayCanvas", "PracticeCard", "HistoryStrip", "Horizon"]) {
+    assert.ok(new RegExp(`function ${c}\\b`).test(src), `${c} is not defined`);
+  }
+
+  // §8's "must never receive" column, enforced on the props rather than left
+  // as documentation. A component that cannot name a score cannot render one.
+  const props = [...prose(src).matchAll(/\{([^}]*)\}\s*:\s*\{([^}]*)\}/g)]
+    .map((m) => m[2])
+    .join(" ");
+  for (const forbidden of ["score", "band", "track", "severity", "reason", "ruleId", "streak", "count"]) {
+    assert.ok(
+      !new RegExp(`\\b${forbidden}\\w*\\s*[?:]`, "i").test(props),
+      `a member component accepts "${forbidden}" as a prop, which §8 forbids`
+    );
+  }
+});
+
+test("the horizon is stateless — it cannot become a trend chart", () => {
+  const f = path.join(process.cwd(), "src", "components", "member", "DayCanvas.tsx");
+  const src = prose(fs.readFileSync(f, "utf8"));
+  const horizon = src.slice(src.indexOf("function Horizon"), src.indexOf("function PracticeCard"));
+
+  // §7's boundary condition: "a single static position per day is a state
+  // indicator. The moment you animate it across days, show history, or let a
+  // member scrub back through it, it becomes a trend chart and violates Vol 2."
+  for (const banned of ["history", "days", "range", "series", "previous", "animate", "transition"]) {
+    assert.ok(
+      !new RegExp(`\\b${banned}\\b`, "i").test(horizon),
+      `the horizon references "${banned}" — a horizon that spans more than today is a chart`
+    );
+  }
+});
+
+// ---------------------------------------------------------------------------
 // The history strip — what replaces the forbidden charts
 // ---------------------------------------------------------------------------
 

@@ -48,7 +48,7 @@ export default async function DemoPath({
       )}
 
       <section className="mt-10">
-        <h2 className="font-serif text-2xl font-medium text-ground">Choose a fabricated persona</h2>
+        <h2 className="type-display text-2xl font-medium text-ground">Choose a fabricated persona</h2>
         <p className="mt-2 text-sm text-olive">
           {cfg!.writeCapable
             ? "Your path includes a role that can record decisions against fabricated records."
@@ -75,7 +75,7 @@ export default async function DemoPath({
       </section>
 
       <section className="mt-12">
-        <h2 className="font-serif text-2xl font-medium text-ground">What to look at</h2>
+        <h2 className="type-display text-2xl font-medium text-ground">What to look at</h2>
         <ul className="mt-3 list-disc space-y-1 pl-5 text-sm text-ground/80">
           {cfg!.focus.map((f) => <li key={f}>{f}</li>)}
         </ul>

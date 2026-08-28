@@ -42,7 +42,7 @@ export default function EvidencePage() {
       <div className="mt-8"><BoundaryNote /></div>
 
       <section className="mt-12">
-        <h2 className="font-serif text-2xl font-medium text-ground">Evidence for the method</h2>
+        <h2 className="type-display text-2xl font-medium text-ground">Evidence for the method</h2>
         <p className="mt-2 max-w-3xl text-ground/80">
           Published research and clinical guidelines describe EMDR <strong>delivered by trained
           clinicians</strong>. Steady does not claim that evidence as its own.
@@ -51,7 +51,7 @@ export default function EvidencePage() {
       </section>
 
       <section className="mt-12">
-        <h2 className="font-serif text-2xl font-medium text-ground">Evidence for Steady&rsquo;s software</h2>
+        <h2 className="type-display text-2xl font-medium text-ground">Evidence for Steady&rsquo;s software</h2>
         <p className="mt-2 max-w-3xl text-ground/80">
           What can be demonstrated about the system itself, with the command that demonstrates
           it. These are claims about software behavior — determinism, isolation, replay,
@@ -61,7 +61,7 @@ export default function EvidencePage() {
       </section>
 
       <section className="mt-12">
-        <h2 className="font-serif text-2xl font-medium text-ground">Evidence still needed</h2>
+        <h2 className="type-display text-2xl font-medium text-ground">Evidence still needed</h2>
         <p className="mt-2 max-w-3xl text-ground/80">
           Named here rather than omitted. Each is a real gap between what Steady is and what it
           would need to be before anyone uses it in care.
@@ -70,12 +70,12 @@ export default function EvidencePage() {
       </section>
 
       <section className="mt-12">
-        <h2 className="font-serif text-2xl font-medium text-ground">BLS Part 6</h2>
+        <h2 className="type-display text-2xl font-medium text-ground">BLS Part 6</h2>
         <EvidenceList items={EVIDENCE_BLS} runnable />
       </section>
 
       <section className="mt-12 rounded-2xl border border-pause/50 bg-pause-soft px-6 py-5">
-        <h2 className="font-serif text-2xl font-medium text-ground">How to read a claim on this site</h2>
+        <h2 className="type-display text-2xl font-medium text-ground">How to read a claim on this site</h2>
         <p className="mt-2 text-sm text-ground/80">
           Every capability carries one of four labels: <strong>Working demo</strong> runs in the
           fabricated environment now; <strong>Simulation</strong> demonstrates intended behavior

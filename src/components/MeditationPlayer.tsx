@@ -67,7 +67,7 @@ export default function MeditationPlayer({
         <p className="mt-2 text-xs text-olive">{practice.title}</p>
       </div>
 
-      <p className="font-serif text-2xl leading-relaxed text-ground">{seg.text}</p>
+      <p className="type-display text-2xl leading-relaxed text-ground">{seg.text}</p>
 
       <div className="flex w-full flex-col gap-4">
         <div className="flex items-center justify-center gap-3">

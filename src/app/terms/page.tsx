@@ -26,7 +26,7 @@ export default function TermsPage() {
 
       <div className="mt-10 space-y-8 text-ground/80">
         <section>
-          <h2 className="font-serif text-2xl font-medium text-ground">1. What this is</h2>
+          <h2 className="type-display text-2xl font-medium text-ground">1. What this is</h2>
           <p className="mt-2">
             Steady is a development-stage software prototype. Access is granted for evaluation
             only: to review the product, its architecture, its safety behavior, and its
@@ -36,7 +36,7 @@ export default function TermsPage() {
         </section>
 
         <section>
-          <h2 className="font-serif text-2xl font-medium text-ground">2. Evaluation-only licence</h2>
+          <h2 className="type-display text-2xl font-medium text-ground">2. Evaluation-only licence</h2>
           <p className="mt-2">
             You may access the environment to evaluate it for the purpose your review was
             arranged for. You may not use it to deliver care, to make decisions about a real
@@ -45,7 +45,7 @@ export default function TermsPage() {
         </section>
 
         <section>
-          <h2 className="font-serif text-2xl font-medium text-ground">3. No clinical reliance</h2>
+          <h2 className="type-display text-2xl font-medium text-ground">3. No clinical reliance</h2>
           <p className="mt-2">
             Nothing in the environment is clinical advice. All records, alerts, summaries,
             timelines, and safety decisions concern fabricated people. Do not rely on any output
@@ -54,7 +54,7 @@ export default function TermsPage() {
         </section>
 
         <section>
-          <h2 className="font-serif text-2xl font-medium text-ground">4. No real-person data</h2>
+          <h2 className="type-display text-2xl font-medium text-ground">4. No real-person data</h2>
           <p className="mt-2">
             <strong>You must not enter real personal, health, employment, or payer information
             into any part of this environment</strong> — including your own. If real-person
@@ -65,7 +65,7 @@ export default function TermsPage() {
         </section>
 
         <section>
-          <h2 className="font-serif text-2xl font-medium text-ground">5. Access and credentials</h2>
+          <h2 className="type-display text-2xl font-medium text-ground">5. Access and credentials</h2>
           <p className="mt-2">
             Review access is granted per reviewer and scoped to a purpose. Access codes are not
             to be shared or published. Access may be revoked or rotated at any time, and it
@@ -74,7 +74,7 @@ export default function TermsPage() {
         </section>
 
         <section>
-          <h2 className="font-serif text-2xl font-medium text-ground">6. Feedback</h2>
+          <h2 className="type-display text-2xl font-medium text-ground">6. Feedback</h2>
           <p className="mt-2">
             Feedback you provide about the product may be used to improve it. Clinical, security,
             and privacy findings are recorded with the configuration that produced them so they
@@ -84,7 +84,7 @@ export default function TermsPage() {
         </section>
 
         <section>
-          <h2 className="font-serif text-2xl font-medium text-ground">7. Confidentiality</h2>
+          <h2 className="type-display text-2xl font-medium text-ground">7. Confidentiality</h2>
           <p className="mt-2">
             The environment, its evidence packets, and unreleased materials are shared for review
             and are not public. Findings you produce are yours to discuss with us; please do not
@@ -93,7 +93,7 @@ export default function TermsPage() {
         </section>
 
         <section>
-          <h2 className="font-serif text-2xl font-medium text-ground">8. No warranty and limits</h2>
+          <h2 className="type-display text-2xl font-medium text-ground">8. No warranty and limits</h2>
           <p className="mt-2">
             The environment is provided as-is for evaluation. It may be reset, changed, or taken
             offline without notice — a reset is a routine operation here, not an incident. No
@@ -102,7 +102,7 @@ export default function TermsPage() {
         </section>
 
         <section>
-          <h2 className="font-serif text-2xl font-medium text-ground">9. Emergencies</h2>
+          <h2 className="type-display text-2xl font-medium text-ground">9. Emergencies</h2>
           <p className="mt-2">
             Steady is not an emergency service and no one monitors this environment in real
             time. If you or someone else needs help now, call or text 988 in the US, or call 911
@@ -111,7 +111,7 @@ export default function TermsPage() {
         </section>
 
         <section>
-          <h2 className="font-serif text-2xl font-medium text-ground">10. Changes</h2>
+          <h2 className="type-display text-2xl font-medium text-ground">10. Changes</h2>
           <p className="mt-2">
             These terms will be replaced once counsel has reviewed them, and again before any
             environment involving real participants. Material changes will be dated here.

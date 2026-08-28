@@ -40,7 +40,7 @@ export default async function ClinicalConsole({
     <main className="mx-auto max-w-5xl px-6 py-10">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="font-serif text-3xl font-medium">Steady Clinical</h1>
+          <h1 className="type-display text-3xl font-medium">Steady Clinical</h1>
           <p className="text-sm text-olive">
             Caseload for {clinician.name} · ordered by clinical need
           </p>
@@ -65,7 +65,7 @@ export default async function ClinicalConsole({
 
       {/* ---------------- Alerts ---------------- */}
       <section className="mt-8">
-        <h2 className="font-serif text-2xl font-medium">
+        <h2 className="type-display text-2xl font-medium">
           Alerts{" "}
           <span className="ml-1 rounded-full bg-ground px-2.5 py-0.5 text-sm text-ivory">
             {alerts.length}
@@ -140,7 +140,7 @@ export default async function ClinicalConsole({
 
       {/* ---------------- Caseload ---------------- */}
       <section className="mt-10">
-        <h2 className="font-serif text-2xl font-medium">Caseload</h2>
+        <h2 className="type-display text-2xl font-medium">Caseload</h2>
         <p className="mt-1 text-sm text-olive">
           {(["immediate", "high", "standard", "watch"] as const)
             .map((b) => `${caseload.bandCounts[b]} ${b}`)

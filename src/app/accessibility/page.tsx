@@ -14,7 +14,7 @@ export default function AccessibilityPage() {
     >
       <div className="mt-10 space-y-8 text-ground/80">
         <section>
-          <h2 className="font-serif text-2xl font-medium text-ground">What is tested</h2>
+          <h2 className="type-display text-2xl font-medium text-ground">What is tested</h2>
           <p className="mt-2">
             An automated axe-core audit runs against the public surfaces on every change and
             blocks the build on any serious or critical violation. The suite also asserts
@@ -29,7 +29,7 @@ export default function AccessibilityPage() {
         </section>
 
         <section>
-          <h2 className="font-serif text-2xl font-medium text-ground">What has not been tested</h2>
+          <h2 className="type-display text-2xl font-medium text-ground">What has not been tested</h2>
           <p className="mt-2">
             Automated checks catch a minority of real barriers. Steady has <strong>not</strong>{" "}
             had a manual screen-reader audit, an accessibility expert review, or testing with
@@ -38,7 +38,7 @@ export default function AccessibilityPage() {
         </section>
 
         <section>
-          <h2 className="font-serif text-2xl font-medium text-ground">Known limitations</h2>
+          <h2 className="type-display text-2xl font-medium text-ground">Known limitations</h2>
           <ul className="mt-2 list-disc space-y-1 pl-5">
             <li>Human-factors testing of the session interface under stress has not been done, and is a condition of the existing clinical sign-off.</li>
             <li>Complex tables in the clinical console have not been audited with a screen reader.</li>
@@ -47,7 +47,7 @@ export default function AccessibilityPage() {
         </section>
 
         <section>
-          <h2 className="font-serif text-2xl font-medium text-ground">Reporting a barrier</h2>
+          <h2 className="type-display text-2xl font-medium text-ground">Reporting a barrier</h2>
           <p className="mt-2">
             If something is unusable, tell us through the same route as review access and
             describe what you were trying to do. Accessibility defects are treated as product

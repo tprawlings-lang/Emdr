@@ -27,7 +27,7 @@ export default async function ScreeningPage() {
             Need help now?
           </Link>
         </div>
-        <h1 className="font-serif text-3xl font-medium">A few questions before we begin</h1>
+        <h1 className="type-display text-3xl font-medium">A few questions before we begin</h1>
         <p className="mt-2 leading-relaxed text-olive">
           Self-guided work isn&apos;t the right fit for every situation, and that has nothing
           to do with strength or readiness. Eight yes-or-no questions, no wrong answers.
@@ -58,7 +58,7 @@ export default async function ScreeningPage() {
         </Link>
       </div>
 
-      <h1 className="font-serif text-3xl font-medium">{next.title}</h1>
+      <h1 className="type-display text-3xl font-medium">{next.title}</h1>
       <p className="mt-2 text-olive">{next.intro}</p>
       <p className="mt-2 text-sm text-olive">
         These answers go to your care team. There are no wrong answers — honest answers keep the

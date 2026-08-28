@@ -33,7 +33,7 @@ export default function Home() {
           <p className="text-xs font-medium uppercase tracking-wide text-olive">
             Behavioral health platform · Development prototype
           </p>
-          <h1 className="mt-2 max-w-3xl font-serif text-5xl font-medium leading-tight text-ground">
+          <h1 className="mt-2 max-w-3xl type-display text-5xl font-medium leading-tight text-ground">
             Behavioral health support that continues between visits.
           </h1>
           <p className="mt-4 max-w-2xl text-lg text-ground/80">
@@ -66,7 +66,7 @@ export default function Home() {
         {/* 2 — The gap Steady addresses. Stated as a structural problem, with
             no outcome promise attached. */}
         <section className="mt-16">
-          <h2 className="font-serif text-3xl font-medium text-ground">The gap</h2>
+          <h2 className="type-display text-3xl font-medium text-ground">The gap</h2>
           <p className="mt-3 max-w-3xl text-ground/80">
             Most behavioral health care happens in scheduled appointments. The weeks between
             them are where symptoms move, patterns form, and people decide whether to
@@ -93,7 +93,7 @@ export default function Home() {
 
         {/* 3 — Three-part platform */}
         <section className="mt-16">
-          <h2 className="font-serif text-3xl font-medium text-ground">One platform, three layers</h2>
+          <h2 className="type-display text-3xl font-medium text-ground">One platform, three layers</h2>
           <ul className="mt-6 grid gap-4 sm:grid-cols-3">
             {[
               ["Steady Personal", "Structured between-visit experiences: check-ins, grounding, exercises, education, and companion support."],
@@ -101,7 +101,7 @@ export default function Home() {
               ["Steady Intelligence", "The event, policy, audit, tenancy, and analysis layer connecting member and clinical activity over time."],
             ].map(([h, b]) => (
               <li key={h} className="rounded-2xl border border-ground/15 bg-ivory px-5 py-4">
-                <h3 className="font-serif text-xl font-medium text-ground">{h}</h3>
+                <h3 className="type-display text-xl font-medium text-ground">{h}</h3>
                 <p className="mt-1 text-sm text-ground/80">{b}</p>
               </li>
             ))}
@@ -113,7 +113,7 @@ export default function Home() {
 
         {/* 4 — Working demonstration. Status comes from the registry. */}
         <section className="mt-16">
-          <h2 className="font-serif text-3xl font-medium text-ground">What you can review today</h2>
+          <h2 className="type-display text-3xl font-medium text-ground">What you can review today</h2>
           <p className="mt-2 max-w-3xl text-ground/80">
             The review environment runs the system described above using fabricated people
             and records. Each capability below carries its current status.
@@ -127,7 +127,7 @@ export default function Home() {
 
         {/* 5 — Human oversight and safety */}
         <section className="mt-16">
-          <h2 className="font-serif text-3xl font-medium text-ground">Human oversight and safety</h2>
+          <h2 className="type-display text-3xl font-medium text-ground">Human oversight and safety</h2>
           <p className="mt-2 max-w-3xl text-ground/80">
             Access decisions are made by deterministic, human-authored rules — not by a
             model. Where AI is used, its output is checked before display, cites the events
@@ -147,7 +147,7 @@ export default function Home() {
 
         {/* 6 — Built for each audience. Investor sits in a secondary band (§5). */}
         <section className="mt-16">
-          <h2 className="font-serif text-3xl font-medium text-ground">Built for review</h2>
+          <h2 className="type-display text-3xl font-medium text-ground">Built for review</h2>
           <ul className="mt-6 grid gap-4 sm:grid-cols-2">
             <AudienceCard
               href="/clinical"
@@ -186,7 +186,7 @@ export default function Home() {
         {/* 7 — Evidence and validation stage. Method evidence is kept
             explicitly separate from product evidence (§2, §11). */}
         <section className="mt-16">
-          <h2 className="font-serif text-3xl font-medium text-ground">Evidence and stage</h2>
+          <h2 className="type-display text-3xl font-medium text-ground">Evidence and stage</h2>
           <div className="mt-6 grid gap-4 sm:grid-cols-2">
             <div className="rounded-2xl border border-ground/10 bg-linen/40 px-5 py-4">
               <h3 className="font-medium text-ground">Evidence for the method</h3>
@@ -212,7 +212,7 @@ export default function Home() {
 
         {/* 8 — Current versus target, stated plainly. */}
         <section className="mt-16">
-          <h2 className="font-serif text-3xl font-medium text-ground">Current and target</h2>
+          <h2 className="type-display text-3xl font-medium text-ground">Current and target</h2>
           <p className="mt-2 max-w-3xl text-ground/80">
             A short, honest matrix matters more than a long feature list. This is where the
             platform actually stands.
@@ -251,7 +251,7 @@ export default function Home() {
         <ReviewCTA />
 
         <section className="mt-12">
-          <h2 className="font-serif text-2xl font-medium text-ground">Common questions</h2>
+          <h2 className="type-display text-2xl font-medium text-ground">Common questions</h2>
           <dl className="mt-4 space-y-4">
             {[
               ["Can individuals sign up?", "Not at this stage. Public enrollment and subscription billing are closed while Steady is prepared for clinical, security, privacy, and partner review."],

@@ -52,7 +52,7 @@ export default async function MemoryControlsPage() {
       <Link href="/dashboard" className="text-sm text-olive underline">
         ← Back to dashboard
       </Link>
-      <h1 className="mt-3 font-serif text-4xl font-medium">Memory controls</h1>
+      <h1 className="mt-3 type-display text-4xl font-medium">Memory controls</h1>
       <p className="mt-2 text-olive">
         Everything your companion remembers, where it came from, and the controls to change it.
         Deleting here removes it from the companion&apos;s memory.
@@ -77,7 +77,7 @@ export default async function MemoryControlsPage() {
       </form>
 
       <section className="mt-8">
-        <h2 className="font-serif text-2xl font-medium">Your triggers</h2>
+        <h2 className="type-display text-2xl font-medium">Your triggers</h2>
         <p className="mt-1 text-sm text-olive">
           Removing a trigger here also stops the companion and check-in from referencing it.
         </p>
@@ -105,7 +105,7 @@ export default async function MemoryControlsPage() {
       </section>
 
       <section className="mt-8">
-        <h2 className="font-serif text-2xl font-medium">Remembered items</h2>
+        <h2 className="type-display text-2xl font-medium">Remembered items</h2>
         {items.length === 0 && <p className="mt-2 text-sm text-olive">Nothing remembered right now.</p>}
         {[...grouped.entries()].map(([type, list]) => (
           <div key={type} className="mt-5">

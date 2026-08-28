@@ -65,7 +65,7 @@ export default function LessonBody({ markdown }: { markdown: string }) {
       {blocks.map((b, i) => {
         if (b.type === "h2")
           return (
-            <h2 key={i} className="font-serif text-xl font-medium text-ground">
+            <h2 key={i} className="type-display text-xl font-medium text-ground">
               {inline(b.text)}
             </h2>
           );

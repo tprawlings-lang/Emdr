@@ -28,15 +28,70 @@
   --color-safe: #7fa37b;
   --color-safe-deep: #6d9069;
 
+  /* ONE FAMILY, TWO OPTICAL ROLES (Presentation Layer Handoff §7).
+     
+     Steady previously ran Inter for body and Cormorant Garamond for headings —
+     the conventional display-serif/body-sans pairing. It was retired because
+     Vol 1 requires legibility under fatigue and cognitive load, and Cormorant
+     is a Garamond revival: small x-height, high stroke contrast, drawn for
+     display. Those are precisely the properties that fail a tired reader, and
+     "tired reader" is the design centre of this product, not an edge case.
+     
+     §7's alternative is a single humanist sans differentiated by SCALE AND
+     TRACKING rather than by contrast. Inter has the high x-height and open
+     counters that requirement names, so the display role is the same family
+     set larger and tighter — see .type-display below.
+     
+     --font-serif is kept as an alias rather than deleted so no surface silently
+     falls back to Georgia if one is missed. */
   --font-sans: var(--font-inter), ui-sans-serif, system-ui, -apple-system,
     "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-  --font-serif: var(--font-cormorant), "Cormorant Garamond", Georgia, serif;
+  --font-serif: var(--font-sans);
+
+  /* §7: minimum body size 17px, line height 1.6 minimum on body copy.
+     Redefining the base step rather than patching per-page means the floor
+     holds by default instead of by vigilance. */
+  --text-base: 1.0625rem;
+  --text-base--line-height: 1.6;
 
   --shadow-soft: 0px 12px 40px rgba(47, 58, 51, 0.08);
 }
 
 body {
   font-family: var(--font-sans);
+  font-size: var(--text-base);
+  line-height: 1.6;
+}
+
+/* The display optical role. Same family; scale, weight, and tracking carry the
+   difference. Inter needs negative tracking at large sizes or it reads loose
+   and accidental — that tightening is what makes one family read as two
+   deliberate voices rather than one undifferentiated one. */
+.type-display {
+  font-family: var(--font-sans);
+  font-weight: 500;
+  letter-spacing: -0.021em;
+}
+
+/* §7: line length capped at ~60 characters. Long measure is a specific
+   failure under cognitive load — the eye loses the line return. */
+.measure {
+  max-width: 60ch;
+}
+
+/* §7: "Respect prefers-reduced-motion as a hard requirement, not a nicety."
+   Global, so a future animation cannot opt out by omission. Visual BLS is
+   already removed globally for photosensitivity, so motion sensitivity is an
+   established first-class concern in this product. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
 
 /* Landing-page hero: slow, breath-paced motion. Calm by construction —

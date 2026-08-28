@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { buildMemberDay } from "@/lib/member/view";
+import { DayCanvas } from "@/components/member/DayCanvas";
 import { redirect } from "next/navigation";
 import { requireMember } from "@/lib/auth";
 import { subscriptionActive } from "@/lib/billing";
@@ -43,6 +45,7 @@ export default async function PathsPage() {
   const intake = await getTrackIntake(user.id);
   const savedTags = new Set(intake?.tags ?? []);
   const rec = await recommendTracks(user.id);
+  const day = await buildMemberDay(user.id);
   const myTracks = await getMemberTracks(user.id);
   const myTrackIds = new Set(myTracks.map((t) => t.id));
   const completed = await completedModuleIds(user.id);
@@ -58,7 +61,7 @@ export default async function PathsPage() {
         </Link>
       </div>
 
-      <h1 className="mt-4 font-serif text-4xl font-medium">Find your path</h1>
+      <h1 className="mt-4 type-display text-4xl font-medium">Find your path</h1>
       <p className="mt-2 text-olive">
         Tell us what you&apos;d like to work on, in your own words. We&apos;ll point you to a
         starting place — and you can follow more than one path, or change at any time.
@@ -100,9 +103,14 @@ export default async function PathsPage() {
         </button>
       </form>
 
+      {/* The day comes first. Paths are a longer-horizon choice; what is open
+          right now is the thing a member came to find, and §4's one-primary-task
+          rule means it should not be underneath a form. */}
+      <DayCanvas day={day} />
+
       {/* Recommendation */}
-      <section className="mt-8">
-        <h2 className="font-serif text-2xl font-medium">Suggested for you</h2>
+      <section className="mt-12">
+        <h2 className="type-display text-2xl font-medium">Suggested for you</h2>
         <p className="mt-1 text-sm text-olive">{rec.memberMessage}</p>
 
         {rec.safety.level !== "ok" && rec.safety.action && (
@@ -165,7 +173,7 @@ export default async function PathsPage() {
       {/* Current paths */}
       {myTracks.length > 0 && (
         <section className="mt-10">
-          <h2 className="font-serif text-2xl font-medium">Your paths</h2>
+          <h2 className="type-display text-2xl font-medium">Your paths</h2>
           <div className="mt-4 space-y-3">
             {myTracks.map((track) => {
               const next = nextModuleId(track, completed);
@@ -206,7 +214,7 @@ export default async function PathsPage() {
 
       {/* Browse all */}
       <section className="mt-10">
-        <h2 className="font-serif text-2xl font-medium">Explore every path</h2>
+        <h2 className="type-display text-2xl font-medium">Explore every path</h2>
         <p className="mt-1 text-sm text-olive">
           Different paths suit different needs — and you may need more than one. Evidence grades
           are shown honestly so you can choose with open eyes.

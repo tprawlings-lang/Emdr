@@ -40,7 +40,7 @@ export default function TrustPage() {
       <div className="mt-8"><BoundaryNote extra={BOUNDARY.demoData} /></div>
 
       <section className="mt-12">
-        <h2 className="font-serif text-2xl font-medium text-ground">Current posture</h2>
+        <h2 className="type-display text-2xl font-medium text-ground">Current posture</h2>
         <ul className="mt-3 space-y-2 text-ground/80">
           <li>Fabricated data only. No real patient, payer, or employee information exists in any environment.</li>
           <li>No production healthcare claim. Steady is not HIPAA compliant and is nobody&rsquo;s business associate.</li>
@@ -50,7 +50,7 @@ export default function TrustPage() {
       </section>
 
       <section className="mt-12">
-        <h2 className="font-serif text-2xl font-medium text-ground">System and data flow</h2>
+        <h2 className="type-display text-2xl font-medium text-ground">System and data flow</h2>
         <p className="mt-2 max-w-3xl text-ground/80">
           Six governance zones separate operational records, patient memory, the clinical
           record, analytics, research, and model development. Retrieval is scoped by tenant,
@@ -97,7 +97,7 @@ export default function TrustPage() {
       </section>
 
       <section className="mt-12">
-        <h2 className="font-serif text-2xl font-medium text-ground">Control status</h2>
+        <h2 className="type-display text-2xl font-medium text-ground">Control status</h2>
         <p className="mt-2 max-w-3xl text-ground/80">
           Current means enforcing today. Dormant means built and tested but not on the request
           path. Planned means no control exists yet.
@@ -125,7 +125,7 @@ export default function TrustPage() {
       </section>
 
       <section className="mt-12">
-        <h2 className="font-serif text-2xl font-medium text-ground">Known gaps</h2>
+        <h2 className="type-display text-2xl font-medium text-ground">Known gaps</h2>
         <p className="mt-2 max-w-3xl text-ground/80">
           Given to reviewers rather than left for them to find. Each carries an owner, the tier
           it must close before, the interim mitigation, and the test that decides it is closed.
@@ -149,7 +149,7 @@ export default function TrustPage() {
       </section>
 
       <section className="mt-12 rounded-2xl border border-ground/15 bg-moss/30 px-6 py-6">
-        <h2 className="font-serif text-2xl font-medium text-ground">Request the security packet</h2>
+        <h2 className="type-display text-2xl font-medium text-ground">Request the security packet</h2>
         <p className="mt-2 text-sm text-ground/80">
           Controlled access to the threat model and abuse cases, the risk register, the vendor
           and agreement register, the identity and privilege model, the logging and monitoring

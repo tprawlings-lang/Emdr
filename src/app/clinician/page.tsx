@@ -65,7 +65,7 @@ export default async function ClinicianDashboard({
     <main className="mx-auto max-w-5xl px-6 py-10">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="font-serif text-3xl font-medium">Specialist dashboard</h1>
+          <h1 className="type-display text-3xl font-medium">Specialist dashboard</h1>
           <p className="text-sm text-olive">Signed in as {clinician.name}</p>
         </div>
         <div className="flex items-center gap-4">
@@ -99,7 +99,7 @@ export default async function ClinicianDashboard({
       )}
 
       <section className="mt-8">
-        <h2 className="font-serif text-2xl font-medium">
+        <h2 className="type-display text-2xl font-medium">
           Risk queue{" "}
           <span className="ml-1 rounded-full bg-ground px-2.5 py-0.5 text-sm text-ivory">
             {alerts.length}
@@ -140,7 +140,7 @@ export default async function ClinicianDashboard({
       </section>
 
       <section className="mt-10">
-        <h2 className="font-serif text-2xl font-medium">
+        <h2 className="type-display text-2xl font-medium">
           Unlock requests{" "}
           <span className="ml-1 rounded-full bg-ground px-2.5 py-0.5 text-sm text-ivory">
             {unlockRequests.length}
@@ -196,7 +196,7 @@ export default async function ClinicianDashboard({
       </section>
 
       <section className="mt-10">
-        <h2 className="font-serif text-2xl font-medium">Members</h2>
+        <h2 className="type-display text-2xl font-medium">Members</h2>
         <div className="mt-3 overflow-x-auto rounded-3xl border border-ground/10 bg-linen shadow-soft">
           <table className="w-full text-sm">
             <thead className="bg-sand/40 text-left">

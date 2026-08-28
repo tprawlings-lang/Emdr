@@ -32,7 +32,7 @@ export default function RequestReview({
       <div className="mt-8"><BoundaryNote extra={BOUNDARY.demoData} /></div>
 
       <section className="mt-12">
-        <h2 className="font-serif text-2xl font-medium text-ground">Choose a review path</h2>
+        <h2 className="type-display text-2xl font-medium text-ground">Choose a review path</h2>
         <ul className="mt-4 grid gap-4 sm:grid-cols-2">
           {PATHS.map(([id, title, body]) => (
             <li key={id} className="rounded-2xl border border-ground/10 bg-linen/40 px-5 py-4">
@@ -44,7 +44,7 @@ export default function RequestReview({
       </section>
 
       <section className="mt-12">
-        <h2 className="font-serif text-2xl font-medium text-ground">What happens next</h2>
+        <h2 className="type-display text-2xl font-medium text-ground">What happens next</h2>
         <ol className="mt-4 space-y-3">
           {[
             ["Tell us the review purpose", "Which of the paths above, and who is reviewing."],
@@ -53,7 +53,7 @@ export default function RequestReview({
             ["Enter a guided scenario", "A fabricated persona, scripted scenario steps, expected states, status labels, and a feedback path."],
           ].map(([h, b], i) => (
             <li key={h} className="flex gap-4 rounded-2xl border border-ground/10 bg-ivory px-5 py-4">
-              <span className="font-serif text-2xl text-olive">{i + 1}</span>
+              <span className="type-display text-2xl text-olive">{i + 1}</span>
               <div>
                 <h3 className="font-medium text-ground">{h}</h3>
                 <p className="mt-0.5 text-sm text-ground/80">{b}</p>
@@ -64,7 +64,7 @@ export default function RequestReview({
       </section>
 
       <section className="mt-12 rounded-2xl border border-ground/15 bg-moss/30 px-6 py-6">
-        <h2 className="font-serif text-2xl font-medium text-ground">Contact</h2>
+        <h2 className="type-display text-2xl font-medium text-ground">Contact</h2>
         <p className="mt-2 text-sm text-ground/80">
           Review access is arranged directly while the request workflow is being built. Include
           your review path, your organization, and what you most want to inspect.

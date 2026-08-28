@@ -18,7 +18,7 @@ export default function InstrumentForm({
         return (
           <div key={i}>
             {section && (
-              <h2 className="mb-3 mt-8 font-serif text-xl font-medium">{section.heading}</h2>
+              <h2 className="mb-3 mt-8 type-display text-xl font-medium">{section.heading}</h2>
             )}
             <fieldset className="rounded-3xl border border-ground/10 bg-linen p-5 shadow-soft">
               <legend className="px-1 text-sm font-medium">

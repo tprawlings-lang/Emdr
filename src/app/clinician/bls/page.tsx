@@ -49,7 +49,7 @@ export default async function BlsOversightPage() {
     <main className="mx-auto max-w-4xl px-6 py-10">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="font-serif text-3xl font-medium">BLS Part 6 oversight</h1>
+          <h1 className="type-display text-3xl font-medium">BLS Part 6 oversight</h1>
           <p className="text-sm text-olive">
             Bilateral-stimulation validation workstream · protocol signed, not approved for use
           </p>
@@ -65,7 +65,7 @@ export default async function BlsOversightPage() {
 
       {/* ---------------- What is actually running ---------------- */}
       <section className="mt-10">
-        <h2 className="font-serif text-2xl font-medium">What is running right now</h2>
+        <h2 className="type-display text-2xl font-medium">What is running right now</h2>
         <p className="mt-1 text-sm text-olive">
           Read from the safety configuration and environment, not transcribed from the
           protocol. If this disagrees with a document, this is the truth and the document is
@@ -132,7 +132,7 @@ export default async function BlsOversightPage() {
 
       {/* ---------------- Gates ---------------- */}
       <section className="mt-12">
-        <h2 className="font-serif text-2xl font-medium">
+        <h2 className="type-display text-2xl font-medium">
           Part 6 gates{" "}
           <span className="ml-1 rounded-full bg-ground px-2.5 py-0.5 text-sm text-ivory">
             {status.gatesMet}/{status.gatesTotal} met
@@ -170,7 +170,7 @@ export default async function BlsOversightPage() {
 
       {/* ---------------- Rollout ladder ---------------- */}
       <section className="mt-12">
-        <h2 className="font-serif text-2xl font-medium">Staged rollout</h2>
+        <h2 className="type-display text-2xl font-medium">Staged rollout</h2>
         <p className="mt-1 text-sm text-olive">
           Resourcing first, because the evidence supports it and the risk is lower.
           Desensitization is gated behind the tightest criteria — or omitted entirely,
@@ -212,7 +212,7 @@ export default async function BlsOversightPage() {
       {/* ---------------- Thresholds and stops ---------------- */}
       <section className="mt-12 grid gap-6 sm:grid-cols-2">
         <div>
-          <h2 className="font-serif text-2xl font-medium">Pre-registered thresholds</h2>
+          <h2 className="type-display text-2xl font-medium">Pre-registered thresholds</h2>
           <p className="mt-1 text-xs text-olive">
             Set by clinicians before entry. The protocol&rsquo;s own instruction: set them,
             do not fit them.
@@ -228,7 +228,7 @@ export default async function BlsOversightPage() {
         </div>
 
         <div>
-          <h2 className="font-serif text-2xl font-medium">Hard stopping criteria</h2>
+          <h2 className="type-display text-2xl font-medium">Hard stopping criteria</h2>
           <p className="mt-1 text-xs text-olive">
             Any one of these disables the stage immediately. They are not weighed against
             each other, and none of them is a judgement call at the time.

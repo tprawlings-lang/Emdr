@@ -37,7 +37,7 @@ export default function FaqPage() {
 
       {FAQ.map((group) => (
         <section key={group.id} id={group.id} className="mt-12 scroll-mt-8">
-          <h2 className="font-serif text-2xl font-medium text-ground">{group.title}</h2>
+          <h2 className="type-display text-2xl font-medium text-ground">{group.title}</h2>
           <p className="mt-1 text-sm text-olive">{group.blurb}</p>
           <dl className="mt-4 space-y-3">
             {group.items.map((item) => (
@@ -66,7 +66,7 @@ export default function FaqPage() {
       ))}
 
       <section className="mt-12 rounded-2xl border border-support/30 bg-support/5 px-6 py-5">
-        <h2 className="font-serif text-2xl font-medium text-ground">Need help right now?</h2>
+        <h2 className="type-display text-2xl font-medium text-ground">Need help right now?</h2>
         <p className="mt-2 text-sm text-ground/80">{BOUNDARY.crisis}</p>
         <Link href="/crisis" className="mt-3 inline-block text-sm font-medium text-ground underline">
           Immediate help resources →

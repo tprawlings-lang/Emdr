@@ -31,7 +31,7 @@ export default async function TakeMeasurePage({
         </Link>
       </div>
 
-      <h1 className="font-serif text-3xl font-medium">{instrument.title}</h1>
+      <h1 className="type-display text-3xl font-medium">{instrument.title}</h1>
       <p className="mt-2 text-olive">{instrument.intro}</p>
       <p className="mt-2 text-sm text-olive">{instrument.cutoffNote}</p>
 

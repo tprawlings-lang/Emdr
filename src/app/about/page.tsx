@@ -58,7 +58,7 @@ export default function About() {
 
       {/* 1 — The problem, stated structurally */}
       <section className="mt-14">
-        <h2 className="font-serif text-3xl font-medium text-ground">The problem we started from</h2>
+        <h2 className="type-display text-3xl font-medium text-ground">The problem we started from</h2>
         <p className="mt-3 text-ground/80">
           Behavioral health care is delivered in appointments. The weeks between them are
           where symptoms move, patterns form, and people quietly decide whether to
@@ -79,7 +79,7 @@ export default function About() {
 
       {/* 2 — The approach */}
       <section className="mt-14">
-        <h2 className="font-serif text-3xl font-medium text-ground">The approach</h2>
+        <h2 className="type-display text-3xl font-medium text-ground">The approach</h2>
         <p className="mt-3 text-ground/80">
           Steady is one platform with three layers rather than three products. A member
           experience produces structured, timestamped signals; a clinician workflow reads
@@ -99,7 +99,7 @@ export default function About() {
 
       {/* 3 — Operating principles */}
       <section className="mt-14">
-        <h2 className="font-serif text-3xl font-medium text-ground">How we build</h2>
+        <h2 className="type-display text-3xl font-medium text-ground">How we build</h2>
         <p className="mt-2 text-ground/80">
           These are commitments enforced in the codebase and in the test suite, not
           aspirations.
@@ -116,7 +116,7 @@ export default function About() {
 
       {/* 4 — Stage, stated without softening */}
       <section className="mt-14">
-        <h2 className="font-serif text-3xl font-medium text-ground">What stage we are at</h2>
+        <h2 className="type-display text-3xl font-medium text-ground">What stage we are at</h2>
         <p className="mt-3 text-ground/80">
           Steady is a small, founder-led engineering effort at validation stage. It is not
           a deployed service, and it has no users in the ordinary sense — the only people
@@ -144,7 +144,7 @@ export default function About() {
 
       {/* 5 — Accountability */}
       <section className="mt-14">
-        <h2 className="font-serif text-3xl font-medium text-ground">Who is accountable</h2>
+        <h2 className="type-display text-3xl font-medium text-ground">Who is accountable</h2>
         <p className="mt-3 text-ground/80">
           Every capability, control, and open gap published on this site carries a named
           accountable function and a review date. At this stage those functions are
@@ -171,7 +171,7 @@ export default function About() {
 
       {/* 6 — How to check the claims on this site */}
       <section className="mt-14">
-        <h2 className="font-serif text-3xl font-medium text-ground">Checking what we say</h2>
+        <h2 className="type-display text-3xl font-medium text-ground">Checking what we say</h2>
         <p className="mt-3 text-ground/80">
           Status labels on this site come from one registry rather than being written page
           by page, and an automated test fails the build if a page states a status the

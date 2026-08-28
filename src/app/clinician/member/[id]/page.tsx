@@ -96,14 +96,14 @@ export default async function MemberDetailPage({
       <Link href="/clinician" className="text-sm text-olive underline">
         ← Back to queue
       </Link>
-      <h1 className="mt-3 font-serif text-3xl font-medium">{member.name}</h1>
+      <h1 className="mt-3 type-display text-3xl font-medium">{member.name}</h1>
       <p className="text-sm text-olive">
         {member.email} · joined {member.created_at.slice(0, 10)}
       </p>
 
       {(pcl5Series.length > 0 || itqSeries.length > 0) && (
         <section className="mt-8">
-          <h2 className="font-serif text-2xl font-medium">Outcome trends</h2>
+          <h2 className="type-display text-2xl font-medium">Outcome trends</h2>
           <div className="mt-2 grid gap-4 md:grid-cols-2">
             {pcl5Series.length > 0 && (
               <TrendChart
@@ -143,7 +143,7 @@ export default async function MemberDetailPage({
 
       {planRow && (
         <section className="mt-8">
-          <h2 className="font-serif text-2xl font-medium">Program plan (AI-drafted)</h2>
+          <h2 className="type-display text-2xl font-medium">Program plan (AI-drafted)</h2>
           <div className="mt-2 rounded-3xl border border-ground/10 bg-linen p-6 shadow-soft">
             <p className="text-sm text-olive">
               Generated {planRow.created_at.slice(0, 10)} ·{" "}
@@ -176,7 +176,7 @@ export default async function MemberDetailPage({
       )}
 
       <section className="mt-8">
-        <h2 className="font-serif text-2xl font-medium">Screenings</h2>
+        <h2 className="type-display text-2xl font-medium">Screenings</h2>
         <div className="mt-2 overflow-x-auto rounded-3xl border border-ground/10 bg-linen shadow-soft">
           <table className="w-full text-sm">
             <thead className="bg-sand/40 text-left">
@@ -211,7 +211,7 @@ export default async function MemberDetailPage({
       </section>
 
       <section className="mt-8">
-        <h2 className="font-serif text-2xl font-medium">Check-ins (last 14)</h2>
+        <h2 className="type-display text-2xl font-medium">Check-ins (last 14)</h2>
         <div className="mt-2 overflow-x-auto rounded-3xl border border-ground/10 bg-linen shadow-soft">
           <table className="w-full text-sm">
             <thead className="bg-sand/40 text-left">
@@ -241,7 +241,7 @@ export default async function MemberDetailPage({
       </section>
 
       <section className="mt-8">
-        <h2 className="font-serif text-2xl font-medium">Sessions (last 20)</h2>
+        <h2 className="type-display text-2xl font-medium">Sessions (last 20)</h2>
         <div className="mt-2 overflow-x-auto rounded-3xl border border-ground/10 bg-linen shadow-soft">
           <table className="w-full text-sm">
             <thead className="bg-sand/40 text-left">
@@ -283,7 +283,7 @@ export default async function MemberDetailPage({
       </section>
 
       <section className="mt-8">
-        <h2 className="font-serif text-2xl font-medium">Module access</h2>
+        <h2 className="type-display text-2xl font-medium">Module access</h2>
         <p className="mt-1 text-sm text-olive">
           Open a gated module ahead of the program&apos;s pacing when your review supports it. An
           override relaxes prerequisites and the readiness track only — the daily check-in,
@@ -359,7 +359,7 @@ export default async function MemberDetailPage({
 
       <section className="mt-8 grid gap-6 md:grid-cols-2">
         <div>
-          <h2 className="font-serif text-2xl font-medium">Unlock history</h2>
+          <h2 className="type-display text-2xl font-medium">Unlock history</h2>
           <div className="mt-2 space-y-2">
             {unlocks.length === 0 && <p className="text-sm text-olive">None.</p>}
             {unlocks.map((u, i) => (
@@ -377,7 +377,7 @@ export default async function MemberDetailPage({
           </div>
         </div>
         <div>
-          <h2 className="font-serif text-2xl font-medium">Consent ledger</h2>
+          <h2 className="type-display text-2xl font-medium">Consent ledger</h2>
           <div className="mt-2 space-y-2">
             {consents.map((c, i) => (
               <div key={i} className="rounded-3xl border border-ground/10 bg-linen p-4 text-sm shadow-soft">

@@ -40,7 +40,7 @@ export default function FitnessScreener({ items }: { items: FitnessItem[] }) {
       <p className="mt-6 text-sm text-olive">
         Question {index + 1} of {items.length}
       </p>
-      <h2 className="mt-2 font-serif text-2xl font-medium leading-snug">{item.text}</h2>
+      <h2 className="mt-2 type-display text-2xl font-medium leading-snug">{item.text}</h2>
       {item.note && <p className="mt-3 text-sm text-olive">{item.note}</p>}
       <div className="mt-8 flex gap-3">
         <button

@@ -19,7 +19,7 @@ export default async function FitPausePage() {
 
   return (
     <main className="mx-auto max-w-xl px-6 py-14">
-      <h1 className="font-serif text-4xl font-medium">
+      <h1 className="type-display text-4xl font-medium">
         This program isn&apos;t the right fit right now
       </h1>
       <p className="mt-4 leading-relaxed text-ground/90">

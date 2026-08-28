@@ -13,7 +13,7 @@ export default async function LoginPage({
         <SteadyMark className="h-9 w-9 text-olive" />
         <Wordmark className="text-4xl" />
       </div>
-      <h1 className="mt-8 font-serif text-3xl font-medium">Review sign in</h1>
+      <h1 className="mt-8 type-display text-3xl font-medium">Review sign in</h1>
       <p className="mt-2 text-sm text-olive">
         Access to the Steady review environment. Every person and record in it is fabricated.
       </p>

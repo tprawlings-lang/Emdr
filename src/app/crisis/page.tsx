@@ -19,7 +19,7 @@ export default async function CrisisPage({
 
   return (
     <main className="mx-auto max-w-xl px-6 py-14">
-      <h1 className="font-serif text-4xl font-medium text-ground">Pause and get support</h1>
+      <h1 className="type-display text-4xl font-medium text-ground">Pause and get support</h1>
       <p className="mt-3 text-lg text-ground">
         {from
           ? "Based on what you just told us, the safest step is to pause the program and get support. Your care team has been notified and will review today."
@@ -68,7 +68,7 @@ export default async function CrisisPage({
       </div>
 
       <div className="mt-10 rounded-3xl border border-ground/10 bg-linen p-6 shadow-soft">
-        <h2 className="font-serif text-2xl font-medium">Ground yourself while you reach out</h2>
+        <h2 className="type-display text-2xl font-medium">Ground yourself while you reach out</h2>
         <ol className="mt-3 list-decimal space-y-2 pl-5 text-ground/90">
           <li>Feel your feet on the floor. Press them down.</li>
           <li>Name five things you can see, four you can hear, three you can touch.</li>
@@ -78,7 +78,7 @@ export default async function CrisisPage({
       </div>
 
       <div className="mt-6 rounded-3xl border border-ground/10 bg-linen p-6 shadow-soft">
-        <h2 className="font-serif text-2xl font-medium">Is someone with you, or can someone be?</h2>
+        <h2 className="type-display text-2xl font-medium">Is someone with you, or can someone be?</h2>
         <p className="mt-2 text-ground/90">
           Reach out to one safe person now — a call or a text. You do not have to explain
           everything. “Can you stay on the phone with me for a bit?” is enough.

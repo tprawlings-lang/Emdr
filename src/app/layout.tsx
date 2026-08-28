@@ -1,16 +1,11 @@
 import { Suspense } from "react";
 import { getCurrentUser } from "@/lib/auth";
 import type { Metadata } from "next";
-import { Inter, Cormorant_Garamond } from "next/font/google";
+import { Inter } from "next/font/google";
 import "./globals.css";
 import SosMount from "@/components/SosMount";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
-const cormorant = Cormorant_Garamond({
-  subsets: ["latin"],
-  weight: ["500", "600"],
-  variable: "--font-cormorant",
-});
 
 export const metadata: Metadata = {
   title: "steady — a steadier way through trauma",
@@ -39,7 +34,7 @@ export default function RootLayout({
 }: Readonly<{ children: React.ReactNode }>) {
   const demo = process.env.EMDR_DEMO === "1";
   return (
-    <html lang="en" className={`h-full antialiased ${inter.variable} ${cormorant.variable}`}>
+    <html lang="en" className={`h-full antialiased ${inter.variable}`}>
       <body className="min-h-full flex flex-col bg-ivory font-sans text-ground">
         {demo && (
           // Handoff §1 and §3: every surface carries this label, in these

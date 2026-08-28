@@ -31,7 +31,7 @@ export default async function AlertTrailPage({
     // permitted" would confirm the id exists.
     return (
       <main className="mx-auto max-w-3xl px-6 py-10">
-        <h1 className="font-serif text-2xl font-medium">Not found</h1>
+        <h1 className="type-display text-2xl font-medium">Not found</h1>
         <p className="mt-2 text-sm text-olive">No such alert in your organization.</p>
         <Link href="/clinician/clinical" className="mt-4 inline-block text-sm text-olive underline">
           ← Caseload
@@ -47,7 +47,7 @@ export default async function AlertTrailPage({
     <main className="mx-auto max-w-4xl px-6 py-10">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="font-serif text-3xl font-medium">Alert trail</h1>
+          <h1 className="type-display text-3xl font-medium">Alert trail</h1>
           <p className="text-sm text-olive">
             {a.alert_type.replace(/_/g, " ")} · severity {a.severity}
           </p>
@@ -93,7 +93,7 @@ export default async function AlertTrailPage({
         withheld from this view.
       </p>
 
-      <h2 className="mt-8 font-serif text-2xl font-medium">Sequence</h2>
+      <h2 className="mt-8 type-display text-2xl font-medium">Sequence</h2>
       <p className="mt-1 text-sm text-olive">Oldest first.</p>
       <AuditTable entries={trail.entries} showTarget />
     </main>

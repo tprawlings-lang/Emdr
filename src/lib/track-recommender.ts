@@ -108,9 +108,13 @@ export function trackSafetyGate(s: SafetySignals): SafetyGate {
   if (s.checkinAction === "crisis") {
     return {
       proceed: false,
-      safety: { level: "blocked", action: "crisis", reason: "Today's check-in flagged safety concerns." },
+      // "Flagged safety concerns" told the member a rule fired on them, which
+      // is a criteria label (§2) and frames a narrowed day as a failed check.
+      // §4 allows a plain, non-clinical sentence and no more: what today is
+      // for, not what tripped.
+      safety: { level: "blocked", action: "crisis", reason: "Today is for support rather than path work." },
       missingInputs: [],
-      memberMessage: "Today's check-in flagged some concerns, so paths are paused while support is offered. You're not alone in this.",
+      memberMessage: "Support is what matters today, so paths are set aside for now. They'll be here when you come back.",
     };
   }
   return { proceed: true };

@@ -18,10 +18,10 @@ export default async function AccountSettingsPage({
       <Link href="/dashboard" className="text-sm text-olive underline">
         ← Back to dashboard
       </Link>
-      <h1 className="mt-3 font-serif text-4xl font-medium">Your account</h1>
+      <h1 className="mt-3 type-display text-4xl font-medium">Your account</h1>
 
       <section className="mt-8 rounded-3xl border border-ground/10 bg-linen p-7 shadow-soft">
-        <h2 className="font-serif text-2xl font-medium">Sign out everywhere</h2>
+        <h2 className="type-display text-2xl font-medium">Sign out everywhere</h2>
         <p className="mt-3 text-sm leading-relaxed text-olive">
           Signs you out on every device — useful if you used a shared computer or think someone
           else may have access. You&apos;ll sign back in here as usual.
@@ -34,7 +34,7 @@ export default async function AccountSettingsPage({
       </section>
 
       <section className="mt-8 rounded-3xl border border-ground/30 bg-linen p-7 shadow-soft">
-        <h2 className="font-serif text-2xl font-medium">Delete my account and data</h2>
+        <h2 className="type-display text-2xl font-medium">Delete my account and data</h2>
         <p className="mt-3 text-sm leading-relaxed text-olive">
           This removes your sessions, check-ins, triggers, safety plan, companion
           conversations and memory, and screening answers — immediately and permanently. No

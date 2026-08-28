@@ -10,7 +10,7 @@ export default async function LearnPage() {
 
   return (
     <main className="mx-auto max-w-xl px-6 py-12">
-      <h1 className="font-serif text-3xl font-medium">Learn</h1>
+      <h1 className="type-display text-3xl font-medium">Learn</h1>
       <p className="mt-2 text-olive">
         A few short reads to make sense of what you&apos;re working with — the window of tolerance,
         why the method works, understanding triggers. Two to four minutes each.
@@ -26,7 +26,7 @@ export default async function LearnPage() {
             className="block rounded-3xl border border-ground/10 bg-linen p-5 shadow-soft transition-colors hover:bg-moss"
           >
             <div className="flex items-baseline justify-between gap-3">
-              <span className="font-serif text-xl text-ground">{l.title}</span>
+              <span className="type-display text-xl text-ground">{l.title}</span>
               <span className="whitespace-nowrap text-xs text-olive">
                 {read.has(l.id) ? "✓ read" : `${l.readMinutes} min`}
               </span>

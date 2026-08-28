@@ -124,7 +124,7 @@ export default function ResourcingSession({ borderline = false }: { borderline?:
       )}
       {s.phase === "intro" && (
         <div className="space-y-5 text-center">
-          <h1 className="font-serif text-3xl font-medium">A calm-place session</h1>
+          <h1 className="type-display text-3xl font-medium">A calm-place session</h1>
           <p className="text-olive">
             We&apos;ll settle, bring a calm place to mind, and pair it with a few short, gentle
             rounds of sound and tapping. You can stop any time — stopping is always okay.
@@ -145,7 +145,7 @@ export default function ResourcingSession({ borderline = false }: { borderline?:
 
       {s.phase === "prep" && (
         <div className="space-y-6">
-          <p className="text-center font-serif text-2xl leading-relaxed">
+          <p className="text-center type-display text-2xl leading-relaxed">
             {RESOURCING_PREP_STEPS[s.stepIndex]?.prompt}
           </p>
           {RESOURCING_PREP_STEPS[s.stepIndex]?.phase === "choose_place" && (
@@ -185,7 +185,7 @@ export default function ResourcingSession({ borderline = false }: { borderline?:
 
       {s.phase === "set" && (
         <div className="space-y-8 text-center">
-          <p className="font-serif text-2xl">{cue}</p>
+          <p className="type-display text-2xl">{cue}</p>
           <p className="text-sm text-olive">
             Set {s.setsCompleted + 1} of {RESOURCING_PARAMS.maxSets} · gentle sound &amp; tapping
           </p>
@@ -202,7 +202,7 @@ export default function ResourcingSession({ borderline = false }: { borderline?:
 
       {s.phase === "between" && (
         <div className="space-y-6 text-center">
-          <p className="font-serif text-2xl">{betweenPrompt}</p>
+          <p className="type-display text-2xl">{betweenPrompt}</p>
           <div className="space-y-3">
             <button
               type="button"
@@ -230,7 +230,7 @@ export default function ResourcingSession({ borderline = false }: { borderline?:
 
       {s.phase === "closure" && (
         <div className="space-y-6 text-center">
-          <h2 className="font-serif text-2xl font-medium">Let&apos;s close gently</h2>
+          <h2 className="type-display text-2xl font-medium">Let&apos;s close gently</h2>
           <p className="text-olive">{CLOSURE_TEXT}</p>
           <button
             type="button"
@@ -251,7 +251,7 @@ export default function ResourcingSession({ borderline = false }: { borderline?:
 
       {s.phase === "completed" && (
         <div className="space-y-5 text-center">
-          <h2 className="font-serif text-3xl font-medium">Closed and complete</h2>
+          <h2 className="type-display text-3xl font-medium">Closed and complete</h2>
           <p className="text-olive">Well done for taking care of yourself today.</p>
           <Link
             href="/dashboard"

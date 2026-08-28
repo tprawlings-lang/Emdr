@@ -19,7 +19,7 @@ export default async function VoiceSettingsPage() {
       <Link href="/settings/account" className="text-sm text-olive underline">
         ← Settings
       </Link>
-      <h1 className="mt-3 font-serif text-3xl font-medium">Voice &amp; speaking</h1>
+      <h1 className="mt-3 type-display text-3xl font-medium">Voice &amp; speaking</h1>
       <p className="mt-2 text-sm text-olive">
         Speaking during sessions is entirely optional — typing and tapping always work exactly
         the same. Because your voice can be sensitive information, this is a separate choice.

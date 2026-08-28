@@ -40,7 +40,7 @@ export default async function DemoGateway({
       )}
 
       <section className="mt-10">
-        <h2 className="font-serif text-2xl font-medium text-ground">What you are about to see</h2>
+        <h2 className="type-display text-2xl font-medium text-ground">What you are about to see</h2>
         <ul className="mt-3 space-y-2 text-sm text-ground/80">
           <li><strong>Fabricated data only.</strong> Dataset <code className="text-xs">{DEMO_SEED_VERSION}</code>, reset to a reproducible baseline.</li>
           <li><strong>No clinical care.</strong> No therapy, diagnosis, treatment, or emergency service.</li>
@@ -51,7 +51,7 @@ export default async function DemoGateway({
 
       {!open ? (
         <section className="mt-10 rounded-2xl border border-pause/50 bg-pause-soft px-6 py-5">
-          <h2 className="font-serif text-2xl font-medium text-ground">Access is closed</h2>
+          <h2 className="type-display text-2xl font-medium text-ground">Access is closed</h2>
           <p className="mt-2 text-sm text-ground/80">
             No review code is configured for this deployment, so the gateway is closed. That is
             the intended state when access has not been arranged — a missing configuration
@@ -63,7 +63,7 @@ export default async function DemoGateway({
         </section>
       ) : (
         <section className="mt-10">
-          <h2 className="font-serif text-2xl font-medium text-ground">Choose your review path</h2>
+          <h2 className="type-display text-2xl font-medium text-ground">Choose your review path</h2>
           <p className="mt-2 text-sm text-olive">
             Your access is scoped to the purpose you choose. You will never be shown or asked
             for a password.

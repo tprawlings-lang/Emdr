@@ -54,7 +54,7 @@ export default async function TestingConsole({
     <main className="mx-auto max-w-5xl px-6 py-10">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="font-serif text-3xl font-medium">Clinician testing</h1>
+          <h1 className="type-display text-3xl font-medium">Clinician testing</h1>
           <p className="text-sm text-olive">
             What you can exercise, and what you would change · {clinician.name}
           </p>
@@ -88,7 +88,7 @@ export default async function TestingConsole({
 
       {/* ---------------- What you can exercise ---------------- */}
       <section className="mt-10">
-        <h2 className="font-serif text-2xl font-medium">What you can exercise right now</h2>
+        <h2 className="type-display text-2xl font-medium">What you can exercise right now</h2>
         <p className="mt-1 text-sm text-olive">{postureNote()}</p>
 
         <div className="mt-4 overflow-x-auto">
@@ -135,7 +135,7 @@ export default async function TestingConsole({
 
       {/* ---------------- File a note ---------------- */}
       <section className="mt-10">
-        <h2 className="font-serif text-2xl font-medium">File a change request</h2>
+        <h2 className="type-display text-2xl font-medium">File a change request</h2>
         <p className="mt-1 text-sm text-olive">
           The same form is on every clinical screen, so you can file from wherever you noticed
           it. Nothing here is settled — a default you disagree with is a finding, not a
@@ -146,7 +146,7 @@ export default async function TestingConsole({
 
       {/* ---------------- The list ---------------- */}
       <section className="mt-12">
-        <h2 className="font-serif text-2xl font-medium">
+        <h2 className="type-display text-2xl font-medium">
           Change requests{" "}
           <span className="ml-1 rounded-full bg-ground px-2.5 py-0.5 text-sm text-ivory">
             {stats.total}
@@ -218,7 +218,7 @@ export default async function TestingConsole({
       {/* ---------------- Export ---------------- */}
       {notes.length > 0 && (
         <section className="mt-12">
-          <h2 className="font-serif text-2xl font-medium">Export</h2>
+          <h2 className="type-display text-2xl font-medium">Export</h2>
           <p className="mt-1 text-sm text-olive">
             A review session should end with something that can be pasted into a plan, not a
             screen someone has to transcribe.

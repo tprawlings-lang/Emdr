@@ -180,7 +180,7 @@ function BlsAudio({ running, speedMs }: { running: boolean; speedMs: number }) {
 
   return (
     <div className="flex h-[220px] w-full flex-col items-center justify-center rounded-3xl bg-ground text-center text-ivory/85">
-      <p className="font-serif text-2xl">{running ? "Follow the tones" : "Audio paused"}</p>
+      <p className="type-display text-2xl">{running ? "Follow the tones" : "Audio paused"}</p>
       <p className="mt-2 max-w-sm text-sm text-ivory/60">
         Left… right… let your attention move with the sound. Headphones work best.
       </p>
@@ -247,7 +247,7 @@ function TriggerEntryStep({
 
   return (
     <div className="mt-8">
-      <h2 className="font-serif text-2xl font-medium">Map your triggers (headline level)</h2>
+      <h2 className="type-display text-2xl font-medium">Map your triggers (headline level)</h2>
       {text && <p className="mt-3 text-sm leading-relaxed text-olive">{text}</p>}
 
       {saved.length > 0 && (
@@ -614,7 +614,7 @@ export default function SessionPlayer({ module: mod, focus, calmPlace, audioOnly
           are in danger, call or text{" "}
           <a href="tel:988" className="font-semibold underline">988</a> or call 911.
         </div>
-        <h1 className="font-serif text-4xl font-medium">{mod.name}</h1>
+        <h1 className="type-display text-4xl font-medium">{mod.name}</h1>
         <p className="mt-2 text-olive">{mod.objective}</p>
 
         {focus && (
@@ -800,7 +800,7 @@ export default function SessionPlayer({ module: mod, focus, calmPlace, audioOnly
     return (
       <div className="mx-auto max-w-xl px-6 py-14">
         <div className="rounded-3xl border border-ground/10 bg-linen p-7 shadow-soft">
-          <h1 className="font-serif text-3xl font-medium">
+          <h1 className="type-display text-3xl font-medium">
             {phase === "sudpause" ? "Let's pause and settle first" : "Coming back to the room"}
           </h1>
           {phase === "sudpause" && (
@@ -845,7 +845,7 @@ export default function SessionPlayer({ module: mod, focus, calmPlace, audioOnly
     return (
       <div className="mx-auto max-w-xl px-6 py-14">
         <div className="rounded-3xl border-2 border-pause/60 bg-pause-soft p-7 shadow-soft">
-          <h1 className="font-serif text-3xl font-medium">Session paused for your safety</h1>
+          <h1 className="type-display text-3xl font-medium">Session paused for your safety</h1>
           <p className="mt-3 text-ground/90">
             {hardStopReason}. That is the system working as designed — not a failure. Your care
             team has been notified and will review this session.
@@ -939,7 +939,7 @@ export default function SessionPlayer({ module: mod, focus, calmPlace, audioOnly
         <TriggerEntryStep sessionId={sessionId} text={step.text} onDone={advance} voiceEnabled={voiceEnabled} />
       ) : step?.kind === "instruction" || step?.kind === "grounding" ? (
         <div className="mt-8">
-          <h2 className="font-serif text-2xl font-medium">{step.title}</h2>
+          <h2 className="type-display text-2xl font-medium">{step.title}</h2>
           {step.beats && step.beats.length > 0 ? (
             <div className="mt-4">
               <NarrationView
@@ -984,7 +984,7 @@ export default function SessionPlayer({ module: mod, focus, calmPlace, audioOnly
         </div>
       ) : step?.kind === "suds" ? (
         <div className="mt-8">
-          <h2 className="font-serif text-2xl font-medium">{step.title}</h2>
+          <h2 className="type-display text-2xl font-medium">{step.title}</h2>
           <div className="mt-6">
             <input
               type="range"
@@ -1010,7 +1010,7 @@ export default function SessionPlayer({ module: mod, focus, calmPlace, audioOnly
         </div>
       ) : step?.kind === "bls" ? (
         <div className="mt-8">
-          <h2 className="font-serif text-2xl font-medium">{step.title}</h2>
+          <h2 className="type-display text-2xl font-medium">{step.title}</h2>
           <div className="mt-5">
             {blsMode === "audio" ? (
               <BlsAudio
@@ -1026,7 +1026,7 @@ export default function SessionPlayer({ module: mod, focus, calmPlace, audioOnly
             )}
           </div>
           {resourcingModule && setActive && (
-            <p className="mt-5 text-center font-serif text-2xl text-ground" aria-live="polite">
+            <p className="mt-5 text-center type-display text-2xl text-ground" aria-live="polite">
               {currentCue}
             </p>
           )}

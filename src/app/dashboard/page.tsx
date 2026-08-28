@@ -3,6 +3,8 @@ import { redirect } from "next/navigation";
 import { requireMember } from "@/lib/auth";
 import { buildMemberDay, DAY_MESSAGE } from "@/lib/member/view";
 import { memberHistory } from "@/lib/member/history";
+import { DayCanvas } from "@/components/member/DayCanvas";
+import { HistoryStrip } from "@/components/member/HistoryStrip";
 import { subscriptionActive } from "@/lib/billing";
 import { data } from "@/lib/data";
 import { MODULES } from "@/lib/modules";
@@ -149,7 +151,7 @@ export default async function DashboardPage() {
       )}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="font-serif text-4xl font-medium">Hello, {user.name}</h1>
+          <h1 className="type-display text-4xl font-medium">Hello, {user.name}</h1>
           <p className="mt-1 text-sm text-olive">You are here today. That is enough.</p>
         </div>
         <div className="flex items-center gap-4">
@@ -178,23 +180,14 @@ export default async function DashboardPage() {
           member is shown on return.
 
           What replaces them is the day itself. */}
-      <div className="mt-8 rounded-3xl border border-ground/10 bg-linen p-6 shadow-soft">
-        <p className="text-sm text-olive">Today</p>
-        <p className="mt-1 font-serif text-2xl font-medium">{DAY_MESSAGE[day.messageKey]}</p>
-        {day.primary && (
-          <p className="mt-2 text-sm text-olive">
-            A good place to start is <strong className="text-ground">{day.primary.name}</strong>
-            {" "}— about {day.primary.minutes} minutes.
-          </p>
-        )}
-      </div>
+      <DayCanvas day={day} />
 
       {autopilot && (
         <section className="mt-6 rounded-3xl border border-sage-deep/40 bg-moss p-7 shadow-soft">
           <div className="flex items-baseline justify-between gap-3">
             <div>
               <p className="text-sm text-olive">Autopilot · today&apos;s plan</p>
-              <h2 className="mt-1 font-serif text-2xl font-medium">{autopilot.headline}</h2>
+              <h2 className="mt-1 type-display text-2xl font-medium">{autopilot.headline}</h2>
             </div>
             <p className="text-xs text-olive">{autopilot.date}</p>
           </div>
@@ -226,7 +219,7 @@ export default async function DashboardPage() {
 
       {!checkin ? (
         <div className="mt-6 rounded-3xl bg-ground p-7 text-ivory shadow-soft">
-          <h2 className="font-serif text-2xl font-medium">Today&apos;s gentle next step</h2>
+          <h2 className="type-display text-2xl font-medium">Today&apos;s gentle next step</h2>
           <p className="mt-2 text-ivory/80">
             A short check-in — under 90 seconds. Every session moves through it first.
           </p>
@@ -285,7 +278,7 @@ export default async function DashboardPage() {
           className="rounded-3xl border border-ground/10 bg-linen p-5 shadow-soft transition-colors hover:bg-moss"
         >
           <p className="text-sm text-olive">Prepare &amp; regulate</p>
-          <p className="mt-1 font-serif text-2xl font-medium">Breathe</p>
+          <p className="mt-1 type-display text-2xl font-medium">Breathe</p>
           <p className="mt-2 text-sm leading-relaxed text-olive">
             A few minutes of paced breathing to settle — before a session, or any time.
           </p>
@@ -295,7 +288,7 @@ export default async function DashboardPage() {
           className="rounded-3xl border border-ground/10 bg-linen p-5 shadow-soft transition-colors hover:bg-moss"
         >
           <p className="text-sm text-olive">Prepare &amp; regulate</p>
-          <p className="mt-1 font-serif text-2xl font-medium">Meditate</p>
+          <p className="mt-1 type-display text-2xl font-medium">Meditate</p>
           <p className="mt-2 text-sm leading-relaxed text-olive">
             Short guided practices — grounding, calm-place, self-compassion. Read aloud or as text.
           </p>
@@ -305,7 +298,7 @@ export default async function DashboardPage() {
           className="rounded-3xl border border-ground/10 bg-linen p-5 shadow-soft transition-colors hover:bg-moss"
         >
           <p className="text-sm text-olive">Prepare &amp; regulate</p>
-          <p className="mt-1 font-serif text-2xl font-medium">Move</p>
+          <p className="mt-1 type-display text-2xl font-medium">Move</p>
           <p className="mt-2 text-sm leading-relaxed text-olive">
             Gentle guided movement — orienting turns, rooting down, easy stretches, shaking it off.
           </p>
@@ -315,7 +308,7 @@ export default async function DashboardPage() {
           className="rounded-3xl border border-ground/10 bg-linen p-5 shadow-soft transition-colors hover:bg-moss"
         >
           <p className="text-sm text-olive">Wind down</p>
-          <p className="mt-1 font-serif text-2xl font-medium">Sleep</p>
+          <p className="mt-1 type-display text-2xl font-medium">Sleep</p>
           <p className="mt-2 text-sm leading-relaxed text-olive">
             Guided wind-downs to do lying down — slow breathing, melting into rest, putting the day down.
           </p>
@@ -325,14 +318,14 @@ export default async function DashboardPage() {
           className="rounded-3xl border border-ground/10 bg-linen p-5 shadow-soft transition-colors hover:bg-moss"
         >
           <p className="text-sm text-olive">Learn</p>
-          <p className="mt-1 font-serif text-2xl font-medium">Short reads</p>
+          <p className="mt-1 type-display text-2xl font-medium">Short reads</p>
           <p className="mt-2 text-sm leading-relaxed text-olive">
             Make sense of the work — window of tolerance, triggers, why the method helps.
           </p>
         </Link>
         <div className="rounded-3xl border border-ground/10 bg-linen p-5 shadow-soft">
           <p className="text-sm text-olive">Your companion</p>
-          <p className="mt-1 font-serif text-2xl font-medium">Here when you need it</p>
+          <p className="mt-1 type-display text-2xl font-medium">Here when you need it</p>
           <p className="mt-2 text-sm leading-relaxed text-olive">
             It remembers your triggers, grounding tools, and pace — and you control its memory.
           </p>
@@ -375,45 +368,20 @@ export default async function DashboardPage() {
           never fills out a log, the system assembles one from what they
           actually did. Practices completed, grouped by day. No counts, no
           streak, no comparison between days. */}
-      {history.length > 0 && (
-        <section className="mt-12">
-          <div className="flex items-baseline justify-between">
-            <h2 className="font-serif text-2xl font-medium">What you&rsquo;ve done</h2>
-            <Link href="/measures" className="text-sm text-olive underline">
-              Weekly measures
-            </Link>
-          </div>
-          <ul className="mt-4 space-y-3">
-            {history.map((d) => (
-              <li
-                key={d.day}
-                data-testid="history-day"
-                className="rounded-3xl border border-ground/10 bg-linen px-5 py-4 shadow-soft"
-              >
-                <p className="text-sm text-olive">{d.day}</p>
-                <ul className="mt-1 flex flex-wrap gap-2">
-                  {d.items.map((i) => (
-                    <li
-                      key={`${i.kind}:${i.id}`}
-                      className="rounded-full border border-ground/15 bg-ivory px-3 py-1 text-sm"
-                    >
-                      {i.name}
-                    </li>
-                  ))}
-                </ul>
-              </li>
-            ))}
-          </ul>
-          <p className="mt-3 text-xs text-olive">
-            Days you didn&rsquo;t use Steady simply aren&rsquo;t here, and nothing is being counted.
-          </p>
-        </section>
-      )}
+      <section className="mt-12">
+        <div className="flex items-baseline justify-between">
+          <h2 className="type-display text-2xl font-medium">What you&rsquo;ve done</h2>
+          <Link href="/measures" className="text-sm text-olive underline">
+            Weekly measures
+          </Link>
+        </div>
+        <HistoryStrip days={history} />
+      </section>
 
       {myTracks.length > 0 ? (
         <section className="mt-12">
           <div className="flex items-baseline justify-between">
-            <h2 className="font-serif text-2xl font-medium">Your paths</h2>
+            <h2 className="type-display text-2xl font-medium">Your paths</h2>
             <Link href="/paths" className="text-sm text-olive underline">
               Manage paths
             </Link>
@@ -442,7 +410,7 @@ export default async function DashboardPage() {
         </section>
       ) : (
         <section className="mt-12 rounded-3xl border border-clay/40 bg-clay/15 p-6">
-          <h2 className="font-serif text-2xl font-medium">Find your path</h2>
+          <h2 className="type-display text-2xl font-medium">Find your path</h2>
           <p className="mt-2 text-sm text-ground/90">
             Tell us what you&apos;d like to work on and we&apos;ll suggest where to start — trauma,
             anxiety, a specific fear, grief, and more. You can follow more than one.
@@ -459,7 +427,7 @@ export default async function DashboardPage() {
       {planRow && (
         <section className="mt-12 rounded-3xl border border-ground/10 bg-ground p-7 text-ivory shadow-soft">
           <div className="flex flex-wrap items-baseline justify-between gap-2">
-            <h2 className="font-serif text-2xl font-medium">Your program plan</h2>
+            <h2 className="type-display text-2xl font-medium">Your program plan</h2>
             <p className="text-xs text-ivory/60">
               Updated {planRow.created_at.slice(0, 10)} ·{" "}
               {planRow.generated_by === "ai" ? "drafted by your companion" : "from your map"} ·
@@ -489,7 +457,7 @@ export default async function DashboardPage() {
         </section>
       )}
 
-      <h2 className="mt-12 font-serif text-2xl font-medium">Your program</h2>
+      <h2 className="mt-12 type-display text-2xl font-medium">Your program</h2>
       <p className="mt-1 text-sm text-olive">
         Modules marked “Specialist gated” open only after your care team reviews your
         readiness. That pacing is part of the treatment design, not a paywall.

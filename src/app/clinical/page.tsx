@@ -23,7 +23,7 @@ export default function ClinicalPage() {
       </div>
 
       <section className="mt-12">
-        <h2 className="font-serif text-2xl font-medium text-ground">The workflow</h2>
+        <h2 className="type-display text-2xl font-medium text-ground">The workflow</h2>
         <ul className="mt-4 grid gap-4 sm:grid-cols-2">
           {["clinical-caseload", "member-timeline", "cited-summaries", "review-actions"].map((id) => (
             <CapabilityCard key={id} c={capability(id)} />
@@ -32,7 +32,7 @@ export default function ClinicalPage() {
       </section>
 
       <section className="mt-12">
-        <h2 className="font-serif text-2xl font-medium text-ground">Where people stay accountable</h2>
+        <h2 className="type-display text-2xl font-medium text-ground">Where people stay accountable</h2>
         <ul className="mt-4 space-y-3 text-ground/80">
           <li className="rounded-2xl border border-ground/10 bg-linen/40 px-5 py-4">
             <strong className="text-ground">Access decisions are deterministic.</strong> Fourteen
@@ -61,7 +61,7 @@ export default function ClinicalPage() {
       </section>
 
       <section className="mt-12">
-        <h2 className="font-serif text-2xl font-medium text-ground">Policies you can compare</h2>
+        <h2 className="type-display text-2xl font-medium text-ground">Policies you can compare</h2>
         <p className="mt-2 max-w-3xl text-ground/80">
           Six clinical policy questions are implemented as versioned configuration rather than
           fixed behaviour, so a reviewer can switch a mode and watch the product change instead
@@ -105,7 +105,7 @@ export default function ClinicalPage() {
       </section>
 
       <section className="mt-12">
-        <h2 className="font-serif text-2xl font-medium text-ground">BLS Part 6</h2>
+        <h2 className="type-display text-2xl font-medium text-ground">BLS Part 6</h2>
         <div className="mt-4">
           <ul className="grid gap-4 sm:grid-cols-2">
             <CapabilityCard c={capability("bls-part-6")} />
@@ -121,7 +121,7 @@ export default function ClinicalPage() {
       </section>
 
       <section className="mt-12 rounded-2xl border border-pause/50 bg-pause-soft px-6 py-5">
-        <h2 className="font-serif text-2xl font-medium text-ground">About the prior review record</h2>
+        <h2 className="type-display text-2xl font-medium text-ground">About the prior review record</h2>
         <p className="mt-2 text-sm text-ground/80">
           A previous configuration was ratified with conditions by two independent licensed
           clinicians in July 2026. That record covered the <strong>consumer self-guided

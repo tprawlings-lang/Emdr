@@ -50,7 +50,7 @@ export default async function MeasuresPage({
       <Link href="/dashboard" className="text-sm text-olive underline">
         ← Back to dashboard
       </Link>
-      <h1 className="mt-3 font-serif text-3xl font-medium">Weekly measures</h1>
+      <h1 className="mt-3 type-display text-3xl font-medium">Weekly measures</h1>
       <p className="mt-2 text-sm text-olive">
         These short questionnaires are how you and your care team see whether the program is
         actually helping. Once a week is enough — more often does not make the signal better.

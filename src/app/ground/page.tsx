@@ -12,7 +12,7 @@ export default async function GroundPage() {
 
   return (
     <main className="mx-auto max-w-xl px-6 py-14">
-      <h1 className="font-serif text-4xl font-medium">Come back to the room</h1>
+      <h1 className="type-display text-4xl font-medium">Come back to the room</h1>
       <p className="mt-3 text-lg text-olive">No rush. One step at a time.</p>
 
       <ol className="mt-8 space-y-4">
@@ -32,7 +32,7 @@ export default async function GroundPage() {
       {plan?.reminder_phrase && (
         <div className="mt-8 rounded-3xl bg-moss p-6 text-center">
           <p className="text-sm text-olive">You asked Steady to remind you:</p>
-          <p className="mt-2 font-serif text-2xl font-medium">“{plan.reminder_phrase}”</p>
+          <p className="mt-2 type-display text-2xl font-medium">“{plan.reminder_phrase}”</p>
         </div>
       )}
 

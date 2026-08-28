@@ -26,7 +26,7 @@ export function PublicHeader() {
   return (
     <header className="border-b border-ground/10 bg-linen/60">
       <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-x-6 gap-y-3 px-6 py-4">
-        <Link href="/" className="font-serif text-xl font-medium text-ground">
+        <Link href="/" className="type-display text-xl font-medium text-ground">
           Steady
         </Link>
         <nav aria-label="Main" className="flex flex-wrap items-center gap-x-5 gap-y-2 text-sm">
@@ -133,7 +133,7 @@ export function AudienceCard({
 }: { href: string; title: string; body: string; cta: string }) {
   return (
     <li className="rounded-2xl border border-ground/10 bg-ivory px-5 py-4">
-      <h3 className="font-serif text-xl font-medium text-ground">{title}</h3>
+      <h3 className="type-display text-xl font-medium text-ground">{title}</h3>
       <p className="mt-1 text-sm text-ground/80">{body}</p>
       <Link href={href} className="mt-3 inline-block text-sm font-medium text-ground underline">
         {cta} →
@@ -162,7 +162,7 @@ export function ReviewCTA({
 }: { heading?: string; body?: string }) {
   return (
     <section className="mt-14 rounded-2xl border border-ground/15 bg-moss/30 px-6 py-8">
-      <h2 className="font-serif text-2xl font-medium text-ground">{heading}</h2>
+      <h2 className="type-display text-2xl font-medium text-ground">{heading}</h2>
       <p className="mt-2 max-w-2xl text-sm text-ground/80">{body}</p>
       <div className="mt-4 flex flex-wrap gap-3">
         <Link
@@ -198,7 +198,7 @@ export function PublicPage({
         {eyebrow && (
           <p className="text-xs font-medium uppercase tracking-wide text-olive">{eyebrow}</p>
         )}
-        <h1 className="mt-1 font-serif text-4xl font-medium text-ground">{title}</h1>
+        <h1 className="mt-1 type-display text-4xl font-medium text-ground">{title}</h1>
         {lede && <p className="mt-3 max-w-2xl text-lg text-ground/80">{lede}</p>}
         {children}
       </main>

@@ -17,7 +17,7 @@ export default async function LessonPage({ params }: { params: Promise<{ lessonI
       <Link href="/learn" className="text-sm text-olive underline">
         ← All lessons
       </Link>
-      <h1 className="mt-4 font-serif text-3xl font-medium">{lesson.title}</h1>
+      <h1 className="mt-4 type-display text-3xl font-medium">{lesson.title}</h1>
       <p className="mt-1 text-sm text-olive">{lesson.readMinutes} min read</p>
       <div className="mt-6">
         <LessonBody markdown={lesson.body} />

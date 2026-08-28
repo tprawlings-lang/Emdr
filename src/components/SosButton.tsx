@@ -65,7 +65,7 @@ export default function SosButton({ panel }: { panel: SosPanel }) {
         >
           <div className="mx-auto max-w-xl px-6 py-10">
             <div className="flex items-center justify-between">
-              <h2 className="font-serif text-3xl font-medium text-ground">You&apos;re not alone</h2>
+              <h2 className="type-display text-3xl font-medium text-ground">You&apos;re not alone</h2>
               <button
                 onClick={() => setOpen(false)}
                 className="rounded-full border border-ground/20 px-4 py-2 text-sm text-ground/80 transition-colors hover:bg-moss"
@@ -85,7 +85,7 @@ export default function SosButton({ panel }: { panel: SosPanel }) {
                   transition: phase === "in" ? "width 4s ease-in-out, height 4s ease-in-out" : "width 6s ease-in-out, height 6s ease-in-out",
                 }}
               >
-                <span className="font-serif text-2xl text-sage-deep">
+                <span className="type-display text-2xl text-sage-deep">
                   {phase === "in" ? "Breathe in" : "Breathe out"}
                 </span>
               </div>
@@ -95,7 +95,7 @@ export default function SosButton({ panel }: { panel: SosPanel }) {
             {panel.reminderPhrase && (
               <div className="mt-8 rounded-3xl bg-moss p-6 text-center">
                 <p className="text-sm text-olive">You asked Steady to remind you:</p>
-                <p className="mt-2 font-serif text-2xl font-medium">&ldquo;{panel.reminderPhrase}&rdquo;</p>
+                <p className="mt-2 type-display text-2xl font-medium">&ldquo;{panel.reminderPhrase}&rdquo;</p>
               </div>
             )}
 

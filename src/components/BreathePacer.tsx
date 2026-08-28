@@ -78,7 +78,7 @@ export default function BreathePacer({
           <div className="h-36 w-36 rounded-full bg-sage/50" />
         </div>
       </div>
-      <p className="font-serif text-2xl text-ground" aria-live="polite">
+      <p className="type-display text-2xl text-ground" aria-live="polite">
         {label}
       </p>
       <button

@@ -26,7 +26,7 @@ export default function BreatheLibrary({ practices }: { practices: Practice[] })
   if (selected && done) {
     return (
       <main className="mx-auto flex min-h-[80vh] max-w-md flex-col items-center justify-center gap-6 px-6 py-12 text-center">
-        <h1 className="font-serif text-3xl font-medium">Nicely done</h1>
+        <h1 className="type-display text-3xl font-medium">Nicely done</h1>
         <p className="text-olive">That&apos;s a small, real act of care. Your breath is always here to come back to.</p>
         <div className="flex flex-col gap-3">
           <button
@@ -50,7 +50,7 @@ export default function BreatheLibrary({ practices }: { practices: Practice[] })
   // ── Library ──
   return (
     <main className="mx-auto max-w-xl px-6 py-12">
-      <h1 className="font-serif text-3xl font-medium">Breathe</h1>
+      <h1 className="type-display text-3xl font-medium">Breathe</h1>
       <p className="mt-2 text-olive">
         A few minutes of paced breathing to settle your system — before a session, or any time. Pick one that
         feels right; there&apos;s no wrong choice.
@@ -67,7 +67,7 @@ export default function BreatheLibrary({ practices }: { practices: Practice[] })
             className="w-full rounded-3xl border border-ground/10 bg-linen p-5 text-left shadow-soft transition-colors hover:bg-moss"
           >
             <div className="flex items-baseline justify-between gap-3">
-              <span className="font-serif text-xl text-ground">{p.title}</span>
+              <span className="type-display text-xl text-ground">{p.title}</span>
               <span className="text-xs text-olive">
                 {Math.round(p.durationSec / 60)} min{!p.hasHold && " · no breath-holds"}
               </span>

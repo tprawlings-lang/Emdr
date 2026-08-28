@@ -26,7 +26,7 @@ export default function PlatformPage() {
       <div className="mt-8"><BoundaryNote /></div>
 
       <section className="mt-12">
-        <h2 className="font-serif text-2xl font-medium text-ground">The sequence</h2>
+        <h2 className="type-display text-2xl font-medium text-ground">The sequence</h2>
         <ol className="mt-4 space-y-3">
           {[
             ["Observe", "A member produces structured signals through check-ins, exercises, conversations, and sessions."],
@@ -37,7 +37,7 @@ export default function PlatformPage() {
             ["Govern", "Policy modes, tenant boundaries, security evidence, and current-versus-target labels stay visible."],
           ].map(([h, b], i) => (
             <li key={h} className="flex gap-4 rounded-2xl border border-ground/10 bg-linen/40 px-5 py-4">
-              <span className="font-serif text-2xl text-olive">{i + 1}</span>
+              <span className="type-display text-2xl text-olive">{i + 1}</span>
               <div>
                 <h3 className="font-medium text-ground">{h}</h3>
                 <p className="mt-0.5 text-sm text-ground/80">{b}</p>
@@ -49,7 +49,7 @@ export default function PlatformPage() {
 
       {LAYERS.map(([title, layer, body]) => (
         <section key={title} className="mt-12">
-          <h2 className="font-serif text-2xl font-medium text-ground">{title}</h2>
+          <h2 className="type-display text-2xl font-medium text-ground">{title}</h2>
           <p className="mt-1 max-w-2xl text-ground/80">{body}</p>
           <ul className="mt-4 grid gap-4 sm:grid-cols-2">
             {byLayer(layer).map((c) => <CapabilityCard key={c.id} c={c} />)}
@@ -59,7 +59,7 @@ export default function PlatformPage() {
 
       {/* §8: what must not be shown as a finished platform capability. */}
       <section className="mt-12 rounded-2xl border border-support/30 bg-support/5 px-6 py-5">
-        <h2 className="font-serif text-2xl font-medium text-ground">Not finished, and not claimed</h2>
+        <h2 className="type-display text-2xl font-medium text-ground">Not finished, and not claimed</h2>
         <p className="mt-2 text-sm text-ground/80">
           These are named here rather than left for a reviewer to discover. None of them is
           available, approved, or demonstrated as working:

@@ -20,7 +20,7 @@ export default async function OnboardingPage() {
         Informed consent
       </div>
 
-      <h1 className="font-serif text-4xl font-medium">Before you begin</h1>
+      <h1 className="type-display text-4xl font-medium">Before you begin</h1>
       <p className="mt-3 text-olive">
         Please read each section at your own pace — nothing here is rushed. This is the
         agreement that governs your care program. A printable copy is available on every screen,

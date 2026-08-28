@@ -17,7 +17,7 @@ export function SteadyMark({ className = "h-8 w-8" }: { className?: string }) {
 // Lowercase wordmark with wide spacing, set in the brand serif.
 export function Wordmark({ className = "text-3xl" }: { className?: string }) {
   return (
-    <span className={`font-serif font-medium lowercase tracking-[0.08em] text-ground ${className}`}>
+    <span className={`type-display font-medium lowercase tracking-[0.08em] text-ground ${className}`}>
       steady
     </span>
   );
