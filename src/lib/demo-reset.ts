@@ -60,6 +60,7 @@ export const DEMO_DATA_TABLES = [
   "accounts",
   "persons",
   // Leaf records referencing users/sessions.
+  "screening_progress",
   "post_session_checks",
   "ai_messages",
   "ai_conversations",

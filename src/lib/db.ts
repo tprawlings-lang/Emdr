@@ -396,6 +396,25 @@ function migrate(db: Database.Database) {
   );
   CREATE INDEX IF NOT EXISTS idx_review_notes ON review_notes(status, created_at);
 
+  -- Partial questionnaire answers (Presentation Layer Handoff 5).
+  --
+  -- The gate was one form of eighteen to twenty required items with nothing
+  -- persisted until the final submit, so leaving mid-way lost everything and
+  -- the only way back in was "start over". Vol 1's 2026 guidance and the
+  -- depleted-brain principle both require that pausing mid-check loses nothing.
+  --
+  -- One row per answered item, written the moment it is answered. The score is
+  -- computed only at completion and lives in screenings as before; this table
+  -- holds answers in progress and is deleted when they are submitted.
+  CREATE TABLE IF NOT EXISTS screening_progress (
+    user_id TEXT NOT NULL REFERENCES users(id),
+    instrument TEXT NOT NULL,
+    item_index INTEGER NOT NULL,
+    value INTEGER NOT NULL,
+    updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+    PRIMARY KEY (user_id, instrument, item_index)
+  );
+
   CREATE TABLE IF NOT EXISTS practice_completions (
     id TEXT PRIMARY KEY,
     user_id TEXT NOT NULL REFERENCES users(id),
@@ -600,7 +619,7 @@ export const TENANT_SCOPED_TABLES = [
   "ai_conversations", "ai_messages", "subscriptions", "payments",
   "program_plans", "care_tracks", "care_track_intake", "practice_completions",
   "upsell_events", "autopilot_plans", "autopilot_events", "lesson_reads",
-  "review_notes",
+  "review_notes", "screening_progress",
 ] as const;
 
 /** Create the platform tenant and mirror `users` onto the identity spine

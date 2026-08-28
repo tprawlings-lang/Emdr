@@ -51,6 +51,12 @@ const FORBIDDEN = [
   { rx: /\bscoreItq\b/, what: "instrument scoring" },
   { rx: /\bpclSeverity\b|\bseverityBand\b/, what: "a diagnostic band" },
   { rx: /\breadinessScore\b/, what: "the readiness score" },
+  // Found on the screening page: "10+ suggests moderate depression; item 9
+  // above zero always routes to specialist review." That is a cutoff AND a
+  // criteria label, and it also tells someone how to answer to avoid a
+  // consequence — which corrupts the instrument as well as breaking Vol 2.
+  { rx: /\bcutoffNote\b/, what: "an instrument cutoff note" },
+  { rx: /\.cutoff\b/, what: "an instrument cutoff" },
 ];
 
 function walk(dir: string): string[] {

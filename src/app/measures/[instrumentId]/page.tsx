@@ -33,7 +33,13 @@ export default async function TakeMeasurePage({
 
       <h1 className="type-display text-3xl font-medium">{instrument.title}</h1>
       <p className="mt-2 text-olive">{instrument.intro}</p>
-      <p className="mt-2 text-sm text-olive">{instrument.cutoffNote}</p>
+      {/* cutoffNote printed here too — the same criteria-label leak as the
+          screening page. Removed for the same reason: it is a clinician-facing
+          interpretation note, and showing it tells someone how to answer to
+          avoid a consequence. */}
+      <p className="measure mt-2 text-sm text-olive">
+        There are no wrong answers, and no score to see at the end.
+      </p>
 
       <InstrumentForm instrument={instrument} context="weekly" />
     </main>

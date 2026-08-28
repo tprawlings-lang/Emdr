@@ -6,7 +6,6 @@ import { redirect } from "next/navigation";
 import { subscriptionActive } from "@/lib/billing";
 import { FITNESS_ITEMS, getFitnessState } from "@/lib/fitness-screener";
 import Link from "next/link";
-import InstrumentForm from "@/components/InstrumentForm";
 import FitnessScreener from "@/components/FitnessScreener";
 
 export default async function ScreeningPage() {
@@ -49,6 +48,12 @@ export default async function ScreeningPage() {
 
   const position = INSTRUMENTS.findIndex((i) => i.id === next.id) + 1;
 
+  // Whether there is progress to resume, so the button says "pick up where you
+  // left off" rather than "begin" — which is the difference between a product
+  // that remembered and one that did not.
+  const { savedAnswers } = await import("@/lib/member/gate");
+  const resumable = (await savedAnswers(user.id, next.id)).size > 0;
+
   return (
     <main className="mx-auto max-w-3xl px-6 py-12">
       <div className="sticky top-0 z-10 -mx-6 mb-6 border-b border-ground/10 bg-ivory/95 px-6 py-3 text-sm font-medium text-ground/80">
@@ -60,12 +65,32 @@ export default async function ScreeningPage() {
 
       <h1 className="type-display text-3xl font-medium">{next.title}</h1>
       <p className="mt-2 text-olive">{next.intro}</p>
-      <p className="mt-2 text-sm text-olive">
-        These answers go to your care team. There are no wrong answers — honest answers keep the
-        program safe for you. {next.cutoffNote}
+      <p className="measure mt-2 text-sm text-olive">
+        These answers go to your care team. There are no wrong answers, and there is no score
+        to see at the end.
       </p>
+      {/* `cutoffNote` used to be printed here — text like "10+ suggests moderate
+          depression; item 9 above zero always routes to specialist review."
+          That is a cutoff and a criteria label, which Vol 2 forbids on a member
+          surface, and it also tells someone how to answer to avoid a
+          consequence. It belongs to the clinician surface, where it already
+          lives. */}
 
-      <InstrumentForm instrument={next} context="baseline" />
+      {/* One question per screen, resumable, nothing lost by leaving (§5). The
+          questionnaire used to be one form of every item at once, all required,
+          with nothing saved until the final submit. */}
+      <div className="mt-8">
+        <Link
+          href={`/screening/${next.id}`}
+          className="inline-block rounded-full bg-ground px-6 py-3 font-medium text-ivory"
+        >
+          {resumable ? "Pick up where you left off" : "Begin"}
+        </Link>
+        <p className="measure mt-3 text-sm text-olive">
+          One question at a time. Your answers save as you go, so you can stop whenever you
+          want and come back to the same place.
+        </p>
+      </div>
     </main>
   );
 }
