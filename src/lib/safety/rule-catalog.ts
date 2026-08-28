@@ -36,7 +36,7 @@ export const SESSION_RULES: CatalogRule[] = [
   { id: "SESSION_CLOSURE_MIN", category: "session_closure", reason: `Closure FLOOR of ${SESSION.closureMinSeconds} seconds is necessary but not sufficient — closure also requires orientation confirmation, a member-reported stability check, and an escalation/human-review path if closure fails.` },
   { id: "SESSION_GROUND_ME", category: "session_control", reason: "Ground-Me: one-tap immediate halt, locks stimulation for the session, no return. User-initiated stop is available at any time." },
   { id: "BLS_HZ", category: "bls", reason: `[Disabled in beta] If later validated, bilateral stimulation ${BLS.minHz}–${BLS.maxHz} Hz (default ${BLS.defaultHz}); no adaptive speed, no mid-set increase. Speed alone cannot establish safety.` },
-  { id: "BLS_NO_VISUAL_BETA", category: "bls", reason: "No visual BLS in beta (auditory + self-tapping only); visual BLS stays disabled." },
+  { id: "BLS_VISUAL_MODALITY", category: "bls", reason: `Visual BLS is a permitted modality (ledger A7 reversed 2026-08-28). It is removed entirely for photosensitivity, and traverses are clamped to ${BLS.maxFlashesPerSecond}/sec. Device validation is still outstanding.` },
   { id: "BLS_FLASH_CEILING", category: "bls", reason: `Visual flashes/traverses never exceed ${BLS.maxFlashesPerSecond}/sec (WCAG 2.3.2).` },
   { id: "BLS_TIMING_FAILURE", category: "bls", reason: "On a stimulation timing failure: stop the set; never catch up or resume." },
 ];

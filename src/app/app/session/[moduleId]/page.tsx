@@ -4,6 +4,7 @@ import { getModule } from "@/lib/modules";
 import { checkModuleAccess, voiceAvailableFor, liveAvailableFor } from "@/lib/gating";
 import { getSavedCalmPlace, getSessionFocus } from "@/lib/session-focus";
 import { hasSeizureFlag } from "@/lib/fitness-screener";
+import { BETA_CONFIG } from "@/lib/safety/config";
 import { getCompanionPrefs } from "@/lib/profile";
 import { listPractices } from "@/lib/practices";
 import { lessonsForModule } from "@/lib/lessons";
@@ -40,12 +41,26 @@ export default async function SessionPage({
     liveAvailableFor(user.id),
     listPractices(user.id, "breathwork"),
   ]);
+
+  // Whether the moving dot may be offered at all.
+  //
+  // The underlying defect the visual-BLS finding exposed was not which way the
+  // flag was set — it was that the session never read it. The config said
+  // visual BLS was disabled and the session offered it as the default anyway,
+  // because nothing connected the two. Flipping the flag without wiring it
+  // would leave the next person who flips it back with the same bug.
+  //
+  // Two independent conditions, and BOTH must hold. The config is a product
+  // decision; the seizure flag is this member's own screening answer, and it
+  // wins regardless of what the config permits.
+  const visualAllowed = BETA_CONFIG.visualStimulationEnabled && !audioOnlyDefault;
   return (
     <SessionPlayer
       module={mod}
       focus={focus}
       calmPlace={calmPlace}
       audioOnlyDefault={audioOnlyDefault}
+      visualAllowed={visualAllowed}
       voiceEnabled={voiceEnabled}
       memberName={preferredName}
       liveEnabled={liveEnabled}
