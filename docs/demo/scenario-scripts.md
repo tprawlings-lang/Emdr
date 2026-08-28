@@ -22,13 +22,21 @@ created — and rebuilds from `demo-2026-08-v1`. Two resets produce the same bas
 that is asserted in `tests/demo-reset.test.ts` and re-provable at any time with
 `npm run demo -- verify`.
 
-**Personas** (password `demo1234` for all):
+**How a reviewer gets in.** Send them to `/demo` with the review access code
+(`EMDR_REVIEW_ACCESS_CODE`, given privately — never printed on a page). They pick a review
+path and then a fabricated persona; they are never shown or asked for a password. Access is
+scoped to the path: read-only paths are offered no write-capable role.
 
-| Persona | Account | Role |
-|---|---|---|
-| Alex Rivera | `demo@example.com` | Member, three weeks in, improving |
-| Sam Okafor | `demo2@example.com` | Member, screening tripped the urgent queue |
-| Dr. Maya Chen | `clinician@example.com` | Clinician |
+**Personas:**
+
+| Persona | Account | Role | Use |
+|---|---|---|---|
+| Alex Rivera | `demo@example.com` | Member, three weeks in, improving | The member journey. Has processing-session consent, so resourcing BLS is walkable |
+| Sam Okafor | `demo2@example.com` | Member, intake stage | **Clinician-side persona.** Their screening tripped the urgent queue; the story is told from the alert queue. Signing in as Sam lands on `/screening` — intake is genuinely incomplete, which is the point |
+| Dr. Maya Chen | `clinician@example.com` | Clinician | Every clinical console |
+
+Direct sign-in with `demo1234` still works for your own setup and for the automated suites.
+Do not hand that password to a reviewer — the gateway exists so no credential travels.
 
 **If something goes wrong mid-demo:** `npm run demo -- reset` and resume. Say so out loud
 rather than working around it — a reset is a feature of this environment, not an
@@ -43,15 +51,17 @@ embarrassment.
 
 | # | Step | What to show | Expected state |
 |---|---|---|---|
-| 1 | Land on `/` | The product story and pricing | Demo banner visible at the top of every page |
-| 2 | Sign in as Alex | Dashboard | Three weeks of history; today's check-in already present |
+| 1 | Land on `/` | The institutional positioning, capability statuses, and the boundary | Demo banner on every page. **No pricing and no purchase path** — the retail surface was retired |
+| 2 | Enter via `/demo` as Alex | Dashboard | Three weeks of history; today's check-in already present |
 | 3 | Daily check-in | Enter values; watch the routing decision | The recommendation is **deterministic** — same inputs, same outcome, every time |
 | 4 | Grounding / SOS | Open the SOS panel | Never gated by tier, subscription, or a successful write |
 | 5 | Companion | A short exchange | Memory is member-controlled; the companion never claims a human is watching |
 | 6 | A session | Start Calm Place, rate SUDS, complete | Pre/peak/post captured; post-session check follows |
-| 7 | Switch to Dr. Chen | Clinician dashboard | Pending unlock request; a reviewed hard-stop with a documented note |
-| 8 | Autonomous console | `/clinician/autonomous` | The engine's parallel decision, logged and **governing nothing** |
-| 9 | Event history | `npm run demo -- replay` | Projections rebuilt from events, byte-identical |
+| 7 | Switch to Dr. Chen | `/clinician/clinical` | Caseload banded by clinical need, every band carrying its written reason; cited summaries; alerts with coverage-derived deadlines |
+| 8 | Audit history | `/clinician/audit`, then one alert's trail | Hash chain verified on screen; free text withheld; tenant-scoped |
+| 9 | Autonomous console | `/clinician/autonomous` | The engine's parallel decision, logged and **governing nothing** |
+| 10 | BLS Part 6 oversight | `/clinician/bls` | Six gates, the rollout ladder, and live configuration — two gates open, one blocked |
+| 11 | Event history | `npm run demo -- replay` | Projections rebuilt from events, byte-identical |
 
 **Say this, in these words:** built for demonstration · synthetic review environment ·
 planned control.
@@ -105,9 +115,21 @@ assumptions, not clinical approval. `beta-clinrev-2026-07` ratified the *consume
 and does not extend to any of this. The packet seeking ratification is
 [`clinical-pilot-2026-09`](../clinical/clinical-pilot-2026-09.md), and it is unsubmitted.
 
-**Capture from every session:** which scenario, which policy mode, the clinician's verdict,
-and any disagreement — feedback is only useful if it is attached to the configuration that
-produced it.
+**Capture from every session — in the product, not in a notebook.** Every clinical screen
+carries a "Something you would change here?" form, and `/clinician/testing` lists everything
+filed. Each note records what the clinician saw and what they want instead as separate
+fields, keeps their own priority (blocker / change / question / idea), and **stamps the
+policy and safety-config versions automatically** — so a note about alert deadlines still
+says which coverage model was active when it was written. Export as Markdown at the end of
+the session.
+
+Notes survive `npm run demo -- reset`. A reviewer's hour outlives the environment it was
+spent in.
+
+**Before the session, show them what they can exercise.** `/clinician/testing` opens with a
+matrix read from live configuration: what is available, where to go, and — for anything that
+is not — who can change that and why. Nothing on it is a description of intent; if it says
+a capability is available, an automated test has fetched that route.
 
 ---
 
@@ -124,8 +146,12 @@ produced it.
 | D4 | Event replay reproduces the same state | `npm run demo -- verify` | Deterministic seed, idempotent backfill, byte-identical replay |
 | D5 | Secret scanning | `.github/workflows/gitleaks.yml` | Clean |
 | D6 | Dependency scan | `npm audit --omit=dev --audit-level=high` | 0 vulnerabilities |
-| D7 | Full safety suite | `npm run test:safety` | 355 pass |
-| D8 | Reproducible end-to-end | `npm run test:e2e`, run twice | 17/17 both times |
+| D7 | Full safety suite | `npm run test:safety` | 441 pass |
+| D8 | Reproducible end-to-end | `npm run test:e2e`, run twice | 94/94 both times |
+| D9 | Audit views leak neither tenant nor content | `npx tsx --test tests/clinical-oversight.test.ts` | 29 cases, including cross-tenant attacks in both directions |
+
+> Counts are tied to the commit that introduced them. Re-run rather than quoting these —
+> a number carried forward is not evidence.
 
 **Follow one alert end to end:** create a harm-urge check-in as Alex → observe the crisis
 ceiling and deterministic routing → see the alert in the clinician queue → review and close
@@ -151,9 +177,15 @@ and is not approved clinical care.**
 | Pause, stop, escalation, grounding, re-entry | Autonomous real-person operation |
 | Clinician review queue and evidence capture | Approved clinical protocol |
 
-Member-initiated resourcing is live and flag-gated. **Autonomous stimulation stays OFF** —
-an explicit condition of the existing sign-off — and no configuration in this repository can
-turn it on.
+**Resourcing BLS runs in the demo** so a clinical reviewer can walk it rather than read
+about it — Alex has the seeded processing-session consent. `EMDR_KILL_BLS` still overrides
+it, and `EMDR_BLS_RESOURCING=0` forces it off if you want to demonstrate the refusal.
+
+**Autonomous desensitization stays OFF** — an explicit condition of the existing sign-off.
+It is disabled in the safety configuration itself, not by an environment variable, so no
+configuration in this repository can turn it on; a test sets every plausible flag and
+asserts stage 4b stays shut. It is also not implemented, so there is nothing to demonstrate
+even if it were flipped. Say both parts: the gate holds, *and* the feature does not exist.
 
 ---
 

@@ -36,6 +36,18 @@ export function seedDemoData(db: Database.Database) {
   const daysAgo = (d: number, hour = 10) => {
     const t = new Date(Date.now() - d * 86400000);
     t.setUTCHours(hour, 15, 0, 0);
+    // Never return a future instant. `daysAgo(0, 8)` means "earlier today at
+    // 08:15" — but before 08:15 UTC that has not happened yet, and the genesis
+    // backfill asserts a reconstructed event occurred before Steady
+    // reconstructed it. The seed was therefore invalid for the first eight
+    // hours of every UTC day, which is a hard failure that looks like a flake
+    // because most runs happen later in the day.
+    //
+    // Stepping back whole days keeps the value pinned to the same time of day,
+    // so day-granular determinism is preserved. Only `*_at` columns use this
+    // for same-day rows, and those are excluded from the baseline hash, so
+    // shifting one back a day changes no hashed value.
+    while (t.getTime() > Date.now()) t.setUTCDate(t.getUTCDate() - 1);
     return t.toISOString().slice(0, 19).replace("T", " ");
   };
   const dateOnly = (d: number) => new Date(Date.now() - d * 86400000).toISOString().slice(0, 10);

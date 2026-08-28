@@ -81,6 +81,44 @@ test("no seeded value carries sub-day time precision outside the excluded column
     offenders.join(", ") + ". Pin the time of day at the source, or exclude the column.");
 });
 
+test("no seeded timestamp is in the future", () => {
+  // The companion rule to the one above, and a separate failure mode. The seed
+  // pins rows to a fixed time of day; `daysAgo(0, 8)` means "earlier today at
+  // 08:15", which has not happened yet if the process runs before 08:15 UTC.
+  // The genesis backfill then reconstructs an event that occurred after Steady
+  // reconstructed it, and the whole suite fails — for the first eight hours of
+  // every UTC day, which reads as a flake because most runs happen later.
+  //
+  // Asserted against the seeded data rather than the helper, so any future
+  // source of a timestamp is covered, not just daysAgo().
+  const db = getDb();
+  resetDemoData(db);
+
+  // A second of slack: the seed runs a moment before this assertion, and a
+  // timestamp equal to "now" is not a defect.
+  const now = new Date(Date.now() + 1000).toISOString().slice(0, 19).replace("T", " ");
+  const TIMESTAMP = /^\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}:\d{2}/;
+
+  // Columns that are legitimately in the future: a subscription period has not
+  // ended yet, which is what makes it current.
+  const FUTURE_IS_CORRECT = new Set(["current_period_end", "cooldown_until", "retake_allowed_at"]);
+
+  const future: string[] = [];
+  for (const table of DEMO_DATA_TABLES) {
+    for (const row of db.prepare(`SELECT * FROM ${table}`).all() as Record<string, unknown>[]) {
+      for (const [col, value] of Object.entries(row)) {
+        if (FUTURE_IS_CORRECT.has(col) || typeof value !== "string") continue;
+        if (!TIMESTAMP.test(value)) continue;
+        if (value.replace("T", " ") > now) future.push(`${table}.${col} = ${value}`);
+      }
+    }
+  }
+
+  assert.deepEqual(future, [],
+    "these seeded values are in the future, so a reconstructed event would " +
+    "predate the record it came from: " + future.join(", "));
+});
+
 test("a reset removes activity created after seeding", () => {
   const db = getDb();
   const before = demoBaseline(db);
