@@ -1,10 +1,12 @@
 import { MemberNav } from "@/components/member/MemberNav";
+import { buildMemberToday } from "@/lib/member/today";
+import { TodayDecision } from "@/components/member/TodayDecision";
+import { EnvelopeView } from "@/components/presentation/EnvelopeView";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { requireMember } from "@/lib/auth";
 import { buildMemberDay, DAY_MESSAGE } from "@/lib/member/view";
 import { memberHistory } from "@/lib/member/history";
-import { DayCanvas } from "@/components/member/DayCanvas";
 import { HistoryStrip } from "@/components/member/HistoryStrip";
 import { subscriptionActive } from "@/lib/billing";
 import { data } from "@/lib/data";
@@ -84,6 +86,22 @@ export default async function DashboardPage() {
   // trend charts; the boundary only holds if the value never arrives, so the
   // query is gone rather than the render (handoff §3).
   const day = await buildMemberDay(user.id);
+
+  // Wave 1's member vertical slice: the decision surface is served by the
+  // member_today projection rather than assembled here. §8 — "the UI should
+  // never build clinical meaning by joining raw event arrays" — and §30.1,
+  // "the browser receives only the projection and actions authorized for that
+  // actor."
+  //
+  // The rest of this page is still the pre-atlas catalog. Wave 2 replaces it;
+  // §3.4's finding (a content catalog that makes the member decide what matters
+  // on their worst day) is not fixed by adding a better card above it.
+  const tenantRow = (await c.get("SELECT tenant_id FROM users WHERE id = ?", [user.id])) as
+    | { tenant_id: string } | undefined;
+  const todayEnvelope = await buildMemberToday({
+    userId: user.id,
+    tenantId: tenantRow?.tenant_id ?? "",
+  });
   const history = await memberHistory(user.id, { days: 14 });
 
   const weekAgo = new Date(Date.now() - 7 * 86400000).toISOString().slice(0, 19).replace("T", " ");
@@ -123,6 +141,7 @@ export default async function DashboardPage() {
     <>
       <MemberNav />
       <main className="mx-auto max-w-4xl px-6 py-12">
+
       {fitness.status === "none" && (
         <div className="mb-6 rounded-3xl border border-pause/40 bg-pause-soft p-5">
           <p className="font-semibold text-ground">One new step before your next session</p>
@@ -173,6 +192,20 @@ export default async function DashboardPage() {
         </div>
       </div>
 
+      {/* §10.1's above-the-fold order: greeting and local date, then the Today
+          state card, then one primary action. The card sat above the greeting
+          and read as though the page began mid-sentence.
+
+          The projection decides; this renders. EnvelopeView makes §30.8's eight
+          states impossible to collapse into one blank screen — in particular a
+          policy failure does NOT read as "nothing available today", which is a
+          different and false statement to make to a member. */}
+      <div className="mt-8">
+        <EnvelopeView envelope={todayEnvelope} title="Today">
+          {(today) => <TodayDecision today={today} />}
+        </EnvelopeView>
+      </div>
+
       {/* Three stat cards used to sit here: a check-in count, the last review
           date, and "PCL-5 trend — 52 / 80 (was 58)".
 
@@ -183,7 +216,12 @@ export default async function DashboardPage() {
           member is shown on return.
 
           What replaces them is the day itself. */}
-      <DayCanvas day={day} />
+      {/* DayCanvas used to render here. It is handoff 04 §8's version of the
+          same surface as TodayDecision above — same primary, same secondaries,
+          same source — and rendering both showed the member their three options
+          twice. §10.1 is the more specific spec, so it owns the decision; the
+          Horizon moved across with it. The component stays defined: its props
+          contract is what stops a score reaching a member surface. */}
 
       {autopilot && (
         <section className="mt-6 rounded-3xl border border-sage-deep/40 bg-moss p-7 shadow-soft">

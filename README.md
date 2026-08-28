@@ -43,7 +43,7 @@ Three branches are identical and pushed: `claude/launch-status-vh6vbo` (designat
 `main`, `claude/gifted-keller-501y5d` (Render deploy).
 
 ```bash
-npm run test:safety   # 542 pass
+npm run test:safety   # 560 pass
 npm run test:e2e      # 105 pass   (PLAYWRIGHT_CHROMIUM_PATH=/opt/pw-browsers/chromium)
 npm run test:rls      # 12 cross-tenant attack cases against a real Postgres cluster
 npm run build         # clean
@@ -108,7 +108,7 @@ override exists — what cannot be overridden. `src/lib/clinical/gate-review.ts`
 **Open:** Phase 2 (member shell), organization/payer/trust workspaces, human-factors
 validation.
 
-**New guards:** `tests/notification-truth.test.ts`, `tests/contrast.test.ts`, `tests/work-queue.test.ts`, `tests/gate-review.test.ts`.
+**New guards:** `tests/notification-truth.test.ts`, `tests/contrast.test.ts`, `tests/work-queue.test.ts`, `tests/gate-review.test.ts`, `tests/presentation-spine.test.ts`.
 `tests/type-system.test.ts` now records the two-family reversal and its bounds.
 
 ## ⚠ OPEN FINDING (2026-08-28) — visual BLS may render against the signed config

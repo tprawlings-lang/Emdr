@@ -27,6 +27,10 @@ import { alertQueue, type ClinicalAlert } from "./alerts";
 import { buildCaseload, type CaseloadRow, type PriorityBand } from "./caseload";
 import { activePolicy, type ClinicalPolicy } from "../clinical-policy";
 import { data } from "../data";
+import {
+  ready, empty, projectionFailed, policyUnavailable,
+  type Envelope, type ProjectionMeta,
+} from "../presentation/envelope";
 
 /** §10.3's five groups, in the order they appear. Ordered by claim on the
  *  clinician's attention, not by volume. */
@@ -358,4 +362,75 @@ export async function buildWorkQueue(args: {
 /** Items in one group, in queue order. */
 export function inGroup(q: WorkQueue, g: WorkGroup): WorkItem[] {
   return q.items.filter((i) => i.group === g);
+}
+
+
+// ---------------------------------------------------------------------------
+// The projection envelope (Wave 1, §30.3 clinician_queue, §30.8)
+// ---------------------------------------------------------------------------
+
+export const CLINICIAN_QUEUE_SCHEMA = "clinician_queue.v1";
+
+/** buildWorkQueue, wrapped in §30.8's presentation states.
+ *
+ *  The distinction this exists to make: an empty queue because the day is
+ *  genuinely clear, and an empty queue because the projection threw, currently
+ *  render the same way — a page that maps over `items` shows a blank list for
+ *  both. The first is good news. The second is a clinician working blind while
+ *  believing they are up to date, and the failure is silent.
+ *
+ *  A policy failure is separated from both. §30.8 fails closed on it: without a
+ *  policy version there is no defensible priority order, so the queue must say
+ *  that rather than present an order it cannot justify. */
+export async function clinicianQueueProjection(args: {
+  clinicianId: string;
+  tenantId: string;
+  policy?: ClinicalPolicy;
+  now?: Date;
+  /** Correlation id for a failure, supplied by the caller so the same id can be
+   *  logged server-side and quoted on screen (§30.8). */
+  correlationId?: string;
+}): Promise<Envelope<WorkQueue>> {
+  const now = args.now ?? new Date();
+  let policy: ClinicalPolicy;
+  try {
+    policy = args.policy ?? activePolicy();
+  } catch {
+    return policyUnavailable<WorkQueue>({
+      schemaVersion: CLINICIAN_QUEUE_SCHEMA,
+      projectionVersion: CLINICIAN_QUEUE_SCHEMA,
+      generatedAt: stamp(now),
+      tenantId: args.tenantId,
+      sourceWatermark: null,
+      policyVersion: "unavailable",
+    });
+  }
+
+  const meta: ProjectionMeta = {
+    schemaVersion: CLINICIAN_QUEUE_SCHEMA,
+    projectionVersion: `${CLINICIAN_QUEUE_SCHEMA}+${policy.version}`,
+    generatedAt: stamp(now),
+    tenantId: args.tenantId,
+    sourceWatermark: null,
+    policyVersion: policy.version,
+  };
+
+  let queue: WorkQueue;
+  try {
+    queue = await buildWorkQueue({ ...args, policy, now });
+  } catch {
+    // No fallback to raw tables (§30.8). A queue assembled from whatever
+    // happened to load is a priority order nobody computed.
+    return projectionFailed<WorkQueue>(meta, args.correlationId ?? "unknown");
+  }
+
+  meta.sourceWatermark = queue.newestEvidenceAt;
+  if (queue.items.length === 0) {
+    return empty<WorkQueue>(
+      meta,
+      `The queue ran against policy ${policy.version} and found no open work. ` +
+      "This is an empty result, not a failure to load."
+    );
+  }
+  return ready(meta, queue);
 }

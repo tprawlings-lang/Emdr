@@ -279,6 +279,87 @@ knowing before diagnosing a future e2e failure the same way.
 **Verification:** test:safety 542, test:e2e 105, build clean, and every retired address
 checked in a browser for its redirect target and status.
 
+## Wave 1 — the presentation spine
+
+§31.2's exit condition: "one member and one clinician vertical slice work end to end."
+
+### The projection envelope (§30.8)
+
+`src/lib/presentation/envelope.ts`. §30.8 lists eight presentation states, and the whole
+point is that they must not look alike. The pair that matters most:
+
+> An empty queue because the day is clear, and an empty queue because the projection failed,
+> render identically if the page maps over an array. The first is good news. The second is a
+> clinician working blind while believing they are up to date — and it fails silently.
+
+`ready` is one variant among eight rather than the default. Constructors refuse a
+contradiction: an `empty` with no reason, a `stale` with no last-current time, a `partial`
+with nothing missing. `permissionDenied` takes no subject at all, so a denial cannot leak
+existence (§26: "denied and missing pages do not reveal protected existence").
+
+`policy_unavailable` and `audit_unavailable` fail **closed** — no new session, no recorded
+action — and neither withdraws support. There is no envelope state in which grounding and
+crisis get smaller; §1 requires them to survive "a write, subscription, sync, or service
+failure", which is exactly when they matter.
+
+### The action contract (§30.4, §15.1)
+
+`src/lib/presentation/action.ts`. A successful result cannot be constructed without the ids
+that prove it committed — `committedEventId`, `auditEventId`, `projectionVersion`,
+`effectiveAt`. There is no `{ ok: true }` to return early with. This is the
+notification-truth defect generalised: a claim derived from an attempted write.
+
+No action type can clear a safety stop (§27.5), and a guard asserts the type union contains
+no `override`/`clear`/`reopen`/`reset`.
+
+### The member slice — `member_today.v4`
+
+`src/lib/member/today.ts` + `TodayDecision`. The member side has never had a projection;
+`/app/today` assembled itself from about a dozen sources in the page, which §8 forbids
+outright. The projection composes `buildMemberDay` rather than reaching around it, so
+`assertNoScores` still runs and the member boundary holds by construction.
+
+`assertTodayShape` enforces §20.2's cap — one primary, at most two alternatives — because
+§3.4's catalog is reached one reasonable addition at a time.
+
+**DayCanvas and TodayDecision were the same surface.** Handoff 04 §8 and handoff 06 §10.1
+each specify a member decision card with the same primary, the same secondaries and the same
+`MemberDay` source. Rendering both put the member's three options on screen twice, which is
+worse than either alone — caught by looking at it, not by a test. §10.1 is the more specific
+spec (expected duration, one sentence of why, support as a peer) so it owns the decision.
+**The Horizon moved across with it**: handoff 04 §7's signature element has no equivalent in
+§10.1, and dropping it would have discarded a deliberate decision as collateral damage.
+DayCanvas stays defined — its props contract is what stops a score reaching a member surface.
+
+Also fixed by looking: the card rendered *above* the greeting, so the page read as though it
+began mid-sentence. §10.1's above-the-fold order is greeting and date, then the state card.
+
+### The clinician slice — `clinician_queue.v1`
+
+`clinicianQueueProjection` wraps `buildWorkQueue` in the envelope. A policy failure is
+separated from an empty day and from a load failure: without a policy version there is no
+defensible priority order, so the queue says so rather than presenting an order it cannot
+justify. No fallback to raw tables (§30.8).
+
+### Guards
+
+`tests/presentation-spine.test.ts` — 18 tests. The eight states are distinct and
+constructible; empty and failed differ and neither carries renderable data; the two safety
+states fail closed; support is reachable in all eight; `EnvelopeView` renders all eight with
+a glyph and a label, never colour alone; a result cannot claim success without its four ids;
+every record-changing action is high-impact; Today's cap holds; and `MemberToday` exposes no
+score-bearing field.
+
+**Verification:** test:safety 560 (was 542), test:e2e 105, build clean. Both slices rendered
+against the seeded demo.
+
+### What Wave 1 did not do
+
+`/app/today` still carries the pre-atlas content below the decision surface — the Autopilot
+card, the module list, the history strip. Wave 2 replaces it; §3.4's finding is not fixed by
+putting a better card above a catalog. The Autopilot copy leaks flagged in the README's open
+questions are still there and still need a clinician.
+
 ## Not started
 
 Phase 2 (member shell), organization and payer workspaces (Phase 4), and human-factors
