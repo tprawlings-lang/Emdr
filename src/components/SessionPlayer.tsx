@@ -19,6 +19,7 @@ import {
   SESSION_WINDDOWN_MIN,
   sudsDecision,
 } from "@/lib/session-safety";
+import { escalationNotice } from "@/lib/notify/delivery";
 
 // In-session safety rules live in lib/session-safety.ts (deterministic,
 // covered by the @safety test suite). The player also inserts a rest pause
@@ -847,8 +848,8 @@ export default function SessionPlayer({ module: mod, focus, calmPlace, audioOnly
         <div className="rounded-3xl border-2 border-pause/60 bg-pause-soft p-7 shadow-soft">
           <h1 className="type-display text-3xl font-medium">Session paused for your safety</h1>
           <p className="mt-3 text-ground/90">
-            {hardStopReason}. That is the system working as designed — not a failure. Your care
-            team has been notified and will review this session.
+            {hardStopReason}. That is the system working as designed — not a failure.{" "}
+            {escalationNotice()}
           </p>
           <div className="mt-5 rounded-3xl bg-linen p-5 text-ground">
             <p className="font-semibold">Ground yourself now</p>

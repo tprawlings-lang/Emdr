@@ -15,7 +15,7 @@ export default async function GroundPage() {
     <>
       <MemberNav />
       <main className="mx-auto max-w-xl px-6 py-14">
-      <h1 className="type-display text-4xl font-medium">Come back to the room</h1>
+      <h1 className="type-identity text-4xl font-medium">Come back to the room</h1>
       <p className="mt-3 text-lg text-olive">No rush. One step at a time.</p>
 
       <ol className="mt-8 space-y-4">

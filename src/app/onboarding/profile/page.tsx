@@ -184,7 +184,7 @@ export default async function ProfileOnboardingPage({
 
       {step === "welcome" && (
         <section className="mt-10">
-          <h1 className="type-display text-4xl font-medium">Welcome to Steady</h1>
+          <h1 className="type-identity text-4xl font-medium">Welcome to Steady</h1>
           <p className="mt-4 text-lg leading-relaxed text-olive">
             We&apos;ll start slowly. This setup helps Steady understand your triggers, your
             current state, and what kind of support may feel safest for you. You can pause
@@ -209,7 +209,7 @@ export default async function ProfileOnboardingPage({
 
       {step === "support" && (
         <form action={saveSupportStatus} className="mt-10">
-          <h1 className="type-display text-3xl font-medium">Your current support</h1>
+          <h1 className="type-identity text-3xl font-medium">Your current support</h1>
           <fieldset className="mt-6">
             <legend className="font-medium">
               Are you currently working with a therapist, counselor, or mental health provider?
@@ -244,7 +244,7 @@ export default async function ProfileOnboardingPage({
 
       {step === "background" && (
         <form action={saveTraumaContext} className="mt-10">
-          <h1 className="type-display text-3xl font-medium">A little background</h1>
+          <h1 className="type-identity text-3xl font-medium">A little background</h1>
           <p className="mt-2 text-olive">
             Broad strokes only — Steady will never ask you to describe traumatic events in
             detail here.
@@ -280,7 +280,7 @@ export default async function ProfileOnboardingPage({
 
       {step === "triggers" && (
         <form action={saveTriggers} className="mt-10">
-          <h1 className="type-display text-3xl font-medium">Known triggers</h1>
+          <h1 className="type-identity text-3xl font-medium">Known triggers</h1>
           <p className="mt-2 leading-relaxed text-olive">
             Triggers are experiences that can make your nervous system react as if danger is
             present. Choose any that feel familiar. You can edit this anytime.
@@ -317,7 +317,7 @@ export default async function ProfileOnboardingPage({
 
       {step === "trigger-details" && (
         <form action={saveTriggerDetails} className="mt-10">
-          <h1 className="type-display text-3xl font-medium">How these show up</h1>
+          <h1 className="type-identity text-3xl font-medium">How these show up</h1>
           <p className="mt-2 text-olive">
             For each trigger: how intense it feels right now, and what usually happens when it
             shows up.
@@ -352,7 +352,7 @@ export default async function ProfileOnboardingPage({
 
       {step === "warning-signs" && (
         <form action={saveWarningSigns} className="mt-10">
-          <h1 className="type-display text-3xl font-medium">Early warning signs</h1>
+          <h1 className="type-identity text-3xl font-medium">Early warning signs</h1>
           <p className="mt-2 leading-relaxed text-olive">
             Before things feel overwhelming, your body may give you early signals. Which signs
             show up first? Your companion uses these to suggest grounding earlier.
@@ -368,7 +368,7 @@ export default async function ProfileOnboardingPage({
 
       {step === "readiness" && (
         <form action={saveReadinessAssessment} className="mt-10">
-          <h1 className="type-display text-3xl font-medium">Where you are today</h1>
+          <h1 className="type-identity text-3xl font-medium">Where you are today</h1>
           <p className="mt-2 text-olive">
             This shapes your starting track. There is no passing or failing — only pacing.
           </p>
@@ -455,7 +455,7 @@ export default async function ProfileOnboardingPage({
 
       {step === "safety-plan" && (
         <form action={saveSafetyPlan} className="mt-10">
-          <h1 className="type-display text-3xl font-medium">Your safety plan</h1>
+          <h1 className="type-identity text-3xl font-medium">Your safety plan</h1>
           <p className="mt-2 leading-relaxed text-olive">
             Before deeper work, Steady needs to know what helps you come back to the present.
           </p>
@@ -522,7 +522,7 @@ export default async function ProfileOnboardingPage({
 
       {step === "companion" && (
         <form action={saveCompanionPrefs} className="mt-10">
-          <h1 className="type-display text-3xl font-medium">Your companion</h1>
+          <h1 className="type-identity text-3xl font-medium">Your companion</h1>
           <p className="mt-2 leading-relaxed text-olive">
             Steady includes a companion that can remember your triggers, your preferred
             grounding tools, your current state, and what helps you feel safer. You control
@@ -580,7 +580,7 @@ export default async function ProfileOnboardingPage({
 
       {step === "focus-chat" && (
         <section className="mt-10">
-          <h1 className="type-display text-3xl font-medium">In your own words</h1>
+          <h1 className="type-identity text-3xl font-medium">In your own words</h1>
           <p className="mt-2 leading-relaxed text-olive">
             The checkboxes gave Steady the outline — this conversation fills it in. Your
             companion will ask the kinds of questions a first intake would, so your sessions
@@ -612,7 +612,7 @@ export default async function ProfileOnboardingPage({
 
       {step === "summary" && (
         <section className="mt-10">
-          <h1 className="type-display text-4xl font-medium">Your starting place</h1>
+          <h1 className="type-identity text-4xl font-medium">Your starting place</h1>
           {/* This screen used to end the gate with a track name, track-specific
               guidance, and "Readiness 68/100". Three violations at once, on the
               member's very first impression.

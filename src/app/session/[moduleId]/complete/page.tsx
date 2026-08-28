@@ -56,7 +56,7 @@ export default async function PostSessionPage({
 
   return (
     <main className="mx-auto max-w-2xl px-6 py-12">
-      <h1 className="type-display text-4xl font-medium">Before you go</h1>
+      <h1 className="type-identity text-4xl font-medium">Before you go</h1>
       <p className="mt-2 text-sm text-olive">
         Two minutes. You do not need to solve everything today — this is how we make sure the
         session landed safely, so your system can settle.

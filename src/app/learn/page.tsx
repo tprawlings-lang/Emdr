@@ -13,7 +13,7 @@ export default async function LearnPage() {
     <>
       <MemberNav />
       <main className="mx-auto max-w-xl px-6 py-12">
-      <h1 className="type-display text-3xl font-medium">Learn</h1>
+      <h1 className="type-identity text-3xl font-medium">Learn</h1>
       <p className="mt-2 text-olive">
         A few short reads to make sense of what you&apos;re working with — the window of tolerance,
         why the method works, understanding triggers. Two to four minutes each.

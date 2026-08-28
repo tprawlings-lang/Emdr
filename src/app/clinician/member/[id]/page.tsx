@@ -260,7 +260,7 @@ export default async function MemberDetailPage({
                         s.status === "hard_stop"
                           ? "font-semibold text-support-deep"
                           : s.status === "completed"
-                            ? "text-safe-deep"
+                            ? "text-state-safe"
                             : "text-olive"
                       }
                     >
@@ -311,7 +311,7 @@ export default async function MemberDetailPage({
                   </div>
                   <span
                     className={`rounded-full px-3 py-1 text-xs font-medium ${
-                      open ? "bg-safe/20 text-safe-deep" : "bg-sand/50 text-olive"
+                      open ? "bg-safe/20 text-state-safe" : "bg-sand/50 text-olive"
                     }`}
                   >
                     {open ? "Open" : "Closed"}

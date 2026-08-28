@@ -67,7 +67,7 @@ export default async function CheckinPage() {
       <MemberNav />
       <main className="mx-auto max-w-2xl px-6 py-12">
       <div className="flex items-center justify-between">
-        <h1 className="type-display text-4xl font-medium">Daily check-in</h1>
+        <h1 className="type-identity text-4xl font-medium">Daily check-in</h1>
         <Link href="/crisis" className="text-sm font-semibold text-ground underline">
           Need help now?
         </Link>

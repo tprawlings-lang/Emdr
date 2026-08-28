@@ -5,6 +5,14 @@ they were issued and in the order they should be read.** Each one supersedes not
 layer. Where a later handoff contradicts an earlier one, the later wins and the difference
 should be recorded rather than silently resolved.
 
+> **Handoff 05 reviewed the repository at commit `c39447a` — the commit immediately before
+> the six feature commits handoff 04 produced.** It therefore describes a product without
+> the member score boundary, the one-family type system, navigation, the patient directory,
+> or the paced gate. Several of its findings read as reversals of handoff 04 but are more
+> accurately gaps in the snapshot it saw. The two that were treated as real decisions are
+> recorded in [`../site/gui-decisions.md`](../site/gui-decisions.md), each with the
+> rationale it overrides and the steps to revert.
+
 They were uploads during working sessions and lived only in a session folder, which meant a
 new context window could not find them. They are committed here so the specification
 travels with the code.
@@ -15,6 +23,7 @@ travels with the code.
 | 02 | [Demo-first execution](02-demo-first-execution.pdf) | Making the environment demonstrable: deterministic seed, reset, scenario scripts, demo labelling, persona indicator, clinical policy modes | **Done** — [`../demo/completion-matrix.md`](../demo/completion-matrix.md). Two findings deferred by decision (F3, F4) |
 | 03 | [Institutional website redesign](03-institutional-website-redesign.pdf) | The public surface: audience pages, one claims registry, Trust Center, Evidence, FAQ, the review gateway, demo legal copy, the copy guard | **Done** — [`../site/release-acceptance.md`](../site/release-acceptance.md) |
 | 04 | [Presentation layer v1](04-presentation-layer-v1.pdf) | How data, gating, routing, and processing are rendered. The member score boundary, day states, the gate, the session flow, the visual system, component contracts | **◐ In progress** — [`../site/presentation-layer.md`](../site/presentation-layer.md). §§2, 3, 4, 5, 7, 8 done. **§6 is next and not started** |
+| 05 | [GUI and decision-surface](05-gui-and-decision-surface.pdf) | How events, measures, gates, summaries, and audit history become screens people can act on. Role views, the presentation contract, gate states, components, tokens, charts, and the build order | **◐ In progress** — [`../site/gui-decisions.md`](../site/gui-decisions.md). Phase 0 and Phase 1 landed; Phases 2–5 open |
 
 ## Reading order for a fresh context window
 

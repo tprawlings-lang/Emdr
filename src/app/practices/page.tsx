@@ -50,7 +50,7 @@ export default async function PracticesPage() {
     <>
       <MemberNav />
       <main className="mx-auto max-w-3xl px-6 py-10">
-        <h1 className="type-display text-3xl">Practices</h1>
+        <h1 className="type-identity text-3xl">Practices</h1>
         <p className="measure mt-2 text-olive">
           Short things you can do on their own, whenever you want them. Nothing here needs
           to lead anywhere.

@@ -21,7 +21,7 @@ import { recommendTracks } from "@/lib/track-recommender";
 import { removeCareTrack, saveTrackIntakeAction, selectCareTrack } from "@/lib/actions";
 
 const GRADE_TONE: Record<EvidenceGrade, string> = {
-  high: "bg-safe/20 text-safe-deep border-safe/40",
+  high: "bg-safe/20 text-state-safe border-safe/40",
   moderate: "bg-mist/30 text-ground border-mist/50",
   emerging: "bg-clay/25 text-ground border-clay/50",
   specialist: "bg-pause-soft text-ground border-pause/50",
@@ -151,7 +151,7 @@ export default async function PathsPage() {
                     ))}
                   </ul>
                   {already ? (
-                    <p className="mt-4 text-sm font-medium text-safe-deep">On your paths ✓</p>
+                    <p className="mt-4 text-sm font-medium text-state-safe">On your paths ✓</p>
                   ) : (
                     <form action={selectCareTrack} className="mt-4">
                       <input type="hidden" name="trackId" value={c.trackId} />
@@ -235,7 +235,7 @@ export default async function PathsPage() {
                       Specialist referral
                     </span>
                   )}
-                  {already && <span className="text-xs font-medium text-safe-deep">· on your paths</span>}
+                  {already && <span className="text-xs font-medium text-state-safe">· on your paths</span>}
                 </summary>
                 <p className="mt-3 text-sm text-ground/80">{track.scope}</p>
                 <p className="mt-2 text-sm text-olive">{track.evidenceNote}</p>

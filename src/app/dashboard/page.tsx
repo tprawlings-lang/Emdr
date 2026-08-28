@@ -39,7 +39,7 @@ function actionLabel(action: string): { label: string; tone: string } {
     case "grounding_only":
       return { label: "Grounding only today (Calm Place, Containment)", tone: "text-ground bg-pause-soft border-pause/40" };
     case "crisis":
-      return { label: "Sessions paused — your care team has been alerted", tone: "text-ground bg-ground/10 border-pause/50" };
+      return { label: "Sessions paused — use the support options below", tone: "text-ground bg-ground/10 border-pause/50" };
     default:
       return { label: action, tone: "text-ground bg-linen border-ground/10" };
   }
@@ -154,7 +154,7 @@ export default async function DashboardPage() {
       )}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="type-display text-4xl font-medium">Hello, {user.name}</h1>
+          <h1 className="type-identity text-4xl font-medium">Hello, {user.name}</h1>
           <p className="mt-1 text-sm text-olive">You are here today. That is enough.</p>
         </div>
         <div className="flex items-center gap-4">

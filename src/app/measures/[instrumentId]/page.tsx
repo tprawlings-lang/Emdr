@@ -31,7 +31,7 @@ export default async function TakeMeasurePage({
         </Link>
       </div>
 
-      <h1 className="type-display text-3xl font-medium">{instrument.title}</h1>
+      <h1 className="type-identity text-3xl font-medium">{instrument.title}</h1>
       <p className="mt-2 text-olive">{instrument.intro}</p>
       {/* cutoffNote printed here too — the same criteria-label leak as the
           screening page. Removed for the same reason: it is a clinician-facing

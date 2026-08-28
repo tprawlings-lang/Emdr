@@ -85,7 +85,7 @@ export default function SosButton({ panel }: { panel: SosPanel }) {
                   transition: phase === "in" ? "width 4s ease-in-out, height 4s ease-in-out" : "width 6s ease-in-out, height 6s ease-in-out",
                 }}
               >
-                <span className="type-display text-2xl text-sage-deep">
+                <span className="type-identity text-2xl text-ground">
                   {phase === "in" ? "Breathe in" : "Breathe out"}
                 </span>
               </div>
@@ -153,7 +153,7 @@ export default function SosButton({ panel }: { panel: SosPanel }) {
             </div>
 
             <div className="mt-8 flex flex-wrap justify-center gap-4 text-sm">
-              <a href="/ground" className="text-sage-deep underline">More grounding steps</a>
+              <a href="/ground" className="text-ground underline">More grounding steps</a>
               <a href="/crisis" className="text-ground underline">All crisis resources</a>
             </div>
 

@@ -45,7 +45,7 @@ export default async function GateStepPage({
       <>
         <MemberNav />
         <main className="mx-auto max-w-2xl px-6 py-14">
-          <h1 className="type-display text-3xl">{GATE_COPY["gate.done.v1"]}</h1>
+          <h1 className="type-identity text-3xl">{GATE_COPY["gate.done.v1"]}</h1>
           <p className="measure mt-3 text-ground/80">{DAY_MESSAGE[day.messageKey]}</p>
 
           <form action={finishGateAction} className="mt-8">
@@ -82,7 +82,7 @@ export default async function GateStepPage({
           <h2 className="type-display mt-4 text-lg text-olive">{section.heading}</h2>
         )}
 
-        <h1 className="type-display measure mt-3 text-2xl leading-snug">{item}</h1>
+        <h1 className="type-identity measure mt-3 text-2xl leading-snug">{item}</h1>
 
         {error && (
           <p className="mt-4 rounded-2xl border border-ground/20 bg-linen px-4 py-3 text-sm">

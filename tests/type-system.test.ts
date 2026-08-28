@@ -1,22 +1,40 @@
-// The type system (Presentation Layer Handoff §7).
+// The type system (Presentation Layer Handoff §7, revised by GUI and
+// Decision-Surface Handoff §12.3).
 //
-// Steady ran Inter for body and Cormorant Garamond for headings — the
-// conventional display-serif/body-sans pairing. It was retired, and this
-// records why in a form that fails if it creeps back:
+// THIS FILE RECORDS A REVERSAL. Read both halves before relaxing either.
+//
+// Handoff 04 §7 collapsed Steady to one family and retired Cormorant Garamond,
+// for a reason that still holds:
 //
 //   Vol 1 requires legibility under fatigue and cognitive load. Cormorant is a
 //   Garamond revival — small x-height, high stroke contrast, drawn for display.
 //   Those are exactly the properties that fail a tired reader, and the tired
 //   reader is this product's design centre rather than an edge case.
 //
-// §7's replacement is one humanist sans differentiated by SCALE AND TRACKING
-// rather than by contrast, "so it reads as one calm voice and avoids the
-// two-voice tension."
+// Handoff 05 §12.3 asks for a serif back: "serif display type for page
+// identity, human explanation, and member-facing completion moments…
+// sans-serif for controls, tables, labels, measures, and dense clinical work."
 //
-// The reason this is a test and not a note in a design doc: a second family is
-// the single easiest thing to reintroduce. It arrives as one heading on one new
-// page, looks fine in isolation, and the system is back to two voices before
-// anyone reviews it as a decision.
+// Worth knowing when weighing the two: handoff 05 reviewed this repository at
+// commit c39447a, which is the commit BEFORE the one-family change landed. It
+// was describing the serif it saw, not overturning a decision it had read.
+//
+// Resolved by the product owner in favour of §12.3, on the ground that the
+// original objection was to Cormorant's DRAWING rather than to serifs as such.
+// So the reversal is bounded, and this file holds the bounds:
+//
+//   1. Exactly two families. A third is still the old failure.
+//   2. The serif must be text-grade, not a display revival. Literata was drawn
+//      for long-form screen reading — large x-height, low stroke contrast, the
+//      inverse of what got Cormorant retired. The named-revival ban below is
+//      what stops the reversal being read as "serifs are fine now".
+//   3. The serif is confined to .type-identity. Dense clinical work keeps
+//      .type-display, which stays one family differentiated by scale and
+//      tracking, so the serif cannot spread into tables by habit.
+//
+// TO REVERT: point --font-serif back at var(--font-sans), drop .type-identity
+// and the Literata import from layout.tsx, and restore the "exactly one family"
+// assertion below. Nothing else depends on the split.
 
 import { strict as assert } from "node:assert";
 import test from "node:test";
@@ -39,28 +57,55 @@ function srcFiles(): string[] {
   return out;
 }
 
-test("exactly one type family is loaded", () => {
+test("exactly two type families are loaded — the sans and the identity serif", () => {
   // next/font imports are the only way a family enters the app.
   const families = [...LAYOUT.matchAll(/import\s*\{([^}]+)\}\s*from\s*"next\/font\/google"/g)]
     .flatMap((m) => m[1].split(",").map((s) => s.trim()))
-    .filter(Boolean);
+    .filter(Boolean)
+    .sort();
   assert.deepEqual(
-    families, ["Inter"],
-    `expected one family, found: ${families.join(", ")}. §7 asks for a single humanist ` +
-    "sans differentiated by scale and tracking, not a second voice."
+    families, ["Inter", "Literata"],
+    `expected the sans and the identity serif, found: ${families.join(", ")}. §12.3 asks ` +
+    "for two optical roles, not an open set — a third family is the two-voice problem again."
   );
-  assert.doesNotMatch(LAYOUT, /Cormorant/, "the display serif is back in the layout");
 });
 
-test("the serif token resolves to the sans stack rather than a second face", () => {
-  // Kept as an alias rather than deleted, so a missed surface degrades to the
-  // right family instead of silently falling back to Georgia.
+test("the identity serif is text-grade, not a display revival", () => {
+  // The specific bound on the reversal. These faces share the properties that
+  // retired Cormorant: small x-height and high stroke contrast at text sizes.
+  // Allowing "a serif" without this reads as permission to use any serif.
+  const REVIVALS = /Cormorant|Garamond|Playfair|Bodoni|Didot|Baskerville|Caslon/i;
+  assert.doesNotMatch(
+    LAYOUT, REVIVALS,
+    "a display serif revival is loaded. §12.3 restores a serif for identity, but Vol 1's " +
+    "fatigue requirement is what retired Cormorant — small x-height and high stroke " +
+    "contrast fail a tired reader whatever the family is called."
+  );
+});
+
+test("the serif token resolves to the loaded family, with a real fallback", () => {
   const m = /--font-serif:\s*([^;]+);/.exec(CSS);
   assert.ok(m, "--font-serif is not defined");
-  assert.match(
-    m![1].trim(), /var\(--font-sans\)/,
-    "--font-serif points at a real serif again — that is the two-voice system returning"
-  );
+  assert.match(m![1], /var\(--font-literata\)/,
+    "--font-serif does not point at the loaded identity family");
+  assert.match(m![1], /serif\s*;?\s*$/,
+    "the serif stack has no generic fallback — a failed webfont would land on the sans");
+});
+
+test("the serif is confined to the identity role", () => {
+  // The bound that keeps the reversal from spreading. .type-display carries 200+
+  // usages across member, clinical and public surfaces; if it took the serif,
+  // §12.3's "sans-serif for controls, tables, labels, measures, and dense
+  // clinical work" would be broken everywhere at once.
+  const disp = /\.type-display\s*\{([^}]+)\}/.exec(CSS);
+  assert.ok(disp, "no .type-display role is defined");
+  assert.match(disp![1], /font-family:\s*var\(--font-sans\)/,
+    ".type-display took the serif — that puts it on clinical tables, which §12.3 excludes");
+
+  const ident = /\.type-identity\s*\{([^}]+)\}/.exec(CSS);
+  assert.ok(ident, "no .type-identity role is defined — §12.3's serif role has no home");
+  assert.match(ident![1], /font-family:\s*var\(--font-serif\)/,
+    ".type-identity does not use the serif");
 });
 
 test("body copy meets the 17px floor and the 1.6 line-height minimum", () => {
@@ -116,10 +161,12 @@ test("no surface reintroduces a serif family inline", () => {
     if (/font-family:\s*["']?(?:Georgia|Times|Garamond|Cormorant|serif)/i.test(stripped)) {
       offenders.push(path.relative(process.cwd(), f));
     }
-    // The Tailwind utility, too — it now aliases the sans stack, so using it
-    // says something the code does not mean.
+    // The raw utility stays banned even though the token is real again: the
+    // serif is allowed in one named role, and `font-serif` sprayed on a
+    // component is how a bounded reversal becomes an unbounded one. Use
+    // .type-identity, which is what the guard above checks.
     if (/\bfont-serif\b/.test(stripped)) {
-      offenders.push(`${path.relative(process.cwd(), f)} (font-serif utility)`);
+      offenders.push(`${path.relative(process.cwd(), f)} (font-serif utility — use .type-identity)`);
     }
   }
   assert.deepEqual(offenders, [],

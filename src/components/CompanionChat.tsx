@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, useTransition } from "react";
 import { sendCompanionMessage, startDailyCompanionChat } from "@/lib/actions";
+import { escalationNotice } from "@/lib/notify/delivery";
 
 interface Message {
   sender: "member" | "companion";
@@ -75,7 +76,7 @@ export default function CompanionChat({
           <p className="font-semibold text-ground">Support beyond this chat</p>
           <p className="mt-1 text-sm text-ground/90">
             Your companion can&apos;t provide crisis care. Please use the crisis page now — it has
-            one step at a time, and your care team has been notified.
+            one step at a time. {escalationNotice()}
           </p>
           <a
             href="/crisis?from=companion"

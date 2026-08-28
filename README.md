@@ -17,7 +17,7 @@
 
 **This block is written for a fresh context window.** It is the shortest path from "I have
 just opened this repository" to "I am doing the next useful thing." Everything below is
-current as of commit `f006e97`, with the 2026-08-28 findings below appended; the detail
+current as of commit `c8797ca` plus the handoff-05 work below; the detail
 behind it is in the sections that follow.
 
 ## Read these, in this order
@@ -43,7 +43,7 @@ Three branches are identical and pushed: `claude/launch-status-vh6vbo` (designat
 `main`, `claude/gifted-keller-501y5d` (Render deploy).
 
 ```bash
-npm run test:safety   # 508 pass
+npm run test:safety   # 521 pass
 npm run test:e2e      # 105 pass   (PLAYWRIGHT_CHROMIUM_PATH=/opt/pw-browsers/chromium)
 npm run test:rls      # 12 cross-tenant attack cases against a real Postgres cluster
 npm run build         # clean
@@ -68,6 +68,35 @@ below refer to it) drove the last several commits, in its own §9 order:
 | — | **Navigation** — the product had none at all | `32bc951` |
 | — | **Patient directory**, separate from the caseload | `709b582` |
 | §5 | **The gate as a paced sequence** — one question per screen, resumable | `1ea82c0` |
+
+## ▶ NOW: handoff 05, the GUI and decision-surface work
+
+[`docs/handoffs/05-gui-and-decision-surface.pdf`](docs/handoffs/05-gui-and-decision-surface.pdf)
+is the live specification. **Read [`docs/site/gui-decisions.md`](docs/site/gui-decisions.md)
+before changing a member or clinical surface** — it records two deliberate reversals of
+handoff 04 and how to undo each.
+
+One thing to know before reading handoff 05 against this code: **it reviewed the repository
+at `c39447a`, the commit before handoff 04's six feature commits.** It never saw the member
+score boundary, the one-family type system, navigation, the patient directory, or the paced
+gate. Several apparent reversals are gaps in that snapshot rather than decisions.
+
+**Landed (Phase 0 and Phase 1):**
+
+| | Work |
+|---|---|
+| §8.2 | `src/lib/presentation/contract.ts` — `DecisionSurface` and friends; `assertRenderable` refuses a surface with no headline, explanation, or freshness, and refuses to render a safety-stop override (§15.2) |
+| §3.8 | **Notification truth.** Four surfaces claimed a care team "has been notified" off the back of one `INSERT`. There is no delivery channel and no receipt column. Now `src/lib/notify/delivery.ts` with the five states; `delivered` without a receipt throws |
+| §12.2 | Semantic `--color-state-*` palette, all six pairs verified ≥4.5:1 on their own background and on ivory and linen |
+| §3.9 | The four sub-AA tokens banned as text. `sage-deep` at 2.34:1 was rendering the SOS panel's breathing prompt and grounding link |
+| §12.3 | The identity serif (Literata), bounded to `.type-identity` on 26 page `<h1>`s outside `/clinician` and `/clinical` |
+
+**Open:** Phases 2–5 — member shell (Today, Practice, Progress, Support), clinical cockpit
+(Work Queue, Person Overview, review drawer), organization/payer/trust workspaces,
+human-factors validation. §11's component library is specified but unbuilt.
+
+**New guards:** `tests/notification-truth.test.ts`, `tests/contrast.test.ts`.
+`tests/type-system.test.ts` now records the two-family reversal and its bounds.
 
 ## ⚠ OPEN FINDING (2026-08-28) — visual BLS may render against the signed config
 

@@ -41,7 +41,7 @@ export default async function CompanionPage({
       <MemberNav />
       <main className="mx-auto max-w-4xl px-6 py-12">
       <div className="flex items-center justify-between">
-        <h1 className="type-display text-4xl font-medium">Your companion</h1>
+        <h1 className="type-identity text-4xl font-medium">Your companion</h1>
         <div className="flex items-center gap-4 text-sm">
           <Link href="/dashboard" className="text-olive underline">
             Dashboard
