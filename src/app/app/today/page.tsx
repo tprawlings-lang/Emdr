@@ -5,7 +5,6 @@ import { EnvelopeView } from "@/components/presentation/EnvelopeView";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { requireMember } from "@/lib/auth";
-import { buildMemberDay, DAY_MESSAGE } from "@/lib/member/view";
 import { memberHistory } from "@/lib/member/history";
 import { HistoryStrip } from "@/components/member/HistoryStrip";
 import { subscriptionActive } from "@/lib/billing";
@@ -13,21 +12,16 @@ import { data } from "@/lib/data";
 import { MODULES } from "@/lib/modules";
 import {
   checkModuleAccess,
-  completedModuleIds,
   getTodayCheckin,
   getUnlock,
   hasConsent,
   resourcingBlsAvailable,
   screeningComplete,
 } from "@/lib/gating";
-import { logout, requestUnlock } from "@/lib/actions";
-import { decryptField } from "@/lib/crypto";
+import { logout } from "@/lib/actions";
 import { getFitnessState } from "@/lib/fitness-screener";
-import { getProgramPlan } from "@/lib/program-plan";
-import { getMemberTracks, nextModuleId } from "@/lib/tracks";
 import {
   getActiveTriggers,
-  getLatestReadiness,
   getSafetyPlan,
   profileComplete,
 } from "@/lib/profile";
@@ -50,17 +44,6 @@ function actionLabel(action: string): { label: string; tone: string } {
 // Where each blocked-module reason can actually be resolved. Without these
 // links, members told "complete X first" had no path to X (the bug that
 // stranded grandfathered accounts after the fit screener shipped).
-const ACTION_LINKS: Record<string, { href: string; label: string }> = {
-  screening: { href: "/app/screening", label: "Answer them now" },
-  checkin: { href: "/app/check-in", label: "Do today's check-in" },
-  profile: { href: "/app/onboarding/profile", label: "Finish getting set up" },
-  safety_plan: { href: "/app/onboarding/profile?step=safety-plan", label: "Complete your safety plan" },
-  consent: { href: "/app/onboarding", label: "Review consent" },
-  subscribe: { href: "/subscribe", label: "Restart membership" },
-  grounding: { href: "/app/ground", label: "Ground now" },
-  crisis: { href: "/crisis", label: "Open support" },
-  upgrade: { href: "/app/settings/billing", label: "See Plus & Premium" },
-};
 
 export default async function DashboardPage() {
   const user = await requireMember();
@@ -72,20 +55,15 @@ export default async function DashboardPage() {
   const c = await data();
   const checkin = await getTodayCheckin(user.id);
   const fitness = await getFitnessState(user.id);
-  const planRow = await getProgramPlan(user.id);
-  const readiness = await getLatestReadiness(user.id);
   const triggers = await getActiveTriggers(user.id);
   const plan = await getSafetyPlan(user.id);
   const groundingTools: string[] = plan ? JSON.parse(plan.grounding_tools_json) : [];
   const todayTriggerIds: string[] = checkin?.triggers_json ? JSON.parse(checkin.triggers_json) : [];
   const todayTriggers = triggers.filter((t) => todayTriggerIds.includes(t.id));
-  const myTracks = await getMemberTracks(user.id);
-  const completed = await completedModuleIds(user.id);
 
   // Instrument scores are deliberately NOT fetched here. They were, to feed two
   // trend charts; the boundary only holds if the value never arrives, so the
   // query is gone rather than the render (handoff §3).
-  const day = await buildMemberDay(user.id);
 
   // Wave 1's member vertical slice: the decision surface is served by the
   // member_today projection rather than assembled here. §8 — "the UI should
@@ -103,15 +81,6 @@ export default async function DashboardPage() {
     tenantId: tenantRow?.tenant_id ?? "",
   });
   const history = await memberHistory(user.id, { days: 14 });
-
-  const weekAgo = new Date(Date.now() - 7 * 86400000).toISOString().slice(0, 19).replace("T", " ");
-  const recentMeasures = await c.get(`SELECT COUNT(*) AS n FROM screenings
-       WHERE user_id = ? AND instrument IN ('pcl-5','itq')
-         AND created_at >= ?`, [user.id, weekAgo]) as { n: number };
-  const measureDue = recentMeasures.n === 0;
-
-  const lastReview = await c.get(`SELECT reviewed_at FROM alerts WHERE user_id = ? AND status = 'reviewed'
-       ORDER BY reviewed_at DESC LIMIT 1`, [user.id]) as { reviewed_at: string } | undefined;
 
   // Precompute module access (checkModuleAccess is async now) so the JSX map
   // below stays synchronous.
@@ -313,102 +282,25 @@ export default async function DashboardPage() {
         </div>
       )}
 
-      <div className="mt-6 grid gap-4 sm:grid-cols-2">
-        <Link
-          href="/app/activities/breathe"
-          className="rounded-3xl border border-ground/10 bg-linen p-5 shadow-soft transition-colors hover:bg-moss"
-        >
-          <p className="text-sm text-olive">Prepare &amp; regulate</p>
-          <p className="mt-1 type-display text-2xl font-medium">Breathe</p>
-          <p className="mt-2 text-sm leading-relaxed text-olive">
-            A few minutes of paced breathing to settle — before a session, or any time.
-          </p>
-        </Link>
-        <Link
-          href="/app/activities/meditate"
-          className="rounded-3xl border border-ground/10 bg-linen p-5 shadow-soft transition-colors hover:bg-moss"
-        >
-          <p className="text-sm text-olive">Prepare &amp; regulate</p>
-          <p className="mt-1 type-display text-2xl font-medium">Meditate</p>
-          <p className="mt-2 text-sm leading-relaxed text-olive">
-            Short guided practices — grounding, calm-place, self-compassion. Read aloud or as text.
-          </p>
-        </Link>
-        <Link
-          href="/app/activities/move"
-          className="rounded-3xl border border-ground/10 bg-linen p-5 shadow-soft transition-colors hover:bg-moss"
-        >
-          <p className="text-sm text-olive">Prepare &amp; regulate</p>
-          <p className="mt-1 type-display text-2xl font-medium">Move</p>
-          <p className="mt-2 text-sm leading-relaxed text-olive">
-            Gentle guided movement — orienting turns, rooting down, easy stretches, shaking it off.
-          </p>
-        </Link>
-        <Link
-          href="/app/activities/sleep"
-          className="rounded-3xl border border-ground/10 bg-linen p-5 shadow-soft transition-colors hover:bg-moss"
-        >
-          <p className="text-sm text-olive">Wind down</p>
-          <p className="mt-1 type-display text-2xl font-medium">Sleep</p>
-          <p className="mt-2 text-sm leading-relaxed text-olive">
-            Guided wind-downs to do lying down — slow breathing, melting into rest, putting the day down.
-          </p>
-        </Link>
-        <Link
-          href="/app/learn"
-          className="rounded-3xl border border-ground/10 bg-linen p-5 shadow-soft transition-colors hover:bg-moss"
-        >
-          <p className="text-sm text-olive">Learn</p>
-          <p className="mt-1 type-display text-2xl font-medium">Short reads</p>
-          <p className="mt-2 text-sm leading-relaxed text-olive">
-            Make sense of the work — window of tolerance, triggers, why the method helps.
-          </p>
-        </Link>
-        <div className="rounded-3xl border border-ground/10 bg-linen p-5 shadow-soft">
-          <p className="text-sm text-olive">Your companion</p>
-          <p className="mt-1 type-display text-2xl font-medium">Here when you need it</p>
-          <p className="mt-2 text-sm leading-relaxed text-olive">
-            It remembers your triggers, grounding tools, and pace — and you control its memory.
-          </p>
-          <div className="mt-3 flex flex-wrap gap-2">
-            <Link
-              href="/app/companion"
-              className="rounded-full bg-sage px-5 py-2 text-sm font-medium text-ground transition-colors hover:bg-sage-deep"
-            >
-              Check in with it
-            </Link>
-            <Link
-              href="/app/ground"
-              className="rounded-full border border-ground/20 px-5 py-2 text-sm text-ground/80 transition-colors hover:bg-moss"
-            >
-              Ground now
-            </Link>
-          </div>
-        </div>
-      </div>
-
-      {measureDue && (
-        <div className="mt-4 rounded-3xl border border-mist/60 bg-mist/20 p-5">
-          <p className="font-medium">
-            Your weekly measures are due — about five minutes, and they keep your trend honest.
-          </p>
-          <Link
-            href="/app/measures"
-            className="mt-3 inline-block rounded-full bg-mist-deep px-5 py-2.5 text-sm font-medium text-ivory transition-colors hover:bg-ground"
-          >
-            Take weekly measures
-          </Link>
-        </div>
-      )}
-
-      {/* Two trend charts of PCL-5 and ITQ scores over time used to sit here.
-          Vol 2 forbids charts on a member surface; these were the clearest
-          violation in the product and, ironically, the only charts it had.
-
-          The replacement is the Wysa pattern the handoff names: the member
-          never fills out a log, the system assembles one from what they
-          actually did. Practices completed, grouped by day. No counts, no
-          streak, no comparison between days. */}
+      {/* §10.1's below-the-fold list is short and specific: "up to two safe
+          alternatives, completed activity and gentle progress, optional 'why
+          this plan?' drawer, upcoming care or review item."
+          
+          What used to sit here instead: a four-card practice grid, a measures-
+          due banner, the member's paths, a "find your path" prompt, the AI
+          program plan, and the full twelve-module catalog. §10.1 forbids the
+          last one outright — "No full module catalog on Today" — and §3.4 named
+          the whole arrangement: "This is a content catalog. It tells the member
+          everything Steady can do, but it makes the member decide what matters
+          now. On a hard day, that choice load is exactly what the system should
+          reduce."
+          
+          None of it is deleted. The catalog and the practice grid moved to
+          /app/activities, which §26 defines as "choose an allowed support tool
+          — approved activity list". Paths and the program plan belong to
+          /app/plan ("know what is active and why"), which Wave 2 has not built
+          yet — the link below is honest about that rather than dropping them
+          silently. */}
       <section className="mt-12">
         <div className="flex items-baseline justify-between">
           <h2 className="type-display text-2xl font-medium">What you&rsquo;ve done</h2>
@@ -419,163 +311,14 @@ export default async function DashboardPage() {
         <HistoryStrip days={history} />
       </section>
 
-      {myTracks.length > 0 ? (
-        <section className="mt-12">
-          <div className="flex items-baseline justify-between">
-            <h2 className="type-display text-2xl font-medium">Your paths</h2>
-            <Link href="/app/paths" className="text-sm text-olive underline">
-              Manage paths
-            </Link>
-          </div>
-          <div className="mt-4 grid gap-3 sm:grid-cols-2">
-            {myTracks.map((track) => {
-              const next = nextModuleId(track, completed);
-              return (
-                <div key={track.id} className="rounded-3xl border border-ground/10 bg-linen p-5 shadow-soft">
-                  <h3 className="font-semibold">{track.name}</h3>
-                  <p className="mt-1 text-sm text-olive">{track.blurb}</p>
-                  {next ? (
-                    <Link
-                      href={`/app/session/${next}`}
-                      className="mt-3 inline-block rounded-full bg-sage px-5 py-2 text-sm font-medium text-ground transition-colors hover:bg-sage-deep"
-                    >
-                      Next: {MODULES.find((m) => m.id === next)?.name ?? next}
-                    </Link>
-                  ) : (
-                    <p className="mt-3 text-sm text-olive">You&apos;ve worked through this path&apos;s steps.</p>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        </section>
-      ) : (
-        <section className="mt-12 rounded-3xl border border-clay/40 bg-clay/15 p-6">
-          <h2 className="type-display text-2xl font-medium">Find your path</h2>
-          <p className="mt-2 text-sm text-ground/90">
-            Tell us what you&apos;d like to work on and we&apos;ll suggest where to start — trauma,
-            anxiety, a specific fear, grief, and more. You can follow more than one.
-          </p>
-          <Link
-            href="/app/paths"
-            className="mt-4 inline-block rounded-full bg-ground px-6 py-2.5 text-sm font-medium text-ivory transition-colors hover:bg-olive"
-          >
-            Explore paths
-          </Link>
-        </section>
-      )}
-
-      {planRow && (
-        <section className="mt-12 rounded-3xl border border-ground/10 bg-ground p-7 text-ivory shadow-soft">
-          <div className="flex flex-wrap items-baseline justify-between gap-2">
-            <h2 className="type-display text-2xl font-medium">Your program plan</h2>
-            <p className="text-xs text-ivory/60">
-              Updated {planRow.created_at.slice(0, 10)} ·{" "}
-              {planRow.generated_by === "ai" ? "drafted by your companion" : "from your map"} ·
-              shared with your care team
-            </p>
-          </div>
-          <p className="mt-3 text-ivory/85">{planRow.plan.summary}</p>
-          {planRow.plan.nextSteps.length > 0 && (
-            <ol className="mt-4 space-y-3">
-              {planRow.plan.nextSteps.map((s, i) => {
-                const mod = MODULES.find((m) => m.id === s.moduleId);
-                return (
-                  <li key={i} className="rounded-2xl bg-ivory/10 px-4 py-3">
-                    <p className="text-sm font-semibold">
-                      {i + 1}. {mod?.name ?? s.moduleId} — focus: {s.focus}
-                    </p>
-                    <p className="mt-0.5 text-sm text-ivory/70">{s.why}</p>
-                  </li>
-                );
-              })}
-            </ol>
-          )}
-          <p className="mt-4 text-xs text-ivory/60">
-            A working plan, not a prescription — your specialist&apos;s review always comes
-            first, and it refreshes when your trigger map changes.
-          </p>
-        </section>
-      )}
-
-      <h2 className="mt-12 type-display text-2xl font-medium">Your program</h2>
-      <p className="mt-1 text-sm text-olive">
-        Modules marked “Specialist gated” open only after your care team reviews your
-        readiness. That pacing is part of the treatment design, not a paywall.
+      <p className="mt-8 flex flex-wrap gap-x-6 gap-y-2 text-sm">
+        <Link href="/app/activities" className="text-state-info underline">
+          All activities and sessions
+        </Link>
+        <Link href="/app/progress" className="text-state-info underline">
+          Your progress
+        </Link>
       </p>
-
-      <div className="mt-4 space-y-3">
-        {modulesWithAccess.map(({ mod, access, unlock }) => {
-          return (
-            <div key={mod.id} className="rounded-3xl border border-ground/10 bg-linen p-6 shadow-soft">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div>
-                  <h3 className="font-semibold">
-                    {mod.order}. {mod.name}
-                    {mod.tier === "gated" && (
-                      <span className="ml-2 rounded-full bg-clay/30 px-2.5 py-0.5 text-xs font-medium text-ground">
-                        Specialist gated
-                      </span>
-                    )}
-                    {mod.tier === "maintenance" && (
-                      <span className="ml-2 rounded-full bg-mist/40 px-2.5 py-0.5 text-xs font-medium text-ground">
-                        Maintenance
-                      </span>
-                    )}
-                  </h3>
-                  <p className="mt-1 text-sm text-olive">
-                    {mod.objective} · {mod.durationLabel}
-                  </p>
-                </div>
-                {access.allowed ? (
-                  <Link
-                    href={`/app/session/${mod.id}`}
-                    className="rounded-full bg-sage px-5 py-2.5 text-sm font-medium text-ground transition-colors hover:bg-sage-deep"
-                  >
-                    Begin session
-                  </Link>
-                ) : (
-                  <span className="rounded-full border border-ground/10 bg-sand/40 px-5 py-2.5 text-sm text-olive">
-                    Not yet open
-                  </span>
-                )}
-              </div>
-              {!access.allowed && (
-                <p className="mt-2 text-sm text-olive">
-                  {access.reason}
-                  {ACTION_LINKS[access.action] && (
-                    <>
-                      {" "}
-                      <Link
-                        href={ACTION_LINKS[access.action].href}
-                        className="font-medium text-ground underline"
-                      >
-                        {ACTION_LINKS[access.action].label}
-                      </Link>
-                    </>
-                  )}
-                </p>
-              )}
-              {!access.allowed &&
-                access.action === "unlock" &&
-                (!unlock || unlock.status === "revoked") && (
-                  <form action={requestUnlock} className="mt-3 flex flex-wrap items-center gap-2">
-                    <input type="hidden" name="moduleId" value={mod.id} />
-                    <input
-                      type="text"
-                      name="note"
-                      placeholder="Optional note for your specialist"
-                      className="min-w-64 flex-1 rounded-2xl border border-ground/15 bg-ivory px-4 py-2 text-sm focus:border-sage focus:outline-none"
-                    />
-                    <button className="rounded-full border border-ground px-5 py-2 text-sm font-medium transition-colors hover:bg-ground hover:text-ivory">
-                      Send to specialist
-                    </button>
-                  </form>
-                )}
-            </div>
-          );
-        })}
-      </div>
     </main>
     </>
   );

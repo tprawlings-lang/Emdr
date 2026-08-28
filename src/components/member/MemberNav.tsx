@@ -23,6 +23,7 @@ const ITEMS: Array<{ href: string; label: string }> = [
   { href: "/app/today", label: "Today" },
   { href: "/app/ground", label: "Ground" },
   { href: "/app/activities", label: "Activities" },
+  { href: "/app/progress", label: "Progress" },
   { href: "/app/companion", label: "Companion" },
   { href: "/app/learn", label: "Learn" },
 ];

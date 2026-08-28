@@ -35,6 +35,24 @@ const APP = path.join(process.cwd(), "src", "app");
 // Addresses per the Web GUI handoff §26 atlas: the member surfaces moved under
 // /app, and two were renamed (dashboard -> today, practices -> activities).
 // Same twelve surfaces, same coverage — only the paths changed.
+//
+// /app/progress is DELIBERATELY ABSENT from this list, and it is the only
+// exemption. Handoff 06 §10.2 designs a member Progress screen built on the
+// measured values every other member surface is forbidden to carry, and the
+// product owner took that reversal knowingly. docs/site/gui-decisions.md
+// records both sides of the argument.
+//
+// The exemption is narrow on purpose:
+//   - one route, named here, not a pattern that a sibling could fall into;
+//   - the boundary is untouched everywhere else, including the view model;
+//   - §10.2's own acceptance line still binds it — "pattern language only; no
+//     diagnosis or readiness conclusion" — and that is enforced separately, in
+//     assertPatternOnly, which refuses verdict language in the statement.
+//
+// So a score may appear on exactly one member screen, as a pattern, with its
+// comparison window and its missing days beside it. It may not appear as a
+// grade anywhere, including there. The test below proves the exemption did not
+// widen.
 const MEMBER_ROUTES = [
   "app/today", "app/check-in", "app/session", "app/paths", "app/ground", "app/learn",
   "app/activities", "app/companion", "app/measures", "app/screening", "app/onboarding",
@@ -349,4 +367,78 @@ test("the history strip carries completed practices, never counts or streaks", a
       `"${f}" is not declared forbidden on the history strip`
     );
   }
+});
+
+
+// ---------------------------------------------------------------------------
+// The Progress exemption, bounded
+// ---------------------------------------------------------------------------
+
+test("the score exemption covers /app/progress and nothing else", () => {
+  // The failure this guards: someone reads "scores are allowed on Progress"
+  // as "scores are allowed on member surfaces now", and the boundary erodes one
+  // reasonable-looking screen at a time.
+  const exempt = fs.readdirSync(path.join(APP, "app"), { withFileTypes: true })
+    .filter((e) => e.isDirectory())
+    .map((e) => e.name)
+    .filter((n) => !MEMBER_ROUTES.includes(`app/${n}`));
+  assert.deepEqual(
+    exempt.sort(), ["progress"],
+    "these member routes are outside the boundary guard: " + exempt.join(", ") +
+    "\nOnly /app/progress is exempt (handoff 06 §10.2). Add the route to " +
+    "MEMBER_ROUTES, or record a second reversal in docs/site/gui-decisions.md."
+  );
+});
+
+test("the member view model is still incapable of carrying a score", async () => {
+  // The exemption is a separate projection, not a hole in the boundary. If
+  // member_progress had been built by widening MemberDay, every member surface
+  // would have inherited the licence.
+  const { FORBIDDEN_DAY_KEYS, MEMBER_DAY_KEYS } = await import("../src/lib/member/view");
+  for (const k of MEMBER_DAY_KEYS) {
+    assert.ok(!FORBIDDEN_DAY_KEYS.some((f) => k.toLowerCase().includes(f)),
+      `the member day model gained "${k}" — the Progress exemption widened the shared boundary`);
+  }
+  const progress = fs.readFileSync(path.join(process.cwd(), "src/lib/member/progress.ts"), "utf8");
+  assert.doesNotMatch(progress, /from ["'].\/view["']/,
+    "member_progress imports the member day model; the two boundaries must stay separate");
+});
+
+test("Progress refuses verdict language", async () => {
+  // §10.2: "Pattern language only; no diagnosis or readiness conclusion."
+  // §26: "No score is presented as diagnosis, readiness or proof of improvement."
+  const { assertPatternOnly, ProgressBoundaryError } = await import("../src/lib/member/progress");
+  const base = {
+    window: { days: 30, from: "2026-07-29", to: "2026-08-28" },
+    priorWindow: { days: 30, from: "2026-06-29", to: "2026-07-29" },
+    direction: "improving" as const,
+    activity: { checkins: 1, activities: 1, sessions: 1 },
+    series: [], markers: [],
+  };
+  assert.doesNotThrow(() => assertPatternOnly({
+    ...base, statement: "Low mood has been lower over the last 30 days than the 30 before.",
+  } as never));
+
+  for (const verdict of [
+    "Your symptoms are moderate.",
+    "You are doing well — keep going.",
+    "You are ready for processing work.",
+    "This shows a clear improvement proves the programme works.",
+  ]) {
+    assert.throws(
+      () => assertPatternOnly({ ...base, statement: verdict } as never),
+      ProgressBoundaryError,
+      `"${verdict}" was accepted as pattern language`
+    );
+  }
+});
+
+test("a change is never shown without its comparison window", async () => {
+  const { assertPatternOnly, ProgressBoundaryError } = await import("../src/lib/member/progress");
+  assert.throws(() => assertPatternOnly({
+    window: { days: 30, from: "", to: "" },
+    priorWindow: { days: 30, from: "", to: "" },
+    statement: "Low mood has been lower.", direction: "improving",
+    activity: { checkins: 0, activities: 0, sessions: 0 }, series: [], markers: [],
+  } as never), ProgressBoundaryError);
 });

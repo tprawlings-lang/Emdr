@@ -360,6 +360,84 @@ card, the module list, the history strip. Wave 2 replaces it; §3.4's finding is
 putting a better card above a catalog. The Autopilot copy leaks flagged in the README's open
 questions are still there and still need a clinician.
 
+## Wave 2 — the member shell (3 of 15 screens)
+
+§31.2's exit condition is "all 15 member screens and failure states pass". **Three are done.**
+This section says which, and what is left, because a partial wave recorded as a finished one
+is how the next reader loses a day.
+
+### Today, rebuilt to §10.1 — 583 lines to 325
+
+§10.1 forbids the catalog outright ("No full module catalog on Today") and §3.4 named why:
+
+> "This is a content catalog. It tells the member everything Steady can do, but it makes the
+> member decide what matters now. On a hard day, that choice load is exactly what the system
+> should reduce."
+
+Removed from Today: the four-card practice grid, the measures-due banner, the member's paths,
+the "find your path" prompt, the AI program plan, the twelve-module catalog, and a check-in
+card that duplicated the decision surface's own primary action. Kept, per §10.1's short
+below-the-fold list: the greeting and date, the decision surface, "what you've done", and
+links onward.
+
+Nothing was deleted. The catalog and practice grid moved to `/app/activities`, which §26
+defines as "choose an allowed support tool — approved activity list". Paths and the program
+plan belong to `/app/plan`, which is not built — the page links onward honestly rather than
+dropping them silently.
+
+Seven dead queries came out with the sections that used them. That matters beyond tidiness:
+each was Today reaching into domain state directly, which is the §8 violation the projection
+exists to end.
+
+### Activities — the catalog's proper home
+
+The guided modules now sit under the practices. What deliberately did **not** come across:
+the unlock-request form and the per-module gating explanations. §26 gives this screen one job
+and one dominant action; a module that is not open says "Not open today" and stops. §4's rule
+for member surfaces is that absent is absent — a greyed row with a reason invites the member
+to work out how to qualify, which is the pressure the gate exists to remove.
+
+### Progress — `member_progress.v6`, and the reversal made real
+
+The screen that carries the score reversal. §10.2's opening order is the safeguard and is
+implemented in that order: plain-language statement first, then the comparison window, then
+one trend, then the measure cards. The sentence comes first so the number arrives as support
+for a description rather than as a bare value the member interprets into a grade.
+
+`assertPatternOnly` refuses verdict language — diagnosis terms, severity bands, "you are
+doing well", "ready for", "on track". §10.2's own acceptance line is "pattern language only;
+no diagnosis or readiness conclusion", and §26 repeats it. A number may be a **pattern**; it
+may never be a **verdict**.
+
+Every series carries its scale, its direction ("lower is calmer"), its missing days ("gaps
+are not zeros"), and an accessible table of values — §13's chart contract. A movement under
+two points does not register as a direction, because two points on a 27-point scale is not a
+pattern and calling it one is the overclaim §10.2 guards against.
+
+**The guard was narrowed, not weakened.** `/app/progress` is the single named exemption in
+`tests/member-boundary.test.ts`, and two new tests hold the bound: one fails if any *other*
+route appears under `/app` outside the guard, and one fails if `MemberDay` ever gains a
+score-bearing field or `member_progress` starts importing it. The exemption is a separate
+projection, not a hole in the shared boundary — had Progress been built by widening
+`MemberDay`, every member surface would have inherited the licence.
+
+### The 12 screens Wave 2 has not built
+
+`/app/welcome`, `/app/consent`, `/app/screening` (exists, not reworked to §26),
+`/app/check-in` (exists; §20.2's "the check-in result changes the next action without
+requiring navigation to a catalog" is **not** implemented), `/app/session/prepare`,
+`/app/session/:id` (exists as the pre-atlas SessionPlayer), `/app/session/:id/safety`,
+`/app/session/:id/close`, `/app/plan`, `/app/messages`, `/app/care-team`, `/app/settings`
+(no index — `/settings` still lands on `/app/settings/account`).
+
+Today also still carries the Autopilot card below the decision surface, which repeats the
+same primary action. Its copy carries the two soft engine-state leaks already flagged in the
+README's open questions, so it wants a clinician rather than an edit here.
+
+**Verification:** test:safety 564 (was 560), test:e2e 105, build clean. All three screens
+rendered against the seeded demo; Progress verified in its `partial` state with named missing
+sources.
+
 ## Not started
 
 Phase 2 (member shell), organization and payer workspaces (Phase 4), and human-factors

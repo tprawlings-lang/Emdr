@@ -43,7 +43,7 @@ Three branches are identical and pushed: `claude/launch-status-vh6vbo` (designat
 `main`, `claude/gifted-keller-501y5d` (Render deploy).
 
 ```bash
-npm run test:safety   # 560 pass
+npm run test:safety   # 564 pass
 npm run test:e2e      # 105 pass   (PLAYWRIGHT_CHROMIUM_PATH=/opt/pw-browsers/chromium)
 npm run test:rls      # 12 cross-tenant attack cases against a real Postgres cluster
 npm run build         # clean
