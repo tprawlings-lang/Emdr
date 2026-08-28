@@ -17,7 +17,7 @@
 
 **This block is written for a fresh context window.** It is the shortest path from "I have
 just opened this repository" to "I am doing the next useful thing." Everything below is
-current as of commit `1ea82c0`; the detail behind it is in the sections that follow.
+current as of commit `fe4104e`; the detail behind it is in the sections that follow.
 
 ## Read these, in this order
 
