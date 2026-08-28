@@ -13,9 +13,14 @@ with expected states, reset steps, and known limitations.
 
 ```bash
 npm run demo -- health      # environment is in the state a demo expects
-npm run demo -- reset       # return to the versioned baseline
+npm run demo -- reset       # return to the versioned baseline, AND rebuild the event log
 npm run demo -- baseline    # record the hash you are demonstrating against
 ```
+
+> **`reset` now runs the genesis backfill too.** Without it the event log is empty, and
+> the timeline, the cited summary, and the trajectory all render blank — a reviewer would
+> see three empty sections with no way to tell a missing operator step from a missing
+> feature. If a member record looks empty, run `reset` before concluding anything.
 
 `reset` removes every row of synthetic activity — including anything a previous viewer
 created — and rebuilds from `demo-2026-08-v1`. Two resets produce the same baseline hash;
@@ -57,7 +62,7 @@ embarrassment.
 | 4 | Grounding / SOS | Open the SOS panel | Never gated by tier, subscription, or a successful write |
 | 5 | Companion | A short exchange | Memory is member-controlled; the companion never claims a human is watching |
 | 6 | A session | Start Calm Place, rate SUDS, complete | Pre/peak/post captured; post-session check follows |
-| 7 | Switch to Dr. Chen | `/clinician/clinical` | Caseload banded by clinical need, every band carrying its written reason; cited summaries; alerts with coverage-derived deadlines |
+| 7 | Switch to Dr. Chen | `/clinician/clinical`, open Alex | **Trajectory first** — activation, dissociation, sleep, PCL-5 and ITQ, each on its own scale over one time axis, with care and safety events on rails beneath. Then the caseload banding, cited summaries, and alerts |
 | 8 | Audit history | `/clinician/audit`, then one alert's trail | Hash chain verified on screen; free text withheld; tenant-scoped |
 | 9 | Autonomous console | `/clinician/autonomous` | The engine's parallel decision, logged and **governing nothing** |
 | 10 | BLS Part 6 oversight | `/clinician/bls` | Six gates, the rollout ladder, and live configuration — two gates open, one blocked |

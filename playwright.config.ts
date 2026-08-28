@@ -29,7 +29,11 @@ export default defineConfig({
         // suite run begins from the versioned demo baseline. Resetting here rather
         // than inside the app keeps the destructive step explicit and outside any
         // request path.
-        command: "rm -rf .e2e-data && npm run build && npm run start",
+        // `demo -- reset` seeds AND runs the genesis backfill, so the event log
+        // is populated before the first request. Without it the timeline, the
+        // cited summary, and the trajectory all render empty — the suite would
+        // pass against a demo that shows a reviewer nothing.
+        command: "rm -rf .e2e-data && npm run build && npm run demo -- reset && npm run start",
         url: "http://127.0.0.1:3000",
         timeout: 240_000,
         reuseExistingServer: !process.env.CI,

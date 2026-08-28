@@ -198,3 +198,54 @@ test("a change request can be filed from the screen where it was noticed", async
   // what they are looking at to record what they think about it.
   await expect(page.getByTestId("note-form")).toBeVisible();
 });
+
+test("the member record leads with a trajectory that carries its own provenance", async ({ page }) => {
+  await signInAsClinician(page);
+  await page.goto("/clinician/clinical");
+  // Alex has three weeks of history; the first caseload row may be a member
+  // with too little to plot, which is a legitimate empty state.
+  const href = await page.locator('a:has-text("Alex")').first().getAttribute("href");
+  await page.goto(href!);
+
+  await expect(page.getByRole("heading", { name: "Trajectory" })).toBeVisible();
+  const chart = page.locator("svg[role=img]").first();
+  await expect(chart).toBeVisible();
+
+  // The chart names what it plots, for a screen reader as well as a sighted
+  // reader — an SVG with no accessible name is a decorative blob.
+  await expect(chart).toHaveAttribute("aria-label", /Trajectory over \d+ days/);
+
+  // Separate scales stay separate: a 0–10 check-in lane and an instrument lane
+  // both present means they were not reconciled onto one axis.
+  await expect(chart).toContainText("0–10");
+  await expect(chart).toContainText("Activation");
+
+  // Every plotted value is reachable without hovering — the accessibility path
+  // and the mandated relief for marks below 3:1 contrast.
+  await expect(page.getByText("Show every plotted value as a table")).toBeVisible();
+
+  // Provenance survives the redesign. The demo is entirely reconstructed, so
+  // the chart's own caption must say so rather than presenting it as observed
+  // history. Scoped to the figcaption: the word also appears in collapsed
+  // disclosures elsewhere on the page, and a hidden match would pass while the
+  // chart said nothing.
+  await expect(page.locator("figcaption").first()).toContainText(/reconstructed/i);
+
+  // And the reading is stated in words, not left to be inferred from a slope.
+  const readings = page.getByTestId("trajectory-reading");
+  expect(await readings.count()).toBeGreaterThan(0);
+  await expect(readings.first()).toContainText(/Improving|Worsening|Little change/);
+});
+
+test("the trajectory does not push the page sideways on a phone", async ({ page }) => {
+  await signInAsClinician(page);
+  await page.goto("/clinician/clinical");
+  const href = await page.locator('a:has-text("Alex")').first().getAttribute("href");
+  await page.goto(href!);
+  await page.setViewportSize({ width: 390, height: 900 });
+  // Wide content scrolls inside its own container, never the document.
+  const overflow = await page.evaluate(
+    () => document.documentElement.scrollWidth - document.documentElement.clientWidth
+  );
+  expect(overflow, "the clinical record scrolls horizontally at 390px").toBeLessThanOrEqual(1);
+});

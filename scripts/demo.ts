@@ -57,6 +57,18 @@ async function main() {
       const r = resetDemoData(getDb());
       console.log(`Removed ${r.totalDeleted} row(s) across ${Object.keys(r.deleted).length} table(s).`);
       console.log(`Rebuilt ${r.version} — baseline ${r.baseline.hash}`);
+
+      // Reset now includes the genesis backfill, because without it a reset
+      // produces an environment whose event log is EMPTY — and the timeline,
+      // the cited summary, and the trajectory are all assembled from events.
+      // A reviewer opening a member record saw three empty sections and had no
+      // way to know the cause was a missing operator step rather than a missing
+      // feature. "Reset" has to mean a complete environment or it is a trap.
+      //
+      // Idempotent (asserted in tests/spine-backfill.test.ts), so running it
+      // here cannot double-insert.
+      const b = await backfillGenesisEvents();
+      console.log(`Reconstructed ${b.inserted} event(s) from ${b.scanned} row(s).`);
       return;
     }
 
