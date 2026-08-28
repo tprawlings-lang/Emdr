@@ -10,6 +10,171 @@
 > | **What is being built** | A **longitudinal behavioral-health platform** — Steady Personal → Clinical → Intelligence, the Handoff A→E series — for clinician piloting, enterprise/payer distribution, and outcome intelligence. Foundations are landing now (event spine, tenancy); the clinical and enterprise products are not built. |
 > | **Release status** | **Prototype. Nothing is available to the public or to any real participant.** No real patient, payer, or employee health data exists in any environment, and none may until the clinical, security, privacy, legal, and operational gates complete. Not a medical device; **not for emergency use** — US users in crisis should call or text **988**, or 911. |
 
+
+---
+
+# ▶ RESUME HERE — session handoff, 2026-08-28
+
+**This block is written for a fresh context window.** It is the shortest path from "I have
+just opened this repository" to "I am doing the next useful thing." Everything below is
+current as of commit `1ea82c0`; the detail behind it is in the sections that follow.
+
+## Read these, in this order
+
+The specifications that drive the build are committed at
+**[`docs/handoffs/`](docs/handoffs/)** — they were session uploads and a new window could
+not previously find them. [`docs/handoffs/README.md`](docs/handoffs/README.md) is the index
+and states which are done.
+
+| Read | Why |
+|---|---|
+| 1. This block | Names the next build item and the guards that encode past decisions |
+| 2. **[Handoff 04 §6](docs/handoffs/04-presentation-layer-v1.pdf)** | **The next thing to build.** §6 is about two pages |
+| 3. [`docs/site/presentation-layer.md`](docs/site/presentation-layer.md) | What handoff 04 already produced, and *why* each rule exists. Read before changing any member surface |
+| 4. [`docs/handoffs/README.md`](docs/handoffs/README.md) | The other three handoffs and the phase order, if the work reaches back into them |
+
+Do not read all four handoffs front to back. They layer, they are long, and only 04 is
+live work.
+
+## Where the work is
+
+Three branches are identical and pushed: `claude/launch-status-vh6vbo` (designated),
+`main`, `claude/gifted-keller-501y5d` (Render deploy).
+
+```bash
+npm run test:safety   # 508 pass
+npm run test:e2e      # 105 pass   (PLAYWRIGHT_CHROMIUM_PATH=/opt/pw-browsers/chromium)
+npm run test:rls      # 12 cross-tenant attack cases against a real Postgres cluster
+npm run build         # clean
+npm run demo -- reset # seed AND rebuild the event log — see the warning below
+```
+
+> **If a member record looks empty, run `npm run demo -- reset` before concluding
+> anything.** The timeline, the cited summary, and the trajectory are all assembled from
+> the event log, and without the genesis backfill they render blank. This was a real
+> defect: every reviewer who opened a record saw three empty sections.
+
+## What was just finished
+
+The **Presentation Layer Handoff** (`Steady_Presentation_Layer_Handoff_v1.pdf`, §-numbers
+below refer to it) drove the last several commits, in its own §9 order:
+
+| § | Work | Commit |
+|---|---|---|
+| §3 | **The member score boundary** — structural, not a filter | `6672e0d` |
+| §7 | **One type family** (Cormorant retired), 17px floor, 1.6 line-height, global reduced-motion | `dedf7eb` |
+| §8 | **Member components** — `DayCanvas`, `Horizon`, `PracticeCard`, `HistoryStrip` | `dedf7eb` |
+| — | **Navigation** — the product had none at all | `32bc951` |
+| — | **Patient directory**, separate from the caseload | `709b582` |
+| §5 | **The gate as a paced sequence** — one question per screen, resumable | `1ea82c0` |
+
+## ▶ THE NEXT THING: §6, the session state machine
+
+Everything else in the handoff is done. §6 is not started.
+
+The state machine already exists in Vol 2 and maps almost one-to-one onto screens:
+
+```
+created → pre_session_check → authorized → set_active → post_set_reassessment
+        → set_active (only after explicit authorization) → closure → completed
+```
+
+What §6 asks for, per state:
+
+- **`pre_session_check`** — brief, calm, no new information. A denial transitions to the
+  denial screen **in the same visual register** (no red, no warning iconography, no
+  apology).
+- **`authorized → set_active`** — needs an **explicit confirmation beat**. The member
+  should have to actively step into the set, not slide into it.
+- **`set_active`** — "the quietest screen in the product." BLS at a fixed 1.25 Hz default,
+  range 1.0–1.5, **no adaptive speed**. Stop and pause permanently visible, high-contrast,
+  reachable without precision — full-width tap targets, not small icons. "Ground me" is a
+  **peer action to stop**, not buried.
+- **`post_set_reassessment`** — the highest-consequence input in the flow. Minimal reading,
+  single scale, and **do not show the member their previous answer** — that invites
+  performance.
+- **`closure`** — mandatory. Should feel like **an arrival, not a form to clear**. The most
+  likely to be skipped and the most clinically important not to skip.
+- **`technical_interruption → recovery`** — design it properly rather than as an edge case.
+  A member dropping mid-set needs a defined re-entry that respects any safety state that
+  fired before the drop.
+- **any state → `crisis_support`** — reachable from every screen at a fixed position.
+
+### Where to start
+
+```bash
+# The state machine and its guards already exist — this is a rendering job,
+# not a new engine. Read these first:
+src/lib/safety/session.ts             # the state machine itself
+src/lib/safety/resourcing-session.ts  # BLS set pacing, stop, closure
+src/components/ResourcingSession.tsx  # the current set UI
+src/app/session/[moduleId]/           # the guided module flow
+src/app/session/resourcing/           # the Part 6 stage-4a flow
+```
+
+Follow the pattern the last five pieces used, because it is what made them reviewable:
+
+1. **Write the guard first.** Every rule in §6 that could be relaxed later becomes a test
+   before the code. `tests/gate.test.ts` is the closest model — it asserts behaviour and
+   copy, and each failure message says why the rule exists.
+2. **Build the component contract, not the screen.** §8's table gives `SessionSurface`
+   ("fixed BLS params, controls" / never "adaptive/derived speed") and `ClosureSurface`
+   ("closure target" / never "pre/post comparison"). Put them in
+   `src/components/member/` beside `DayCanvas`.
+3. **Render it and look at it.** Three of the last five defects — uniform hollow markers, a
+   duplicated label, an overflowing viewBox — were invisible to tests and obvious in a
+   screenshot.
+4. **Run all three suites and the build before committing.** The e2e suite writes to a real
+   database; each test should own its own data, because tests sharing a persona race.
+
+## Guards that will fail the build if you break them
+
+These encode decisions rather than preferences. Read the failure message — each one says
+why the rule exists.
+
+| File | What it holds |
+|---|---|
+| `tests/member-boundary.test.ts` | No score, band, track, cutoff, chart, streak, or count reaches a member surface — and the member view model cannot carry one |
+| `tests/type-system.test.ts` | Exactly one font family; 17px/1.6 floors; the display role is scale-and-tracking, not a second face |
+| `tests/navigation.test.ts` | Every nav and guided destination resolves; no member surface is a dead end |
+| `tests/gate.test.ts` | Safety items commit immediately; position never a percentage; the exit is a pause, never a quit |
+| `tests/public-copy-guard.test.ts` | No compliance claim, price, or retired route on a public page |
+| `tests/directory.test.ts` | Cross-tenant isolation in the directory, both directions |
+| `scripts/verify-rls.sh` | 12 Postgres cross-tenant attack cases, CI-blocking |
+
+## Standing constraints — do not relax without asking
+
+- **No score, band, track name, criteria label, or chart on any member surface.** Vol 2
+  calls any such surface a defect. The clinician console is different by design (§3) and
+  keeps its scores and its trajectory chart.
+- **No red or orange on member or crisis surfaces.** Crisis carries weight through contrast
+  and typography. The clinician console keeps red for safety marks.
+- **No real participant data in any environment.** Any real-person information in a T0/T1
+  environment is a stop condition: isolate, preserve evidence, notify the owner, assess
+  exposure, remove through the approved process, do not resume until corrected.
+- **Never claim "HIPAA compliant", "clinically validated", "secure", or "approved"** as a
+  general label. Dated evidence and exact scope only.
+- **Do not quote a test count or control to a reviewer** unless it ties to the exact
+  demonstration commit.
+- **Preserve parallel changes.** Rebase; do not force-push over someone else's work.
+
+## Open questions that need a human, not a commit
+
+1. **Does the horizon read as a covert score?** It is built stateless specifically so it
+   cannot become a trend chart, and a guard enforces that — but whether a persistent state
+   indicator *reads* as a score is a clinical judgement (handoff §10 Q1).
+2. **Two soft leaks in the Autopilot card**: it says "your window looks steady" and explains
+   why the day was not adjusted. Both reveal engine state. Rewriting clinical-adjacent copy
+   wants a clinician, so they were flagged rather than changed.
+3. **Counsel review** of the Demo Terms and Demo Privacy Notice, to remove the "unreviewed"
+   markings.
+4. **A real screen-reader pass.** All 17 public pages have zero serious/critical axe
+   violations, which is not the same thing.
+5. **`EMDR_REVIEW_ACCESS_CODE` is unset on Render**, so the review gateway is closed. That
+   is the intended default; set it before a reviewer session.
+
+---
+
 **A note on tense.** §1–§14 describe the live prototype in the present tense because it
 genuinely runs. Everything in the platform section below is *in progress or planned* and
 says which. Where an architectural decision is recorded as "Accepted," that means the
@@ -107,6 +272,7 @@ testing, payer review, or public availability. The agreed order:
 | 3 | Permanent data spine — Postgres cutover, RLS active, Step 5 event-authoritative writes, provenance, corrections, retention, replay ops | Target Sep 14–18 |
 | ∥ | BLS Part 6 validation — protocol, test plan, evidence, reviewer checkpoints, staged validation | Active throughout |
 | ∥ | Institutional website redesign — audience pages, one claims registry, Trust Center, Evidence, FAQ, review gateway, demo legal copy, copy guard | ✅ **Built 2026-08-27** — §8.6, [`release-acceptance.md`](docs/site/release-acceptance.md); counsel review and a screen-reader pass are open |
+| ∥ | Presentation layer — member score boundary, one type family, member components, navigation, patient directory, the paced gate | ◐ **Built 2026-08-28** — [`docs/site/presentation-layer.md`](docs/site/presentation-layer.md). **§6 session state machine is the next piece and is not started** |
 | 4 | Steady Clinical prototype — caseload view, patient timeline, alerts, evidence-linked AI summaries, clinician feedback, review actions, audit history, BLS oversight | ✅ **Built 2026-08-27** — all eight surfaces; §9. Ready for synthetic clinician testing, which has not been run |
 | 5 | Pilot readiness — rescoped clinical configuration, consent, protocol, training, support, monitoring, security review, counsel review, BAA completion | Before any real participant |
 | 6 | Payer and enterprise testing — org administration, reporting, eligibility, population workflows, interoperability sandbox, pilot economics | After pilot foundation |
@@ -150,6 +316,8 @@ Tracked so they are not lost between sessions:
 | 8 | Set `EMDR_REVIEW_ACCESS_CODE` on the deployed instance and hand it to reviewers privately. Unset = the gateway is closed | Before any reviewer session |
 | 9 | Run `npm run demo -- reset` against the deployed instance. Enrollment is now closed, so the reset will hold — run *before* sharing, not after | Before sharing the environment externally |
 | 10 | Counsel review of the Demo Terms and Demo Privacy Notice, and a screen-reader pass over the institutional pages | Removing the "unreviewed" markings |
+| 11 | Decide whether the horizon element reads as a covert score to a clinician (handoff §10 Q1) | Keeping or removing §7's signature element |
+| 12 | Rewrite two soft leaks in the Autopilot card — "your window looks steady", and the sentence explaining why the day was not adjusted | Closing the last known member-surface leaks |
 
 ---
 

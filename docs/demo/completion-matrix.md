@@ -1,5 +1,8 @@
 # Codebase preflight and completion matrix
 
+> **Handoffs and their build order:** [`../handoffs/README.md`](../handoffs/README.md).
+> **Where to pick up:** the RESUME HERE block at the top of the root `README.md`.
+
 **Mandated by** the Demo-First Execution Handoff (27 Aug 2026) §3. No implementation under
 that handoff begins until this is recorded against the live repository.
 
@@ -209,6 +212,7 @@ Ordered. Findings **F1, F7, F10** are the demo-integrity floor and come first.
 | 9 | Institutional website redesign, phases 0–6 | Redesign handoff | ✅ Claims registry, 14 institutional pages, review gateway, copy guard — [`../site/release-acceptance.md`](../site/release-acceptance.md) |
 | 10 | Phase 4 completion — clinical audit history, alert trail, BLS Part 6 oversight | Handoff §9 | ✅ `src/lib/clinical/audit-history.ts`, `bls-oversight.ts`; 18 unit cases, 6 e2e. Fixed two defects found while building: an unscoped audit console and raw `detail_json` rendering |
 | 11 | Operational demo posture + reviewer change requests | Founder direction, 2026-08-27 | ✅ Demo enables everything gated only by caution; `/clinician/testing` and a note form on every clinical screen |
+| 12 | Presentation layer — member score boundary, type system, member components, navigation, patient directory, the paced gate | Handoff 04 | ◐ [`../site/presentation-layer.md`](../site/presentation-layer.md). §6 session state machine is next and not started |
 
 ### Findings still open after this work
 
