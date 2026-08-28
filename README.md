@@ -43,7 +43,7 @@ Three branches are identical and pushed: `claude/launch-status-vh6vbo` (designat
 `main`, `claude/gifted-keller-501y5d` (Render deploy).
 
 ```bash
-npm run test:safety   # 532 pass
+npm run test:safety   # 542 pass
 npm run test:e2e      # 105 pass   (PLAYWRIGHT_CHROMIUM_PATH=/opt/pw-browsers/chromium)
 npm run test:rls      # 12 cross-tenant attack cases against a real Postgres cluster
 npm run build         # clean
@@ -99,10 +99,16 @@ right rail. Backed by `src/lib/clinical/work-queue.ts` and §11 primitives in
 `src/components/clinical/primitives.tsx`. Routes keep the `/clinician` prefix because
 `/clinical` is an existing public page.
 
-**Open:** Phase 2 (member shell), the review drawer §9.2, organization/payer/trust
-workspaces, human-factors validation.
+**The gate review drawer (§9.1, §9.2)** is on the person overview: every module decision
+mapped to one of six member states, collapsed by cause, each showing the rule, its evidence,
+the prior decision, the exact sentence the member sees, and — always, not only when an
+override exists — what cannot be overridden. `src/lib/clinical/gate-review.ts` and
+`src/components/clinical/GateReviewDrawer.tsx`.
 
-**New guards:** `tests/notification-truth.test.ts`, `tests/contrast.test.ts`, `tests/work-queue.test.ts`.
+**Open:** Phase 2 (member shell), organization/payer/trust workspaces, human-factors
+validation.
+
+**New guards:** `tests/notification-truth.test.ts`, `tests/contrast.test.ts`, `tests/work-queue.test.ts`, `tests/gate-review.test.ts`.
 `tests/type-system.test.ts` now records the two-family reversal and its bounds.
 
 ## ⚠ OPEN FINDING (2026-08-28) — visual BLS may render against the signed config

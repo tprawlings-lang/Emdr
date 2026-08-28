@@ -6,6 +6,10 @@ import { activePolicy } from "@/lib/clinical-policy";
 import { memberTimeline } from "@/lib/clinical/timeline";
 import { buildSummary, summaryCoverageNote } from "@/lib/clinical/summary";
 import { buildWorkQueue } from "@/lib/clinical/work-queue";
+import { gateDecisionsFor, groupGateDecisions, overrideAllowed } from "@/lib/clinical/gate-review";
+import { gateOverrideAction } from "@/lib/clinical/actions";
+import { GateReviewDrawer } from "@/components/clinical/GateReviewDrawer";
+import { MODULES } from "@/lib/modules";
 import { WorkQueueRow } from "@/components/clinical/WorkQueueRow";
 import {
   PriorityBadge, FreshnessLabel, OwnerChip, ReviewBadge, EmptyState,
@@ -26,9 +30,13 @@ import {
 export const dynamic = "force-dynamic";
 
 export default async function PersonOverviewPage({
-  params,
-}: { params: Promise<{ id: string }> }) {
+  params, searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ done?: string; error?: string }>;
+}) {
   const { id } = await params;
+  const { done, error } = await searchParams;
   const clinician = await requireClinician();
   const c = await data();
 
@@ -57,6 +65,16 @@ export default async function PersonOverviewPage({
       [person.id]
     ) as Promise<{ granted_at: string } | undefined>,
   ]);
+
+  // Gate decisions for every module, worst state first — the binding
+  // constraint rather than the alphabetically-first module.
+  const gates = await gateDecisionsFor({
+    personId: person.id,
+    moduleIds: MODULES.map((m) => m.id),
+    policy,
+  });
+
+  const gateGroups = groupGateDecisions(gates);
 
   const summary = buildSummary(timeline);
   const mine = queue.items.filter((i) => i.personId === person.id);
@@ -97,6 +115,19 @@ export default async function PersonOverviewPage({
           </div>
         </div>
       </header>
+
+      {/* §15.3: the mutation's result is rendered from what came back, never
+          patched in optimistically by the control that submitted it. */}
+      {done === "overridden" && (
+        <p className="mt-4 rounded-2xl border border-state-safe/40 bg-state-safe-bg/50 px-4 py-3 text-sm text-ground">
+          Override recorded with its reason and appended to this person&apos;s audit history.
+        </p>
+      )}
+      {error && (
+        <p className="mt-4 rounded-2xl border border-state-support/40 bg-state-support-bg/50 px-4 py-3 text-sm text-ground">
+          {error}
+        </p>
+      )}
 
       <div className="mt-6 grid gap-6 lg:grid-cols-[1fr_18rem]">
         <div className="space-y-6">
@@ -166,6 +197,31 @@ export default async function PersonOverviewPage({
                 ))}
               </ul>
             )}
+          </section>
+
+          {/* ---- Gate review (§9.2) ---- */}
+          <section aria-labelledby="gates">
+            <h2 id="gates" className="type-display text-lg font-medium text-ground">
+              Gate review
+            </h2>
+            <p className="mt-1 text-sm text-olive">
+              Every module decision for this person, most constrained first. Each drawer shows
+              the rule, its evidence, the prior decision, and the sentence the member sees.
+            </p>
+            <div className="mt-3 space-y-2">
+              {gateGroups.map((g) => (
+                <GateReviewDrawer
+                  key={g.decision.moduleId}
+                  decision={g.decision}
+                  moduleNames={g.moduleNames}
+                  // Decided on the server. §15.2: a safety-stop override is not
+                  // rendered at all, so the question is answered before the
+                  // control is drawn rather than after it is pressed.
+                  canOverride={overrideAllowed(g.decision)}
+                  overrideAction={gateOverrideAction}
+                />
+              ))}
+            </div>
           </section>
         </div>
 

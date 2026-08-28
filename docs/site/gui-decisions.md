@@ -167,8 +167,44 @@ Guards for 1 and 2 are in `tests/work-queue.test.ts`, which also holds §20.3's 
 duplicate-collapse rules, §20.1's "no client component recalculates priority", and §15.2's
 "a safety-stop override does not render".
 
+### The gate review drawer (§9.1, §9.2)
+
+The gate answered "allowed or not" and returned one sentence, so §3.7's seven distinct
+conditions shared one padlock. A member one form away from proceeding and a member stopped
+by a safety rule were told the same nothing — and the second was taught that the stop is an
+obstacle to work around.
+
+- **`src/lib/clinical/gate-review.ts`** — §8.3's `gate_decision_projection`. Maps every gate
+  outcome to one of §9.1's six member states, and carries the reasons, the evidence (an
+  absence recorded *as* an absence — "no check-in today" is often the whole reason), the
+  policy version, the prior decision, and what may and may not be overridden.
+- **`GateReviewDrawer`** — §9.2's eight requirements. The two doing most of the work are the
+  **member-copy preview** (the clinician reads the exact sentence the member reads, so copy
+  that works in clinical shorthand and fails a person in distress is visible at review time)
+  and the **cannot-be-overridden list**, rendered outside the override branch so the boundary
+  is legible precisely when an override *is* available.
+- **`gateOverrideAction`** — posts and waits (§15.1 forbids optimistic updates here). The
+  boundary is not re-implemented: `override()` refuses a never-overridable target itself.
+
+**Three defects found by rendering it:**
+
+1. **A member blocked by the fitness screener was shown "Processing is paused today."** —
+   the generic §9.1 `limited` sentence — while the clinician read the real reason one line
+   above. Different claims: one describes a wait, the other an action. §9.1's sentence now
+   belongs only to the daily read, a cooldown, and the kill switch; every other cause carries
+   its own member-facing reason and its own next step, rather than sending the member to
+   grounding when a form is what stands in the way.
+2. `Check-in — action "processing_ok"` — a raw enum in the evidence list.
+3. **Eleven identical drawers.** One incomplete screener blocks all eleven modules, so the
+   panel was eleven expandable rows carrying the same decision — making one unresolved form
+   look like eleven problems. Decisions now collapse by state *and* cause, naming the modules
+   affected, per §10.3's own duplicate-collapse rule.
+
+`tests/gate-review.test.ts` holds all three, plus §15.2's "a safety stop never yields an
+override", the disjointness of the overridable and never-overridable lists, and the rule that
+the drawer renders the decision's boundary rather than defining its own.
+
 ## Not started
 
-Phase 2 (member shell), the review drawer (§9.2), organization and payer workspaces
-(Phase 4), and human-factors validation (Phase 5). The member Progress reversal above
-remains recorded but unbuilt.
+Phase 2 (member shell), organization and payer workspaces (Phase 4), and human-factors
+validation (Phase 5). The member Progress reversal above remains recorded but unbuilt.
