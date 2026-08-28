@@ -26,7 +26,7 @@ import {
   escalationState,
   ESCALATION_CHANNEL_CONFIGURED,
   NotificationTruthError,
-} from "../src/lib/notify/delivery.ts";
+} from "../src/lib/notify/delivery";
 
 function walk(dir: string): string[] {
   if (!fs.existsSync(dir)) return [];

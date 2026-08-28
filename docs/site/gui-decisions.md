@@ -135,8 +135,40 @@ also checks the member copy still agrees with what `/demo` tells reviewers.
 
 **Verification:** `test:safety` 521 pass (was 508), `tsc` clean, `build` clean.
 
+### Phase 3 — the clinical cockpit (partial)
+
+The console opened on two stacked lists — alerts, then caseload — that a clinician had to
+reconcile by hand, because the same person appears in both for the same underlying reason.
+
+- **`src/lib/clinical/work-queue.ts`** — §8.3's `clinical_work_item_projection`. One ordered
+  list with §10.3's five groups, duplicate collapse by person + alert type (keeping the
+  worst band, earliest deadline, newest evidence, and the event count), owner names resolved
+  server-side, and `change` measured against the person's last resolved alert — null, not
+  invented, where there is no prior review.
+- **`/clinician/work`** and **`/clinician/people/[id]`**. Note the prefix: §7.2 proposes
+  `/clinical/*`, but `/clinical` is an existing *public* marketing page, so the console keeps
+  its authenticated `/clinician` namespace. Structure follows §7.2; only the prefix differs.
+- **`src/components/clinical/primitives.tsx`** — §11's `PriorityBadge`, `FreshnessLabel`,
+  `OwnerChip`, `DueLabel`, `ReviewBadge`, `EmptyState`. Every state pairs a colour with a
+  glyph and a word, per §12.2's "colour cannot carry meaning alone".
+
+**Four defects were found by rendering it and looking, not by tests:**
+
+1. The row headline showed `phq-9: suicidal_ideation_screen_positive (total 16)` — a machine
+   key in the field whose job is to say why a clinician is here. All ten alert types
+   `createAlert()` raises now have a sentence; the raw detail moved one line down, where a
+   clinician acting on the row still gets the specifics.
+2. A resolved row read **"Due in just now"** — the age helper clamps a past deadline to zero.
+   Resolved items now show when they resolved.
+3. "1 need action".
+4. The person's own name repeated in every row of their own record.
+
+Guards for 1 and 2 are in `tests/work-queue.test.ts`, which also holds §20.3's stability and
+duplicate-collapse rules, §20.1's "no client component recalculates priority", and §15.2's
+"a safety-stop override does not render".
+
 ## Not started
 
-Phases 2–5: member shell (Today, Practice, Progress, Support), clinical cockpit (Work Queue,
-Person Overview, review drawer), organization/payer/trust workspaces, and human-factors
-validation. §11's component library is specified but unbuilt.
+Phase 2 (member shell), the review drawer (§9.2), organization and payer workspaces
+(Phase 4), and human-factors validation (Phase 5). The member Progress reversal above
+remains recorded but unbuilt.

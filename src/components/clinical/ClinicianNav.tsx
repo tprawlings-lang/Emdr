@@ -16,6 +16,7 @@ import { usePathname } from "next/navigation";
 // rather than a clinical one.
 
 const ITEMS: Array<{ href: string; label: string; hint: string }> = [
+  { href: "/clinician/work", label: "Work queue", hint: "Everything waiting on you, in one order" },
   { href: "/clinician/clinical", label: "Caseload", hint: "Who needs attention first, and why" },
   { href: "/clinician/patients", label: "Patients", hint: "Find anyone, alphabetically" },
   { href: "/clinician/audit", label: "Audit", hint: "Who did what, and the hash chain" },

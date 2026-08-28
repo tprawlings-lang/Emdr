@@ -43,7 +43,7 @@ Three branches are identical and pushed: `claude/launch-status-vh6vbo` (designat
 `main`, `claude/gifted-keller-501y5d` (Render deploy).
 
 ```bash
-npm run test:safety   # 521 pass
+npm run test:safety   # 532 pass
 npm run test:e2e      # 105 pass   (PLAYWRIGHT_CHROMIUM_PATH=/opt/pw-browsers/chromium)
 npm run test:rls      # 12 cross-tenant attack cases against a real Postgres cluster
 npm run build         # clean
@@ -91,11 +91,18 @@ gate. Several apparent reversals are gaps in that snapshot rather than decisions
 | §3.9 | The four sub-AA tokens banned as text. `sage-deep` at 2.34:1 was rendering the SOS panel's breathing prompt and grounding link |
 | §12.3 | The identity serif (Literata), bounded to `.type-identity` on 26 page `<h1>`s outside `/clinician` and `/clinical` |
 
-**Open:** Phases 2–5 — member shell (Today, Practice, Progress, Support), clinical cockpit
-(Work Queue, Person Overview, review drawer), organization/payer/trust workspaces,
-human-factors validation. §11's component library is specified but unbuilt.
+**Phase 3, the clinical cockpit (partial):** `/clinician/work` is the work queue — §10.3's
+five groups, duplicate collapse, owner, due state, one action per row, order deterministic
+for a policy version and evidence set. `/clinician/people/[id]` is the person overview —
+sticky identity/owner/consent header, "since your last review" with citations, active work,
+right rail. Backed by `src/lib/clinical/work-queue.ts` and §11 primitives in
+`src/components/clinical/primitives.tsx`. Routes keep the `/clinician` prefix because
+`/clinical` is an existing public page.
 
-**New guards:** `tests/notification-truth.test.ts`, `tests/contrast.test.ts`.
+**Open:** Phase 2 (member shell), the review drawer §9.2, organization/payer/trust
+workspaces, human-factors validation.
+
+**New guards:** `tests/notification-truth.test.ts`, `tests/contrast.test.ts`, `tests/work-queue.test.ts`.
 `tests/type-system.test.ts` now records the two-family reversal and its bounds.
 
 ## ⚠ OPEN FINDING (2026-08-28) — visual BLS may render against the signed config
