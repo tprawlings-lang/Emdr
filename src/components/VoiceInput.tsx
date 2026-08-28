@@ -146,7 +146,7 @@ export default function VoiceInput({
         aria-pressed={listening}
         className={`inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-medium transition-colors ${
           listening
-            ? "border-support bg-support/15 text-support-deep"
+            ? "border-ground bg-pause-soft text-ground"
             : "border-ground/20 bg-ivory hover:bg-moss"
         }`}
       >

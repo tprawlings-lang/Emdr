@@ -144,15 +144,15 @@ export default function LiveVoice({
           onClick={listening ? stop : begin}
           aria-pressed={listening}
           className={`inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-medium transition-colors ${
-            listening ? "border-support bg-support/15 text-support-deep" : "border-ground/20 bg-ivory hover:bg-moss"
+            listening ? "border-ground bg-pause-soft text-ground" : "border-ground/20 bg-ivory hover:bg-moss"
           }`}
         >
           <span aria-hidden="true">{listening ? "‖" : "🎙"}</span>
           {listening ? "Listening — tap to stop" : "Talk to me (hands-free)"}
         </button>
         {listening && (
-          <span className="inline-flex items-center gap-1.5 text-xs text-support-deep" aria-hidden="true">
-            <span className="h-2 w-2 animate-pulse rounded-full bg-support" /> mic on
+          <span className="inline-flex items-center gap-1.5 text-xs text-ground" aria-hidden="true">
+            <span className="h-2 w-2 animate-pulse rounded-full bg-ground" /> mic on
           </span>
         )}
       </div>

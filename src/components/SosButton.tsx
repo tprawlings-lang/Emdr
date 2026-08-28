@@ -51,7 +51,7 @@ export default function SosButton({ panel }: { panel: SosPanel }) {
       <button
         onClick={openPanel}
         aria-label="Open immediate support"
-        className="fixed bottom-5 right-5 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-support text-sm font-bold text-white shadow-lg transition-transform hover:scale-105 focus:outline-none focus:ring-4 focus:ring-support/30"
+        className="fixed bottom-5 right-5 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-ground text-sm font-bold text-white shadow-lg transition-transform hover:scale-105 focus:outline-none focus:ring-4 focus:ring-ground/30"
       >
         SOS
       </button>
@@ -140,13 +140,13 @@ export default function SosButton({ panel }: { panel: SosPanel }) {
               )}
               <a
                 href={panel.crisisHref}
-                className="block rounded-3xl bg-support px-6 py-4 text-center text-lg font-bold text-white transition-colors hover:bg-support-deep"
+                className="block rounded-3xl bg-ground px-6 py-4 text-center text-lg font-bold text-white transition-colors hover:bg-ground"
               >
                 {panel.crisisLabel} (US)
               </a>
               <a
                 href="tel:911"
-                className="block rounded-3xl border-2 border-support px-6 py-3 text-center font-semibold text-support-deep transition-colors hover:bg-support/10"
+                className="block rounded-3xl border-2 border-ground px-6 py-3 text-center font-semibold text-ground transition-colors hover:bg-ground/10"
               >
                 Call 911 (immediate danger)
               </a>
@@ -154,7 +154,7 @@ export default function SosButton({ panel }: { panel: SosPanel }) {
 
             <div className="mt-8 flex flex-wrap justify-center gap-4 text-sm">
               <a href="/ground" className="text-sage-deep underline">More grounding steps</a>
-              <a href="/crisis" className="text-support-deep underline">All crisis resources</a>
+              <a href="/crisis" className="text-ground underline">All crisis resources</a>
             </div>
 
             <p className="mt-8 text-center text-xs text-olive">

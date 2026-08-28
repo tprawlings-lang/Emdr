@@ -65,7 +65,7 @@ export default async function CheckinPage() {
     <main className="mx-auto max-w-2xl px-6 py-12">
       <div className="flex items-center justify-between">
         <h1 className="font-serif text-4xl font-medium">Daily check-in</h1>
-        <Link href="/crisis" className="text-sm font-semibold text-support underline">
+        <Link href="/crisis" className="text-sm font-semibold text-ground underline">
           Need help now?
         </Link>
       </div>

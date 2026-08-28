@@ -58,7 +58,7 @@ export default async function SessionConsentPage() {
         <form action={revokeProcessingConsent} className="mt-8">
           <button
             type="submit"
-            className="w-full rounded-full border border-support px-6 py-3 font-medium text-support-deep transition-colors hover:bg-support/10"
+            className="w-full rounded-full border border-ground px-6 py-3 font-medium text-ground transition-colors hover:bg-ground/10"
           >
             Withdraw this consent
           </button>

@@ -4,8 +4,7 @@ import { requireMember } from "@/lib/auth";
 import { subscriptionActive } from "@/lib/billing";
 import { data } from "@/lib/data";
 import { hasConsent, screeningComplete } from "@/lib/gating";
-import { getInstrument, scoreItq } from "@/lib/instruments";
-import { decryptField } from "@/lib/crypto";
+import { getInstrument } from "@/lib/instruments";
 
 const TRACKED: { id: "pcl-5" | "itq"; cadenceDays: number }[] = [
   { id: "pcl-5", cadenceDays: 7 },
@@ -27,12 +26,16 @@ export default async function MeasuresPage({
 
   const rows = await Promise.all(
     TRACKED.map(async (t) => {
+      // Only WHEN it was taken, never what it said. The score and the raw
+      // answers are deliberately not selected: a member surface that holds a
+      // score is one edit away from rendering it, and the boundary only holds
+      // if the value never arrives (handoff §3).
       const last = (await c.get(
-        `SELECT total_score, answers_json, created_at
+        `SELECT created_at
          FROM screenings WHERE user_id = ? AND instrument = ?
          ORDER BY created_at DESC LIMIT 1`,
         [user.id, t.id]
-      )) as { total_score: number; answers_json: string; created_at: string } | undefined;
+      )) as { created_at: string } | undefined;
       const instrument = getInstrument(t.id)!;
       // Age in days computed in JS (was SQLite julianday) — dialect-neutral.
       const age = last
@@ -61,24 +64,20 @@ export default async function MeasuresPage({
 
       <div className="mt-6 space-y-4">
         {rows.map((r) => {
-          const itq =
-            r.id === "itq" && r.last ? scoreItq(JSON.parse(decryptField(r.last.answers_json))) : null;
+          // No score is computed or shown here. Vol 2 forbids scores and
+          // diagnostic bands on member surfaces, and a measures page is the
+          // most tempting place to break that — "you scored 52" is the most
+          // natural sentence to write and the one that does the damage.
+          // What a member needs is whether it is due, not how they did.
           return (
             <div key={r.id} className="rounded-3xl border border-ground/10 bg-linen p-5 shadow-soft">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
                   <h2 className="font-semibold">{r.instrument.title}</h2>
                   <p className="mt-1 text-sm text-olive">
-                    {r.last ? (
-                      <>
-                        Last taken {r.age === 0 ? "today" : `${r.age} day${r.age === 1 ? "" : "s"} ago`} ·{" "}
-                        {itq
-                          ? `PTSD ${itq.ptsdSum}/24 · DSO ${itq.dsoSum}/24`
-                          : `score ${r.last.total_score}`}
-                      </>
-                    ) : (
-                      "Not taken yet"
-                    )}
+                    {r.last
+                      ? `Last taken ${r.age === 0 ? "today" : `${r.age} day${r.age === 1 ? "" : "s"} ago`}`
+                      : "Not taken yet"}
                   </p>
                 </div>
                 {r.due ? (

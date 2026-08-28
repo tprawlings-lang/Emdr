@@ -135,7 +135,7 @@ export default async function MemoryControlsPage() {
 
       {items.length > 0 && (
         <form action={clearCompanionMemory} className="mt-10">
-          <button className="w-full rounded-full border border-support/50 px-6 py-3 font-medium text-support transition-colors hover:bg-support/10">
+          <button className="w-full rounded-full border border-ground/30 px-6 py-3 font-medium text-ground transition-colors hover:bg-ground/10">
             Delete all companion memory
           </button>
           <p className="mt-2 text-center text-xs text-olive">

@@ -33,14 +33,14 @@ export default async function FitPausePage() {
           <a
             key={r.href}
             href={r.href}
-            className="block rounded-3xl bg-support px-6 py-4 text-center text-lg font-semibold text-white transition-colors hover:bg-support-deep"
+            className="block rounded-3xl bg-ground px-6 py-4 text-center text-lg font-semibold text-white transition-colors hover:bg-ground"
           >
             {r.label}
           </a>
         ))}
         <a
           href="tel:911"
-          className="block rounded-3xl border-2 border-support px-6 py-4 text-center font-semibold text-support-deep transition-colors hover:bg-support/10"
+          className="block rounded-3xl border-2 border-ground px-6 py-4 text-center font-semibold text-ground transition-colors hover:bg-ground/10"
         >
           {us.emergencyLine}
         </a>
@@ -69,7 +69,7 @@ export default async function FitPausePage() {
 
       <p className="mt-6 text-center text-xs text-olive">{NOT_MONITORED_LINE}</p>
 
-      <Link href="/crisis" className="mt-6 block text-center text-sm font-semibold text-support underline">
+      <Link href="/crisis" className="mt-6 block text-center text-sm font-semibold text-ground underline">
         Open the full crisis page
       </Link>
     </main>

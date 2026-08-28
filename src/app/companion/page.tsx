@@ -1,9 +1,10 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { requireMember } from "@/lib/auth";
+import { buildMemberDay, DAY_MESSAGE } from "@/lib/member/view";
 import { subscriptionActive } from "@/lib/billing";
 import { hasConsent, screeningComplete } from "@/lib/gating";
-import { profileComplete, TRACK_LABELS } from "@/lib/profile";
+import { profileComplete } from "@/lib/profile";
 import { buildCompanionContext } from "@/lib/companion";
 import CompanionChat from "@/components/CompanionChat";
 
@@ -20,6 +21,7 @@ export default async function CompanionPage({
 
   const { from } = await searchParams;
   const ctx = await buildCompanionContext(user.id);
+  const day = await buildMemberDay(user.id);
   // Arriving fresh from a check-in opens today's daily chat: the companion
   // speaks first, prompted by the numbers just submitted and stored history.
   const dailyChat = from === "checkin" && !!ctx.checkin;
@@ -41,7 +43,7 @@ export default async function CompanionPage({
           <Link href="/dashboard" className="text-olive underline">
             Dashboard
           </Link>
-          <Link href="/crisis" className="font-semibold text-support underline">
+          <Link href="/crisis" className="font-semibold text-ground underline">
             Need help now?
           </Link>
         </div>
@@ -64,14 +66,12 @@ export default async function CompanionPage({
         <aside className="space-y-4">
           <div className="rounded-3xl border border-ground/10 bg-linen p-5 shadow-soft">
             <h2 className="text-sm font-semibold">Today</h2>
-            {ctx.readiness ? (
-              <p className="mt-1 text-sm text-olive">
-                Track: {TRACK_LABELS[ctx.readiness.recommended_track]} ·{" "}
-                {ctx.readiness.calculated_readiness_score}/100
-              </p>
-            ) : (
-              <p className="mt-1 text-sm text-olive">No readiness assessment yet.</p>
-            )}
+            {/* The track name and readiness score used to be printed here.
+                Vol 2 forbids both on a member surface, and the sidebar of a
+                chat screen is exactly where a number becomes something a
+                member watches. The day's shape says what is true today
+                without ranking anyone. */}
+            <p className="mt-1 text-sm text-olive">{DAY_MESSAGE[day.messageKey]}</p>
             {!ctx.checkin && (
               <Link href="/check-in" className="mt-2 inline-block text-sm underline">
                 Begin check-in

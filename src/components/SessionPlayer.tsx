@@ -333,7 +333,7 @@ function TriggerEntryStep({
             aria-label="Disruption from 1 (barely) to 10 (constant)"
           />
         </label>
-        {error && <p className="mt-3 text-sm text-support-deep">{error}</p>}
+        {error && <p className="mt-3 text-sm text-ground">{error}</p>}
         <button
           onClick={() => void save()}
           disabled={pending || name.trim().length === 0}
@@ -739,7 +739,7 @@ export default function SessionPlayer({ module: mod, focus, calmPlace, audioOnly
             <ul className="mt-2 space-y-1">
               {relatedLessons.map((l) => (
                 <li key={l.id}>
-                  <a href={`/learn/${l.id}`} className="text-sm text-support-deep underline">
+                  <a href={`/learn/${l.id}`} className="text-sm text-ground underline">
                     {l.title}
                   </a>
                 </li>
@@ -750,7 +750,7 @@ export default function SessionPlayer({ module: mod, focus, calmPlace, audioOnly
         {preparePractice && (
           <div className="mt-6 rounded-3xl border border-ground/10 bg-linen p-5 shadow-soft">
             {prepared ? (
-              <p className="text-sm font-medium text-support-deep">
+              <p className="text-sm font-medium text-ground">
                 ✓ You took a moment to settle. Begin whenever you&apos;re ready.
               </p>
             ) : (
@@ -766,7 +766,7 @@ export default function SessionPlayer({ module: mod, focus, calmPlace, audioOnly
                     unlockMedia();
                     setPreparing(true);
                   }}
-                  className="mt-3 rounded-full border border-sage px-5 py-2 text-sm font-medium text-support-deep transition-colors hover:bg-sage/10"
+                  className="mt-3 rounded-full border border-sage px-5 py-2 text-sm font-medium text-ground transition-colors hover:bg-sage/10"
                 >
                   Prepare with a breath
                 </button>
@@ -832,7 +832,7 @@ export default function SessionPlayer({ module: mod, focus, calmPlace, audioOnly
             >
               End the session here — stopping is always allowed
             </button>
-            <a href="/crisis" className="text-center text-sm font-semibold text-support underline">
+            <a href="/crisis" className="text-center text-sm font-semibold text-ground underline">
               I need more help than grounding
             </a>
           </div>
@@ -866,7 +866,7 @@ export default function SessionPlayer({ module: mod, focus, calmPlace, audioOnly
           <div className="mt-5 flex flex-col gap-3">
             <a
               href="/crisis"
-              className="rounded-full bg-support px-5 py-3 text-center font-semibold text-white transition-colors hover:bg-support-deep"
+              className="rounded-full bg-ground px-5 py-3 text-center font-semibold text-white transition-colors hover:bg-ground"
             >
               I need help now
             </a>
@@ -893,7 +893,7 @@ export default function SessionPlayer({ module: mod, focus, calmPlace, audioOnly
           setPhase("ground");
           void logSafetyEvent("ground_me_pressed", sessionId ?? undefined);
         }}
-        className="fixed right-5 bottom-5 z-50 rounded-full bg-support px-7 py-4 text-lg font-bold text-white shadow-soft transition-colors hover:bg-support-deep"
+        className="fixed right-5 bottom-5 z-50 rounded-full bg-ground px-7 py-4 text-lg font-bold text-white shadow-soft transition-colors hover:bg-ground"
       >
         Ground me
       </button>
@@ -923,7 +923,7 @@ export default function SessionPlayer({ module: mod, focus, calmPlace, audioOnly
           >
             {voiceOn ? "🔊 Voice on" : "🔇 Voice off"}
           </button>
-          <a href="/crisis" className="font-semibold text-support underline">
+          <a href="/crisis" className="font-semibold text-ground underline">
             Need help now?
           </a>
           <button

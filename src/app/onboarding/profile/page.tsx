@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { requireMember } from "@/lib/auth";
+import { buildMemberDay, DAY_MESSAGE } from "@/lib/member/view";
 import { hasConsent, screeningComplete } from "@/lib/gating";
 import { subscriptionActive } from "@/lib/billing";
 import {
@@ -9,8 +10,6 @@ import {
   COMPANION_TONES,
   GOALS,
   GROUNDING_TOOLS,
-  TRACK_GUIDANCE,
-  TRACK_LABELS,
   TRAUMA_AREAS,
   TRIGGER_CATALOG,
   TRIGGER_RESPONSES,
@@ -134,6 +133,7 @@ export default async function ProfileOnboardingPage({
   if (await profileComplete(user.id)) redirect("/dashboard");
 
   const { step: stepParam } = await searchParams;
+  const day = await buildMemberDay(user.id);
   const [profile, triggers, signs, readiness, plan, prefs, focusAreas] = await Promise.all([
     getProfile(user.id),
     getActiveTriggers(user.id),
@@ -169,7 +169,7 @@ export default async function ProfileOnboardingPage({
     <main className="mx-auto max-w-2xl px-6 py-12">
       <div className="flex items-center justify-between text-sm text-olive">
         <span>Step 4 of 4 — Getting set up · current place: {position} of {STEPS.length}</span>
-        <Link href="/crisis" className="font-semibold text-support underline">
+        <Link href="/crisis" className="font-semibold text-ground underline">
           Need help now?
         </Link>
       </div>
@@ -613,19 +613,30 @@ export default async function ProfileOnboardingPage({
       {step === "summary" && (
         <section className="mt-10">
           <h1 className="font-serif text-4xl font-medium">Your starting place</h1>
-          {readiness && (
-            <div className="mt-6 rounded-3xl bg-ground p-7 text-ivory shadow-soft">
-              <p className="text-sm text-ivory/70">Your starting track</p>
-              <p className="mt-1 font-serif text-3xl font-medium">
-                {TRACK_LABELS[readiness.recommended_track]}
+          {/* This screen used to end the gate with a track name, track-specific
+              guidance, and "Readiness 68/100". Three violations at once, on the
+              member's very first impression.
+
+              §5: "No result screen with a number. The gate terminates in a Day
+              State, not a score." So it ends the way every other day begins —
+              with what is available now. The care-plan-as-output pattern,
+              minus the score. */}
+          <div className="mt-6 rounded-3xl bg-ground p-7 text-ivory shadow-soft">
+            <p className="text-sm text-ivory/70">Where you start</p>
+            <p className="mt-1 font-serif text-3xl font-medium">
+              {DAY_MESSAGE[day.messageKey]}
+            </p>
+            {day.primary && (
+              <p className="mt-3 text-ivory/80">
+                A good place to begin is <strong>{day.primary.name}</strong> — about{" "}
+                {day.primary.minutes} minutes.
               </p>
-              <p className="mt-3 text-ivory/80">{TRACK_GUIDANCE[readiness.recommended_track]}</p>
-              <p className="mt-3 text-sm text-ivory/60">
-                Readiness {readiness.calculated_readiness_score}/100 — recalculated gently as you
-                check in each day.
-              </p>
-            </div>
-          )}
+            )}
+            <p className="mt-3 text-sm text-ivory/60">
+              What is available changes with how each day is going. Nothing here is a grade,
+              and there is nothing to keep up.
+            </p>
+          </div>
           {focusAreas.length > 0 && (
             <div className="mt-5 rounded-3xl border border-ground/10 bg-linen p-5 shadow-soft">
               <h2 className="font-semibold">What you want to work on</h2>

@@ -19,7 +19,7 @@ export default async function CrisisPage({
 
   return (
     <main className="mx-auto max-w-xl px-6 py-14">
-      <h1 className="font-serif text-4xl font-medium text-support-deep">Pause and get support</h1>
+      <h1 className="font-serif text-4xl font-medium text-ground">Pause and get support</h1>
       <p className="mt-3 text-lg text-ground">
         {from
           ? "Based on what you just told us, the safest step is to pause the program and get support. Your care team has been notified and will review today."
@@ -31,14 +31,14 @@ export default async function CrisisPage({
           <a
             key={r.href}
             href={r.href}
-            className="block rounded-3xl bg-support px-6 py-5 text-center text-xl font-bold text-white transition-colors hover:bg-support-deep"
+            className="block rounded-3xl bg-ground px-6 py-5 text-center text-xl font-bold text-white transition-colors hover:bg-ground"
           >
             {r.label} (US)
           </a>
         ))}
         <a
           href="tel:911"
-          className="block rounded-3xl border-2 border-support px-6 py-4 text-center text-lg font-semibold text-support-deep transition-colors hover:bg-support/10"
+          className="block rounded-3xl border-2 border-ground px-6 py-4 text-center text-lg font-semibold text-ground transition-colors hover:bg-ground/10"
         >
           {CRISIS_REGIONS[0].emergencyLine}
         </a>
@@ -51,14 +51,14 @@ export default async function CrisisPage({
               <div key={region.code}>
                 <p className="text-sm font-semibold">{region.name}</p>
                 {region.resources.map((r) => (
-                  <a key={r.href} href={r.href} className="block text-support-deep underline">
+                  <a key={r.href} href={r.href} className="block text-ground underline">
                     {r.label}
                   </a>
                 ))}
                 <p className="text-sm text-olive">{region.emergencyLine}</p>
               </div>
             ))}
-            <a href={FALLBACK_RESOURCE.href} className="block font-medium text-support-deep underline">
+            <a href={FALLBACK_RESOURCE.href} className="block font-medium text-ground underline">
               {FALLBACK_RESOURCE.label}
             </a>
             <p className="text-xs text-olive">{FALLBACK_RESOURCE.detail}</p>

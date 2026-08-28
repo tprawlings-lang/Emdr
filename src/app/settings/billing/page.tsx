@@ -135,7 +135,7 @@ export default async function BillingPage() {
                 <p className="font-semibold">
                   ${(p.amount_cents / 100).toFixed(2)}
                   {p.status !== "succeeded" && (
-                    <span className="ml-2 text-xs font-normal text-support">{p.status}</span>
+                    <span className="ml-2 text-xs font-normal text-ground">{p.status}</span>
                   )}
                 </p>
               </div>

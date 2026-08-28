@@ -33,7 +33,7 @@ export default async function AccountSettingsPage({
         </form>
       </section>
 
-      <section className="mt-8 rounded-3xl border border-support/30 bg-linen p-7 shadow-soft">
+      <section className="mt-8 rounded-3xl border border-ground/30 bg-linen p-7 shadow-soft">
         <h2 className="font-serif text-2xl font-medium">Delete my account and data</h2>
         <p className="mt-3 text-sm leading-relaxed text-olive">
           This removes your sessions, check-ins, triggers, safety plan, companion
@@ -42,7 +42,7 @@ export default async function AccountSettingsPage({
           encrypted backups age out within 30 days.
         </p>
         {error === "confirm" && (
-          <p className="mt-4 rounded-2xl border border-support/40 bg-support/10 px-4 py-3 text-sm text-support-deep">
+          <p className="mt-4 rounded-2xl border border-pause/50 bg-ground/10 px-4 py-3 text-sm text-ground">
             Type DELETE in the box to confirm — it protects against accidental taps.
           </p>
         )}
@@ -53,12 +53,12 @@ export default async function AccountSettingsPage({
               name="confirm"
               type="text"
               autoComplete="off"
-              className="mt-1 w-full rounded-2xl border border-ground/15 bg-ivory px-4 py-2.5 focus:border-support focus:outline-none"
+              className="mt-1 w-full rounded-2xl border border-ground/15 bg-ivory px-4 py-2.5 focus:border-ground focus:outline-none"
             />
           </label>
           <button
             type="submit"
-            className="mt-4 w-full rounded-full border-2 border-support px-6 py-3 font-semibold text-support-deep transition-colors hover:bg-support hover:text-white"
+            className="mt-4 w-full rounded-full border-2 border-ground px-6 py-3 font-semibold text-ground transition-colors hover:bg-ground hover:text-white"
           >
             Delete my account permanently
           </button>

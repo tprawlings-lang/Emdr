@@ -26,7 +26,7 @@ export default async function TakeMeasurePage({
     <main className="mx-auto max-w-3xl px-6 py-12">
       <div className="sticky top-0 z-10 -mx-6 mb-6 border-b border-ground/10 bg-ivory/95 px-6 py-3 text-sm font-medium text-ground/80">
         Weekly measure ·{" "}
-        <Link href="/crisis" className="font-semibold text-support underline">
+        <Link href="/crisis" className="font-semibold text-ground underline">
           Need help now?
         </Link>
       </div>

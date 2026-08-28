@@ -61,7 +61,7 @@ export default async function GroundPage() {
         )}
         <Link
           href="/crisis"
-          className="rounded-full border border-support/50 px-6 py-3 text-center font-medium text-support transition-colors hover:bg-support/10"
+          className="rounded-full border border-ground/30 px-6 py-3 text-center font-medium text-ground transition-colors hover:bg-ground/10"
         >
           I need more help than this
         </Link>

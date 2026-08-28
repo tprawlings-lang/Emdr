@@ -53,7 +53,7 @@ export default async function PathsPage() {
         <Link href="/dashboard" className="text-sm text-olive underline">
           ← Dashboard
         </Link>
-        <Link href="/crisis" className="text-sm font-semibold text-support underline">
+        <Link href="/crisis" className="text-sm font-semibold text-ground underline">
           Need help now?
         </Link>
       </div>

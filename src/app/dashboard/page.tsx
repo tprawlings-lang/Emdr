@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { requireMember } from "@/lib/auth";
+import { buildMemberDay, DAY_MESSAGE } from "@/lib/member/view";
+import { memberHistory } from "@/lib/member/history";
 import { subscriptionActive } from "@/lib/billing";
 import { data } from "@/lib/data";
 import { MODULES } from "@/lib/modules";
@@ -14,20 +16,16 @@ import {
   screeningComplete,
 } from "@/lib/gating";
 import { logout, requestUnlock } from "@/lib/actions";
-import { scoreItq } from "@/lib/instruments";
 import { decryptField } from "@/lib/crypto";
 import { getFitnessState } from "@/lib/fitness-screener";
 import { getProgramPlan } from "@/lib/program-plan";
 import { getMemberTracks, nextModuleId } from "@/lib/tracks";
 import {
-  TRACK_GUIDANCE,
-  TRACK_LABELS,
   getActiveTriggers,
   getLatestReadiness,
   getSafetyPlan,
   profileComplete,
 } from "@/lib/profile";
-import TrendChart from "@/components/TrendChart";
 
 function actionLabel(action: string): { label: string; tone: string } {
   switch (action) {
@@ -38,7 +36,7 @@ function actionLabel(action: string): { label: string; tone: string } {
     case "grounding_only":
       return { label: "Grounding only today (Calm Place, Containment)", tone: "text-ground bg-pause-soft border-pause/40" };
     case "crisis":
-      return { label: "Sessions paused — your care team has been alerted", tone: "text-support-deep bg-support/10 border-support/40" };
+      return { label: "Sessions paused — your care team has been alerted", tone: "text-ground bg-ground/10 border-pause/50" };
     default:
       return { label: action, tone: "text-ground bg-linen border-ground/10" };
   }
@@ -79,13 +77,11 @@ export default async function DashboardPage() {
   const myTracks = await getMemberTracks(user.id);
   const completed = await completedModuleIds(user.id);
 
-  const pcl5 = await c.all("SELECT total_score, created_at FROM screenings WHERE user_id = ? AND instrument = 'pcl-5' ORDER BY created_at ASC", [user.id]) as { total_score: number; created_at: string }[];
-
-  const itqRows = await c.all("SELECT answers_json, created_at FROM screenings WHERE user_id = ? AND instrument = 'itq' ORDER BY created_at ASC", [user.id]) as { answers_json: string; created_at: string }[];
-  const itqScores = itqRows.map((r) => ({
-    date: r.created_at.slice(0, 10),
-    ...scoreItq(JSON.parse(decryptField(r.answers_json))),
-  }));
+  // Instrument scores are deliberately NOT fetched here. They were, to feed two
+  // trend charts; the boundary only holds if the value never arrives, so the
+  // query is gone rather than the render (handoff §3).
+  const day = await buildMemberDay(user.id);
+  const history = await memberHistory(user.id, { days: 14 });
 
   const weekAgo = new Date(Date.now() - 7 * 86400000).toISOString().slice(0, 19).replace("T", " ");
   const recentMeasures = await c.get(`SELECT COUNT(*) AS n FROM screenings
@@ -95,8 +91,6 @@ export default async function DashboardPage() {
 
   const lastReview = await c.get(`SELECT reviewed_at FROM alerts WHERE user_id = ? AND status = 'reviewed'
        ORDER BY reviewed_at DESC LIMIT 1`, [user.id]) as { reviewed_at: string } | undefined;
-
-  const streak = await c.get("SELECT COUNT(*) AS n FROM checkins WHERE user_id = ?", [user.id]) as { n: number };
 
   // Precompute module access (checkModuleAccess is async now) so the JSX map
   // below stays synchronous.
@@ -141,14 +135,14 @@ export default async function DashboardPage() {
         </div>
       )}
       {fitness.status === "cooldown" && (
-        <div className="mb-6 rounded-3xl border border-support/40 bg-support/10 p-5">
-          <p className="font-semibold text-support-deep">Sessions are paused right now</p>
+        <div className="mb-6 rounded-3xl border border-pause/50 bg-ground/10 p-5">
+          <p className="font-semibold text-ground">Sessions are paused right now</p>
           <p className="mt-1 text-sm text-ground/90">
             Based on your fit answers, the safest step today is support from a person. The
             crisis page has options that can help right now, and you can revisit the
             questions in {fitness.retakeInHours ?? 24}h.
           </p>
-          <Link href="/crisis" className="mt-3 inline-block rounded-full bg-support px-6 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-support-deep">
+          <Link href="/crisis" className="mt-3 inline-block rounded-full bg-ground px-6 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-ground">
             Open support options
           </Link>
         </div>
@@ -159,7 +153,7 @@ export default async function DashboardPage() {
           <p className="mt-1 text-sm text-olive">You are here today. That is enough.</p>
         </div>
         <div className="flex items-center gap-4">
-          <Link href="/crisis" className="text-sm font-semibold text-support underline">
+          <Link href="/crisis" className="text-sm font-semibold text-ground underline">
             Need help now?
           </Link>
           <Link href="/settings/memory" className="text-sm text-olive underline">
@@ -174,28 +168,25 @@ export default async function DashboardPage() {
         </div>
       </div>
 
-      <div className="mt-8 grid gap-4 sm:grid-cols-3">
-        <div className="rounded-3xl border border-ground/10 bg-linen p-5 shadow-soft">
-          <p className="text-sm text-olive">Check-ins so far</p>
-          <p className="mt-1 text-2xl font-semibold">{streak.n}</p>
-        </div>
-        <div className="rounded-3xl border border-ground/10 bg-linen p-5 shadow-soft">
-          <p className="text-sm text-olive">Last specialist review</p>
-          <p className="mt-1 text-lg font-semibold">
-            {lastReview?.reviewed_at ? lastReview.reviewed_at.slice(0, 10) : "Pending"}
+      {/* Three stat cards used to sit here: a check-in count, the last review
+          date, and "PCL-5 trend — 52 / 80 (was 58)".
+
+          The score card is a Vol 2 violation outright. The count is the subtler
+          one: a running total of check-ins is a streak with a different label.
+          It creates the same performance pressure, and it turns a missed day —
+          often a bad day, the day this product exists for — into a number the
+          member is shown on return.
+
+          What replaces them is the day itself. */}
+      <div className="mt-8 rounded-3xl border border-ground/10 bg-linen p-6 shadow-soft">
+        <p className="text-sm text-olive">Today</p>
+        <p className="mt-1 font-serif text-2xl font-medium">{DAY_MESSAGE[day.messageKey]}</p>
+        {day.primary && (
+          <p className="mt-2 text-sm text-olive">
+            A good place to start is <strong className="text-ground">{day.primary.name}</strong>
+            {" "}— about {day.primary.minutes} minutes.
           </p>
-        </div>
-        <div className="rounded-3xl border border-ground/10 bg-linen p-5 shadow-soft">
-          <p className="text-sm text-olive">PCL-5 trend</p>
-          <p className="mt-1 text-lg font-semibold">
-            {pcl5.length > 0 ? `${pcl5[pcl5.length - 1].total_score} / 80` : "—"}
-            {pcl5.length > 1 && (
-              <span className="ml-2 text-sm font-normal text-olive">
-                (was {pcl5[0].total_score})
-              </span>
-            )}
-          </p>
-        </div>
+        )}
       </div>
 
       {autopilot && (
@@ -339,20 +330,6 @@ export default async function DashboardPage() {
             Make sense of the work — window of tolerance, triggers, why the method helps.
           </p>
         </Link>
-        {readiness && (
-          <div className="rounded-3xl border border-ground/10 bg-linen p-5 shadow-soft">
-            <div className="flex items-baseline justify-between">
-              <p className="text-sm text-olive">Current place</p>
-              <p className="text-sm text-olive">{readiness.calculated_readiness_score}/100</p>
-            </div>
-            <p className="mt-1 font-serif text-2xl font-medium">
-              {TRACK_LABELS[readiness.recommended_track]}
-            </p>
-            <p className="mt-2 text-sm leading-relaxed text-olive">
-              {TRACK_GUIDANCE[readiness.recommended_track]}
-            </p>
-          </div>
-        )}
         <div className="rounded-3xl border border-ground/10 bg-linen p-5 shadow-soft">
           <p className="text-sm text-olive">Your companion</p>
           <p className="mt-1 font-serif text-2xl font-medium">Here when you need it</p>
@@ -390,51 +367,47 @@ export default async function DashboardPage() {
         </div>
       )}
 
-      {(pcl5.length > 0 || itqScores.length > 0) && (
-        <>
-          <div className="mt-12 flex items-baseline justify-between">
-            <h2 className="font-serif text-2xl font-medium">Your progress</h2>
+      {/* Two trend charts of PCL-5 and ITQ scores over time used to sit here.
+          Vol 2 forbids charts on a member surface; these were the clearest
+          violation in the product and, ironically, the only charts it had.
+
+          The replacement is the Wysa pattern the handoff names: the member
+          never fills out a log, the system assembles one from what they
+          actually did. Practices completed, grouped by day. No counts, no
+          streak, no comparison between days. */}
+      {history.length > 0 && (
+        <section className="mt-12">
+          <div className="flex items-baseline justify-between">
+            <h2 className="font-serif text-2xl font-medium">What you&rsquo;ve done</h2>
             <Link href="/measures" className="text-sm text-olive underline">
               Weekly measures
             </Link>
           </div>
-          <div className="mt-4 grid gap-4 md:grid-cols-2">
-            {pcl5.length > 0 && (
-              <TrendChart
-                title="PTSD symptoms (PCL-5)"
-                max={80}
-                series={[
-                  {
-                    label: "PCL-5",
-                    color: "#2f3a33",
-                    points: pcl5.map((p) => ({
-                      date: p.created_at.slice(0, 10),
-                      value: p.total_score,
-                    })),
-                  },
-                ]}
-              />
-            )}
-            {itqScores.length > 0 && (
-              <TrendChart
-                title="ICD-11 trauma symptoms (ITQ)"
-                max={24}
-                series={[
-                  {
-                    label: "PTSD",
-                    color: "#5c7884",
-                    points: itqScores.map((s) => ({ date: s.date, value: s.ptsdSum })),
-                  },
-                  {
-                    label: "Self-organization (DSO)",
-                    color: "#c9a98f",
-                    points: itqScores.map((s) => ({ date: s.date, value: s.dsoSum })),
-                  },
-                ]}
-              />
-            )}
-          </div>
-        </>
+          <ul className="mt-4 space-y-3">
+            {history.map((d) => (
+              <li
+                key={d.day}
+                data-testid="history-day"
+                className="rounded-3xl border border-ground/10 bg-linen px-5 py-4 shadow-soft"
+              >
+                <p className="text-sm text-olive">{d.day}</p>
+                <ul className="mt-1 flex flex-wrap gap-2">
+                  {d.items.map((i) => (
+                    <li
+                      key={`${i.kind}:${i.id}`}
+                      className="rounded-full border border-ground/15 bg-ivory px-3 py-1 text-sm"
+                    >
+                      {i.name}
+                    </li>
+                  ))}
+                </ul>
+              </li>
+            ))}
+          </ul>
+          <p className="mt-3 text-xs text-olive">
+            Days you didn&rsquo;t use Steady simply aren&rsquo;t here, and nothing is being counted.
+          </p>
+        </section>
       )}
 
       {myTracks.length > 0 ? (

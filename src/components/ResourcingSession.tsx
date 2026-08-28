@@ -94,7 +94,7 @@ export default function ResourcingSession({ borderline = false }: { borderline?:
     <button
       type="button"
       onClick={stop}
-      className="w-full rounded-full border border-support px-6 py-3 font-medium text-support-deep transition-colors hover:bg-support/10"
+      className="w-full rounded-full border border-ground px-6 py-3 font-medium text-ground transition-colors hover:bg-ground/10"
     >
       Stop &amp; ground me
     </button>
@@ -118,7 +118,7 @@ export default function ResourcingSession({ borderline = false }: { borderline?:
         </div>
       )}
       {borderline && (s.phase === "prep" || s.phase === "set" || s.phase === "between") && (
-        <div className="mb-6 rounded-2xl border border-support/40 bg-support/5 px-5 py-3 text-center text-sm text-support-deep">
+        <div className="mb-6 rounded-2xl border border-ground/30 bg-ground/5 px-5 py-3 text-center text-sm text-ground">
           {BORDERLINE_STOP_REMINDER}
         </div>
       )}

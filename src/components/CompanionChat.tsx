@@ -71,15 +71,15 @@ export default function CompanionChat({
   return (
     <div className="flex flex-col">
       {showRiskBanner && (
-        <div className="mb-4 rounded-3xl border border-support/50 bg-support/10 p-5">
-          <p className="font-semibold text-support-deep">Support beyond this chat</p>
+        <div className="mb-4 rounded-3xl border border-ground/30 bg-pause-soft p-5">
+          <p className="font-semibold text-ground">Support beyond this chat</p>
           <p className="mt-1 text-sm text-ground/90">
             Your companion can&apos;t provide crisis care. Please use the crisis page now — it has
             one step at a time, and your care team has been notified.
           </p>
           <a
             href="/crisis?from=companion"
-            className="mt-3 inline-block rounded-full bg-support px-6 py-2.5 font-semibold text-white transition-colors hover:bg-support-deep"
+            className="mt-3 inline-block rounded-full bg-ground px-6 py-2.5 font-semibold text-white transition-colors hover:bg-ground"
           >
             Open crisis support
           </a>
@@ -94,7 +94,7 @@ export default function CompanionChat({
                 m.sender === "member"
                   ? "bg-sage/40 text-ground"
                   : m.riskFlag
-                    ? "border border-support/40 bg-support/10 text-ground"
+                    ? "border border-ground/30 bg-pause-soft text-ground"
                     : "border border-ground/10 bg-linen text-ground shadow-soft"
               }`}
             >
