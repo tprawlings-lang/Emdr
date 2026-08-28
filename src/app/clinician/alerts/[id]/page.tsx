@@ -33,7 +33,7 @@ export default async function AlertTrailPage({
       <main className="mx-auto max-w-3xl px-6 py-10">
         <h1 className="type-display text-2xl font-medium">Not found</h1>
         <p className="mt-2 text-sm text-olive">No such alert in your organization.</p>
-        <Link href="/clinician/clinical" className="mt-4 inline-block text-sm text-olive underline">
+        <Link href="/clinician/caseload" className="mt-4 inline-block text-sm text-olive underline">
           ← Caseload
         </Link>
       </main>
@@ -52,7 +52,7 @@ export default async function AlertTrailPage({
             {a.alert_type.replace(/_/g, " ")} · severity {a.severity}
           </p>
         </div>
-        <Link href="/clinician/clinical" className="text-sm text-olive underline">
+        <Link href="/clinician/caseload" className="text-sm text-olive underline">
           ← Caseload
         </Link>
       </div>
@@ -68,7 +68,7 @@ export default async function AlertTrailPage({
             <dt className="text-xs uppercase tracking-wide text-olive">{k}</dt>
             <dd className="mt-0.5 text-sm">
               {k === "Member record" ? (
-                <Link href={`/clinician/clinical/${a.user_id}`} className="underline">
+                <Link href={`/clinician/member/${a.user_id}/record`} className="underline">
                   Open clinical record
                 </Link>
               ) : (

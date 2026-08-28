@@ -107,7 +107,7 @@ export default function CompanionChat({
           <div className="flex justify-start">
             <div className="max-w-[85%] rounded-3xl border border-sage-deep/40 bg-moss px-5 py-3 text-sm leading-relaxed text-ground">
               {suggestion}{" "}
-              <a href="/settings/billing" className="font-medium underline">
+              <a href="/app/settings/billing" className="font-medium underline">
                 See memberships
               </a>
               <button

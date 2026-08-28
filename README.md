@@ -91,13 +91,13 @@ gate. Several apparent reversals are gaps in that snapshot rather than decisions
 | §3.9 | The four sub-AA tokens banned as text. `sage-deep` at 2.34:1 was rendering the SOS panel's breathing prompt and grounding link |
 | §12.3 | The identity serif (Literata), bounded to `.type-identity` on 26 page `<h1>`s outside `/clinician` and `/clinical` |
 
-**Phase 3, the clinical cockpit (partial):** `/clinician/work` is the work queue — §10.3's
+**Phase 3, the clinical cockpit (partial):** `/clinician/today` is the work queue — §10.3's
 five groups, duplicate collapse, owner, due state, one action per row, order deterministic
-for a policy version and evidence set. `/clinician/people/[id]` is the person overview —
+for a policy version and evidence set. `/clinician/member/[id]` is the person overview —
 sticky identity/owner/consent header, "since your last review" with citations, active work,
 right rail. Backed by `src/lib/clinical/work-queue.ts` and §11 primitives in
-`src/components/clinical/primitives.tsx`. Routes keep the `/clinician` prefix because
-`/clinical` is an existing public page.
+`src/components/clinical/primitives.tsx`. Routes now follow handoff 06 §26's atlas — see the migration table in
+[`docs/site/gui-decisions.md`](docs/site/gui-decisions.md).
 
 **The gate review drawer (§9.1, §9.2)** is on the person overview: every module decision
 mapped to one of six member states, collapsed by cause, each showing the rule, its evidence,

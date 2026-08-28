@@ -4,7 +4,7 @@ import { recordPracticeCompletion } from "@/lib/practices";
 
 export const runtime = "nodejs";
 
-// POST /api/mobile/v1/practices/complete { practiceId, durationSec } → { ok }
+// POST /api/mobile/v1/app/activities/complete { practiceId, durationSec } → { ok }
 export async function POST(req: NextRequest) {
   const auth = await requireMember(req);
   if (auth instanceof NextResponse) return auth;

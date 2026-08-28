@@ -11,18 +11,20 @@ import { usePathname } from "next/navigation";
 // page previously left that to the browser's title bar.
 //
 // Ordered by how often a clinician needs them, not by how the code is
-// organised: the caseload is the entry point for real work, the oversight
-// surfaces sit behind it, and testing is last because it is a review activity
-// rather than a clinical one.
+// organised. Today is the entry point; the caseload is the wider scan behind
+// it; the directory finds anyone.
+//
+// The oversight surfaces are no longer here. Web GUI handoff §26 gives audit,
+// engine validation, BLS oversight and the testing console their own review
+// role at /review/*, because listing them beside daily clinical work made this
+// nav longer and the clinician's actual job harder to find. One link out is
+// enough; the reviewer's own nav takes over from there.
 
 const ITEMS: Array<{ href: string; label: string; hint: string }> = [
-  { href: "/clinician/work", label: "Work queue", hint: "Everything waiting on you, in one order" },
-  { href: "/clinician/clinical", label: "Caseload", hint: "Who needs attention first, and why" },
+  { href: "/clinician/today", label: "Today", hint: "Everything waiting on you, in one order" },
+  { href: "/clinician/caseload", label: "Caseload", hint: "Scan change, owner and freshness" },
   { href: "/clinician/patients", label: "Patients", hint: "Find anyone, alphabetically" },
-  { href: "/clinician/audit", label: "Audit", hint: "Who did what, and the hash chain" },
-  { href: "/clinician/bls", label: "BLS Part 6", hint: "Gates, rollout, live configuration" },
-  { href: "/clinician/autonomous", label: "Autonomous review", hint: "The engine's parallel decision" },
-  { href: "/clinician/testing", label: "Testing", hint: "What you can exercise, and change requests" },
+  { href: "/review/audit", label: "Review console", hint: "Audit, engine validation, BLS oversight, testing" },
 ];
 
 export function ClinicianNav({

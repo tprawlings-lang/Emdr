@@ -23,7 +23,7 @@ export async function finishGateAction(formData: FormData) {
   const user = await requireMember();
   const instrumentId = String(formData.get("instrument") ?? "");
   const instrument = getInstrument(instrumentId);
-  if (!instrument) redirect("/screening");
+  if (!instrument) redirect("/app/screening");
 
   let answers: number[];
   try {
@@ -32,7 +32,7 @@ export async function finishGateAction(formData: FormData) {
     // An unanswered item routes back to it rather than defaulting to zero.
     // Zero is a real answer on every instrument here, so inventing one would
     // put a fabricated response into a clinical record.
-    if (e instanceof GateError) redirect(`/screening/${instrumentId}`);
+    if (e instanceof GateError) redirect(`/app/screening/${instrumentId}`);
     throw e;
   }
 
@@ -56,5 +56,5 @@ export async function finishGateAction(formData: FormData) {
   });
 
   await clearProgress(user.id, instrumentId);
-  redirect("/screening");
+  redirect("/app/screening");
 }

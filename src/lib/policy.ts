@@ -110,7 +110,7 @@ export function currentConsentSections(): { title: string; body: string }[] {
 // BIPA, Washington My Health My Data, Texas CUBI), so it is not folded into the
 // main care-program consent — it is its own gate, recorded under scope
 // "voice_biometric" (see gating.ts hasVoiceConsent / decideVoiceAvailability and
-// the /settings/voice opt-in). Any wording change requires counsel re-review
+// the /app/settings/voice opt-in). Any wording change requires counsel re-review
 // and a version bump.
 export const VOICE_CONSENT_VERSION = "voice-consent-v1.0";
 

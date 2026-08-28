@@ -14,7 +14,7 @@ async function signInAsClinician(page: import("@playwright/test").Page) {
 
 test("the caseload orders by clinical need and always shows its reason", async ({ page }) => {
   await signInAsClinician(page);
-  await page.goto("/clinician/clinical");
+  await page.goto("/clinician/caseload");
 
   await expect(page.getByRole("heading", { name: "Steady Clinical" })).toBeVisible();
 
@@ -40,11 +40,11 @@ test("the caseload orders by clinical need and always shows its reason", async (
 
 test("a member record shows cited claims, marked provenance, and separated AI output", async ({ page }) => {
   await signInAsClinician(page);
-  await page.goto("/clinician/clinical");
+  await page.goto("/clinician/caseload");
 
   // Open the first member in the caseload.
   await page.getByTestId("caseload-row").first().getByRole("link").first().click();
-  await expect(page).toHaveURL(/\/clinician\/clinical\/[^/]+$/);
+  await expect(page).toHaveURL(/\/clinician\/member\/[^/]+\/record$/);
 
   await expect(page.getByRole("heading", { name: "Summary" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Timeline" })).toBeVisible();
@@ -68,7 +68,7 @@ test("a member outside the clinician's tenant is not found rather than forbidden
   await signInAsClinician(page);
   // A well-formed id that belongs to nobody: the response must not distinguish
   // "exists elsewhere" from "does not exist".
-  await page.goto("/clinician/clinical/not-a-real-member-id");
+  await page.goto("/clinician/member/not-a-real-member-id/record");
   await expect(page.getByRole("heading", { name: "Not found" })).toBeVisible();
 });
 
@@ -77,7 +77,7 @@ test("the clinical console is reachable from the persistent nav", async ({ page 
   await page.goto("/clinician");
   const nav = page.getByRole("navigation", { name: "Clinician" });
   await nav.getByRole("link", { name: "Caseload" }).click();
-  await expect(page).toHaveURL(/\/clinician\/clinical$/);
+  await expect(page).toHaveURL(/\/clinician\/caseload$/);
   // The nav says where you are, not just where you can go.
   await expect(nav.getByRole("link", { name: "Caseload" })).toHaveAttribute("aria-current", "page");
 });
@@ -88,7 +88,7 @@ test("the clinical console is reachable from the persistent nav", async ({ page 
 
 test("a member record carries its audit history with the chain verified", async ({ page }) => {
   await signInAsClinician(page);
-  await page.goto("/clinician/clinical");
+  await page.goto("/clinician/caseload");
   await page.getByTestId("caseload-row").first().getByRole("link").first().click();
 
   await expect(page.getByRole("heading", { name: "Audit history" })).toBeVisible();
@@ -101,7 +101,7 @@ test("a member record carries its audit history with the chain verified", async 
 
 test("the audit console is tenant-scoped and never prints raw detail", async ({ page }) => {
   await signInAsClinician(page);
-  await page.goto("/clinician/audit");
+  await page.goto("/review/audit");
 
   await expect(page.getByRole("heading", { name: "Audit console" })).toBeVisible();
   await expect(page.getByTestId("chain-banner")).toBeVisible();
@@ -121,7 +121,7 @@ test("the audit console is tenant-scoped and never prints raw detail", async ({ 
 
 test("an alert links to its trail, and the trail reads as a sequence", async ({ page }) => {
   await signInAsClinician(page);
-  await page.goto("/clinician/clinical");
+  await page.goto("/clinician/caseload");
 
   const trailLink = page.getByRole("link", { name: "audit trail" }).first();
   if ((await trailLink.count()) === 0) test.skip(true, "no open alerts in the demo dataset");
@@ -141,7 +141,7 @@ test("an alert outside the tenant is not found rather than forbidden", async ({ 
 
 test("BLS Part 6 oversight shows live configuration, not the protocol's claims", async ({ page }) => {
   await signInAsClinician(page);
-  await page.goto("/clinician/bls");
+  await page.goto("/review/bls");
 
   await expect(page.getByRole("heading", { name: "BLS Part 6 oversight" })).toBeVisible();
   await expect(page.getByText(/Not approved for real-person use/)).toBeVisible();
@@ -159,23 +159,48 @@ test("BLS Part 6 oversight shows live configuration, not the protocol's claims",
 
 test("every console is reachable from the nav, from anywhere", async ({ page }) => {
   // The trajectory used to sit four hops deep with nothing signposting it.
-  // From any console page, every other one is now one click away.
+  // From any console page, every other one is still one click away — but the
+  // consoles now live in two roles, not one. Web GUI handoff §26 moves audit,
+  // engine validation, BLS oversight and testing into a review role at
+  // /review/*, because listing them beside daily clinical work made the
+  // clinician's own nav longer and their actual job harder to find.
+  //
+  // The property under test is unchanged: no console is reachable only by
+  // typing a URL. What changed is that crossing between the two roles is one
+  // deliberate link rather than an undifferentiated list.
   await signInAsClinician(page);
-  await page.goto("/clinician/audit");
-  const nav = page.getByRole("navigation", { name: "Clinician" });
+
+  await page.goto("/review/audit");
+  const reviewNav = page.getByRole("navigation", { name: "Review" });
   for (const [label, url] of [
-    ["BLS Part 6", /\/clinician\/bls$/],
-    ["Testing", /\/clinician\/testing$/],
-    ["Caseload", /\/clinician\/clinical$/],
+    ["BLS oversight", /\/review\/bls$/],
+    ["Testing console", /\/review\/testing$/],
+    ["Autonomous flow", /\/review\/autonomous$/],
   ] as const) {
-    await nav.getByRole("link", { name: label }).click();
+    await reviewNav.getByRole("link", { name: label }).click();
     await expect(page).toHaveURL(url);
   }
+
+  // And back across the boundary, in both directions.
+  await page.getByRole("link", { name: "Clinical console" }).click();
+  await expect(page).toHaveURL(/\/clinician\/today$/);
+
+  const clinNav = page.getByRole("navigation", { name: "Clinician" });
+  for (const [label, url] of [
+    ["Caseload", /\/clinician\/caseload$/],
+    ["Patients", /\/clinician\/patients$/],
+    ["Today", /\/clinician\/today$/],
+  ] as const) {
+    await clinNav.getByRole("link", { name: label }).click();
+    await expect(page).toHaveURL(url);
+  }
+  await clinNav.getByRole("link", { name: "Review console" }).click();
+  await expect(page).toHaveURL(/\/review\/audit$/);
 });
 
 test("the testing console shows what is exercisable and takes a change request", async ({ page }) => {
   await signInAsClinician(page);
-  await page.goto("/clinician/testing");
+  await page.goto("/review/testing");
 
   await expect(page.getByRole("heading", { name: "Clinician testing" })).toBeVisible();
   // The matrix reads live configuration, so a reviewer is never told a feature
@@ -205,7 +230,7 @@ test("the testing console shows what is exercisable and takes a change request",
 
 test("a change request can be filed from the screen where it was noticed", async ({ page }) => {
   await signInAsClinician(page);
-  await page.goto("/clinician/clinical");
+  await page.goto("/clinician/caseload");
   // The same form is on the working screens, so a reviewer never has to leave
   // what they are looking at to record what they think about it.
   await expect(page.getByTestId("note-form")).toBeVisible();
@@ -213,7 +238,7 @@ test("a change request can be filed from the screen where it was noticed", async
 
 test("the member record leads with a trajectory that carries its own provenance", async ({ page }) => {
   await signInAsClinician(page);
-  await page.goto("/clinician/clinical");
+  await page.goto("/clinician/caseload");
   // Alex has three weeks of history; the first caseload row may be a member
   // with too little to plot, which is a legitimate empty state.
   const href = await page.locator('a:has-text("Alex")').first().getAttribute("href");
@@ -251,7 +276,7 @@ test("the member record leads with a trajectory that carries its own provenance"
 
 test("the trajectory does not push the page sideways on a phone", async ({ page }) => {
   await signInAsClinician(page);
-  await page.goto("/clinician/clinical");
+  await page.goto("/clinician/caseload");
   const href = await page.locator('a:has-text("Alex")').first().getAttribute("href");
   await page.goto(href!);
   await page.setViewportSize({ width: 390, height: 900 });
@@ -284,7 +309,7 @@ test("patients can be found by name, not by scanning a triage queue", async ({ p
 
   // And a row leads to the record — which is the point of finding someone.
   await page.getByTestId("directory-row").first().getByRole("link").click();
-  await expect(page).toHaveURL(/\/clinician\/clinical\/[^/]+$/);
+  await expect(page).toHaveURL(/\/clinician\/member\/[^/]+\/record$/);
   await expect(page.getByRole("heading", { name: "Trajectory" })).toBeVisible();
 });
 

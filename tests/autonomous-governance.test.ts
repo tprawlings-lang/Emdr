@@ -36,7 +36,7 @@ test("flag OFF: gated module blocked specifically at the manual unlock gate", as
   assert.equal(r.allowed, false);
   if (r.allowed) assert.fail("gated module unexpectedly allowed");
   // action "unlock" proves every UPSTREAM gate passed (sub/consent/fitness/
-  // screening/profile/check-in/readiness/safety-plan/prereqs) and only the manual
+  // screening/profile/app/check-in/readiness/safety-plan/prereqs) and only the manual
   // clinician unlock is missing.
   assert.equal(r.action, "unlock");
 });

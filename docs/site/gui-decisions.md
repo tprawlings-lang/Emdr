@@ -204,6 +204,81 @@ obstacle to work around.
 override", the disjointness of the overridable and never-overridable lists, and the rule that
 the drawer renders the decision's boundary rather than defining its own.
 
+## Route migration to the §26 atlas
+
+Handoff 06 §26 allows route changes "only through an approved migration map", and the atlas
+is that map. Every retired address redirects (in `next.config.ts`) rather than 404s — a
+bookmarked URL failing mid-review is the kind of small breakage that costs trust in the
+whole console.
+
+### Clinician
+
+| Retired | Atlas address |
+|---|---|
+| `/clinician` (old console: its own alert list, member table, unlock queue) | → `/clinician/today` |
+| `/clinician/work` | `/clinician/today` |
+| `/clinician/clinical` | `/clinician/caseload` |
+| `/clinician/clinical/:id` | `/clinician/member/:id/record` |
+| `/clinician/people/:id` | `/clinician/member/:id` |
+| `/clinician/member/:id` (old: outcome trends, AI program plan) | `/clinician/member/:id/measures` |
+
+**Three person records became one address.** §26 gives exactly one — `/clinician/member/:id`,
+"Patient overview… change, meaning, action, evidence" — and having three was the two-mental-
+models defect handoff 05 §3.2 named. The §10.4 overview takes the atlas address; the other
+two move to sub-routes with their content intact. `/record` is a holding address, not an
+atlas route: §26's real split is `/measures`, `/sessions`, `/plan`, `/safety` and `/audit`,
+and shredding a working 361-line record into five pages is Wave 3 content work, not part of
+a route move.
+
+### Review and administration
+
+`/clinician/{audit,autonomous,bls,testing}` → `/review/*`, with their own layout and nav.
+§26 makes review a role with thirteen screens; four exist. Handoff 05 §3.2 named the cost of
+leaving them in the clinician nav: they "appear as equal top-level destinations beside daily
+clinical work". The clinician nav is now four items with one link across; the reviewer's nav
+takes over from there.
+
+### Member
+
+All twelve member surfaces moved under `/app`, two renamed to their atlas names:
+`/dashboard` → `/app/today`, `/practices` → `/app/activities`. Wave 2 builds what those
+screens should *contain*; this puts them at the right address first so the rebuild happens in
+place rather than moving twice.
+
+`/subscribe` stayed public — it uses `PublicChrome` and has no auth, and moving it under
+`/app` was a mistake caught by the public-copy guard.
+
+### What the migration cost
+
+A blanket path rewrite is not safe on a codebase this size, and three classes of collateral
+damage had to be found and undone:
+
+1. **Module specifiers.** `@/lib/companion-ai` became `@/lib/app/companion-ai`, and
+   `@/lib/practices` became `@/lib/activities`, because the route names are also library
+   names. Reverted across 56 files, then the two renames restored separately.
+2. **Regex literals.** `/\/dashboard/` became `/\/app/today/` — an unescaped `/` ends the
+   literal, so the file stopped parsing. Six occurrences across four e2e specs.
+3. **A heading matcher.** `/session-rule sign-off register/i` became
+   `/app/session-rule sign-off register/i` — the rename fired inside a regex that was never
+   a URL.
+
+### Guards and tests
+
+`tests/member-boundary.test.ts` and `tests/navigation.test.ts` were re-pointed at the new
+paths with their coverage unchanged — same twelve surfaces, same assertions.
+
+Six e2e tests encoded retired addresses. Five were assertion updates; the sixth
+("every console is reachable from the nav, from anywhere") tested a property that genuinely
+changed, and was rewritten to assert the same thing across the two-role structure: no console
+reachable only by typing a URL, and the boundary crossable in both directions.
+
+A further sixteen failures on the first run were **not** the migration — a leftover `next dev`
+on :3000 without `EMDR_DEMO=1`, which Playwright reused via `reuseExistingServer`. Worth
+knowing before diagnosing a future e2e failure the same way.
+
+**Verification:** test:safety 542, test:e2e 105, build clean, and every retired address
+checked in a browser for its redirect target and status.
+
 ## Not started
 
 Phase 2 (member shell), organization and payer workspaces (Phase 4), and human-factors

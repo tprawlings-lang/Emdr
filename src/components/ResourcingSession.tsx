@@ -254,7 +254,7 @@ export default function ResourcingSession({ borderline = false }: { borderline?:
           <h2 className="type-display text-3xl font-medium">Closed and complete</h2>
           <p className="text-olive">Well done for taking care of yourself today.</p>
           <Link
-            href="/dashboard"
+            href="/app/today"
             className="inline-block rounded-full bg-sage px-6 py-3.5 font-medium text-ground transition-colors hover:bg-sage-deep"
           >
             Back to dashboard

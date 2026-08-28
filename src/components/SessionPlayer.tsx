@@ -21,7 +21,7 @@ import {
 } from "@/lib/session-safety";
 import { escalationNotice } from "@/lib/notify/delivery";
 
-// In-session safety rules live in lib/session-safety.ts (deterministic,
+// In-session safety rules live in lib/app/session-safety.ts (deterministic,
 // covered by the @safety test suite). The player also inserts a rest pause
 // between BLS sets.
 const REST_SECONDS = 8;
@@ -445,7 +445,7 @@ export default function SessionPlayer({ module: mod, focus, calmPlace, audioOnly
   const endSession = useCallback(
     async (outcome: "completed" | "hard_stop" | "abandoned", reason?: string, trail?: number[]) => {
       if (!sessionId) {
-        router.push("/dashboard");
+        router.push("/app/today");
         return;
       }
       const t = trail ?? sudsTrail;
@@ -460,11 +460,11 @@ export default function SessionPlayer({ module: mod, focus, calmPlace, audioOnly
         sudsTrail: t,
       });
       if (outcome === "completed") {
-        router.push(`/session/${mod.id}/complete?sid=${sessionId}`);
+        router.push(`/app/session/${mod.id}/complete?sid=${sessionId}`);
       } else if (outcome === "hard_stop") {
         // stay; hard-stop overlay offers crisis/grounding choices
       } else {
-        router.push("/dashboard");
+        router.push("/app/today");
       }
     },
     [sessionId, sudsTrail, mod.id, router]
@@ -740,7 +740,7 @@ export default function SessionPlayer({ module: mod, focus, calmPlace, audioOnly
             <ul className="mt-2 space-y-1">
               {relatedLessons.map((l) => (
                 <li key={l.id}>
-                  <a href={`/learn/${l.id}`} className="text-sm text-ground underline">
+                  <a href={`/app/learn/${l.id}`} className="text-sm text-ground underline">
                     {l.title}
                   </a>
                 </li>
@@ -872,7 +872,7 @@ export default function SessionPlayer({ module: mod, focus, calmPlace, audioOnly
               I need help now
             </a>
             <a
-              href="/dashboard"
+              href="/app/today"
               className="rounded-full border border-ground/20 px-5 py-3 text-center text-ground/80 transition-colors hover:bg-moss"
             >
               I am settled — back to dashboard

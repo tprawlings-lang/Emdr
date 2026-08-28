@@ -40,7 +40,7 @@ export default async function PatientsPage({
       <h1 className="type-display text-3xl">Patients</h1>
       <p className="measure mt-1 text-olive">
         Everyone in your organization, alphabetically. To see who needs attention first,
-        use the <Link href="/clinician/clinical" className="underline">caseload</Link> —
+        use the <Link href="/clinician/caseload" className="underline">caseload</Link> —
         it orders by clinical need and states the reason for every band.
       </p>
 
@@ -87,7 +87,7 @@ export default async function PatientsPage({
                 {rows.map((r) => (
                   <li key={r.personId} data-testid="directory-row">
                     <Link
-                      href={`/clinician/clinical/${r.personId}`}
+                      href={`/clinician/member/${r.personId}/record`}
                       className="flex flex-wrap items-baseline gap-x-3 gap-y-1 px-5 py-3 transition-colors hover:bg-moss/30"
                     >
                       <span className="font-medium text-ground">{r.displayName}</span>

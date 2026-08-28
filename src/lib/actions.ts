@@ -102,7 +102,7 @@ export async function login(formData: FormData) {
   }
   await setSessionCookie(user.id);
   await audit({ actorId: user.id, actorRole: user.role, family: "identity", type: "login_success" });
-  redirect(user.role === "member" ? "/dashboard" : "/clinician");
+  redirect(user.role === "member" ? "/app/today" : "/clinician");
 }
 
 export async function logout() {
@@ -209,9 +209,9 @@ export async function submitFitnessScreening(answersJson: string) {
       severity: "high",
       detail: "Fitness screening indicated this program is not a safe fit right now. Membership refunded and paused automatically.",
     });
-    redirect("/screening/fit");
+    redirect("/app/screening/fit");
   }
-  redirect("/screening");
+  redirect("/app/screening");
 }
 
 // Structured trigger capture inside Module 5 (trigger map). Each saved entry
@@ -290,7 +290,7 @@ export async function startSubscription(formData: FormData) {
   // The demo provider simulates checkout; a real provider would redirect to
   // hosted checkout here and activate via webhook (see lib/billing.ts).
   await startDemoSubscription(user.id, plan);
-  redirect("/onboarding");
+  redirect("/app/onboarding");
 }
 
 export async function changePlanAction(formData: FormData) {
@@ -300,28 +300,28 @@ export async function changePlanAction(formData: FormData) {
     const { changePlan } = await import("./billing");
     await changePlan(user.id, raw);
   }
-  revalidatePath("/settings/billing");
-  redirect("/settings/billing");
+  revalidatePath("/app/settings/billing");
+  redirect("/app/settings/billing");
 }
 
 export async function cancelSubscription() {
   const user = await requireMember();
   setCancelAtPeriodEnd(user.id, true);
-  revalidatePath("/settings/billing");
-  redirect("/settings/billing");
+  revalidatePath("/app/settings/billing");
+  redirect("/app/settings/billing");
 }
 
 export async function resumeSubscription() {
   const user = await requireMember();
   setCancelAtPeriodEnd(user.id, false);
-  revalidatePath("/settings/billing");
-  redirect("/settings/billing");
+  revalidatePath("/app/settings/billing");
+  redirect("/app/settings/billing");
 }
 
 export async function restartSubscription() {
   const user = await requireMember();
   if (!(await subscriptionActive(user.id))) await startDemoSubscription(user.id);
-  redirect("/dashboard");
+  redirect("/app/today");
 }
 
 // ---------- Consent ----------
@@ -340,7 +340,7 @@ export async function grantConsent() {
       detail: { policy_version: currentConsentVersion(), scope: "care_program_full" },
     });
   }
-  redirect("/screening");
+  redirect("/app/screening");
 }
 
 // ---------- Screening ----------
@@ -352,7 +352,7 @@ export async function submitScreening(formData: FormData) {
   const user = await requireMember();
   const instrumentId = String(formData.get("instrument") ?? "");
   const context = formData.get("context") === "weekly" ? "weekly" : "baseline";
-  const returnPath = context === "weekly" ? "/measures" : "/screening";
+  const returnPath = context === "weekly" ? "/app/measures" : "/app/screening";
   const instrument = getInstrument(instrumentId);
   if (!instrument) redirect(returnPath);
 
@@ -403,7 +403,7 @@ export async function submitScreening(formData: FormData) {
     });
     redirect("/crisis?from=screening");
   }
-  redirect(context === "weekly" ? "/measures?submitted=1" : "/screening");
+  redirect(context === "weekly" ? "/app/measures?submitted=1" : "/app/screening");
 }
 
 // ---------- Onboarding profile (feature spec sections 3–7) ----------
@@ -426,7 +426,7 @@ export async function saveSupportStatus(formData: FormData) {
     goals_json: JSON.stringify(formData.getAll("goal").map(String).slice(0, 10)),
   });
   await audit({ actorId: user.id, actorRole: "member", family: "clinical", type: "onboarding_support_status" });
-  redirect("/onboarding/profile?step=background");
+  redirect("/app/onboarding/profile?step=background");
 }
 
 export async function saveTraumaContext(formData: FormData) {
@@ -441,7 +441,7 @@ export async function saveTraumaContext(formData: FormData) {
     writeMemory({ userId: user.id, type: "restricted_topic", key: topic, value: "Do not raise unless the member brings it up first.", source: "onboarding" });
   }
   await audit({ actorId: user.id, actorRole: "member", family: "clinical", type: "onboarding_trauma_context" });
-  redirect("/onboarding/profile?step=triggers");
+  redirect("/app/onboarding/profile?step=triggers");
 }
 
 export async function saveTriggers(formData: FormData) {
@@ -471,7 +471,7 @@ export async function saveTriggers(formData: FormData) {
     type: "onboarding_triggers_saved",
     detail: { count: selected.length + custom.length },
   });
-  redirect("/onboarding/profile?step=trigger-details");
+  redirect("/app/onboarding/profile?step=trigger-details");
 }
 
 export async function saveTriggerDetails(formData: FormData) {
@@ -493,7 +493,7 @@ export async function saveTriggerDetails(formData: FormData) {
     });
   }
   await audit({ actorId: user.id, actorRole: "member", family: "clinical", type: "onboarding_trigger_details" });
-  redirect("/onboarding/profile?step=warning-signs");
+  redirect("/app/onboarding/profile?step=warning-signs");
 }
 
 export async function saveWarningSigns(formData: FormData) {
@@ -513,7 +513,7 @@ export async function saveWarningSigns(formData: FormData) {
     });
   }
   await audit({ actorId: user.id, actorRole: "member", family: "clinical", type: "onboarding_warning_signs" });
-  redirect("/onboarding/profile?step=readiness");
+  redirect("/app/onboarding/profile?step=readiness");
 }
 
 export async function saveReadinessAssessment(formData: FormData) {
@@ -576,7 +576,7 @@ export async function saveReadinessAssessment(formData: FormData) {
     type: "readiness_assessed",
     detail: { score, track, source: "onboarding" },
   });
-  redirect("/onboarding/profile?step=safety-plan");
+  redirect("/app/onboarding/profile?step=safety-plan");
 }
 
 export async function saveSafetyPlan(formData: FormData) {
@@ -610,7 +610,7 @@ export async function saveSafetyPlan(formData: FormData) {
     writeMemory({ userId: user.id, type: "safety", key: "reminder_phrase", value: reminder.slice(0, 300), source: "onboarding" });
   }
   await audit({ actorId: user.id, actorRole: "member", family: "clinical", type: "safety_plan_saved" });
-  redirect("/onboarding/profile?step=companion");
+  redirect("/app/onboarding/profile?step=companion");
 }
 
 export async function saveCompanionPrefs(formData: FormData) {
@@ -629,14 +629,14 @@ export async function saveCompanionPrefs(formData: FormData) {
     JSON.stringify(formData.getAll("avoid").map(String).slice(0, 10)),
     ["yes", "no", "ask"].includes(String(formData.get("memory"))) ? String(formData.get("memory")) : "yes"]);
   await audit({ actorId: user.id, actorRole: "member", family: "clinical", type: "companion_preferences_saved" });
-  redirect("/onboarding/profile?step=summary");
+  redirect("/app/onboarding/profile?step=summary");
 }
 
 export async function completeOnboardingProfile() {
   const user = await requireMember();
   await upsertProfile(user.id, { profile_complete: "1" });
   await audit({ actorId: user.id, actorRole: "member", family: "clinical", type: "onboarding_profile_complete" });
-  redirect("/dashboard");
+  redirect("/app/today");
 }
 
 // ---------- AI companion (feature spec sections 8–9, 14–15) ----------
@@ -755,7 +755,7 @@ export async function sendCompanionMessage(
 // backup window.
 export async function deleteAccount(formData: FormData) {
   const user = await requireUser();
-  if (formData.get("confirm") !== "DELETE") redirect("/settings/account?error=confirm");
+  if (formData.get("confirm") !== "DELETE") redirect("/app/settings/account?error=confirm");
   const c = await data();
   await c.tx(async (t) => {
     const byUser = (table: string, col = "user_id") =>
@@ -795,8 +795,8 @@ export async function setMemoryEnabled(formData: FormData) {
   await c.run(`INSERT INTO ai_companion_preferences (user_id, memory_enabled) VALUES (?, ?)
        ON CONFLICT(user_id) DO UPDATE SET memory_enabled = excluded.memory_enabled, updated_at = CURRENT_TIMESTAMP`, [user.id, value]);
   await audit({ actorId: user.id, actorRole: "member", family: "clinical", type: "companion_memory_setting", detail: { value } });
-  revalidatePath("/settings/memory");
-  redirect("/settings/memory");
+  revalidatePath("/app/settings/memory");
+  redirect("/app/settings/memory");
 }
 
 export async function deleteMemoryItem(formData: FormData) {
@@ -805,8 +805,8 @@ export async function deleteMemoryItem(formData: FormData) {
   const id = String(formData.get("id") ?? "");
   await c.run("UPDATE ai_memory_items SET active = 0, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND user_id = ?", [id, user.id]);
   await audit({ actorId: user.id, actorRole: "member", family: "clinical", type: "companion_memory_deleted", target: id });
-  revalidatePath("/settings/memory");
-  redirect("/settings/memory");
+  revalidatePath("/app/settings/memory");
+  redirect("/app/settings/memory");
 }
 
 export async function clearCompanionMemory() {
@@ -814,8 +814,8 @@ export async function clearCompanionMemory() {
   const c = await data();
   await c.run("UPDATE ai_memory_items SET active = 0, updated_at = CURRENT_TIMESTAMP WHERE user_id = ?", [user.id]);
   await audit({ actorId: user.id, actorRole: "member", family: "clinical", type: "companion_memory_cleared" });
-  revalidatePath("/settings/memory");
-  redirect("/settings/memory");
+  revalidatePath("/app/settings/memory");
+  redirect("/app/settings/memory");
 }
 
 export async function setTriggerActive(formData: FormData) {
@@ -825,8 +825,8 @@ export async function setTriggerActive(formData: FormData) {
   const active = formData.get("active") === "1" ? 1 : 0;
   await c.run("UPDATE user_triggers SET active = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND user_id = ?", [active, id, user.id]);
   await audit({ actorId: user.id, actorRole: "member", family: "clinical", type: "trigger_updated", target: id, detail: { active } });
-  revalidatePath("/settings/memory");
-  redirect("/settings/memory");
+  revalidatePath("/app/settings/memory");
+  redirect("/app/settings/memory");
 }
 
 // ---------- Daily check-in ----------
@@ -922,7 +922,7 @@ export async function submitCheckin(formData: FormData) {
   }
   // The daily chat opens right after check-in: the companion speaks first,
   // prompted by today's numbers and the member's history.
-  redirect("/companion?from=checkin");
+  redirect("/app/companion?from=checkin");
 }
 
 // Opens (or resumes) today's post-check-in conversation, with the companion
@@ -1001,9 +1001,9 @@ export async function startDailyCompanionChat(): Promise<{
 export async function startSession(moduleId: string, focus?: string) {
   const user = await requireMember();
   const mod = getModule(moduleId);
-  if (!mod) redirect("/dashboard");
+  if (!mod) redirect("/app/today");
   const access = await checkModuleAccess(user.id, mod);
-  if (!access.allowed) redirect("/dashboard");
+  if (!access.allowed) redirect("/app/today");
 
   // Autonomous safety core (shadow mode): record the deterministic engine's
   // parallel decision so it can be validated against the live gate before it
@@ -1183,7 +1183,7 @@ export async function submitPostSessionCheck(formData: FormData) {
       detail: `Post-session thresholds exceeded (distress ${distress}, oriented ${oriented}, delayed risk ${delayedRisk}).`,
     });
   }
-  redirect("/dashboard?postSession=done");
+  redirect("/app/today?postSession=done");
 }
 
 // ---------- Unlock requests ----------
@@ -1193,7 +1193,7 @@ export async function requestUnlock(formData: FormData) {
   const moduleId = String(formData.get("moduleId") ?? "");
   const note = String(formData.get("note") ?? "").slice(0, 500);
   const mod = getModule(moduleId);
-  if (!mod || mod.tier !== "gated") redirect("/dashboard");
+  if (!mod || mod.tier !== "gated") redirect("/app/today");
 
   const c = await data();
   const unlockId = await upsertRowId(
@@ -1229,7 +1229,7 @@ export async function requestUnlock(formData: FormData) {
     target: moduleId,
     detail: { priority },
   });
-  redirect("/dashboard?unlock=requested");
+  redirect("/app/today?unlock=requested");
 }
 
 // ---------- Clinician actions ----------
@@ -1382,7 +1382,7 @@ export async function acknowledgeCrisis() {
     family: "clinical",
     type: "crisis_screen_acknowledged",
   });
-  redirect("/dashboard");
+  redirect("/app/today");
 }
 
 // ---------- Care pathways (goal-based routing) ----------
@@ -1399,15 +1399,15 @@ export async function saveTrackIntakeAction(formData: FormData) {
     type: "track_intake_saved",
     detail: { tagCount: tags.length, hasGoalText: goalText.trim().length > 0 },
   });
-  revalidatePath("/paths");
-  redirect("/paths");
+  revalidatePath("/app/paths");
+  redirect("/app/paths");
 }
 
 export async function selectCareTrack(formData: FormData) {
   const user = await requireMember();
   const trackId = String(formData.get("trackId") ?? "");
   const track = getTrack(trackId);
-  if (!track) redirect("/paths");
+  if (!track) redirect("/app/paths");
   addMemberTrack(user.id, trackId);
   await audit({
     actorId: user.id,
@@ -1417,9 +1417,9 @@ export async function selectCareTrack(formData: FormData) {
     target: trackId,
     detail: { evidenceGrade: track.evidenceGrade, clinicianReview: track.clinicianReview },
   });
-  revalidatePath("/paths");
-  revalidatePath("/dashboard");
-  redirect("/dashboard");
+  revalidatePath("/app/paths");
+  revalidatePath("/app/today");
+  redirect("/app/today");
 }
 
 export async function removeCareTrack(formData: FormData) {
@@ -1433,9 +1433,9 @@ export async function removeCareTrack(formData: FormData) {
     type: "care_track_archived",
     target: trackId,
   });
-  revalidatePath("/paths");
-  revalidatePath("/dashboard");
-  redirect("/paths");
+  revalidatePath("/app/paths");
+  revalidatePath("/app/today");
+  redirect("/app/paths");
 }
 
 // ---------- Autonomous review sign-off (clinician) ----------
@@ -1446,7 +1446,7 @@ export async function recordRuleSignoff(formData: FormData) {
   const ruleId = String(formData.get("rule_id") ?? "").trim().slice(0, 80);
   const verdict = String(formData.get("verdict") ?? "");
   const note = String(formData.get("note") ?? "").trim().slice(0, 500) || null;
-  if (!ruleId || (verdict !== "agree" && verdict !== "needs_change")) redirect("/clinician/autonomous");
+  if (!ruleId || (verdict !== "agree" && verdict !== "needs_change")) redirect("/review/autonomous");
 
   const { SAFETY_CONFIG_VERSION } = await import("./safety/governance");
   await c.run("INSERT INTO autonomous_signoffs (id, rule_id, config_version, verdict, note, clinician_id) VALUES (?, ?, ?, ?, ?, ?)", [newId(), ruleId, SAFETY_CONFIG_VERSION, verdict, note ? encryptField(note) : null, clinician.id]);
@@ -1459,8 +1459,8 @@ export async function recordRuleSignoff(formData: FormData) {
     target: ruleId,
     detail: { verdict, configVersion: SAFETY_CONFIG_VERSION, hasNote: !!note },
   });
-  revalidatePath("/clinician/autonomous");
-  redirect("/clinician/autonomous#register");
+  revalidatePath("/review/autonomous");
+  redirect("/review/autonomous#register");
 }
 
 // ---------- Live spoken sessions: dynamic in-session responder ----------
@@ -1588,7 +1588,7 @@ export async function grantVoiceConsent(): Promise<void> {
       detail: { policy_version: VOICE_CONSENT_VERSION, scope: "voice_biometric" },
     });
   }
-  revalidatePath("/settings/voice");
+  revalidatePath("/app/settings/voice");
 }
 
 // Processing-session (BLS) consent grant — mirrors voice consent; recorded under
@@ -1608,7 +1608,7 @@ export async function grantProcessingConsent(): Promise<void> {
       detail: { policy_version: PROCESSING_CONSENT_VERSION, scope: "processing_session" },
     });
   }
-  revalidatePath("/settings/sessions");
+  revalidatePath("/app/settings/sessions");
 }
 
 export async function revokeProcessingConsent(): Promise<void> {
@@ -1616,7 +1616,7 @@ export async function revokeProcessingConsent(): Promise<void> {
   const c = await data();
   await spineWithdrawConsent({ userId: user.id, scope: "processing_session" });
   await audit({ actorId: user.id, actorRole: "member", family: "consent", type: "processing_consent_revoked", detail: { scope: "processing_session" } });
-  revalidatePath("/settings/sessions");
+  revalidatePath("/app/settings/sessions");
 }
 
 // Content-free audit of resourcing-session lifecycle events (start / stop /
@@ -1698,5 +1698,5 @@ export async function withdrawVoiceConsent(): Promise<void> {
     type: "voice_consent_withdrawn",
     detail: { scope: "voice_biometric" },
   });
-  revalidatePath("/settings/voice");
+  revalidatePath("/app/settings/voice");
 }

@@ -32,9 +32,13 @@ import path from "node:path";
 const APP = path.join(process.cwd(), "src", "app");
 
 /** Every route a member can reach while signed in. */
+// Addresses per the Web GUI handoff §26 atlas: the member surfaces moved under
+// /app, and two were renamed (dashboard -> today, practices -> activities).
+// Same twelve surfaces, same coverage — only the paths changed.
 const MEMBER_ROUTES = [
-  "dashboard", "check-in", "session", "paths", "ground", "learn",
-  "practices", "companion", "measures", "screening", "onboarding", "settings",
+  "app/today", "app/check-in", "app/session", "app/paths", "app/ground", "app/learn",
+  "app/activities", "app/companion", "app/measures", "app/screening", "app/onboarding",
+  "app/settings",
 ];
 
 /** Identifiers that carry a score, a band, a track, or a criteria label.

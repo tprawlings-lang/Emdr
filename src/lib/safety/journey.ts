@@ -96,13 +96,13 @@ export function resolveJourneyStage(s: JourneySignals): JourneyStage {
 /** The gate route a pre-dashboard stage should send the member to. */
 export const STAGE_GATE_ROUTE: Partial<Record<JourneyStage, string>> = {
   [JourneyStage.Discovery]: "/signup",
-  [JourneyStage.Eligibility]: "/screening/fit",
+  [JourneyStage.Eligibility]: "/app/screening/fit",
   [JourneyStage.AccountCreation]: "/subscribe",
-  [JourneyStage.Orientation]: "/onboarding",
-  [JourneyStage.BaselinePreparation]: "/screening",
-  [JourneyStage.GoalFormation]: "/onboarding/profile",
-  [JourneyStage.ModuleSelection]: "/check-in",
+  [JourneyStage.Orientation]: "/app/onboarding",
+  [JourneyStage.BaselinePreparation]: "/app/screening",
+  [JourneyStage.GoalFormation]: "/app/onboarding/profile",
+  [JourneyStage.ModuleSelection]: "/app/check-in",
   [JourneyStage.ElevatedRisk]: "/crisis",
-  [JourneyStage.Return]: "/check-in",
-  [JourneyStage.AccountClosure]: "/settings/account",
+  [JourneyStage.Return]: "/app/check-in",
+  [JourneyStage.AccountClosure]: "/app/settings/account",
 };

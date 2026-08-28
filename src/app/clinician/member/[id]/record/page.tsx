@@ -1,0 +1,361 @@
+import Link from "next/link";
+import { requireClinician } from "@/lib/auth";
+import { data } from "@/lib/data";
+import { PLATFORM_TENANT_ID } from "@/lib/db";
+import { memberTimeline, type TimelineLane } from "@/lib/clinical/timeline";
+import { buildSummary, summaryCoverageNote } from "@/lib/clinical/summary";
+import { activePolicy, policyBanner } from "@/lib/clinical-policy";
+import {
+  approveSummaryAction, correctRecordAction, overrideAction, feedbackAction,
+} from "@/lib/clinical/actions";
+import { OVERRIDABLE } from "@/lib/clinical/review";
+import { memberAuditHistory, scopeNote } from "@/lib/clinical/audit-history";
+import { ChainBanner, AuditTable } from "@/components/clinical/AuditView";
+import { NoteForm } from "@/components/clinical/NoteForm";
+import { buildTrajectory, direction, READING_LABEL } from "@/lib/clinical/trajectory";
+import { MemberTrajectory, TrajectoryKey } from "@/components/clinical/Trajectory";
+
+export const dynamic = "force-dynamic";
+
+const LANE_LABEL: Record<TimelineLane, string> = {
+  state: "State", measurement: "Measurement", care: "Care",
+  intervention: "Intervention", decision: "Decisions", consent: "Consent",
+  safety: "Safety", ai: "AI / memory",
+};
+
+const DONE_MESSAGE: Record<string, string> = {
+  approved: "Review recorded. The summary is a reading aid; the timeline remains the record.",
+  corrected: "Correction appended. The original remains visible and is marked superseded.",
+  overridden: "Override recorded with its reason.",
+  feedback: "Feedback recorded against this generation's provenance.",
+  flagged: "Flagged for immediate review — this category has a standing response procedure.",
+};
+
+export default async function MemberClinicalRecord({
+  params, searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ asOf?: string; error?: string; done?: string }>;
+}) {
+  const clinician = await requireClinician();
+  const { id } = await params;
+  const { asOf, error, done } = await searchParams;
+  const policy = activePolicy();
+
+  const c = await data();
+  const me = (await c.get("SELECT tenant_id FROM users WHERE id = ?", [clinician.id])) as
+    | { tenant_id: string } | undefined;
+  const tenantId = me?.tenant_id ?? PLATFORM_TENANT_ID;
+
+  // Tenant-scoped: a member in another tenant does not exist here, so the
+  // response cannot be used to probe for one.
+  const member = (await c.get(
+    "SELECT id, name FROM users WHERE id = ? AND tenant_id = ?", [id, tenantId]
+  )) as { id: string; name: string } | undefined;
+
+  if (!member) {
+    return (
+      <main className="mx-auto max-w-3xl px-6 py-10">
+        <h1 className="type-display text-2xl font-medium">Not found</h1>
+        <p className="mt-2 text-sm text-olive">
+          No such member in your organization.
+        </p>
+        <Link href="/clinician/caseload" className="mt-4 inline-block text-sm text-olive underline">
+          ← Caseload
+        </Link>
+      </main>
+    );
+  }
+
+  const timeline = await memberTimeline(id, { asOf, policy });
+  const summary = buildSummary(timeline);
+  const history = await memberAuditHistory({ personId: id, tenantId });
+  const trajectory = buildTrajectory(timeline);
+
+  return (
+    <main className="mx-auto max-w-4xl px-6 py-10">
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h1 className="type-display text-3xl font-medium">{member.name}</h1>
+          <p className="text-sm text-olive">Clinical record · assembled from the event log</p>
+        </div>
+        <Link href="/clinician/caseload" className="text-sm text-olive underline">← Caseload</Link>
+      </div>
+
+      <p className="mt-4 rounded-2xl border border-pause/50 bg-pause-soft px-4 py-3 text-xs text-ground">
+        <strong>Provisional configuration.</strong> {policyBanner(policy)}
+      </p>
+
+      {error && (
+        <p className="mt-4 rounded-2xl border border-support/40 bg-support/10 px-4 py-3 text-sm text-support-deep">
+          {error}
+        </p>
+      )}
+      {done && DONE_MESSAGE[done] && (
+        <p className="mt-4 rounded-2xl border border-safe/40 bg-safe/10 px-4 py-3 text-sm text-ground">
+          {DONE_MESSAGE[done]}
+        </p>
+      )}
+
+      {/* ---------------- Trajectory ---------------- */}
+      {/* First, because it answers the question a clinician opens the record
+          with — is this person getting better, and when did it change — and
+          because the list underneath cannot answer it at any length. */}
+      <section className="mt-8">
+        <h2 className="type-display text-2xl font-medium">Trajectory</h2>
+        <p className="mt-1 text-sm text-olive">
+          Every measure on its own scale, sharing one time axis. Lanes are never compared
+          against each other — a check-in runs 0&ndash;10 and an instrument score does not,
+          so a shared axis would invent crossings that mean nothing.
+        </p>
+
+        {trajectory.series.length > 0 && (
+          <ul className="mt-3 flex flex-wrap gap-2">
+            {trajectory.series.map((s) => {
+              const d = direction(s);
+              if (!d) return null;
+              return (
+                <li
+                  key={s.id}
+                  data-testid="trajectory-reading"
+                  className="rounded-full border border-ground/15 bg-linen/60 px-3 py-1 text-xs"
+                >
+                  <span className="font-medium text-ground">{s.label}</span>{" "}
+                  <span className="text-olive">
+                    {READING_LABEL[d.reading]} · {d.delta > 0 ? "+" : ""}{d.delta.toFixed(0)} over {trajectory.days} days
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+
+        <MemberTrajectory trajectory={trajectory} />
+        {trajectory.rails.length > 0 && <TrajectoryKey />}
+
+        <p className="mt-3 text-xs text-olive">
+          Direction is first observation to last, not a fitted trend. A slope over this many
+          points would imply a statistical claim nobody has earned, and every other claim on
+          this screen carries its evidence.
+        </p>
+      </section>
+
+      {/* ---------------- Summary ---------------- */}
+      <section className="mt-10">
+        <h2 className="type-display text-2xl font-medium">Summary</h2>
+        <p className="mt-1 text-xs text-olive">
+          {summaryCoverageNote(summary)} · generated by{" "}
+          <code className="text-[11px]">{summary.provenance.generator}</code>
+        </p>
+
+        {summary.claims.length === 0 ? (
+          <p className="mt-3 text-sm text-olive">
+            Nothing can be stated from the available evidence.
+          </p>
+        ) : (
+          <ul className="mt-3 space-y-2">
+            {summary.claims.map((claim, i) => (
+              <li key={i} data-testid="claim" className="rounded-2xl border border-ground/10 bg-linen/40 px-4 py-3">
+                <p className="text-sm">{claim.text}</p>
+                {/* Every claim shows what it rests on. An uncited claim is
+                    never rendered — it is dropped upstream and listed below. */}
+                <p className="mt-1 text-[11px] text-olive">
+                  {claim.kind.replace(/_/g, " ")} · {claim.citations.length} source event
+                  {claim.citations.length === 1 ? "" : "s"}:{" "}
+                  <code className="text-[10px]">
+                    {claim.citations.slice(0, 3).join(", ")}
+                    {claim.citations.length > 3 ? ` +${claim.citations.length - 3}` : ""}
+                  </code>
+                </p>
+              </li>
+            ))}
+          </ul>
+        )}
+
+        {summary.omitted.length > 0 && (
+          <div className="mt-3 rounded-2xl border border-support/30 bg-support/5 px-4 py-3">
+            <p className="text-xs font-medium text-support-deep">
+              {summary.omitted.length} claim(s) suppressed before display
+            </p>
+            <ul className="mt-1 list-disc pl-5 text-xs text-ground/80">
+              {summary.omitted.map((o, i) => (
+                <li key={i}>
+                  <span className="line-through opacity-60">{o.text}</span> — {o.reason}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        <details className="mt-3 text-xs text-olive">
+          <summary className="cursor-pointer">What this summary did not look at</summary>
+          <ul className="mt-2 list-disc pl-5">
+            {summary.provenance.excluded.map((x, i) => <li key={i}>{x}</li>)}
+          </ul>
+        </details>
+
+        {/* Approve / feedback — deliberately separate controls. */}
+        <div className="mt-4 flex flex-wrap gap-4">
+          <form action={approveSummaryAction} className="flex flex-wrap items-center gap-2">
+            <input type="hidden" name="personId" value={id} />
+            <input type="hidden" name="evidenceIds" value={summary.provenance.retrievalScope.join(",")} />
+            <input name="note" placeholder="Review note (optional)"
+              className="min-w-48 rounded border border-ground/20 bg-ivory px-2 py-1 text-xs" />
+            <button className="rounded-full bg-ground px-3 py-1 text-xs font-medium text-ivory">
+              Approve — I have read this
+            </button>
+          </form>
+
+          <form action={feedbackAction} className="flex flex-wrap items-center gap-2">
+            <input type="hidden" name="personId" value={id} />
+            <input type="hidden" name="generator" value={summary.provenance.generator} />
+            <select name="category" className="rounded border border-ground/20 bg-ivory px-2 py-1 text-xs">
+              <option value="accurate">accurate</option>
+              <option value="unsupported">unsupported</option>
+              <option value="incomplete">incomplete</option>
+              <option value="miscalibrated">miscalibrated</option>
+              <option value="not_clinically_useful">not clinically useful</option>
+              <option value="harmful_if_acted_on">harmful if acted on</option>
+            </select>
+            <input name="note" placeholder="Feedback note"
+              className="min-w-40 rounded border border-ground/20 bg-ivory px-2 py-1 text-xs" />
+            <button className="rounded-full border border-ground/25 px-3 py-1 text-xs font-medium">
+              Send feedback
+            </button>
+          </form>
+        </div>
+      </section>
+
+      {/* ---------------- Timeline ---------------- */}
+      <section className="mt-10">
+        <div className="flex flex-wrap items-baseline justify-between gap-2">
+          <h2 className="type-display text-2xl font-medium">Timeline</h2>
+          <p className="text-xs text-olive">
+            {Object.entries(timeline.laneCounts)
+              .map(([lane, n]) => `${LANE_LABEL[lane as TimelineLane] ?? lane}: ${n}`)
+              .join(" · ")}
+          </p>
+        </div>
+
+        {timeline.asOf && (
+          <p className="mt-2 rounded-xl border border-ground/15 bg-linen px-3 py-2 text-xs">
+            Point-in-time view as of <strong>{timeline.asOf}</strong> — nothing recorded after
+            this instant is shown.{" "}
+            <Link href={`/clinician/member/${id}/record`} className="underline">Show everything</Link>
+          </p>
+        )}
+
+        {timeline.withheld.count > 0 && (
+          <p className="mt-2 text-xs text-olive">{timeline.withheld.reason}</p>
+        )}
+
+        <ol className="mt-4 space-y-2">
+          {[...timeline.entries].reverse().map((e) => (
+            <li
+              key={e.eventId}
+              className={`rounded-2xl border px-4 py-3 ${
+                e.aiProduced
+                  ? "border-mist/60 bg-mist/10"     // AI output is visually separate
+                  : "border-ground/10 bg-linen/40"
+              }`}
+            >
+              <div className="flex flex-wrap items-center gap-2 text-xs text-olive">
+                <span className="rounded bg-ground/10 px-1.5 py-0.5">{LANE_LABEL[e.lane]}</span>
+                <span>{e.occurredAt}</span>
+                <span>· {e.actorType}</span>
+                {e.reconstructed && (
+                  // ADR 0010: reconstructed history is never original evidence.
+                  <span className="rounded bg-pause-soft px-1.5 py-0.5 text-ground">
+                    reconstructed — not original evidence
+                  </span>
+                )}
+                {e.aiProduced && (
+                  <span className="rounded bg-mist/40 px-1.5 py-0.5 text-ground">AI-produced</span>
+                )}
+              </div>
+              <p className="mt-1 text-sm">{e.headline}</p>
+
+              <details className="mt-1 text-xs text-olive">
+                <summary className="cursor-pointer">Evidence</summary>
+                <p className="mt-1">
+                  Event <code className="text-[10px]">{e.eventId}</code> · recorded {e.recordedAt}
+                </p>
+                <pre className="mt-1 overflow-x-auto rounded bg-ivory p-2 text-[10px]">
+                  {JSON.stringify(e.detail, null, 2)}
+                </pre>
+                <form action={correctRecordAction} className="mt-2 flex flex-wrap items-center gap-2">
+                  <input type="hidden" name="personId" value={id} />
+                  <input type="hidden" name="eventId" value={e.eventId} />
+                  <input name="rationale" required placeholder="Why is this wrong? (required)"
+                    className="min-w-48 flex-1 rounded border border-ground/20 bg-ivory px-2 py-1 text-xs" />
+                  <input name="correction" placeholder="Corrected value"
+                    className="min-w-32 rounded border border-ground/20 bg-ivory px-2 py-1 text-xs" />
+                  <button className="rounded-full border border-ground/25 px-3 py-1 text-xs">
+                    Correct
+                  </button>
+                </form>
+                <p className="mt-1 text-[10px]">
+                  A correction appends a superseding event. The original stays in the record.
+                </p>
+              </details>
+            </li>
+          ))}
+        </ol>
+      </section>
+
+      {/* ---------------- Override ---------------- */}
+      <section className="mt-10">
+        <h2 className="type-display text-2xl font-medium">Override</h2>
+        <p className="mt-1 text-sm text-olive">
+          An override relaxes <strong>pacing only</strong>. The daily safety read, crisis
+          routing, cooldowns, caps, and the kill switch always hold — a clinician can decide
+          someone is ready sooner; nobody can override a safety stop.
+        </p>
+        <form action={overrideAction} className="mt-3 flex flex-wrap items-center gap-2">
+          <input type="hidden" name="personId" value={id} />
+          <select name="target" className="rounded border border-ground/20 bg-ivory px-2 py-1 text-sm">
+            {OVERRIDABLE.map((t) => (
+              <option key={t} value={t}>{t.replace(/_/g, " ")}</option>
+            ))}
+          </select>
+          <input name="reason" required placeholder="Clinical reason (required, recorded)"
+            className="min-w-64 flex-1 rounded border border-ground/20 bg-ivory px-2 py-1 text-sm" />
+          <button className="rounded-full bg-ground px-3 py-1 text-sm font-medium text-ivory">
+            Record override
+          </button>
+        </form>
+      </section>
+
+      {/* ---------------- Audit history ---------------- */}
+      {/* The timeline answers "what happened to this member". This answers
+          "who touched this record, and when" — a different question, and the
+          one a quality review or an incident actually starts from. */}
+      <section className="mt-10">
+        <h2 className="type-display text-2xl font-medium">Audit history</h2>
+        <p className="mt-1 text-sm text-olive">
+          Every recorded action on this member, most recent first ·{" "}
+          {(["clinical", "safety", "alert", "consent", "access", "other"] as const)
+            .filter((k) => history.kindCounts[k] > 0)
+            .map((k) => `${history.kindCounts[k]} ${k}`)
+            .join(" · ") || "no entries"}
+        </p>
+
+        <ChainBanner chain={history.chain} />
+
+        <p className="mt-3 rounded-2xl border border-ground/15 bg-linen px-4 py-3 text-xs text-ground/80">
+          {scopeNote()} Free-text fields — notes, rationales, resolutions — are withheld from
+          this view and remain in the record.
+        </p>
+
+        <AuditTable entries={history.entries} />
+      </section>
+
+      <NoteForm
+        surface="Member record / timeline"
+        returnTo={`/clinician/member/${id}/record`}
+        subjectId={id}
+        defaultCategory="Clinical accuracy"
+      />
+    </main>
+  );
+}

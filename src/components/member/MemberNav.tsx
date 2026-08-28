@@ -20,11 +20,11 @@ import { usePathname } from "next/navigation";
 // row would make it one option among five, findable only by reading them.
 
 const ITEMS: Array<{ href: string; label: string }> = [
-  { href: "/dashboard", label: "Today" },
-  { href: "/ground", label: "Ground" },
-  { href: "/practices", label: "Practices" },
-  { href: "/companion", label: "Companion" },
-  { href: "/learn", label: "Learn" },
+  { href: "/app/today", label: "Today" },
+  { href: "/app/ground", label: "Ground" },
+  { href: "/app/activities", label: "Practices" },
+  { href: "/app/companion", label: "Companion" },
+  { href: "/app/learn", label: "Learn" },
 ];
 
 export function MemberNav() {

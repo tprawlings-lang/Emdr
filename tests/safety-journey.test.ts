@@ -99,7 +99,7 @@ test("orchestrator never invents escalation: clear access in the loop offers a s
 });
 
 test("pre-dashboard stages route to their gate", () => {
-  assert.equal(orchestrateNext(JourneyStage.Orientation, access()).route, "/onboarding");
+  assert.equal(orchestrateNext(JourneyStage.Orientation, access()).route, "/app/onboarding");
   assert.equal(orchestrateNext(JourneyStage.BaselinePreparation, access()).category, "route_to_gate");
 });
 

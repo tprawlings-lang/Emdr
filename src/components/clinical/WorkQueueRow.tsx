@@ -31,7 +31,7 @@ export function WorkQueueRow({
    *  noise rather than identity. */
   hidePerson?: boolean;
 }) {
-  const href = `/clinician/people/${item.personId}`;
+  const href = `/clinician/member/${item.personId}`;
 
   return (
     <li className="border-b border-ground/10 last:border-b-0">

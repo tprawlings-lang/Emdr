@@ -39,7 +39,7 @@ export default function BreatheLibrary({ practices }: { practices: Practice[] })
           >
             Another pattern
           </button>
-          <Link href="/dashboard" className="text-sm text-olive underline">
+          <Link href="/app/today" className="text-sm text-olive underline">
             Back to dashboard
           </Link>
         </div>

@@ -153,7 +153,7 @@ export default function SosButton({ panel }: { panel: SosPanel }) {
             </div>
 
             <div className="mt-8 flex flex-wrap justify-center gap-4 text-sm">
-              <a href="/ground" className="text-ground underline">More grounding steps</a>
+              <a href="/app/ground" className="text-ground underline">More grounding steps</a>
               <a href="/crisis" className="text-ground underline">All crisis resources</a>
             </div>
 

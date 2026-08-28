@@ -70,13 +70,13 @@ export const REVIEW_PATHS: PathConfig[] = [
     writeCapable: true,
     personas: [CLINICIAN, MEMBER],
     focus: [
-      { label: "Caseload ordering — is every band's stated reason defensible?", href: "/clinician/clinical" },
-      { label: "The trajectory — is it enough to act on, and is reconstructed history clearly marked?", href: "/clinician/clinical" },
-      { label: "Suppressed claims — right to hide them, or should they show with a warning?", href: "/clinician/clinical" },
-      { label: "Alert deadlines under the configured coverage schedule", href: "/clinician/clinical" },
-      { label: "Approve, correct, and override as three separate actions", href: "/clinician/clinical" },
-      { label: "BLS Part 6 gates and what is actually running", href: "/clinician/bls" },
-      { label: "Tell us what you would change", href: "/clinician/testing" },
+      { label: "Caseload ordering — is every band's stated reason defensible?", href: "/clinician/caseload" },
+      { label: "The trajectory — is it enough to act on, and is reconstructed history clearly marked?", href: "/clinician/caseload" },
+      { label: "Suppressed claims — right to hide them, or should they show with a warning?", href: "/clinician/caseload" },
+      { label: "Alert deadlines under the configured coverage schedule", href: "/clinician/caseload" },
+      { label: "Approve, correct, and override as three separate actions", href: "/clinician/caseload" },
+      { label: "BLS Part 6 gates and what is actually running", href: "/review/bls" },
+      { label: "Tell us what you would change", href: "/review/testing" },
     ],
   },
   {
@@ -86,10 +86,10 @@ export const REVIEW_PATHS: PathConfig[] = [
     writeCapable: true,
     personas: [CLINICIAN, MEMBER],
     focus: [
-      { label: "Caseload ownership model and coverage behaviour", href: "/clinician/clinical" },
+      { label: "Caseload ownership model and coverage behaviour", href: "/clinician/caseload" },
       { label: "What a pilot would require operationally", href: "/organizations" },
       { label: "Tenant separation — what is enforcing and what is dormant", href: "/trust" },
-      { label: "Tell us what you would change", href: "/clinician/testing" },
+      { label: "Tell us what you would change", href: "/review/testing" },
     ],
   },
   {
@@ -113,7 +113,7 @@ export const REVIEW_PATHS: PathConfig[] = [
     focus: [
       { label: "Control status — what is current, dormant, and planned", href: "/trust" },
       { label: "The known-gap register — anything missing?", href: "/trust" },
-      { label: "The audit trail behind a single alert, creation to closure", href: "/clinician/audit" },
+      { label: "The audit trail behind a single alert, creation to closure", href: "/review/audit" },
       { label: "Runnable evidence — the commands, not the claims", href: "/evidence" },
     ],
   },
@@ -124,8 +124,8 @@ export const REVIEW_PATHS: PathConfig[] = [
     writeCapable: false,
     personas: [MEMBER],
     focus: [
-      { label: "The member experience — start here", href: "/dashboard" },
-      { label: "The clinician workflow reading the same events", href: "/clinician/clinical" },
+      { label: "The member experience — start here", href: "/app/today" },
+      { label: "The clinician workflow reading the same events", href: "/clinician/caseload" },
       { label: "Current versus target across the platform", href: "/platform" },
       { label: "What is demonstrated versus what remains under review", href: "/evidence" },
     ],

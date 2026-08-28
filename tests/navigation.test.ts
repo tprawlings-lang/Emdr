@@ -2,14 +2,14 @@
 //
 // Before this work the product had NO navigation component at all. Every
 // clinician page carried its own ad-hoc back-link pointing somewhere different,
-// `/learn` and `/practices` had zero internal links — you landed there and the
+// `/app/learn` and `/app/activities` had zero internal links — you landed there and the
 // browser's back button was the only way out — and the member trajectory sat
 // four hops deep with nothing signposting the route. A reviewer who did not
 // already know the URL could not find it, which reads as a missing feature
 // rather than a missing signpost.
 //
 // The first thing adding a nav did was point at a page that did not exist
-// (`/practices` had four children and no index). That is the failure mode this
+// (`/app/activities` had four children and no index). That is the failure mode this
 // file exists for: a nav is a set of promises, and an unkept one is worse than
 // no nav, because the reader now believes the thing is missing from the
 // product rather than from the menu.
@@ -23,7 +23,7 @@ const APP = path.join(process.cwd(), "src", "app");
 const COMPONENTS = path.join(process.cwd(), "src", "components");
 
 /** Does a route exist for this href? Handles static segments and dynamic ones
- *  ([id], [path], …), which is how a link to /clinician/clinical/<uuid>
+ *  ([id], [path], …), which is how a link to /clinician/caseload/<uuid>
  *  resolves. */
 function routeExists(href: string): boolean {
   const clean = href.split(/[?#]/)[0];
@@ -93,12 +93,12 @@ test("every guided review destination exists", async () => {
 // ---------------------------------------------------------------------------
 
 test("every member surface carries the nav", () => {
-  // /learn and /practices previously had zero internal links. A screen with no
+  // /app/learn and /app/activities previously had zero internal links. A screen with no
   // way out is not a page, it is a trap — and the member most likely to hit it
   // is the one least able to work around it.
   const ROUTES = [
-    "dashboard", "paths", "ground", "learn", "practices", "companion",
-    "measures", "check-in",
+    "app/today", "app/paths", "app/ground", "app/learn", "app/activities",
+    "app/companion", "app/measures", "app/check-in",
   ];
   const missing = ROUTES.filter((r) => !/MemberNav/.test(read(path.join(APP, r, "page.tsx"))));
   assert.deepEqual(missing, [],

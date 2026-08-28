@@ -6,7 +6,7 @@ export const runtime = "nodejs";
 
 const TYPES: PracticeType[] = ["breathwork", "meditation", "movement", "sleep", "soundscape"];
 
-// GET /api/mobile/v1/practices?type=breathwork → { practices }
+// GET /api/mobile/v1/app/activities?type=breathwork → { practices }
 // Safety-ordered for the member's day (gentler/no-hold first on elevated days).
 export async function GET(req: NextRequest) {
   const auth = await requireMember(req);

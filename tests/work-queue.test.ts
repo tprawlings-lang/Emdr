@@ -59,7 +59,7 @@ test("the projection module never sorts in the component layer", () => {
   // how two orderings start to disagree.
   const files = [
     "src/components/clinical/WorkQueueRow.tsx",
-    "src/app/clinician/work/page.tsx",
+    "src/app/clinician/today/page.tsx",
   ];
   const offenders: string[] = [];
   for (const f of files) {

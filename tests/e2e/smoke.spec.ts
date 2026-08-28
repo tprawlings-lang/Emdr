@@ -46,7 +46,7 @@ test("security headers are present on every response", async ({ request }) => {
 });
 
 test("unauthenticated dashboard access redirects to login", async ({ page }) => {
-  await page.goto("/dashboard");
+  await page.goto("/app/today");
   // Server actions gate on session; an anonymous visit should not land on a
   // populated dashboard. Accept either a redirect to /login or the login form.
   await expect(page).toHaveURL(/\/login|\/$/);

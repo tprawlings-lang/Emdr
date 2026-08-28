@@ -42,7 +42,7 @@ export function orchestrateNext(stage: JourneyStage, access: AccessDecision): Or
 
   // 2. Account closure.
   if (stage === JourneyStage.AccountClosure) {
-    return { ...base, category: "closed", route: STAGE_GATE_ROUTE[stage] ?? "/settings/account", reason: "Winding down your account." };
+    return { ...base, category: "closed", route: STAGE_GATE_ROUTE[stage] ?? "/app/settings/account", reason: "Winding down your account." };
   }
 
   // 3. Pre-dashboard gates — the member must complete a pipeline step.
@@ -57,14 +57,14 @@ export function orchestrateNext(stage: JourneyStage, access: AccessDecision): Or
 
   // 4. In the program loop — personalize within the deterministic tier.
   if (access.activatingSessionsAllowed) {
-    return { ...base, category: "offer_session", route: "/session", reason: "You're clear for a session today — your choice." };
+    return { ...base, category: "offer_session", route: "/app/session", reason: "You're clear for a session today — your choice." };
   }
   if (access.groundingOnly) {
-    return { ...base, category: "offer_grounding", route: "/ground", reason: access.primaryReason ?? "Grounding is the steadier place today." };
+    return { ...base, category: "offer_grounding", route: "/app/ground", reason: access.primaryReason ?? "Grounding is the steadier place today." };
   }
   if (access.tier === AccessTier.STABILIZATION) {
-    return { ...base, category: "offer_stabilization", route: "/dashboard", reason: access.primaryReason ?? "Stabilization is open today." };
+    return { ...base, category: "offer_stabilization", route: "/app/today", reason: access.primaryReason ?? "Stabilization is open today." };
   }
   // Cautious/steady but not activating (e.g. cooldown) — reflection + companion.
-  return { ...base, category: "offer_reflection", route: "/companion", reason: access.primaryReason ?? "A gentler day — your companion is here." };
+  return { ...base, category: "offer_reflection", route: "/app/companion", reason: access.primaryReason ?? "A gentler day — your companion is here." };
 }

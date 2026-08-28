@@ -110,7 +110,7 @@ test("a reviewer chooses a path, picks a fabricated persona, and lands in the pr
 
   await personas.first().getByRole("button", { name: /enter as this persona/i }).click();
   // Step four: inside the guided scenario, still carrying the boundary banner.
-  await expect(page).toHaveURL(/\/(clinician\/clinical|dashboard)/);
+  await expect(page).toHaveURL(/\/(clinician\/caseload|app\/today)/);
   await expect(page.getByText(/DEMO — FABRICATED DATA — NOT CLINICAL CARE/)).toBeVisible();
 });
 
