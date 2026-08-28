@@ -261,3 +261,43 @@ test("the trajectory does not push the page sideways on a phone", async ({ page 
   );
   expect(overflow, "the clinical record scrolls horizontally at 390px").toBeLessThanOrEqual(1);
 });
+
+test("patients can be found by name, not by scanning a triage queue", async ({ page }) => {
+  await signInAsClinician(page);
+  const nav = page.getByRole("navigation", { name: "Clinician" });
+  await nav.getByRole("link", { name: "Patients" }).click();
+  await expect(page).toHaveURL(/\/clinician\/patients$/);
+  await expect(page.getByRole("heading", { name: "Patients" })).toBeVisible();
+
+  const all = await page.getByTestId("directory-row").count();
+  expect(all).toBeGreaterThan(0);
+
+  // Search works without JavaScript having to boot — it is a GET form.
+  await page.locator('input[name="q"]').fill("Alex");
+  await page.getByRole("button", { name: "Search" }).click();
+  await page.waitForURL(/q=Alex/);
+  const found = await page.getByTestId("directory-row").count();
+  expect(found).toBeGreaterThan(0);
+  expect(found).toBeLessThanOrEqual(all);
+  // The count names the whole panel, so a filtered list is not mistaken for it.
+  await expect(page.getByTestId("directory-count")).toContainText(`of ${all}`);
+
+  // And a row leads to the record — which is the point of finding someone.
+  await page.getByTestId("directory-row").first().getByRole("link").click();
+  await expect(page).toHaveURL(/\/clinician\/clinical\/[^/]+$/);
+  await expect(page.getByRole("heading", { name: "Trajectory" })).toBeVisible();
+});
+
+test("the directory stays a directory, not a second triage queue", async ({ page }) => {
+  await signInAsClinician(page);
+  await page.goto("/clinician/patients");
+  // It points at the caseload for triage rather than reimplementing it.
+  // Scoped to main: the nav also links there, and matching that instead would
+  // pass even if the page never mentioned triage at all.
+  await expect(
+    page.locator("main").getByRole("link", { name: "caseload", exact: true })
+  ).toBeVisible();
+  // No band labels here — those belong to the caseload, and two triage views
+  // that disagree is worse than one.
+  await expect(page.getByTestId("band")).toHaveCount(0);
+});
