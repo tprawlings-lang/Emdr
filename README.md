@@ -17,7 +17,8 @@
 
 **This block is written for a fresh context window.** It is the shortest path from "I have
 just opened this repository" to "I am doing the next useful thing." Everything below is
-current as of commit `fe4104e`; the detail behind it is in the sections that follow.
+current as of commit `f006e97`, with the 2026-08-28 findings below appended; the detail
+behind it is in the sections that follow.
 
 ## Read these, in this order
 
@@ -68,9 +69,84 @@ below refer to it) drove the last several commits, in its own §9 order:
 | — | **Patient directory**, separate from the caseload | `709b582` |
 | §5 | **The gate as a paced sequence** — one question per screen, resumable | `1ea82c0` |
 
+## ⚠ OPEN FINDING (2026-08-28) — visual BLS may render against the signed config
+
+**Unverified code reading. Not confirmed against a running app, and no code was changed.**
+Recorded so it is not lost. It needs a decision before §6 proceeds.
+
+The signed beta config and the rule catalog say visual BLS is off:
+
+| Where | What it says |
+|---|---|
+| `src/lib/safety/config.ts:63` | `autonomousStimulationEnabled: false` — the engine removes `stimulation` globally |
+| `src/lib/safety/config.ts:66` | `visualStimulationEnabled: false` — "auditory + self-tapping only in beta; no visual BLS until a11y/device validation" (Ledger A7) |
+| `rule-catalog.ts:39` | `BLS_NO_VISUAL_BETA` — "visual BLS stays disabled" |
+| `rule-catalog.ts:38` | `BLS_HZ` — "[Disabled in beta] If later validated…" |
+| `tests/safety-core.test.ts:38` | asserts a *fully clear* member still gets `capabilities.visualStimulation === false` and `activatingSessionsAllowed === false` |
+
+The guided flow never asks. `SessionPlayer.tsx` and `src/app/session/[moduleId]/page.tsx`
+contain no reference to `capabilities`, `visualStimulation`, `decide`, or `gather`. The
+modality comes from a single input (`SessionPlayer.tsx:379`):
+
+```ts
+const [blsMode, setBlsMode] = useState<"visual"|"audio">(audioOnlyDefault ? "audio" : "visual");
+// audioOnlyDefault = hasSeizureFlag(user.id)
+```
+
+So the canvas dot appears to be the **default** for any member without a seizure flag, over
+the `kind: "bls"` steps that five modules in `src/lib/modules.ts` define, with a
+member-facing visual/audio radio at lines 689/699. `checkModuleAccess` gates a great deal
+(kill switch, entitlement, consent, fitness, check-in read, pacing) but carries no
+capability or visual-BLS check — and the deterministic engine that would say no sits behind
+`EMDR_AUTONOMOUS_SAFETY`, which defaults off.
+
+**Next step:** boot against the demo database and confirm whether a seeded member actually
+reaches the dot. If it reproduces, write the guard first — visual BLS unreachable while
+`visualStimulationEnabled` is false — then fix. Do not fix on the reading alone.
+
+### BLS pacing — on hold
+
+§6 asks for 1.25 Hz fixed, range 1.0–1.5, no member-facing speed control. Three things to
+know before touching it:
+
+1. **The constants already exist.** `BLS.defaultHz = 1.25`, `minHz = 1.0`, `maxHz = 1.5` in
+   `src/lib/safety/config.ts:222–224`, cited to Vol II §7. `SessionPlayer` does not import
+   them — part of §6 is "use the config you already have."
+2. **The convention is passes per second, not cycles.** `BlsStimulus.tsx:91` sets
+   `periodMs = 1000 / hz` with one beat per pass, while `SessionPlayer`'s `speedMs` is a
+   full two-pass cycle — so `Hz = 2000 / speedMs`. The picker is Slow 0.63 / Medium 0.83 /
+   Faster 1.18 Hz, which puts the top option already in band and the default about 1.5x
+   slow, not 3x.
+3. **It is held** pending the finding above. Raising the rate of a stimulus whose modality
+   is itself in question would make an unsanctioned surface faster and stamp the validated
+   protocol’s number on it.
+
 ## ▶ THE NEXT THING: §6, the session state machine
 
 Everything else in the handoff is done. §6 is not started.
+
+**Scope evidence, gathered 2026-08-28.** The guided flow runs on neither the session reducer
+nor the safety engine — it re-derives its own state from raw profile fields. That is the
+shared root cause of the missing closure state *and* of the finding above.
+
+| | Lines | Unit-tested |
+|---|---|---|
+| `src/lib/safety/session.ts` (the reducer) | 294 | **yes** — `safety-session.test.ts` covers every transition, incl. `completeClosure` |
+| `ResourcingSession.tsx` (wires the reducer) | 266 | via the reducer |
+| `SessionPlayer.tsx` (guided flow) | 1066, ~700 in one function | **none — no test imports it** |
+
+`ResourcingSession` honours the 120s closure floor because the reducer enforces it;
+`SessionPlayer` has no `closure` state at all. Its `Phase` union (line 28) is
+`intro | running | ground | sudpause | hardstop | finishing` — parallel to the reducer
+rather than driven by it. Adding §6’s states to that union by hand reproduces the
+divergence at a larger scale; the alternative is to drive it from the reducer the way
+`ResourcingSession` does. Note the regression net is thinner than it looks: the 508 unit
+tests do not cover `SessionPlayer` at all, so the exposure is `session-narration.spec.ts`,
+`smoke.spec.ts`, and looking at it.
+
+**Agreed approach:** write the guards first — `tests/session-states.test.ts` asserting every
+§6 rule against the current flow — and let the failure count decide the scope, rather than
+choosing the refactor up front.
 
 The state machine already exists in Vol 2 and maps almost one-to-one onto screens:
 
@@ -172,6 +248,10 @@ why the rule exists.
    violations, which is not the same thing.
 5. **`EMDR_REVIEW_ACCESS_CODE` is unset on Render**, so the review gateway is closed. That
    is the intended default; set it before a reviewer session.
+6. **Should the guided flow’s visual BLS exist at all?** See the open finding above. The
+   config, the rule catalog, and a passing test all say no; the UI ships it as the default
+   for members without a seizure flag. Whether that is a live compliance exposure or a
+   known, accepted prototype gap is not a judgement to make from the code.
 
 ---
 
