@@ -360,11 +360,12 @@ card, the module list, the history strip. Wave 2 replaces it; §3.4's finding is
 putting a better card above a catalog. The Autopilot copy leaks flagged in the README's open
 questions are still there and still need a clinician.
 
-## Wave 2 — the member shell (3 of 15 screens)
+## Wave 2 — the member shell (15 of 15 screens)
 
-§31.2's exit condition is "all 15 member screens and failure states pass". **Three are done.**
-This section says which, and what is left, because a partial wave recorded as a finished one
-is how the next reader loses a day.
+§31.2's exit condition is "all 15 member screens and failure states pass". All fifteen exist
+and are linked; `tests/member-screens.test.ts` holds the atlas. What is *not* claimed: two of
+them (screening, the active session) predate the atlas and were not rebuilt to it — they
+exist and work, but they are pre-§26 structure.
 
 ### Today, rebuilt to §10.1 — 583 lines to 325
 
@@ -421,22 +422,92 @@ score-bearing field or `member_progress` starts importing it. The exemption is a
 projection, not a hole in the shared boundary — had Progress been built by widening
 `MemberDay`, every member surface would have inherited the licence.
 
-### The 12 screens Wave 2 has not built
+### The remaining 12 screens
 
-`/app/welcome`, `/app/consent`, `/app/screening` (exists, not reworked to §26),
-`/app/check-in` (exists; §20.2's "the check-in result changes the next action without
-requiring navigation to a catalog" is **not** implemented), `/app/session/prepare`,
-`/app/session/:id` (exists as the pre-atlas SessionPlayer), `/app/session/:id/safety`,
-`/app/session/:id/close`, `/app/plan`, `/app/messages`, `/app/care-team`, `/app/settings`
-(no index — `/settings` still lands on `/app/settings/account`).
+All 15 §26 member screens now exist, and `tests/member-screens.test.ts` holds the atlas —
+every route exists, every one is linked from somewhere, and no screen carries two dominant
+actions.
 
-Today also still carries the Autopilot card below the decision surface, which repeats the
-same primary action. Its copy carries the two soft engine-state leaks already flagged in the
-README's open questions, so it wants a clinician rather than an edit here.
+**Welcome** (`/app/welcome`) — four things a member is told before doing anything: what this
+is, what decides what they see, what stays theirs, what it is not. Written as claims they can
+check. "Nothing here is monitored in real time" is verifiable against the trust page; "you
+are in safe hands" is not a fact at all, and §31.8's claims discipline applies to member copy
+as much as to a payer deck.
 
-**Verification:** test:safety 564 (was 560), test:e2e 105, build clean. All three screens
-rendered against the seeded demo; Progress verified in its `partial` state with named missing
-sources.
+**Consent** (`/app/consent`) — consent was a step buried in onboarding: agreed once, never
+shown again, impossible to review without re-running a flow. It is now a screen a member can
+return to. Each grant shows its scope and **policy version**, because someone who agreed
+under v1 did not agree to v2 and the version is what makes that checkable. Withdrawn consents
+stay visible: a record that disappears when revoked cannot be audited by the person it
+belongs to.
+
+**Care team** (`/app/care-team`) — who can see this, and how do I stop it. Written against
+what is true rather than what is intended: this deployment has no assigned care team, and a
+screen listing a clinician here would contradict `/demo`, `/trust` and the home FAQ. That is
+the notification-truth defect in a new place, so the empty state is the honest state.
+
+**Messages** (`/app/messages`) — no table, no thread, no recipient. So the screen says so and
+renders **no composer**. An inbox with a Send button and nobody to receive it invites a member
+to write something they need someone to read, and then holds it — the notification-truth
+defect with a text box attached, where the claim of delivery is made by the presence of the
+button. A guard fails the build if a `<form>` or `<textarea>` appears there.
+
+**Care plan** (`/app/plan`) — where the paths and the AI programme plan went when §10.1
+cleared them off Today. §26 asks for "versioned plan and **authority**", and the authority
+half is the point: the programme plan is model-drafted, and on Today it rendered as a card
+styled like every other card, which is exactly what §9.3 forbids — "do not style model output
+like a system fact." It now carries an **AI draft** badge and says no clinician has reviewed
+it.
+
+**Settings** (`/app/settings`) — the index that never existed. Five sub-pages, nothing listing
+them; the route migration inherited the 404 and papered over it with a redirect to
+`/app/settings/account`. Grouped by what the member is deciding, not by which table the data
+lives in.
+
+**Session preparation** (`/app/session/prepare`) — the deliberate beat before starting, which
+handoff 04 §6 also asked for: "the member should have to actively step into the set, not
+slide into it." The fixed gates are re-checked here rather than trusted from the link that
+arrived, because §30.7's evaluation is authoritative at every entry point and a member cleared
+an hour ago may not be now. "Not right now" is a peer of "Begin", not a cancel link — deciding
+not to start is this screen working.
+
+**The safety gate** (`/app/session/:id/safety`, `gate_view.v7`) — this existed only as a
+branch inside SessionPlayer's `hardstop` phase: reachable by no URL, linkable by nobody,
+impossible to return to. §26 makes it a screen.
+
+Three properties are guarded rather than described:
+
+- **It says what did *not* decide.** "A direct answer met a fixed safety rule. No AI model
+  made or cleared this decision." §30.7 states this twice. A member who believes a model
+  stopped them will argue with it, work around it, or distrust the next thing the product
+  says.
+- **The first option needs nothing from us.** 988 is a phone number, so it works when every
+  service behind the screen is down. §20.2's "support remains reachable during offline, write
+  failure and service failure" is only true if that holds; `assertGateSafe` refuses a gate
+  whose options all depend on this system.
+- **A block offers no re-check.** §27.5: re-entry is a new fixed-rule evaluation, not a button
+  that clears history — and a block has not met the conditions for one. A pause has.
+
+No apology, no alarm colour: §9.1 carries the weight through contrast and typography, and copy
+treating a stop as a failure teaches the member to experience it as one.
+
+**The check-in now lands on the plan it changed.** It used to redirect to the companion, so a
+member answered the questions and then had to go find their next action — §3.5's exact
+finding. It now lands on Today, where `member_today` has recomputed from those answers, with
+the companion offered as a choice rather than a mandatory hop. A crisis result still routes
+straight to support, ahead of any plan.
+
+### Still open on the member side
+
+Today carries the Autopilot card below the decision surface, repeating the same primary
+action. Its copy holds the two engine-state leaks already flagged in the README's open
+questions, so it wants a clinician rather than an edit here. The screening and active-session
+screens exist but were not reworked to §26 — they predate the atlas and still carry their
+pre-atlas structure.
+
+**Verification:** test:safety 573, test:e2e 105, build clean. Every new screen rendered
+against the seeded demo; Progress verified in its `partial` state with named missing sources;
+the gate verified in its pause state.
 
 ## Not started
 

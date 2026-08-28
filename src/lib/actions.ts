@@ -920,9 +920,16 @@ export async function submitCheckin(formData: FormData) {
     });
     redirect("/crisis?from=checkin");
   }
-  // The daily chat opens right after check-in: the companion speaks first,
-  // prompted by today's numbers and the member's history.
-  redirect("/app/companion?from=checkin");
+  // §20.2: "The check-in result changes the next action without requiring
+  // navigation to a catalog." §3.5 named the defect this replaces — the result
+  // "does not reliably carry the member into the recommended activity. The
+  // member must leave the result and find the right tool."
+  //
+  // Today is where the answer lands, because member_today recomputes from this
+  // check-in: the primary action a member sees on arrival IS the result of what
+  // they just reported. The daily companion chat is still offered there, as a
+  // choice rather than a mandatory hop between answering and acting.
+  redirect("/app/today?from=checkin");
 }
 
 // Opens (or resumes) today's post-check-in conversation, with the companion

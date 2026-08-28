@@ -45,7 +45,10 @@ function actionLabel(action: string): { label: string; tone: string } {
 // links, members told "complete X first" had no path to X (the bug that
 // stranded grandfathered accounts after the fit screener shipped).
 
-export default async function DashboardPage() {
+export default async function DashboardPage({
+  searchParams,
+}: { searchParams: Promise<{ from?: string }> }) {
+  const { from } = await searchParams;
   const user = await requireMember();
   if (!(await subscriptionActive(user.id))) redirect("/subscribe");
   if (!(await hasConsent(user.id))) redirect("/app/onboarding");
@@ -169,6 +172,20 @@ export default async function DashboardPage() {
           states impossible to collapse into one blank screen — in particular a
           policy failure does NOT read as "nothing available today", which is a
           different and false statement to make to a member. */}
+      {/* Arriving straight from the check-in. The plan below already reflects
+          the answers just given, so this says that rather than making the
+          member infer it — and offers the companion as a choice instead of the
+          mandatory hop that used to sit between answering and acting. */}
+      {from === "checkin" && (
+        <p className="mt-6 rounded-3xl border border-state-safe/40 bg-state-safe-bg/50 px-5 py-4 text-sm text-ground">
+          Today&apos;s check-in is recorded, and your plan below reflects it.{" "}
+          <Link href="/app/companion?from=checkin" className="text-state-info underline">
+            Talk it through with the companion
+          </Link>
+          .
+        </p>
+      )}
+
       <div className="mt-8">
         <EnvelopeView envelope={todayEnvelope} title="Today">
           {(today) => <TodayDecision today={today} />}

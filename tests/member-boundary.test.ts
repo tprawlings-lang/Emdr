@@ -57,6 +57,10 @@ const MEMBER_ROUTES = [
   "app/today", "app/check-in", "app/session", "app/paths", "app/ground", "app/learn",
   "app/activities", "app/companion", "app/measures", "app/screening", "app/onboarding",
   "app/settings",
+  // Wave 2's remaining §26 screens. Added here rather than exempted: none of
+  // them has a reason to carry a score, and the guard below fails the build if
+  // a new /app route appears outside this list — which is how these arrived.
+  "app/welcome", "app/consent", "app/plan", "app/messages", "app/care-team",
 ];
 
 /** Identifiers that carry a score, a band, a track, or a criteria label.

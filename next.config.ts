@@ -47,12 +47,10 @@ const nextConfig: NextConfig = {
       { source: "/companion", destination: "/app/companion", permanent: true },
       { source: "/session/:path*", destination: "/app/session/:path*", permanent: true },
       { source: "/settings/:path*", destination: "/app/settings/:path*", permanent: true },
-      // /settings never had an index page — it 404'd before this move too.
-      // §26 specifies one ("Profile and privacy — manage account and data
-      // choices"); until Wave 2 builds it, land on the sub-page people
-      // actually wanted rather than forwarding to a 404.
-      { source: "/settings", destination: "/app/settings/account", permanent: false },
-      { source: "/app/settings", destination: "/app/settings/account", permanent: false },
+      // /settings never had an index page — it 404'd before the move too.
+      // Wave 2 built the one §26 specifies, so this now forwards to a real
+      // page rather than to the sub-page it was standing in for.
+      { source: "/settings", destination: "/app/settings", permanent: true },
       { source: "/screening/:path*", destination: "/app/screening/:path*", permanent: true },
       { source: "/screening", destination: "/app/screening", permanent: true },
       { source: "/onboarding/:path*", destination: "/app/onboarding/:path*", permanent: true },

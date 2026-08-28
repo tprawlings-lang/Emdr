@@ -26,6 +26,12 @@ const ITEMS: Array<{ href: string; label: string }> = [
   { href: "/app/progress", label: "Progress" },
   { href: "/app/companion", label: "Companion" },
   { href: "/app/learn", label: "Learn" },
+  // §26's remaining member destinations. Plan and care team are here rather
+  // than buried in settings because "what is active and why" and "who can see
+  // this" are questions a member asks about the programme, not about their
+  // account. Welcome and consent are reachable from Support and settings —
+  // a six-item nav is already at the limit of what stays scannable.
+  { href: "/app/plan", label: "Plan" },
 ];
 
 export function MemberNav() {
