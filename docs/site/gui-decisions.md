@@ -509,6 +509,89 @@ pre-atlas structure.
 against the seeded demo; Progress verified in its `partial` state with named missing sources;
 the gate verified in its pause state.
 
+## Wave 3 — the clinical cockpit (14 of 14 screens)
+
+All 14 §26 clinician screens exist and are reachable; `tests/clinician-screens.test.ts`
+holds the atlas.
+
+`PersonShell` gives the person record one sticky header and one tab strip across six
+sub-routes. Before it, opening a member meant landing on whichever of three overlapping
+records a link happened to point at, each with its own header and back-link.
+
+### A security defect found while reworking measures
+
+The measures page read:
+
+```sql
+SELECT id, name, email, created_at FROM users WHERE id = ? AND role = 'member'
+```
+
+**No tenant predicate.** A clinician with any member's id could open their measures,
+screenings, check-ins and session history across tenants — and the access was written to the
+audit trail under that clinician's name, which makes it look sanctioned rather than
+anomalous.
+
+Fixed, and `tests/clinician-screens.test.ts` now fails the build on any `SELECT … FROM users
+WHERE … role = 'member'` on a clinician surface that lacks a tenant predicate — broader than
+the atlas, because the next one will be on a page nobody thought to list.
+
+### Safety review — `safety_review.v7`
+
+The acceptance line is the design: **"Response does not erase or alter the gate."** The form
+says so where the clinician acts, not in a footnote — a clinician who believes documenting a
+response clears the stop will document one *in order* to clear it, which corrupts the record
+and the gate together. A guard fails the build if the screen offers to clear, reopen, unblock
+or lift a gate.
+
+The page example's gate record ends "5. Clinician owner notified" as a completed fact. There
+is no delivery channel, so that line renders the real state from the delivery contract
+instead. It is the single most plausible place for the notification-truth defect to come
+back, because the sentence is already written in the specification.
+
+### Sessions, session detail, plan, audit
+
+**Sessions** is deliberately thin — a clinician scanning it is asking whether the pattern is
+changing, not reading each session. Hard stops are marked rather than left to be inferred
+from a status word: a session a rule ended is a different event from one the member chose to
+end, and a list rendering both as "ended" hides the distinction the screen exists for.
+
+**Session detail** states the direction and refuses to interpret it. A session where distress
+rose is not a failed session, and a screen implying otherwise pushes clinicians toward the
+sessions that look good. "One session is a data point, not a trend."
+
+**Plan** uses the same §9.3 status vocabulary as the member's `/app/plan`, so both sides read
+the same claim about the same text. The approve action stays on the full record, where the
+audit trail is, rather than becoming a second path to the same write.
+
+**Audit** is scoped to one person — the difference from `/review/audit`, and the
+minimum-necessary answer to "who touched this record". It reports rows the tenant filter
+removed, because "nothing happened" and "you cannot see what happened" are different.
+
+### Reports, and four screens that say no
+
+**Reports** is operations, not outcomes: every figure is `n of N` with its denominator
+visible, and the page states that a caseload-sized denominator cannot support an outcome
+claim. Alert pressure is broken down by type, because a single noisy rule is what alert
+fatigue usually turns out to be and a total hides it.
+
+**Messages, referrals, handoffs and schedule** have no backing data, so they say so and render
+no form, no filter bar and no empty list with the right columns. An empty list reads as "no
+items today" rather than "this does not work yet", and a clinician who believes the first
+stops checking.
+
+### Two copy defects found by reading the rendered page
+
+1. **A handoff section number was printed at the clinician** — "§27.5 makes handoff an action
+   with its own audit event". A note to an engineer, rendered as product copy. These handoff
+   documents are why the codebase is legible; quoting them at users is the one place they do
+   not belong. Guarded across every `src/app` and `src/components` surface.
+2. **The member's email rendered on the measures tab.** §27.2: "Use minimum-necessary display
+   identity." A measures review does not need contact details, and the record shell already
+   says who this is.
+
+**Verification:** test:safety 590, test:e2e 105, build clean. Every sub-route rendered against
+the seeded demo.
+
 ## Not started
 
 Phase 2 (member shell), organization and payer workspaces (Phase 4), and human-factors

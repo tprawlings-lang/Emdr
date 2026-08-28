@@ -9,6 +9,8 @@ import { decryptField } from "@/lib/crypto";
 import { getProgramPlan } from "@/lib/program-plan";
 import { clinicianCloseModule, clinicianOpenModule } from "@/lib/actions";
 import TrendChart from "@/components/TrendChart";
+import { loadPersonHeader } from "@/lib/clinical/person-header";
+import { PersonShell } from "@/components/clinical/PersonShell";
 
 export default async function MemberDetailPage({
   params,
@@ -19,8 +21,26 @@ export default async function MemberDetailPage({
   const { id } = await params;
   const c = await data();
 
-  const member = await c.get("SELECT id, name, email, created_at FROM users WHERE id = ? AND role = 'member'", [id]) as { id: string; name: string; email: string; created_at: string } | undefined;
+  // Tenant scoping. This query read `WHERE id = ? AND role = 'member'` with no
+  // tenant predicate, so a clinician with any member's id could open their
+  // measures, screenings, check-ins and session history across tenants — and
+  // the access was audited under their name, which makes it look sanctioned.
+  //
+  // §30.6 step 1 resolves the acting tenant before anything else, and §20.3
+  // requires a cross-tenant request to return no record detail. notFound rather
+  // than forbidden: a 403 confirms the record exists.
+  const me = (await c.get("SELECT tenant_id FROM users WHERE id = ?", [clinician.id])) as
+    | { tenant_id: string } | undefined;
+  const tenantId = me?.tenant_id ?? "";
+
+  const member = (await c.get(
+    "SELECT id, name, email, created_at FROM users WHERE id = ? AND tenant_id = ? AND role = 'member'",
+    [id, tenantId]
+  )) as { id: string; name: string; email: string; created_at: string } | undefined;
   if (!member) notFound();
+
+  const person = await loadPersonHeader({ personId: id, clinicianId: clinician.id, tenantId });
+  if (!person) notFound();
 
   // Record-access events belong in the audit trail too.
   await audit({
@@ -92,11 +112,22 @@ export default async function MemberDetailPage({
   const gatedModules = MODULES.filter((m) => m.tier === "gated");
 
   return (
-    <main className="mx-auto max-w-5xl px-6 py-10">
-      <h1 className="mt-3 type-display text-3xl font-medium">{member.name}</h1>
-      <p className="text-sm text-olive">
-        {member.email} · joined {member.created_at.slice(0, 10)}
-      </p>
+    <PersonShell person={person} active="/measures">
+      {/* §26: "Review validated change — instrument-specific chart — open
+          answers." The page example leads with the change in words — "PHQ-9
+          increased 5 points in 14 days. Review due today." — before any chart,
+          for the same reason the member's Progress screen does: a number
+          arriving bare is a number the reader has to interpret, and two readers
+          will interpret it differently.
+
+          The programme plan used to render here too. It now lives on the plan
+          tab: two copies of a model-drafted plan is two places for its review
+          status to disagree. */}
+      {/* The email used to render here. §27.2: "Use minimum-necessary display
+          identity. Legal identity stays out of routine views unless required."
+          A measures review does not need contact details, and the shell above
+          already says who this is. */}
+      <p className="text-sm text-olive">In the programme since {member.created_at.slice(0, 10)}</p>
 
       {(pcl5Series.length > 0 || itqSeries.length > 0) && (
         <section className="mt-8">
@@ -135,40 +166,6 @@ export default async function MemberDetailPage({
               (provisional, screen-based — diagnosis remains a clinical decision)
             </p>
           )}
-        </section>
-      )}
-
-      {planRow && (
-        <section className="mt-8">
-          <h2 className="type-display text-2xl font-medium">Program plan (AI-drafted)</h2>
-          <div className="mt-2 rounded-3xl border border-ground/10 bg-linen p-6 shadow-soft">
-            <p className="text-sm text-olive">
-              Generated {planRow.created_at.slice(0, 10)} ·{" "}
-              {planRow.generated_by === "ai" ? "model-drafted from the trigger map" : "rules-engine draft"} ·
-              advisory only — your unlock decisions outrank it
-            </p>
-            <p className="mt-3 text-sm leading-relaxed text-ground/90">{planRow.plan.summary}</p>
-            {planRow.plan.targets.length > 0 && (
-              <ul className="mt-3 space-y-1 text-sm text-ground/90">
-                {planRow.plan.targets.map((t, i) => (
-                  <li key={i}>
-                    <span className="font-medium">{t.name}</span>
-                    {t.intensity !== null ? ` · ${t.intensity}/10` : ""} — {t.approach}
-                    {t.belief ? ` · belief: “${t.belief}”` : ""}
-                  </li>
-                ))}
-              </ul>
-            )}
-            {planRow.plan.nextSteps.length > 0 && (
-              <ol className="mt-3 list-decimal space-y-1 pl-5 text-sm text-olive">
-                {planRow.plan.nextSteps.map((s, i) => (
-                  <li key={i}>
-                    {moduleName(s.moduleId)} — focus: {s.focus} ({s.why})
-                  </li>
-                ))}
-              </ol>
-            )}
-          </div>
         </section>
       )}
 
@@ -390,6 +387,6 @@ export default async function MemberDetailPage({
           </div>
         </div>
       </section>
-    </main>
+    </PersonShell>
   );
 }

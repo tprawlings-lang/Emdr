@@ -24,6 +24,11 @@ const ITEMS: Array<{ href: string; label: string; hint: string }> = [
   { href: "/clinician/today", label: "Today", hint: "Everything waiting on you, in one order" },
   { href: "/clinician/caseload", label: "Caseload", hint: "Scan change, owner and freshness" },
   { href: "/clinician/patients", label: "Patients", hint: "Find anyone, alphabetically" },
+  { href: "/clinician/referrals", label: "Referrals", hint: "Intake through to first contact" },
+  { href: "/clinician/handoffs", label: "Handoffs", hint: "Accountability through transfer" },
+  { href: "/clinician/schedule", label: "Schedule", hint: "Visits, reviews and overdue actions" },
+  { href: "/clinician/messages", label: "Messages", hint: "Secure conversation with context" },
+  { href: "/clinician/reports", label: "Reports", hint: "Where the work sits across the caseload" },
   { href: "/review/audit", label: "Review console", hint: "Audit, engine validation, BLS oversight, testing" },
 ];
 
