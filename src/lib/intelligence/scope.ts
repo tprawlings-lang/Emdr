@@ -14,10 +14,38 @@ import { data } from "@/lib/data";
 // organization tenant and returns null when there is not exactly one, so an
 // ambiguous case fails closed instead of picking one.
 
+/**
+ * A provider network: an organization tenant with no payer contract.
+ *
+ * The `kind` column cannot tell these apart — a payer is an organization too,
+ * and widening the CHECK constraint would be a table rebuild for a
+ * distinction that already exists structurally. What actually separates them
+ * is that a payer HAS a contract: it reports on a contracted population using
+ * claims, and a provider network does not.
+ *
+ * This mattered immediately. Seeding the payer added a second
+ * organization-kind tenant, and the previous "exactly one organization" rule
+ * started returning null — every organization screen would have rendered "no
+ * organization in scope" the moment the payer work landed.
+ */
 export async function resolveOrgTenant(): Promise<string | null> {
   const c = await data();
   const rows = (await c.all(
-    "SELECT id FROM tenants WHERE kind = 'organization' ORDER BY id", [],
+    `SELECT t.id FROM tenants t
+      WHERE t.kind = 'organization'
+        AND NOT EXISTS (SELECT 1 FROM payer_contracts pc WHERE pc.tenant_id = t.id)
+      ORDER BY t.id`,
+    [],
+  )) as { id: string }[];
+  return rows.length === 1 ? rows[0].id : null;
+}
+
+/** A health plan: the tenant that holds a payer contract. Same fail-closed
+ *  rule — an ambiguous case returns null rather than picking one. */
+export async function resolvePayerTenant(): Promise<string | null> {
+  const c = await data();
+  const rows = (await c.all(
+    "SELECT DISTINCT tenant_id AS id FROM payer_contracts ORDER BY tenant_id", [],
   )) as { id: string }[];
   return rows.length === 1 ? rows[0].id : null;
 }

@@ -309,6 +309,99 @@ export function StackedAllocation({ slices, total }: { slices: Slice[]; total: n
 }
 
 // ---------------------------------------------------------------------------
+// Interval — a modelled range, never an observed value (p83)
+// ---------------------------------------------------------------------------
+
+export interface Interval {
+  label: string;
+  low: number;
+  point: number;
+  high: number;
+}
+
+/**
+ * Estimated ranges, one row per scenario.
+ *
+ * Everything about this component is shaped by one prohibition: "Never label
+ * estimated value as observed savings." So it is drawn in a visibly different
+ * register from every observed chart in this codebase — a hatched bar in the
+ * modelled colour, never the solid sage of an observed series — and the RANGE
+ * is the mark while the point estimate is a tick inside it, not the other way
+ * round. A point drawn as the value with a range whispered underneath is how
+ * "$8" leaves the room without "$5 to $13" attached.
+ */
+export function IntervalChart({
+  intervals, unit, prefix = "",
+}: {
+  intervals: Interval[];
+  unit: string;
+  /** A currency symbol, where the value is money. */
+  prefix?: string;
+}) {
+  const lo = Math.min(...intervals.map((i) => i.low), 0);
+  const hi = Math.max(...intervals.map((i) => i.high), 1);
+  const pos = (v: number) => ((v - lo) / Math.max(1, hi - lo)) * 100;
+
+  return (
+    <div>
+      <ul className="space-y-4">
+        {intervals.map((i) => (
+          <li key={i.label} className="grid gap-1 sm:grid-cols-[7rem_1fr] sm:items-center sm:gap-4">
+            <span className="text-sm text-ground">{i.label}</span>
+            <span className="flex items-center gap-3">
+              <span aria-hidden className="relative h-5 flex-1">
+                <span className="absolute inset-x-0 top-1/2 h-px -translate-y-1/2 bg-ground/10" />
+                <span
+                  className="absolute top-1/2 h-4 -translate-y-1/2 rounded"
+                  style={{
+                    left: `${pos(i.low)}%`,
+                    width: `${Math.max(1, pos(i.high) - pos(i.low))}%`,
+                    backgroundColor: "var(--color-mist-deep)",
+                    backgroundImage:
+                      "repeating-linear-gradient(45deg, rgba(255,255,255,.55) 0 3px, transparent 3px 6px)",
+                  }}
+                />
+                <span
+                  className="absolute top-1/2 h-4 w-0.5 -translate-x-1/2 -translate-y-1/2"
+                  style={{ left: `${pos(i.point)}%`, backgroundColor: "var(--color-ground)" }}
+                />
+              </span>
+              <span className="w-36 shrink-0 whitespace-nowrap text-sm text-ground">
+                {prefix}{i.low}–{prefix}{i.high}
+                <span className="ml-2 text-olive">mid {prefix}{i.point}</span>
+              </span>
+            </span>
+          </li>
+        ))}
+      </ul>
+
+      <p className="mt-4 flex flex-wrap gap-x-5 gap-y-1 text-xs">
+        <span className="font-medium text-state-info">modelled estimate, not observed</span>
+        <span className="text-olive">{unit}</span>
+      </p>
+
+      <table className="sr-only">
+        <caption>Modelled {unit} by scenario. Estimates, not observed values.</caption>
+        <thead>
+          <tr>
+            <th scope="col">Scenario</th><th scope="col">Low</th>
+            <th scope="col">Mid</th><th scope="col">High</th>
+          </tr>
+        </thead>
+        <tbody>
+          {intervals.map((i) => (
+            <tr key={i.label}>
+              <th scope="row">{i.label}</th>
+              <td>{prefix}{i.low}</td><td>{prefix}{i.point}</td><td>{prefix}{i.high}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Line (p76, p82)
 // ---------------------------------------------------------------------------
 

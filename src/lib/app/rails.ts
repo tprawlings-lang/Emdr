@@ -74,8 +74,15 @@ export const ORGANIZATION_RAIL: Rail = {
   evidence: "/organization/reports",
 };
 
-/** Steady Intelligence — the payer surfaces (p67–p69). Not built: there is no
- *  claims feed, no eligibility file and no contract record in this deployment,
- *  so every payer screen would be reporting on nothing. Left undestined rather
- *  than pointed at pages that would invent their own subject. */
-export const PAYER_RAIL: Rail = {};
+/** Steady Intelligence — the payer surfaces (p67–p69).
+ *
+ *  Audit HAS a destination here, unlike the provider network's rail: a payer's
+ *  audit subject is its own claims feed — lag, rejections, corrections,
+ *  exclusions — which is aggregate by nature and reveals no person. */
+export const PAYER_RAIL: Rail = {
+  overview: "/payer/overview",
+  progress: "/payer/outcomes",
+  actions: "/payer/access",
+  evidence: "/payer/evidence",
+  audit: "/payer/data-quality",
+};
