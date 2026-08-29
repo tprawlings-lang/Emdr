@@ -51,8 +51,19 @@ confusion twice. Deploy with:
 git push origin claude/launch-status-vh6vbo:main   # fast-forward; Render builds on push
 ```
 
-`claude/gifted-keller-501y5d` was listed here as "the Render deploy" branch. It is not,
-and never was — it is stale at `3071750` and nothing points at it.
+**`render.yaml` says `branch: main`, and the live service does not use it.** That file only
+governs a service created from the Blueprint; the running Render service is wired to
+`claude/gifted-keller-501y5d`, which forked at `f006e97` and carries one commit on top
+(`3071750`, the handoff-06 PDF, also on `main`). Verified against production rather than
+assumed: the site serves `/dashboard` and `/practices`, 404s on `/app/today` and
+`/review/*`, and loads no Literata — exactly that branch, and 17 commits behind `main`.
+
+Do not trust `render.yaml` to tell you where the site comes from. Check the deployed app:
+
+```bash
+curl -s -o /dev/null -w "%{http_code}\n" https://steady-emdr-demo.onrender.com/app/today
+# 404 => production predates the route migration, whatever main says
+```
 
 ```bash
 npm run test:safety   # 594 pass
