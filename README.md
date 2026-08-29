@@ -66,8 +66,8 @@ curl -s -o /dev/null -w "%{http_code}\n" https://steady-emdr-demo.onrender.com/a
 ```
 
 ```bash
-npm run test:safety   # 594 pass
-npm run test:e2e      # 105 pass   (PLAYWRIGHT_CHROMIUM_PATH=/opt/pw-browsers/chromium)
+npm run test:safety   # 605 pass
+npm run test:e2e      # 112 pass   (PLAYWRIGHT_CHROMIUM_PATH=/opt/pw-browsers/chromium)
 npm run test:rls      # 12 cross-tenant attack cases against a real Postgres cluster
 npm run build         # clean
 npm run demo -- reset # seed AND rebuild the event log — see the warning below
@@ -136,8 +136,8 @@ about how finished each is.
 |---|---|---|---|
 | Patient and member | 15 | 15 (36 routes incl. sub-screens) | — |
 | Clinician | 14 | 14 (18 routes) | — |
-| Organization | 9 | **0** | every screen; `/organization/*` does not exist |
-| Payer | 10 | **0** | every screen; `/payer/*` does not exist |
+| Organization | 9 | 9 | — |
+| Payer | 10 | **0** | every screen; `/payer/*` does not exist. There is no claims feed, no eligibility file, no contract record and no cost model anywhere in this deployment, so all ten would be reporting on nothing |
 | Review and administration | 13 | 5 | `/review/access`, `/clinical`, `/safety`, `/lineage`, `/research`, `/release`, `/demo-data`, `/status` |
 | Public institutional site | 11 | 9 | `/personal`, `/intelligence`. Nothing links to them — the home page routes the three products to `/platform`, `/clinical`, `/organizations` and `/payers` instead — so this is a naming gap, not a broken link |
 | Shared access states | 8 | 1 | only `/login`. Missing `/verify`, `/reset`, `/invite/[token]`, `/403`, `/404`, `/session-expired`, `/status/degraded` |
@@ -157,6 +157,32 @@ charts that do exist and are not yet encoded as a guard.
 - Organization and payer screens are aggregate-only by §30.6 — aggregate access must not
   create person-level care access. That is a data-model requirement, not a page.
 
+### Steady Intelligence — the organization role
+
+Sign in as **operations@example.com / demo1234**. It is an `admin` account,
+which in this codebase means an AGGREGATE role: it reads a population and it
+cannot reach a person. `/clinician/*` and `/app/*` both bounce it back.
+
+**The population is real rows, not stored totals.** `src/lib/demo-org-seed.ts`
+seeds a fabricated organization — 4,820 covered lives across four sites, under
+its own tenant, as ~32,000 events. Every figure on every organization screen is
+counted from the ledger by `src/lib/intelligence/organization.ts`; nothing is
+pre-aggregated. That is §30.1's read path, and it is why "where does 3,555 come
+from?" has an answer.
+
+**Nobody in that population has a name.** `persons.display_name` is NULL for all
+4,820. A name the organization role must not see is safest when it does not
+exist — the drilldown is impossible rather than refused, the same structural
+move as the member score boundary.
+
+Three screens are deliberately not charts:
+
+| Screen | State | Why |
+|---|---|---|
+| Capacity | `partial` | Demand is countable; open first-visit slots are not — no calendar, no slot record. Half a ratio is not a ratio, so the missing source is named above the chart. |
+| Teams | empty | There is no team record in the tenancy model at all. A workload ranking of teams that do not exist, shown to the people who set their budgets, is worse than a blank. |
+| Reports | empty | A governed export needs filter parity, cohort version, suppression, a stated purpose, an audit event and a signature. Until it has all six, the honest control is the absence of a button. |
+
 ### Waves, per §31.2
 
 | Wave | | Status |
@@ -166,7 +192,8 @@ charts that do exist and are not yet encoded as a guard.
 | 2 | Member | done |
 | 3 | Clinician | done |
 | — | **The frame** (this work) | done — member, clinician and review |
-| 4 | Aggregate — organization and payer | **not started, 19 screens** |
+| 4 | Aggregate — organization | done — 9 screens, real aggregates |
+| 4 | Aggregate — payer | **not started, 10 screens** — blocked on a claims feed, not on UI |
 | 5 | Review and public | 5 of 13 review screens |
 | 6 | Hardening — performance, accessibility, security, telemetry | not started |
 

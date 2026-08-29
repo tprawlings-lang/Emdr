@@ -318,19 +318,26 @@ export interface Series {
 export function Line({ series, unit }: { series: Series[]; unit: string }) {
   const xs = series[0]?.points.map((p) => p.x) ?? [];
   const ys = series.flatMap((s) => s.points.map((p) => p.y)).filter((y): y is number => y !== null);
-  const max = Math.max(1, ...ys);
-  const min = Math.min(0, ...ys);
+  const hi = Math.max(...ys, 0);
+  const lo = Math.min(...ys, 0);
+  // Pad the domain so a flat series sits in the middle of the plot rather than
+  // pinned to its top edge, where it reads as "at the maximum" of a scale that
+  // has no maximum. A steady three days is a finding; a line stuck to the
+  // ceiling looks like a rendering bug or a ratio at 100%.
+  const pad = Math.max(1, (hi - lo) * 0.25 || hi * 0.25 || 1);
+  const max = hi + pad;
+  const min = Math.max(0, lo - pad);
   const W = 640;
-  const H = 180;
-  const px = (i: number) => (xs.length < 2 ? W / 2 : (i / (xs.length - 1)) * (W - 40) + 20);
-  const py = (y: number) => H - 20 - ((y - min) / Math.max(1, max - min)) * (H - 40);
+  const H = 200;
+  const px = (i: number) => (xs.length < 2 ? W / 2 : (i / (xs.length - 1)) * (W - 60) + 40);
+  const py = (y: number) => H - 34 - ((y - min) / Math.max(1, max - min)) * (H - 66);
 
   return (
     <div>
       <div className="overflow-x-auto">
         <svg
           viewBox={`0 0 ${W} ${H}`}
-          className="h-44 w-full min-w-[32rem]"
+          className="h-52 w-full min-w-[32rem]"
           role="img"
           aria-label={`${series.map((s) => s.name).join(" and ")}, ${unit}, by period`}
         >
@@ -358,14 +365,54 @@ export function Line({ series, unit }: { series: Series[]; unit: string }) {
                 ))}
                 {s.points.map((p, i) =>
                   p.y === null ? null : (
-                    <circle key={i} cx={px(i)} cy={py(p.y)} r={3} fill={color} />
+                    <g key={i}>
+                      <circle cx={px(i)} cy={py(p.y)} r={3} fill={color} />
+                      {/* §29.1: direct labels. Without the value on the mark, a
+                          flat line tells a reader that nothing changed and
+                          nothing about what it did not change from. */}
+                      <text
+                        x={px(i)}
+                        y={py(p.y) - 9}
+                        textAnchor="middle"
+                        className="fill-ground"
+                        style={{ fontSize: 11 }}
+                      >
+                        {p.y}
+                      </text>
+                    </g>
+                  ),
+                )}
+                {/* A gap is named, not merely absent: an unlabelled hole in a
+                    line is indistinguishable from a shorter series. */}
+                {s.points.map((p, i) =>
+                  p.y !== null ? null : (
+                    <text
+                      key={`gap-${i}`}
+                      x={px(i)}
+                      y={H - 40}
+                      textAnchor="middle"
+                      className="fill-olive"
+                      style={{ fontSize: 9 }}
+                    >
+                      no data
+                    </text>
                   ),
                 )}
               </g>
             );
           })}
+          {/* The scale, stated. §29.1 requires the range to be visible; an
+              unlabelled axis makes every value on the chart unreadable in
+              absolute terms. */}
+          <line x1={36} y1={H - 34} x2={W - 12} y2={H - 34} stroke="var(--color-ground)" strokeOpacity={0.12} />
+          <text x={32} y={py(min) + 4} textAnchor="end" className="fill-olive" style={{ fontSize: 10 }}>
+            {Math.round(min)}
+          </text>
+          <text x={32} y={py(max) + 4} textAnchor="end" className="fill-olive" style={{ fontSize: 10 }}>
+            {Math.round(max)}
+          </text>
           {xs.map((x, i) => (
-            <text key={x} x={px(i)} y={H - 4} textAnchor="middle" className="fill-olive" style={{ fontSize: 10 }}>
+            <text key={x} x={px(i)} y={H - 8} textAnchor="middle" className="fill-olive" style={{ fontSize: 10 }}>
               {x}
             </text>
           ))}
