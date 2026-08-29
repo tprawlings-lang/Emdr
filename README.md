@@ -13,61 +13,63 @@
 
 ---
 
-# ▶ RESUME HERE — session handoff, 2026-08-28
+# ▶ RESUME HERE — session handoff, 2026-08-29
 
 **This block is written for a fresh context window.** It is the shortest path from "I have
-just opened this repository" to "I am doing the next useful thing." Everything below is
-current as of commit `c8797ca` plus the handoff-05 work below; the detail
-behind it is in the sections that follow.
+just opened this repository" to "I am doing the next useful thing."
+
+**The live job is GUI launch** — handoff 06 carried all the way, screens, charts and
+datasets. Its status, its instructions and everything still owed are in the **GUI launch**
+section immediately below this one. Start there.
 
 ## Read these, in this order
 
 The specifications that drive the build are committed at
-**[`docs/handoffs/`](docs/handoffs/)** — they were session uploads and a new window could
-not previously find them. [`docs/handoffs/README.md`](docs/handoffs/README.md) is the index
-and states which are done.
+**[`docs/handoffs/`](docs/handoffs/)**. [`docs/handoffs/README.md`](docs/handoffs/README.md)
+is the index and states which are done.
 
 | Read | Why |
 |---|---|
-| 1. This block | Names the next build item and the guards that encode past decisions |
-| 2. **[Handoff 04 §6](docs/handoffs/04-presentation-layer-v1.pdf)** | **The next thing to build.** §6 is about two pages |
-| 3. [`docs/site/presentation-layer.md`](docs/site/presentation-layer.md) | What handoff 04 already produced, and *why* each rule exists. Read before changing any member surface |
-| 4. [`docs/handoffs/README.md`](docs/handoffs/README.md) | The other three handoffs and the phase order, if the work reaches back into them |
+| 1. This block, then **GUI launch** below | Names the live job, what is left of it, and the page in the handoff that specifies each remaining item |
+| 2. **[Handoff 06, §24–§31 (pp. 37–101)](docs/handoffs/06-web-gui-analytics-and-clinical-presentation.pdf)** | **The live specification.** The coding annex. Section-to-page map is in GUI launch below |
+| 3. [`docs/site/gui-decisions.md`](docs/site/gui-decisions.md) | Two deliberate reversals of handoff 04 and how to undo each. Read before changing a member or clinical surface |
+| 4. [`docs/site/presentation-layer.md`](docs/site/presentation-layer.md) | What handoff 04 produced and *why* each rule exists |
 
-Do not read all four handoffs front to back. They layer, they are long, and only 04 is
-live work.
+Do not read the handoffs front to back. They layer, they are long, and only 06 is live.
+
+**Open the drawn pages before writing a screen.** The first pass at handoff 06 was built
+from its text alone and did not resemble it. Pages 54–73 and 76–83 are the examples.
 
 ## Where the work is
 
-Two branches, identical and pushed: `claude/launch-status-vh6vbo` (the designated
-development branch) and `main`.
-
-**`main` is what the site serves.** `render.yaml` sets `branch: main`, so nothing reaches
-the deployed site until `main` moves — and work sitting on the development branch looks,
-from a browser, exactly like work that was never done. This has now caused the same
-confusion twice. Deploy with:
-
-```bash
-git push origin claude/launch-status-vh6vbo:main   # fast-forward; Render builds on push
-```
+| Branch | Role |
+|---|---|
+| `claude/launch-status-vh6vbo` | The designated development branch. All work lands here first |
+| `claude/gifted-keller-501y5d` | **What Render actually builds.** Deploying means merging into it |
+| `main` | Kept current, but **not** what the site serves |
 
 **`render.yaml` says `branch: main`, and the live service does not use it.** That file only
 governs a service created from the Blueprint; the running Render service is wired to
-`claude/gifted-keller-501y5d`, which forked at `f006e97` and carries one commit on top
-(`3071750`, the handoff-06 PDF, also on `main`). Verified against production rather than
-assumed: the site serves `/dashboard` and `/practices`, 404s on `/app/today` and
-`/review/*`, and loads no Literata — exactly that branch, and 17 commits behind `main`.
+`claude/gifted-keller-501y5d`. This was established the expensive way — production sat 17
+commits behind while the README claimed otherwise, and a reviewer signed in twice and saw
+nothing new. Do not trust `render.yaml` to tell you where the site comes from; check the
+deployed app.
 
-Do not trust `render.yaml` to tell you where the site comes from. Check the deployed app:
+Deploy with:
 
 ```bash
-curl -s -o /dev/null -w "%{http_code}\n" https://steady-emdr-demo.onrender.com/app/today
-# 404 => production predates the route migration, whatever main says
+git push -u origin claude/launch-status-vh6vbo          # development branch
+git checkout claude/gifted-keller-501y5d
+git merge --no-ff claude/launch-status-vh6vbo
+git push -u origin claude/gifted-keller-501y5d          # Render builds on this push
 ```
 
+This manual merge is required on every deploy until Render is repointed at `main`. That
+repoint is a Render dashboard change, not a code change, and it is worth making.
+
 ```bash
-npm run test:safety   # 636 pass
-npm run test:e2e      # 127 pass   (PLAYWRIGHT_CHROMIUM_PATH=/opt/pw-browsers/chromium)
+npm run test:safety   # 647 pass
+npm run test:e2e      # 132 pass   (PLAYWRIGHT_CHROMIUM_PATH=/opt/pw-browsers/chromium-1194/chrome-linux/chrome)
 npm run test:rls      # 12 cross-tenant attack cases against a real Postgres cluster
 npm run build         # clean
 npm run demo -- reset # seed AND rebuild the event log — see the warning below
@@ -78,19 +80,101 @@ npm run demo -- reset # seed AND rebuild the event log — see the warning below
 > the event log, and without the genesis backfill they render blank. This was a real
 > defect: every reviewer who opened a record saw three empty sections.
 
-## What was just finished
+**One known flake.** `tests/e2e/organization.spec.ts` can fail its sign-in on a cold
+server — the click lands before React hydrates and no POST is made. It passes on re-run.
+The fix is the pattern in `tests/e2e/governed-export.spec.ts`: wait for the navigation
+inside `Promise.all` rather than clicking and asserting the URL afterwards.
 
-The **Presentation Layer Handoff** (`Steady_Presentation_Layer_Handoff_v1.pdf`, §-numbers
-below refer to it) drove the last several commits, in its own §9 order:
+# ▶ GUI LAUNCH — the job, its instructions, and what is left
 
-| § | Work | Commit |
+**The job has a name: GUI launch.** It is handoff 06 carried all the way — every screen
+in the atlas, every chart contract, every presentation state, and the fabricated datasets
+that make them real rather than drawn. A screen with no rows behind it is a mockup, so
+the datasets are part of the job, not preparation for it.
+
+### Where the instructions are
+
+[`docs/handoffs/06-web-gui-analytics-and-clinical-presentation.pdf`](docs/handoffs/06-web-gui-analytics-and-clinical-presentation.pdf)
+— 101 pages. Part I (pp. 1–35) reprints handoff 05. **Part II, §24–§31 (pp. 37–101), is
+the coding annex and is the part to work from.** Pages 54–73 and 76–83 are drawn page
+examples; open them before writing a screen, because the text alone rebuilds wrong.
+
+| § | Pages | What it settles |
 |---|---|---|
-| §3 | **The member score boundary** — structural, not a filter | `6672e0d` |
-| §7 | **One type family** (Cormorant retired), 17px floor, 1.6 line-height, global reduced-motion | `dedf7eb` |
-| §8 | **Member components** — `DayCanvas`, `Horizon`, `PracticeCard`, `HistoryStrip` | `dedf7eb` |
-| — | **Navigation** — the product had none at all | `32bc951` |
-| — | **Patient directory**, separate from the caseload | `709b582` |
-| §5 | **The gate as a paced sequence** — one question per screen, resumable | `1ea82c0` |
+| §24 Expanded web and analytics | 37 | Scope of the annex |
+| §25 Visual system and information grammar | 38 | The four information layers — the rail, and why it is the same five items for every role |
+| §26 Screen atlas | **39–46** | All 80 screens, by role, with target route and primary action. Member p40, clinician p41, **organization p42**, **payer p43**, **review and administration p44**, **public site p45**, **shared access states p46** |
+| §27 Presentation architecture | 47–52 | Projection contracts, work-queue ordering, person-overview information order, clinician action and audit response |
+| §28 Worked screen examples | 53–73 | Twenty drawn pages |
+| §29 Charts | **74–83** | §29.1's nine rules (p75) and the **complete chart-screen inventory — 22 charts (p75)**. Worked chart examples pp. 76–83 |
+| §30 Data and API | 84–92 | Event/policy/projection pipeline, data domains, API boundary, permission sequence, gate architecture, the eight presentation states |
+| §31 Delivery | 93–101 | A-to-E integration, **coding waves (p95)**, definition of done (p96), test matrix (p97), acceptance (p98), **release gates (p99)**, telemetry (p100), final rules (p101) |
+
+### Where it stands
+
+**Screens — 70 of 80.** Every role that reads or writes care data is complete.
+
+| Role | Spec | Built | §26 page |
+|---|---|---|---|
+| Patient and member | 15 | **15** | 40 |
+| Clinician | 14 | **14** | 41 |
+| Organization | 9 | **9** | 42 |
+| Payer | 10 | **10** | 43 |
+| Shared access states | 8 | **8** | 46 |
+| Review and administration | 13 | 5 | 44 |
+| Public institutional site | 11 | 9 | 45 |
+
+**Charts — 15 of §29's 22 contracts** (inventory on p75).
+
+**Datasets — built and deterministic.** `npm run demo -- reset` rebuilds all of it from
+seed, and prints a baseline hash so a change to the data is visible rather than silent.
+
+| Seed | What it creates |
+|---|---|
+| `src/lib/demo-seed.ts` | The member and clinician demo — accounts, consents, sessions, check-ins, safety plans |
+| `src/lib/demo-org-seed.ts` | Northside Behavioral Health: **4,820 covered lives** across four site tenants. `persons.display_name` is NULL for all of them, so the organization drilldown is impossible rather than refused |
+| `src/lib/demo-payer-seed.ts` | Meridian Health Plan: **12,480 covered lives**, one contract with five measures, four cost-model versions, and **1,635 claims** carrying a log-normal lag around 60 days — the mechanism that makes recent months incomplete |
+
+After a reset: 17,304 persons, 7 tenants, 77,098 longitudinal events. Every figure on
+every aggregate screen is counted from that ledger; nothing is pre-aggregated.
+
+### What is NOT completed, and where to read about it
+
+Ten screens and seven charts. Each row names the page in the handoff that specifies it.
+
+| # | Not built | Read | Blocked on |
+|---|---|---|---|
+| 1 | `/review/access` — approve scoped access (role, purpose, expiry) | §26 **p44** | Nothing. This is the binding `src/lib/intelligence/scope.ts` currently fakes by resolving the single organization tenant |
+| 2 | `/review/clinical` — review language and flow; record a decision against a version | §26 **p44** | No approval record. The decision and its evidence have nowhere to be written |
+| 3 | `/review/safety` — replay fixed safety scenarios; expected versus actual, with resources | §26 **p44** | Nothing. `src/lib/safety/rule-catalog.ts` holds the rules and eight test files already replay them — this is a screen over `tests/safety-redteam.test.ts`'s ground |
+| 4 | `/review/lineage` — trace a screen statement to its source event | §26 **p44**, worked example **p71**; pipeline §30.1 **p85** | Nothing. The event ledger and projections both exist; this is the read path over them |
+| 5 | `/review/research` — approved de-identified data, consent and cohort guard | §26 **p44** | Cohort registry |
+| 6 | `/review/release` — record required sign-offs with owner, evidence and state | §26 **p44**; release gates §31.6 **p99** | A sign-off record. `autonomous_signoffs` is the nearest existing shape |
+| 7 | `/review/demo-data` — reset and verify fabricated data | §26 **p44** | Nothing. `scripts/demo.ts` already does this from the CLI |
+| 8 | `/review/status` — service health, version, degradation and the safe fallback | §26 **p44**; degraded-service state **p46** | Nothing. `/status/degraded` already exists as a shared access state |
+| 9 | `/personal` — public Steady Personal page | §26 **p45** | Naming only. Content lives at `/platform` |
+| 10 | `/intelligence` — public Steady Intelligence page | §26 **p45** | Naming only. Content lives at `/organizations` and `/payers` |
+| 11 | Clinician **measures** chart | §29 inventory **p75**, worked example **p76** | Nothing. `/clinician/member/[id]/measures` renders a table where the spec draws aligned small multiples |
+| 12 | Clinician **function and goals** chart | §29 **p75**; information order §27.4 **p51** | **A goals model.** No goal record exists in the tenancy schema |
+| 13 | Clinician **plan response** chart | §29 **p75**; §27.4 **p51** | Plan-version records to annotate against |
+| 14 | Organization **engagement** chart | §29 **p75** | Nothing. `/organization/care-delivery` has the Figure and the denominators, drawn as a list |
+| 15 | Organization **location comparison** chart | §29 **p75**; §26 **p42** | Nothing. `/organization/locations` has the rows, drawn as a table |
+| 16 | Payer **contract performance** chart | §29 **p75**; §26 **p43** | Nothing. `/payer/contract` has the data, drawn as a table |
+| 17 | Payer **data quality** chart | §29 **p75**; §26 **p43** | Nothing. `/payer/data-quality` has the data, drawn as a table |
+| 18 | **Wave 6 — hardening**: performance, accessibility, security, telemetry, export parity, disaster recovery | Waves §31.2 **p95**; acceptance §31.5 **p98**; release gates §31.6 **p99**; telemetry §31.7 **p100** | Not started |
+
+**Four need a record that does not exist yet** — rows 2, 6, 12 and 13 (a review decision,
+a sign-off, a goal, a plan version). **Everything else is presentation work over data that
+is already there**: rows 11, 14, 15, 16 and 17 render the right numbers in the wrong form,
+and rows 3, 4, 7, 8, 9 and 10 are screens over paths that already exist. Row 5 needs the
+cohort registry; row 18 is its own wave.
+
+**The cheapest real progress** is rows 14–17 — four charts over projections that already
+compute their denominators, with §29.1's guards already written and biting. Rows 9 and 10
+are a rename.
+
+**Nothing here is a broken link.** `/review` names the eight missing screens on itself
+rather than showing an empty queue, and the two public pages have reachable equivalents.
 
 ## ▶ NOW: handoff 06 — the frame, and the atlas it comes from
 
@@ -142,10 +226,12 @@ about how finished each is.
 | Public institutional site | 11 | 9 | `/personal`, `/intelligence`. Nothing links to them — the home page routes the three products to `/platform`, `/clinical`, `/organizations` and `/payers` instead — so this is a naming gap, not a broken link |
 | Shared access states | 8 | 8 | — |
 
-**§29's chart contracts — 22 chart screens specified (clinician 7, organization 7, payer
-8), of which the eight worked examples are pages 76–83.** Fifteen screens now carry at
-least one figure: clinician 3, organization 6, payer 6. §29.1's rules are no longer
-review notes — they fail the build:
+**§29's chart contracts — 22 specified on p75** (clinician 7, organization 7, payer 8),
+of which the worked examples are pages 76–83. **Fifteen are drawn**: clinician 4 of 7
+(progress overview and engagement share one presence strip; session response; safety
+timeline), organization 5 of 7, payer 6 of 8. The seven that are not are itemised in
+**GUI launch** above. §29.1's nine rules are no longer review notes — they fail the
+build:
 
 | Rule | Guard |
 |---|---|
@@ -157,9 +243,8 @@ review notes — they fail the build:
 | An estimate is never rendered as an observed value | `tests/payer-boundary.test.ts` — the modelled register is hatched and may not use the observed series colour |
 | Export matches the filter and writes an audit event | `tests/governed-export.test.ts` and `tests/e2e/governed-export.spec.ts` |
 
-Known remaining charts: the clinician's function-and-goals and plan-response screens, both
-blocked on a goals model that does not exist in the tenancy schema. The rest of the
-22-chart remainder has not been re-derived against the handoff since the payer work landed.
+The remainder is derived against p75's inventory screen by screen; see the GUI launch
+table above for which page specifies each.
 
 **Deliberately not built, and why it is not a gap:**
 
@@ -301,7 +386,7 @@ cells, and a per-group denominator. None exists here, and an equity screen
 showing only the one dimension that happened to be available would imply the
 others were examined and found unremarkable.
 
-### Waves, per §31.2
+### Waves, per §31.2 (handoff 06, **p95**)
 
 | Wave | | Status |
 |---|---|---|
@@ -309,12 +394,12 @@ others were examined and found unremarkable.
 | 1 | Presentation spine | done |
 | 2 | Member | done |
 | 3 | Clinician | done |
-| — | **The frame** (this work) | done — member, clinician and review |
+| — | **The frame** | done — member, clinician and review |
 | 4 | Aggregate — organization | done — 9 screens, real aggregates |
 | 4 | Aggregate — payer | done — 10 screens, on a real claims model |
 | — | **Governed export** | done — both aggregate consoles, six §31.4 requirements as columns |
-| 5 | Review and public | 5 of 13 review screens |
-| 6 | Hardening — performance, accessibility, security, telemetry | not started |
+| 5 | Review and public | **5 of 13 review screens, 9 of 11 public** — itemised in GUI launch above |
+| 6 | Hardening — performance, accessibility, security, telemetry, export parity, disaster recovery | **not started** — §31.5 p98, §31.6 p99, §31.7 p100 |
 
 ## ✔ DONE: handoff 05, the GUI and decision-surface work
 
