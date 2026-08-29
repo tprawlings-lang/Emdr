@@ -391,3 +391,37 @@ test("the safety timeline shows fixed gates and never a risk score", async ({ pa
     .replace(/No predictive risk score[^.]*\./g, " ");
   expect(body).not.toMatch(/\b(risk score|likelihood|probability of|predicted)\b/i);
 });
+
+test("engagement shows which days, not a rate, and never counts pre-enrolment days", async ({ page }) => {
+  await signInAsClinician(page);
+  const id = await openMemberWithSessions(page);
+  await page.goto(`/clinician/member/${id}`);
+
+  const strip = page.locator('section[aria-labelledby="engagement"]');
+  await expect(strip).toBeVisible();
+  await expect(strip.getByText("Days present, most recent last")).toBeVisible();
+
+  // Three states, each named in the legend. A day nobody could have checked in
+  // on is drawn differently from a day they skipped. Exact matching, because
+  // every cell also carries a screen-reader label using the same words —
+  // which is itself the point: the strip is readable without seeing it.
+  for (const state of ["checked in", "no check-in", "before enrolment"]) {
+    await expect(strip.getByText(state, { exact: true })).toBeVisible();
+  }
+
+  // The denominator is enrolled days, not the window.
+  await expect(strip.getByText(/of \d+ enrolled days carry a check-in/)).toBeVisible();
+
+  // No rate, no streak, no adherence framing. The screen's own disclaimers use
+  // two of those words to disown them — "not adherence", "not a compliance
+  // failure" — so they come out before the scan, or the safeguard reads as the
+  // violation. Same trap as the timeline's "No predictive risk score".
+  const text = (await strip.innerText())
+    .replace(/not a compliance failure/gi, " ")
+    .replace(/not adherence/gi, " ");
+  expect(text).not.toMatch(/\b(streak|consecutive|adherence|compliance)\b/i);
+  expect(text).not.toMatch(/\d+%/);
+
+  // And the interpretation a clinician needs before reading a gap.
+  await expect(strip.getByText(/reason to ask, not a compliance failure/)).toBeVisible();
+});

@@ -66,8 +66,8 @@ curl -s -o /dev/null -w "%{http_code}\n" https://steady-emdr-demo.onrender.com/a
 ```
 
 ```bash
-npm run test:safety   # 621 pass
-npm run test:e2e      # 121 pass   (PLAYWRIGHT_CHROMIUM_PATH=/opt/pw-browsers/chromium)
+npm run test:safety   # 625 pass
+npm run test:e2e      # 122 pass   (PLAYWRIGHT_CHROMIUM_PATH=/opt/pw-browsers/chromium)
 npm run test:rls      # 12 cross-tenant attack cases against a real Postgres cluster
 npm run build         # clean
 npm run demo -- reset # seed AND rebuild the event log — see the warning below

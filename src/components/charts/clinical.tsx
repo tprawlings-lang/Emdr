@@ -227,6 +227,96 @@ export function EventTimeline({ events }: { events: TimelineEvent[] }) {
   );
 }
 
+// ---------------------------------------------------------------------------
+// Presence strip — engagement, without a score
+// ---------------------------------------------------------------------------
+
+export interface PresenceDay {
+  date: string;
+  checkedIn: boolean;
+  session: boolean;
+  /** False before the person's record began. Drawn as absent-from-the-record
+   *  rather than as a missed day. */
+  enrolled: boolean;
+}
+
+/**
+ * One mark per day: was there a check-in, and was there a session.
+ *
+ * A grid of days rather than a rate, because the actionable thing is WHICH
+ * days and how long the silence ran. "Engaged 68%" invites a threshold and a
+ * threshold invites a rule; a nine-day gap invites a question, which is the
+ * response this surface should produce.
+ *
+ * It is deliberately not a streak. Removing check-in counts from every member
+ * surface was one of the earlier decisions in this codebase — a running total
+ * is a performance demand, and it turns a missed day into a number shown to
+ * someone on their worst week. A clinician needs to see engagement; nothing
+ * about that requires the shape that does the harm, so there is no count-up,
+ * no "best run", and no reward for consecutive days.
+ */
+export function PresenceStrip({ days }: { days: PresenceDay[] }) {
+  return (
+    <div>
+      <ol className="flex flex-wrap gap-1">
+        {days.map((d) => {
+          const label = !d.enrolled
+            ? `${d.date}: before this person's record began`
+            : d.checkedIn
+              ? d.session ? `${d.date}: check-in and session` : `${d.date}: check-in`
+              : d.session ? `${d.date}: session, no check-in` : `${d.date}: no check-in`;
+          return (
+            <li key={d.date} className="relative">
+              {/* A filled cell is a day with a check-in; an outlined one is a
+                  day without. Absence is drawn, not left as whitespace — a gap
+                  rendered as nothing reads as "no data yet" rather than as
+                  "nobody checked in". */}
+              <span
+                title={label}
+                className={`block h-6 w-6 rounded ${
+                  !d.enrolled
+                    ? "bg-ground/[0.04]"
+                    : d.checkedIn
+                      ? "bg-sage-deep"
+                      : "border border-dashed border-ground/25 bg-transparent"
+                }`}
+              />
+              {d.session && (
+                <span
+                  aria-hidden
+                  className="absolute -bottom-0.5 left-1/2 h-1.5 w-1.5 -translate-x-1/2 rounded-full"
+                  style={{ backgroundColor: "var(--color-state-info)" }}
+                />
+              )}
+              <span className="sr-only">{label}</span>
+            </li>
+          );
+        })}
+      </ol>
+
+      <p className="mt-4 flex flex-wrap gap-x-5 gap-y-1 text-xs text-olive">
+        <span className="flex items-center gap-1.5">
+          <span aria-hidden className="h-3 w-3 rounded bg-sage-deep" /> checked in
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span aria-hidden className="h-3 w-3 rounded border border-dashed border-ground/25" /> no check-in
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span aria-hidden className="h-3 w-3 rounded bg-ground/[0.06]" /> before enrolment
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span
+            aria-hidden
+            className="h-1.5 w-1.5 rounded-full"
+            style={{ backgroundColor: "var(--color-state-info)" }}
+          />
+          session that day
+        </span>
+      </p>
+    </div>
+  );
+}
+
 /** Shared frame, matching the aggregate charts' Figure. Summary and footnote
  *  are required for the same reason there: a chart with no stated window and
  *  no accessible summary is unreadable to half its audience. */

@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { ClinicalFigure, PresenceStrip } from "@/components/charts/clinical";
+import { buildEngagement } from "@/lib/clinical/engagement";
 import { notFound } from "next/navigation";
 import { requireClinician } from "@/lib/auth";
 import { data } from "@/lib/data";
@@ -83,6 +85,10 @@ export default async function PersonOverviewPage({
 
   const summary = buildSummary(timeline);
   const mine = queue.items.filter((i) => i.personId === person.id);
+  // §30.2 puts engagement in a person's current state, beside daily state,
+  // symptom and function. It sits above active work because "have they been
+  // here" changes how everything below it reads.
+  const engagement = await buildEngagement(id, tenantId);
   const head = mine[0] ?? null;
 
   return (
@@ -155,6 +161,61 @@ export default async function PersonOverviewPage({
             )}
             <p className="mt-3 text-xs text-olive">{summaryCoverageNote(summary)}</p>
           </section>
+
+          {/* ---- Engagement (§29's clinician inventory) ---- */}
+          {engagement && (
+            <section aria-labelledby="engagement">
+              <h2 id="engagement" className="type-display text-lg font-medium text-ground">
+                Engagement
+              </h2>
+              <div className="mt-3 rounded-3xl border border-ground/10 bg-linen p-5">
+                <ClinicalFigure
+                  title="Days present, most recent last"
+                  summary={`Check-in and session days across the last ${engagement.windowDays} days: ${engagement.checkedInDays} of ${engagement.availableDays} enrolled days with a check-in and ${engagement.sessionDays} with a session.`}
+                  footnote={[
+                    `Last ${engagement.windowDays} days.`,
+                    `${engagement.checkedInDays} of ${engagement.availableDays} enrolled days carry a check-in; ${engagement.sessionDays} carry a session.`,
+                    engagement.partialWindow
+                      ? `This person's record began part-way through the window, so ${engagement.availableDays} of the ${engagement.windowDays} days were available to them.`
+                      : null,
+                    "Days present, not adherence. No rate is computed and no threshold applies.",
+                  ].filter(Boolean).join(" ")}
+                >
+                  <PresenceStrip days={engagement.days} />
+
+                  <div className="mt-5 flex flex-wrap gap-x-8 gap-y-2 text-sm">
+                    <p className="text-ground">
+                      <span className="text-olive">Last check-in</span>{" "}
+                      {engagement.daysSinceCheckIn === null
+                        ? "never"
+                        : engagement.daysSinceCheckIn === 0
+                          ? "today"
+                          : `${engagement.daysSinceCheckIn} d ago`}
+                    </p>
+                    {engagement.longestGap && engagement.longestGap.days > 1 && (
+                      <p className="text-ground">
+                        <span className="text-olive">Longest gap</span>{" "}
+                        {engagement.longestGap.days} days
+                        <span className="text-olive">
+                          {" "}({engagement.longestGap.from} to {engagement.longestGap.to})
+                        </span>
+                      </p>
+                    )}
+                  </div>
+
+                  {/* The interpretive load this chart carries, said once, on
+                      the screen. A clinician reading a gap as non-compliance
+                      is the failure mode; the person least likely to check in
+                      is often the one having the hardest time. */}
+                  <p className="measure mt-4 border-t border-ground/10 pt-3 text-sm text-olive">
+                    A gap is a reason to ask, not a compliance failure. Members are asked to
+                    check in on the days they can, and the person least able to is often the
+                    one having the hardest week.
+                  </p>
+                </ClinicalFigure>
+              </div>
+            </section>
+          )}
 
           {/* ---- Active work ---- */}
           <section aria-labelledby="work">
