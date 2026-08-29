@@ -50,6 +50,38 @@ reserved ranges reaches a public page.
 
 ---
 
+## The 240 fabricated patients
+
+Every profile in the demo population is also an account, because handoff 07 p14 lists one
+per profile. A presenter can sign in as any of them to show a specific archetype from the
+inside — the safety-paused person, the access-barrier person — rather than describing it.
+
+| | |
+|---|---|
+| Address | `st-<region>-<nnn>@steady.local` — e.g. `st-ne-001@steady.local`, `st-we-060@steady.local` |
+| Regions | `ne`, `mw`, `so`, `we`, numbered 001–060 within each |
+| Password | `patient1234` — the same as the patient role |
+
+The manifest in [`../../src/lib/demo-population-manifest.ts`](../../src/lib/demo-population-manifest.ts)
+says which archetype each id carries. Useful ones to have ready:
+
+| Profile | Why |
+|---|---|
+| `st-ne-008@steady.local` | Safety pause — a fixed gate, a hold, and a bounded re-entry |
+| `st-ne-007@steady.local` | Access barrier — missed activity that is scheduling, not disengagement |
+| `st-ne-001@steady.local` | Early response — high engagement, early observed improvement |
+| `st-ne-004@steady.local` | No change — regular use, no material measure movement |
+| `st-mw-013@steady.local` | Late-arrival edge case: recorded 74 days after it occurred (an Early-response profile otherwise) |
+| `st-so-021@steady.local` | Partial measure: four of nine items answered, so no total can be scored (a Sporadic-use profile otherwise) |
+| `st-we-044@steady.local` | Revoked consent, recorded on the row *and* as an event — this one is also a Safety pause, so it carries both |
+
+These are 240 more credentials, and they are deliberate rather than incidental: the
+environment contains no PHI, every person in it is invented, and the alternative — accounts
+nobody can open — would mean an archetype can be described but never shown. They must never
+be reused outside this demo.
+
+---
+
 ## What each role cannot reach
 
 The interesting half at a demonstration, and the half a reviewer should test. Each of these

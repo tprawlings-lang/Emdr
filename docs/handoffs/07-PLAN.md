@@ -136,6 +136,25 @@ from quiet edits. **Decision: a `policy_thresholds` table with owner, approval d
 version — not a `const` in a rules file.** A threshold changed without a recorded owner is
 the failure this row exists to prevent.
 
+### Decisions confirmed with the author
+
+Answered 2026-08-29, so they are settled rather than assumed. Recorded here because
+the next person to read this plan will otherwise re-open all three.
+
+| # | Question | Decision |
+|---|---|---|
+| A1 | The demo clinician has no panel over the 240 — they sit in the platform tenant with Alex and Sam, while the 240 live in eight organization tenants under twelve clinician *persons* with no logins. | **`clinician.demo@steady.local` becomes NE-C1**, inside NE Care Network A, and Alex and Sam move with them. One account, one tenant, a real panel of roughly forty of the 240 plus the two narrative personas. The alternative — a cross-tenant panel — was rejected: it would break the tenant scoping every other guard in the project enforces, leaving §30.6's boundary in place only for the aggregate roles. |
+| A2 | The 240 were made sign-in-able (`st-<region>-<nnn>@steady.local`, patient password) so a presenter can open a specific archetype from the inside. | **Kept.** p14 lists "1 account" per profile, the environment holds no PHI, and the password is already documented. The address pattern is now named in the logins document rather than left to be discovered. |
+| A3 | p15 prints `"seed": 100217` for `ST-WE-017` and no rule in the handoff derives it. | **No rule existed** — it was an illustrative value in a sample JSON blob. The formula in `demo-population-manifest.ts` stands: region offset (NE 100 000, MW 200 000, SO 300 000, WE 400 000) plus the row number, documented in place. |
+
+**Still needed from a human, and not yet:**
+
+- **Who owns the planning thresholds** (D5). p34 requires a named owner and an approval date
+  before any rule may fire, so this is needed *before* Wave 6, not during it.
+- **Whether the 240 get a nightly reset in the deployed demo, and on whose clock** (Wave 8).
+  A reset currently takes about 12 seconds against p29's 120-second target, so the constraint
+  is scheduling rather than duration.
+
 ---
 
 ## Build order
