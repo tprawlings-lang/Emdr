@@ -55,6 +55,7 @@ export const DEMO_DATA_TABLES = [
   // Payer domain first: claims reference persons, and contract measures
   // reference their contract. Ordered for, not disabled — a mistake in this
   // list fails loudly instead of leaving orphans.
+  "export_jobs",
   "claims",
   "cost_model_versions",
   "contract_measures",

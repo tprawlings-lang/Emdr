@@ -84,7 +84,14 @@ test("no person-scoped table escapes the tenant list", () => {
   for (const t of tables) {
     if (spine.has(t) || (TENANT_SCOPED_TABLES as readonly string[]).includes(t)) continue;
     const cols = (db.prepare(`PRAGMA table_info(${t})`).all() as { name: string }[]).map((c) => c.name);
-    if (cols.includes("user_id") || cols.includes("person_id")) undeclared.push(t);
+    if (cols.includes("user_id") || cols.includes("person_id")) { undeclared.push(t); continue; }
+    // A column NAME is a weak test, and it let one through: export_jobs points
+    // at a person via `requested_by`, so the guard read it as impersonal and
+    // said nothing. What makes a table person-scoped is the REFERENCE, not
+    // what the column is called — so ask the schema instead of the naming
+    // convention.
+    const fks = db.prepare(`PRAGMA foreign_key_list(${t})`).all() as { table: string }[];
+    if (fks.some((f) => f.table === "users" || f.table === "persons")) undeclared.push(t);
   }
   assert.deepEqual(undeclared, [], `person-scoped but not tenant-declared: ${undeclared.join(", ")}`);
 });
