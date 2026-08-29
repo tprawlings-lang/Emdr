@@ -143,19 +143,36 @@ export function Note({
   title,
   children,
   boundary,
+  owner,
+  due,
 }: {
   tone?: Tone;
   title: string;
   children?: ReactNode;
   /** What this panel does NOT establish. Required by design. */
   boundary: string;
+  /** Who is accountable for acting on this. §26's organization purpose is
+   *  "see network change AND ACCOUNTABLE ACTION", and the page examples end
+   *  every one of these cards with an owner and a due date. A finding with no
+   *  owner is a fact nobody is responsible for, which is how an operations
+   *  screen becomes wallpaper. */
+  owner?: string;
+  due?: string;
 }) {
   const t = TONE[tone];
   return (
     <div className={`flex h-full flex-col rounded-2xl ${t.bg} px-5 py-5`}>
       <h2 className={`text-sm font-semibold ${t.fg}`}>{title}</h2>
       {children && <div className="mt-3 text-sm text-ground">{children}</div>}
-      <p className="mt-auto pt-6 text-xs text-ground/80">{boundary}</p>
+      <div className="mt-auto pt-6">
+        {(owner || due) && (
+          <p className="mb-2 text-xs text-ground">
+            {owner && <span className="block"><span className="font-medium">Owner:</span> {owner}</span>}
+            {due && <span className="block"><span className="font-medium">Due:</span> {due}</span>}
+          </p>
+        )}
+        <p className="text-xs text-ground/80">{boundary}</p>
+      </div>
     </div>
   );
 }

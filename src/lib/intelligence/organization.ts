@@ -3,7 +3,7 @@ import {
   ready, partial, empty, type Envelope, type ProjectionMeta,
 } from "@/lib/presentation/envelope";
 import { CLINICAL_POLICY_VERSION } from "@/lib/clinical-policy";
-import type { Count } from "@/components/charts/aggregate";
+import { SMALL_CELL, type Count } from "@/components/charts/aggregate";
 
 // Organization projections (§26's nine screens, §30.3's projection services).
 //
@@ -223,6 +223,73 @@ export async function buildOrgOverview(orgTenantId: string): Promise<Envelope<Or
     measureCoverage: { n: measured, of: started },
     funnel,
     changed,
+  }));
+}
+
+// ---------------------------------------------------------------------------
+// org_header.v2 — the standing three, on every organization screen
+// ---------------------------------------------------------------------------
+
+export interface OrgHeader {
+  firstContactDays: number | null;
+  /** The same measure one window earlier. §29.1's range rule asks for a
+   *  baseline or comparison anchor, and the mockups put it directly under the
+   *  value: "2.6 days" over "3.0 down". A number with nothing to compare it to
+   *  cannot be acted on, which is what makes it decoration. */
+  firstContactPrior: number | null;
+  engaged: Count;
+  measureCoverage: Count;
+  generatedAt: string;
+}
+
+/** Median days from referral to first contact, for referrals inside a window.
+ *  `sinceDays`/`untilDays` are days ago, so (365, 90) is "the year up to three
+ *  months ago" — the comparison period. */
+async function medianFirstContact(
+  ids: string[], sinceDays: number, untilDays: number,
+): Promise<number | null> {
+  const c = await data();
+  const rows = (await c.all(
+    `SELECT CAST(julianday(mad.occurred_at) - julianday(ref.occurred_at) AS REAL) AS d
+       FROM longitudinal_events ref
+       JOIN longitudinal_events mad
+         ON mad.person_id = ref.person_id AND mad.event_type = 'contact.made'
+      WHERE ref.event_type = 'referral.received'
+        AND ref.tenant_id IN (${ids.map(() => "?").join(",")})
+        AND ref.occurred_at >= datetime('now', ?)
+        AND ref.occurred_at <  datetime('now', ?)`,
+    [...ids, `-${sinceDays} days`, `-${untilDays} days`],
+  )) as { d: number | null }[];
+  const v = rows.map((r) => r.d).filter((d): d is number => d !== null && d >= 0).sort((a, b) => a - b);
+  // Below the suppression threshold there is no median to report, not a
+  // median computed from four people.
+  if (v.length < SMALL_CELL) return null;
+  return Math.round(v[Math.floor(v.length / 2)] * 10) / 10;
+}
+
+/**
+ * The three numbers that stand above every organization screen.
+ *
+ * They are a HEADER rather than the overview's content: every one of the
+ * organization page examples carries the same three, because a capacity chart
+ * read without knowing the network's engagement is a chart about nothing. This
+ * is §30.5's StateHeader — "shows current state without interpreting missing
+ * values" — for this role.
+ */
+export async function buildOrgHeader(orgTenantId: string): Promise<Envelope<OrgHeader>> {
+  const ids = await scopeIds(orgTenantId);
+  const m = meta(orgTenantId, await watermark(ids), "org_header.v2");
+
+  const pop = await population(ids);
+  if (pop === 0) return empty(m, "No covered population is enrolled for this organization.");
+
+  const started = await reach(ids, "care.started");
+  return ready(m, assertAggregate<OrgHeader>({
+    firstContactDays: await medianFirstContact(ids, 90, 0),
+    firstContactPrior: await medianFirstContact(ids, 180, 90),
+    engaged: { n: started, of: pop },
+    measureCoverage: { n: await reach(ids, "coverage.measure_recorded"), of: started },
+    generatedAt: m.generatedAt,
   }));
 }
 

@@ -2,6 +2,11 @@ import Link from "next/link";
 import { AppShell, type RailSlug } from "@/components/app/AppShell";
 import { ORGANIZATION_RAIL } from "@/lib/app/rails";
 import { logout } from "@/lib/actions";
+import { SummaryCards } from "@/components/app/surfaces";
+import { pct } from "@/components/charts/aggregate";
+import { buildOrgHeader } from "@/lib/intelligence/organization";
+import { resolveOrgTenant } from "@/lib/intelligence/scope";
+import { hasData } from "@/lib/presentation/envelope";
 
 // The organization console shell (§26's nine-screen atlas, §28's frame).
 //
@@ -46,6 +51,61 @@ function LayerNav({ layer, here }: { layer: RailSlug; here?: string }) {
   );
 }
 
+/**
+ * The standing three, above every organization screen.
+ *
+ * Every one of the organization page examples carries the same three numbers —
+ * first contact, engaged, measure coverage — regardless of what the screen
+ * below them is about. That is deliberate and it is the shell's job rather
+ * than each page's: a capacity chart read without knowing the network's
+ * engagement is a chart about nothing, and a header each screen opts into is a
+ * header two screens will forget.
+ *
+ * It renders nothing at all when the projection has no data, rather than three
+ * cards of dashes. §30.8's empty state belongs to the screen's own content,
+ * where it can say why.
+ */
+async function StandingHeader() {
+  const tenantId = await resolveOrgTenant();
+  if (!tenantId) return null;
+  const envelope = await buildOrgHeader(tenantId);
+  if (!hasData(envelope)) return null;
+  const h = envelope.data;
+
+  return (
+    <div className="mb-6">
+      <SummaryCards
+        cards={[
+          {
+            label: "First contact",
+            value: h.firstContactDays === null ? "Not enough contacts" : `${h.firstContactDays} days`,
+            // The comparison anchor §29.1 asks for, and the page examples put
+            // directly under the value. A duration with nothing to compare it
+            // to cannot be acted on.
+            detail:
+              h.firstContactDays === null || h.firstContactPrior === null
+                ? "no comparable prior period"
+                : `${h.firstContactPrior} days in the prior 90, ${
+                    h.firstContactDays === h.firstContactPrior
+                      ? "unchanged"
+                      : h.firstContactDays < h.firstContactPrior
+                        ? "down"
+                        : "up"
+                  }`,
+          },
+          { label: "Engaged", value: pct(h.engaged), detail: "of covered lives, started care" },
+          { label: "Measure coverage", value: pct(h.measureCoverage), detail: "of people who started care" },
+        ]}
+      />
+      {/* §29.1's range rule: the refresh time is visible on a READY screen, not
+          only inside a state notice when something has gone wrong. */}
+      <p className="mt-2 text-xs text-olive">
+        Last 90 days against the 90 before it · computed {h.generatedAt} · aggregate only
+      </p>
+    </div>
+  );
+}
+
 export function OrgPage({
   title, lede, layer, here, children, aside,
 }: {
@@ -71,6 +131,7 @@ export function OrgPage({
     >
       <LayerNav layer={layer} here={here} />
       {lede && <p className="measure -mt-2 mb-6 text-olive">{lede}</p>}
+      <StandingHeader />
       {children}
     </AppShell>
   );

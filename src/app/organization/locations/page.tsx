@@ -41,6 +41,7 @@ export default async function OrgLocationsPage() {
                 <Note
                   tone="info"
                   title="Reading this table"
+                  owner="Not assigned — no owner record exists for a site comparison"
                   boundary="Site differences are not explained here. Case mix, referral source and staffing all differ between sites and none of them is in this table."
                 >
                   <p>
