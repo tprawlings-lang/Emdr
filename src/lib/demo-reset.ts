@@ -56,6 +56,8 @@ export const DEMO_DATA_TABLES = [
   // reference their contract. Ordered for, not disabled — a mistake in this
   // list fails loudly instead of leaving orphans.
   "export_jobs",
+  // Before persons: person_attributes references them.
+  "person_attributes",
   "claims",
   "cost_model_versions",
   "contract_measures",
