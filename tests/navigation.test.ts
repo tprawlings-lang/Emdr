@@ -100,7 +100,12 @@ test("every member surface carries the nav", () => {
     "app/today", "app/paths", "app/ground", "app/learn", "app/activities",
     "app/companion", "app/measures", "app/check-in",
   ];
-  const missing = ROUTES.filter((r) => !/MemberNav/.test(read(path.join(APP, r, "page.tsx"))));
+  // Either shell provides the way out. The app shell (the handoff's own frame)
+  // is replacing MemberNav screen by screen; what must not change is that no
+  // member surface is a dead end.
+  const missing = ROUTES.filter(
+    (r) => !/MemberNav|AppShell/.test(read(path.join(APP, r, "page.tsx")))
+  );
   assert.deepEqual(missing, [],
     `these member surfaces have no navigation: ${missing.join(", ")}. ` +
     "A screen a member cannot leave is a dead end.");

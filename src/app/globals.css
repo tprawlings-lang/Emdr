@@ -55,6 +55,22 @@
   --color-state-unknown: #545e53;
   --color-state-unknown-bg: #ece9e2;
 
+  /* APP SHELL (Web GUI handoff, the 20 page examples).
+     
+     Sampled from the mockups rather than guessed. Every one of the 20 page
+     examples uses the same frame: an ivory page, a near-white app surface
+     inside a rounded border, a pale rail on the left, and one deep green for
+     the wordmark, the avatar and the primary action.
+     
+     Note the bar is LIGHT. It reads as dark at a glance because the wordmark
+     and the avatar are dark on it, which is worth writing down because it is
+     the thing that gets rebuilt wrong from memory. */
+  --color-app-surface: #fffdf8;  /* the app's own ground, inside the frame */
+  --color-app-rail: #edf2ec;     /* the left navigation panel */
+  --color-app-accent: #dfe9e2;   /* selected scale step, soft fill */
+  --color-app-ink: #173a32;      /* wordmark, avatar, primary action */
+  --color-app-flag: #f3e3d0;     /* the FABRICATED pill */
+
   /* ONE FAMILY, TWO OPTICAL ROLES (Presentation Layer Handoff §7).
      
      Steady previously ran Inter for body and Cormorant Garamond for headings —

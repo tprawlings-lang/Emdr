@@ -1,4 +1,5 @@
-import { MemberNav } from "@/components/member/MemberNav";
+import { AppShell } from "@/components/app/AppShell";
+import { MEMBER_RAIL } from "@/lib/member/rail";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { requireMember } from "@/lib/auth";
@@ -16,22 +17,24 @@ function ScaleInput({
   low: string;
   high: string;
 }) {
+  // Six steps, not eleven. The mockup draws wide bordered boxes with the ends
+  // named inside them — "0 calm" through "8 intense" — and that is a different
+  // instrument from eleven small circles: a position on a labelled range
+  // rather than a score out of ten. It is also reachable with an imprecise
+  // tap, which is the point on a screen someone opens at 2am.
+  const STEPS = [0, 2, 4, 6, 8, 10];
   return (
     <div>
-      <div className="flex flex-wrap gap-1.5">
-        {Array.from({ length: 11 }, (_, v) => (
+      <div className="flex flex-wrap gap-2">
+        {STEPS.map((v, i) => (
           <label
             key={v}
-            className="flex h-10 w-10 cursor-pointer items-center justify-center rounded-full border border-ground/15 bg-linen text-sm transition-colors hover:bg-moss has-checked:border-clay has-checked:bg-clay has-checked:font-semibold"
+            className="flex min-w-20 flex-1 cursor-pointer items-center justify-center rounded-xl border border-ground/15 bg-app-surface px-3 py-3.5 text-sm transition-colors hover:bg-app-accent/50 has-checked:border-app-ink/30 has-checked:bg-app-accent has-checked:font-semibold"
           >
             <input type="radio" name={name} value={v} required className="sr-only" />
-            {v}
+            {i === 0 ? `${v} ${low}` : i === STEPS.length - 1 ? `${v} ${high}` : v}
           </label>
         ))}
-      </div>
-      <div className="mt-1.5 flex justify-between text-xs text-olive">
-        <span>{low}</span>
-        <span>{high}</span>
       </div>
     </div>
   );
@@ -63,16 +66,13 @@ export default async function CheckinPage() {
   const triggers = await getActiveTriggers(user.id);
 
   return (
-    <>
-      <MemberNav />
-      <main className="mx-auto max-w-2xl px-6 py-12">
-      <div className="flex items-center justify-between">
-        <h1 className="type-identity text-4xl font-medium">Daily check-in</h1>
-        <Link href="/crisis" className="text-sm font-semibold text-ground underline">
-          Need help now?
-        </Link>
-      </div>
-      <p className="mt-2 text-sm text-olive">
+    <AppShell
+      role="Patient or member"
+      title="Daily check-in"
+      active="overview"
+      railHref={MEMBER_RAIL}
+    >
+      <p className="measure text-olive">
         Under 90 seconds. Your answers shape today&apos;s safest next step — honest answers keep
         sessions safe. There are no wrong answers.
       </p>
@@ -80,12 +80,12 @@ export default async function CheckinPage() {
       <form action={submitCheckin} className="mt-10 space-y-8">
         <fieldset className="space-y-2.5">
           <legend className="font-medium">How activated do you feel right now?</legend>
-          <ScaleInput name="activation" low="Completely calm" high="Extremely activated" />
+          <ScaleInput name="activation" low="calm" high="intense" />
         </fieldset>
 
         <fieldset className="space-y-2.5">
           <legend className="font-medium">How down or shut down do you feel?</legend>
-          <ScaleInput name="shutdown" low="Not at all" high="Completely shut down" />
+          <ScaleInput name="shutdown" low="not at all" high="shut down" />
         </fieldset>
 
         <fieldset className="space-y-2.5 rounded-3xl border border-ground/10 bg-linen p-5 shadow-soft">
@@ -102,12 +102,12 @@ export default async function CheckinPage() {
           <legend className="font-medium">
             Do you feel unreal, numb, or disconnected right now?
           </legend>
-          <ScaleInput name="dissociation" low="Fully present" high="Very disconnected" />
+          <ScaleInput name="dissociation" low="present" high="disconnected" />
         </fieldset>
 
         <fieldset className="space-y-2.5">
           <legend className="font-medium">How did you sleep?</legend>
-          <ScaleInput name="sleep_quality" low="Terribly" high="Very well" />
+          <ScaleInput name="sleep_quality" low="badly" high="well" />
         </fieldset>
 
         <fieldset className="space-y-2.5 rounded-3xl border border-ground/10 bg-linen p-5 shadow-soft">
@@ -136,14 +136,25 @@ export default async function CheckinPage() {
           </fieldset>
         )}
 
-        <button
-          type="submit"
-          className="w-full rounded-full bg-sage px-6 py-3.5 font-medium text-ground transition-colors hover:bg-sage-deep"
-        >
-          See today&apos;s gentle next step
-        </button>
+        {/* The mockup pairs a filled Continue with an outlined Pause. Pause is
+            a peer of Continue, not an escape hatch styled to be avoided:
+            stopping a check-in partway is a legitimate outcome, and §26 lists
+            "Continue or pause" as this screen's primary action. */}
+        <div className="flex flex-wrap gap-3">
+          <button
+            type="submit"
+            className="rounded-full bg-app-ink px-7 py-3.5 font-medium text-app-surface transition-opacity hover:opacity-90"
+          >
+            Continue
+          </button>
+          <Link
+            href="/app/today"
+            className="rounded-full border border-ground/25 px-7 py-3.5 font-medium text-app-ink transition-colors hover:bg-app-accent/50"
+          >
+            Pause
+          </Link>
+        </div>
       </form>
-    </main>
-    </>
+    </AppShell>
   );
 }
