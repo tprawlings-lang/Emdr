@@ -39,8 +39,20 @@ live work.
 
 ## Where the work is
 
-Three branches are identical and pushed: `claude/launch-status-vh6vbo` (designated),
-`main`, `claude/gifted-keller-501y5d` (Render deploy).
+Two branches, identical and pushed: `claude/launch-status-vh6vbo` (the designated
+development branch) and `main`.
+
+**`main` is what the site serves.** `render.yaml` sets `branch: main`, so nothing reaches
+the deployed site until `main` moves — and work sitting on the development branch looks,
+from a browser, exactly like work that was never done. This has now caused the same
+confusion twice. Deploy with:
+
+```bash
+git push origin claude/launch-status-vh6vbo:main   # fast-forward; Render builds on push
+```
+
+`claude/gifted-keller-501y5d` was listed here as "the Render deploy" branch. It is not,
+and never was — it is stale at `3071750` and nothing points at it.
 
 ```bash
 npm run test:safety   # 594 pass
