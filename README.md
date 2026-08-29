@@ -22,9 +22,12 @@ just opened this repository" to "I am doing the next useful thing."
 datasets. Its status, its instructions and everything still owed are in the **GUI launch**
 section immediately below this one. Start there.
 
-**The job after it is handoff 07** — a role-selectable demo login, 240 fabricated
-longitudinal patients across the four U.S. Census regions, and a deterministic planning
-engine. Not started. The specification is
+**Handoff 07 has started.** Its **Wave 1 is done**: six demo roles, one account and one
+password each, and the boundary between the organization and payer consoles enforced rather
+than commented. **All demo logins are in
+[`docs/demo/demo-logins.md`](docs/demo/demo-logins.md)** — start there to sign in as
+anyone. Waves 2–8 (the 240-patient population and the planning engine) are open. The
+specification is
 [`docs/handoffs/07-demo-login-synthetic-population-and-planning-engine.pdf`](docs/handoffs/07-demo-login-synthetic-population-and-planning-engine.pdf)
 and the plan — including its Wave 0 gap list, the eleven subsystems it must **reuse rather
 than rebuild**, and five decisions the PDF leaves open — is
@@ -77,8 +80,8 @@ This manual merge is required on every deploy until Render is repointed at `main
 repoint is a Render dashboard change, not a code change, and it is worth making.
 
 ```bash
-npm run test:safety   # 647 pass
-npm run test:e2e      # 132 pass   (PLAYWRIGHT_CHROMIUM_PATH=/opt/pw-browsers/chromium-1194/chrome-linux/chrome)
+npm run test:safety   # 660 pass
+npm run test:e2e      # 142 pass   (PLAYWRIGHT_CHROMIUM_PATH=/opt/pw-browsers/chromium-1194/chrome-linux/chrome)
 npm run test:rls      # 12 cross-tenant attack cases against a real Postgres cluster
 npm run build         # clean
 npm run demo -- reset # seed AND rebuild the event log — see the warning below
@@ -89,10 +92,13 @@ npm run demo -- reset # seed AND rebuild the event log — see the warning below
 > the event log, and without the genesis backfill they render blank. This was a real
 > defect: every reviewer who opened a record saw three empty sections.
 
-**One known flake.** `tests/e2e/organization.spec.ts` can fail its sign-in on a cold
-server — the click lands before React hydrates and no POST is made. It passes on re-run.
-The fix is the pattern in `tests/e2e/governed-export.spec.ts`: wait for the navigation
-inside `Promise.all` rather than clicking and asserting the URL afterwards.
+**The suite is stable.** Three flakes were diagnosed and fixed during handoff 07's Wave 1,
+each of which had been read as "cold server" and re-run: a sign-in that asserted the URL
+instead of waiting on the navigation; a gate test that required `/app/today` when Sam's
+intake state legitimately routes onward, so the same correct behaviour landed on two URLs
+depending on which specs ran first; and a `getByText` that matched both the shell's role
+label and Next's route announcer, failing strict mode only when the assertion happened to
+run inside that moment. Three consecutive full runs are green.
 
 # ▶ GUI LAUNCH — the job, its instructions, and what is left
 
@@ -285,9 +291,11 @@ table above for which page specifies each.
 
 ### Steady Intelligence — the organization role
 
-Sign in as **operations@example.com / demo1234**. It is an `admin` account,
-which in this codebase means an AGGREGATE role: it reads a population and it
-cannot reach a person. `/clinician/*` and `/app/*` both bounce it back.
+Sign in as **org.demo@steady.local / org1234**. It holds the `organization`
+role — an AGGREGATE role: it reads a population and cannot reach a person.
+`/clinician/*` and `/app/*` both bounce it back, and so does `/payer/*`: the
+two aggregate consoles are separate accounts since handoff 07's Wave 1, and
+until then one `admin` role opened both.
 
 **The population is real rows, not stored totals.** `src/lib/demo-org-seed.ts`
 seeds a fabricated organization — 4,820 covered lives across four sites, under
@@ -1454,7 +1462,8 @@ seeded dataset and the demo-only roadmap strip are visible. Sign in as the membe
 see the Premium dashboard with the Autopilot plan as its centerpiece.
 
 **Demo accounts** (seeded on first run, development only):
-Member `demo@example.com` / `demo1234` · Clinician `clinician@example.com` / `demo1234`.
+All six demo logins, with what each role can and cannot reach:
+[`docs/demo/demo-logins.md`](docs/demo/demo-logins.md).
 With `EMDR_DEMO=1` a rich fictional dataset seeds instead (Alex pays for **Premium** —
 so the Autopilot plan renders — and Sam is mid **Premium trial** with billing set to
 start on Plus).

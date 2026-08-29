@@ -22,7 +22,15 @@ import Link from "next/link";
 // avatar sit on it in deep green, and that is exactly the detail that gets
 // rebuilt wrong from memory.
 
-export type ShellRole = "Patient or member" | "Steady Clinical" | "Steady Intelligence" | "Steady Review";
+export type ShellRole =
+  | "Patient or member"
+  | "Steady Clinical"
+  | "Steady Intelligence"
+  | "Steady Review"
+  // Handoff 07 p9's control centre. Named for what it administers rather than
+  // what it is capable of: this role is broad only inside the fabricated
+  // environment, and the label is the first place that has to say so.
+  | "Steady Demo";
 
 /** §25's information layers, in the order the mockups draw them. */
 export const RAIL = [
@@ -63,8 +71,15 @@ export function AppShell({
   return (
     <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-10">
       <div className="overflow-hidden rounded-3xl border border-ground/10 bg-app-surface shadow-soft">
-        {/* The bar. */}
-        <div className="flex flex-wrap items-center gap-3 border-b border-ground/10 px-5 py-4 sm:px-7">
+        {/* The bar.
+            
+            A <header> rather than a <div>: the shell already gives the content
+            column a <main> landmark and the rail a <nav>, and the bar was the
+            one region with no landmark at all — so a screen-reader user could
+            jump to the content and the navigation but had no way to reach the
+            role label or the FABRICATED flag. Those are exactly the two things
+            this frame exists to keep on screen. */}
+        <header className="flex flex-wrap items-center gap-3 border-b border-ground/10 px-5 py-4 sm:px-7">
           <Link href="/" className="type-identity text-2xl font-semibold text-app-ink">
             Steady
           </Link>
@@ -87,7 +102,7 @@ export function AppShell({
               <span aria-hidden className="h-8 w-8 shrink-0 rounded-full bg-app-ink" />
             )}
           </div>
-        </div>
+        </header>
 
         <div className="flex flex-col sm:flex-row">
           {/* The rail. */}

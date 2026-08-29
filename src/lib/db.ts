@@ -2,7 +2,7 @@ import Database from "better-sqlite3";
 import path from "path";
 import fs from "fs";
 import crypto from "crypto";
-import { seedDemoData, demoId } from "./demo-seed";
+import { seedDemoData, demoId, demoPassword } from "./demo-seed";
 import { seedOrgData } from "./demo-org-seed";
 import { seedPayerData } from "./demo-payer-seed";
 import { ulid, NIL_ULID, ulidFrom } from "./ids";
@@ -51,7 +51,7 @@ export function getDb(): Database.Database {
 function refreshDemoDaily(db: Database.Database) {
   if (process.env.EMDR_DEMO !== "1") return;
   const today = new Date().toISOString().slice(0, 10);
-  for (const email of ["demo@example.com", "demo2@example.com"]) {
+  for (const email of ["patient.demo@steady.local", "patient2.demo@steady.local"]) {
     const m = db.prepare("SELECT id FROM users WHERE email = ?").get(email) as { id: string } | undefined;
     if (!m) continue;
     const has = db.prepare("SELECT 1 FROM checkins WHERE user_id = ? AND checkin_date = ?").get(m.id, today);
@@ -72,7 +72,7 @@ function migrate(db: Database.Database) {
     id TEXT PRIMARY KEY,
     email TEXT UNIQUE NOT NULL,
     name TEXT NOT NULL,
-    role TEXT NOT NULL CHECK (role IN ('member','clinician','admin')),
+    role TEXT NOT NULL CHECK (role IN ('member','clinician','reviewer','organization','payer','demo_admin')),
     password_hash TEXT NOT NULL,
     status TEXT NOT NULL DEFAULT 'active',
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
@@ -515,7 +515,7 @@ function migrate(db: Database.Database) {
     id TEXT PRIMARY KEY,
     person_id TEXT NOT NULL REFERENCES persons(id),
     tenant_id TEXT NOT NULL REFERENCES tenants(id),
-    role TEXT NOT NULL CHECK (role IN ('member','clinician','care_manager','admin')),
+    role TEXT NOT NULL CHECK (role IN ('member','clinician','care_manager','reviewer','organization','payer','demo_admin')),
     scope TEXT,
     effective_from TEXT NOT NULL DEFAULT (datetime('now')),
     effective_to TEXT,
@@ -738,6 +738,19 @@ function migrate(db: Database.Database) {
   // user ("sign out everywhere" / password change). See auth.ts.
   ensureColumn(db, "users", "token_epoch", "INTEGER NOT NULL DEFAULT 0");
 
+  // ── The six demo roles (handoff 07 §1.2, p6) ─────────────────────────────
+  //
+  // `admin` is retired. In this codebase it meant the AGGREGATE reporting role
+  // — it read a population and could reach no person — and it served the
+  // organization AND payer consoles from one account. Handoff 07 needs those
+  // separated, and uses "Demo Admin" for something close to the opposite:
+  // visibility over every fabricated tenant, person and event.
+  //
+  // Keeping the name would have left the most dangerous ambiguity in the
+  // project sitting in a CHECK constraint, so it goes. Existing `admin` rows
+  // become `organization`, which is what the one seeded account actually was.
+  widenRoleCheck(db);
+
   // ── Tenancy backfill (ADR 0011 steps 1–2) ────────────────────────────────
   // Every durable record carries a tenant, not just the ones where it seems
   // relevant — so isolation is a single invariant rather than a per-table
@@ -837,6 +850,109 @@ function backfillIdentitySpine(db: Database.Database) {
   })();
 }
 
+/**
+ * Widen the role CHECK constraints, and migrate `admin` rows.
+ *
+ * SQLite cannot alter a CHECK constraint, so this is the documented twelve-step
+ * table rebuild, narrowed to what is needed. It runs only when the stored
+ * schema does not already mention a new role, so it is a no-op on every boot
+ * after the first.
+ *
+ * Foreign keys are disabled around it because `users` is referenced by roughly
+ * thirty tables and the swap would otherwise be rejected mid-flight. The
+ * pragma cannot be changed inside a transaction, which is why the ordering
+ * below is exact rather than tidy: pragma off, transaction, rebuild, verify,
+ * commit, pragma on. `foreign_key_check` inside the transaction is what makes
+ * the disabling safe — a rebuild that orphaned a row fails here rather than
+ * silently.
+ */
+function widenRoleCheck(db: Database.Database) {
+  const sqlOf = (t: string): string => {
+    const row = db.prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name = ?").get(t) as
+      | { sql: string } | undefined;
+    return row?.sql ?? "";
+  };
+  // "demo_admin" appears only in the widened constraint. Its presence is the
+  // migration's own idempotence check.
+  const usersStale = sqlOf("users") !== "" && !sqlOf("users").includes("demo_admin");
+  const rolesStale = sqlOf("role_assignments") !== "" && !sqlOf("role_assignments").includes("demo_admin");
+  if (!usersStale && !rolesStale) return;
+
+  db.pragma("foreign_keys = OFF");
+  try {
+    db.transaction(() => {
+      if (usersStale) {
+        const cols = (db.prepare("PRAGMA table_info(users)").all() as { name: string }[])
+          .map((c) => c.name);
+        db.exec(`
+          CREATE TABLE users_rebuild (
+            id TEXT PRIMARY KEY,
+            email TEXT UNIQUE NOT NULL,
+            name TEXT NOT NULL,
+            role TEXT NOT NULL CHECK (role IN ('member','clinician','reviewer','organization','payer','demo_admin')),
+            password_hash TEXT NOT NULL,
+            status TEXT NOT NULL DEFAULT 'active',
+            created_at TEXT NOT NULL DEFAULT (datetime('now')),
+            dob TEXT,
+            token_epoch INTEGER NOT NULL DEFAULT 0,
+            tenant_id TEXT NOT NULL DEFAULT '${PLATFORM_TENANT_ID}'
+          );
+        `);
+        // Copy only the columns that exist on both sides, so a database from
+        // before any given ensureColumn still migrates.
+        const shared = ["id", "email", "name", "role", "password_hash", "status",
+                        "created_at", "dob", "token_epoch", "tenant_id"]
+          .filter((c) => cols.includes(c));
+        // The role rewrite happens here, in the copy, rather than as a later
+        // UPDATE — an UPDATE would have to run against the NEW constraint,
+        // which no longer admits the value it is trying to read.
+        const select = shared
+          .map((c) => (c === "role" ? "CASE role WHEN 'admin' THEN 'organization' ELSE role END AS role" : c))
+          .join(", ");
+        db.exec(`INSERT INTO users_rebuild (${shared.join(", ")}) SELECT ${select} FROM users`);
+        db.exec("DROP TABLE users");
+        db.exec("ALTER TABLE users_rebuild RENAME TO users");
+      }
+
+      if (rolesStale) {
+        db.exec(`
+          CREATE TABLE role_assignments_rebuild (
+            id TEXT PRIMARY KEY,
+            person_id TEXT NOT NULL REFERENCES persons(id),
+            tenant_id TEXT NOT NULL REFERENCES tenants(id),
+            role TEXT NOT NULL CHECK (role IN ('member','clinician','care_manager','reviewer','organization','payer','demo_admin')),
+            scope TEXT,
+            effective_from TEXT NOT NULL DEFAULT (datetime('now')),
+            effective_to TEXT,
+            created_at TEXT NOT NULL DEFAULT (datetime('now')),
+            UNIQUE(person_id, tenant_id, role)
+          );
+          INSERT INTO role_assignments_rebuild
+            (id, person_id, tenant_id, role, scope, effective_from, effective_to, created_at)
+            SELECT id, person_id, tenant_id,
+                   CASE role WHEN 'admin' THEN 'organization' ELSE role END,
+                   scope, effective_from, effective_to, created_at
+              FROM role_assignments;
+          DROP TABLE role_assignments;
+          ALTER TABLE role_assignments_rebuild RENAME TO role_assignments;
+          CREATE INDEX IF NOT EXISTS idx_role_assignments_person ON role_assignments(person_id, tenant_id);
+        `);
+      }
+
+      const broken = db.pragma("foreign_key_check") as unknown[];
+      if (broken.length > 0) {
+        // Thrown inside the transaction, so the rebuild rolls back whole. A
+        // half-migrated role table is worse than an un-migrated one.
+        throw new Error(
+          `role migration would orphan ${broken.length} row(s); rolled back`,
+        );
+      }
+    })();
+  } finally {
+    db.pragma("foreign_keys = ON");
+  }
+}
+
 function ensureColumn(db: Database.Database, table: string, column: string, ddl: string) {
   const cols = db.prepare(`PRAGMA table_info(${table})`).all() as { name: string }[];
   if (!cols.some((c) => c.name === column)) {
@@ -891,8 +1007,8 @@ function seed(db: Database.Database) {
       "INSERT INTO users (id, email, name, role, password_hash) VALUES (?, ?, ?, ?, ?)"
     );
     const memberId = newId();
-    insert.run(memberId, "demo@example.com", "Demo Member", "member", hashPassword("demo1234"));
-    insert.run(newId(), "clinician@example.com", "Dr. Demo Clinician", "clinician", hashPassword("demo1234"));
+    insert.run(memberId, "patient.demo@steady.local", "Demo Member", "member", hashPassword(demoPassword("member")));
+    insert.run(newId(), "clinician.demo@steady.local", "Dr. Demo Clinician", "clinician", hashPassword(demoPassword("clinician")));
     // Dev member gets an active membership so local flows skip checkout.
     db.prepare(
       `INSERT INTO subscriptions (user_id, plan, status, price_cents, currency, provider, current_period_end)

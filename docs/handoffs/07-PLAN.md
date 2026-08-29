@@ -3,7 +3,7 @@
 **Specification:** [`07-demo-login-synthetic-population-and-planning-engine.pdf`](07-demo-login-synthetic-population-and-planning-engine.pdf)
 — *Steady Demo Login, Synthetic Population and Deterministic Planning Engine*, 59 pages.
 
-**Status:** not started. This plan is the Wave 0 deliverable the handoff itself asks for
+**Status:** Wave 0 done, **Wave 1 done and shipped**. Waves 2–8 open. This plan is the Wave 0 deliverable the handoff itself asks for
 (§6.1: *"Confirm current routes, roles, tenant model, event schemas and projection
 versions. Exit evidence: gap list and ADRs; no duplicate subsystem"*).
 
@@ -143,20 +143,49 @@ the failure this row exists to prevent.
 Following §6.1 (p52). Each wave lists its exit evidence from the handoff, because that is
 what makes a wave done rather than merely written.
 
-### Wave 1 — Demo identity and role-bound sessions
+### Wave 1 — Demo identity and role-bound sessions ✅ **DONE**
 **Spec: pp4–8, 50. Exit evidence: cross-role negative tests and environment isolation.**
 
-- Widen the role model (D1); split `requireIntelligence()`; retire `admin`.
-- Session claims (G2), demo-scoped lifetimes, `allowed_projections`.
-- Role dropdown on `/login` — *a demo convenience, never the authorization source* (p4).
-- Fix scope resolution to read the session's tenant (D3).
-- Permission matrix from p50 encoded as a table-driven guard.
+Shipped. Six roles, six accounts, six landing pages, and the boundary between the two
+aggregate consoles enforced rather than commented.
 
-**The five negative tests on p8 are the deliverable, not an afterthought:** clinician
-credentials + Admin selection returns the *same generic failure* as any invalid pairing; a
-payer session cannot request `person_summary` even by direct API call; a patient cannot
-change `person_id` in a URL and learn whether another subject exists; a role switch retains
-no cached data from the prior role; demo accounts cannot authenticate against production.
+| Built | Where |
+|---|---|
+| The six roles, their landing pages, both halves of p6's scope, and p50's permission matrix as data | `src/lib/roles.ts` |
+| `admin` retired — CHECK constraints widened by table rebuild, existing rows migrated to `organization` | `src/lib/db.ts` (`widenRoleCheck`) |
+| `requireOrganization`, `requirePayer`, `requireReviewer`, `requireDemoAdmin`, `requireReviewAccess` | `src/lib/auth.ts` |
+| Role dropdown, and p6's can-see/cannot-see table under it | `src/app/login/page.tsx` |
+| Role mismatch folded into the generic failure; the audit records which it was | `src/lib/actions.ts` |
+| Six accounts, one password per role, environment-overridable | `src/lib/demo-seed.ts`, [`../demo/demo-logins.md`](../demo/demo-logins.md) |
+| `/review/safety` — fixed scenarios replayed through the live gate engine | `src/lib/safety/scenarios.ts`, `src/app/review/safety/page.tsx` |
+| `/admin/demo` — environment state, and p9's five unbuilt controls named | `src/app/admin/demo/page.tsx` |
+| 13 unit guards, 10 e2e negative tests | `tests/demo-roles.test.ts`, `tests/e2e/demo-roles.spec.ts` |
+
+**p8's five negative tests, all passing:** clinician credentials + Demo Admin selection
+returns the *same generic failure* as any invalid pairing; the two aggregate consoles cannot
+read each other; a patient cannot change `person_id` in a URL and learn whether another
+subject exists (both ids answer identically); a role switch leaves no member name on any
+payer screen; no demo password appears on any public page.
+
+**What Wave 1 found.** Three defects that only existed because one role served two consoles:
+
+1. **`/review/layout.tsx` called `requireClinician()`** with a comment saying the reviewer
+   role was Wave 5 work. The moment `reviewer` existed that became an infinite redirect —
+   a reviewer bounced to their landing page, which is inside the console, which bounced
+   them again. Next rendered a page with no `<main>`; the e2e suite caught it.
+2. **`payer.spec.ts` signed in with the organization's account** and passed, because one
+   `admin` role opened both consoles. Same for the payer contract export.
+3. **The app shell had no `banner` landmark.** `<main>` and `<nav>` existed; the bar
+   carrying the role label and the FABRICATED flag had none, so a screen-reader user could
+   reach the content and the navigation but not the two things the frame exists to keep on
+   screen.
+
+**Still open from Wave 1:** G2, the session claims. The token remains
+`userId.issuedAt.epoch.signature`; §1.3's `environment`, `dataset_version`, `tenant_id`,
+`purpose` and `allowed_projections` are not in it, and lifetimes are still 7-day idle /
+30-day absolute rather than the demo's 60 minutes / 8 hours. **D3's scope-resolution fix is
+also still open** — `resolveOrgTenant()` still counts tenants rather than reading the
+session's, so it must be closed before Wave 2 adds eight demo organizations.
 
 ### Wave 2 — Seed manifest
 **Spec: pp11–27. Exit evidence: counts and balance checks pass.**

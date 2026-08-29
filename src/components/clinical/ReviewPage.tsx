@@ -13,13 +13,14 @@ import { logout } from "@/lib/actions";
 // to one shell of their own, which was better and still not the frame the
 // handoff draws. Now they share the product's.
 //
-// §26 lists thirteen review screens. Five exist. The layer nav lists what
+// §26 lists thirteen review screens. Six exist. The layer nav lists what
 // resolves, because a nav item that goes nowhere reads as a missing feature
 // rather than a missing link.
 
 export const REVIEW_SCREENS: Array<{ href: string; label: string; layer: RailSlug }> = [
   { href: "/review", label: "Review home", layer: "overview" },
   { href: "/review/testing", label: "Testing console", layer: "actions" },
+  { href: "/review/safety", label: "Safety rule results", layer: "evidence" },
   { href: "/review/bls", label: "BLS oversight", layer: "evidence" },
   { href: "/review/autonomous", label: "Autonomous flow", layer: "evidence" },
   { href: "/review/audit", label: "Audit and lineage", layer: "audit" },

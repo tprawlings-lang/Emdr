@@ -6,8 +6,8 @@ test.skip(Boolean(process.env.E2E_BASE_URL), "runs only against the hermetic see
 
 async function signInAsClinician(page: import("@playwright/test").Page) {
   await page.goto("/login");
-  await page.locator('input[name="email"]').fill("clinician@example.com");
-  await page.locator('input[name="password"]').fill("demo1234");
+  await page.locator('input[name="email"]').fill("clinician.demo@steady.local");
+  await page.locator('input[name="password"]').fill("clinician1234");
   await page.getByRole("button", { name: "Continue" }).click();
   await expect(page).toHaveURL(/\/clinician/);
 }

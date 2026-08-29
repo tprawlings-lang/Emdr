@@ -25,7 +25,7 @@ let alexId = "";
 
 test("setup: demo member exists (triggers the seed)", async () => {
   const c = await data();
-  const row = (await c.get("SELECT id FROM users WHERE email = 'demo@example.com'")) as { id: string } | undefined;
+  const row = (await c.get("SELECT id FROM users WHERE email = 'patient.demo@steady.local'")) as { id: string } | undefined;
   assert.ok(row?.id, "demo member should be seeded");
   alexId = row!.id;
 });

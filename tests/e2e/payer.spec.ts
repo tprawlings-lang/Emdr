@@ -11,13 +11,17 @@ test.skip(
   "authenticated flow runs only against the hermetic seeded server",
 );
 
+// The PAYER account. This spec used to sign in with the organization's, and
+// passed — because one `admin` role served both consoles and the boundary
+// between them existed only in a comment. Handoff 07 split them (p6, p50), and
+// this helper is one of the places that was quietly relying on the overlap.
 async function signIn(page: import("@playwright/test").Page) {
   await page.goto("/login");
   await page.waitForLoadState("networkidle");
-  await page.locator('input[name="email"]').fill("operations@example.com");
-  await page.locator('input[name="password"]').fill("demo1234");
+  await page.locator('input[name="email"]').fill("payer.demo@steady.local");
+  await page.locator('input[name="password"]').fill("payer1234");
   await Promise.all([
-    page.waitForURL(/\/organization|\/payer/, { timeout: 30000 }),
+    page.waitForURL(/\/payer/, { timeout: 30000 }),
     page.locator('form button[type="submit"]').click(),
   ]);
 }

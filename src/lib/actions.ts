@@ -1,6 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { landingFor, isRole, type Role } from "./roles";
 import { revalidatePath } from "next/cache";
 import { hashPassword, newId, verifyPassword } from "./db";
 import { data } from "./data";
@@ -75,6 +76,17 @@ async function createAlert(args: {
 export async function login(formData: FormData) {
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
   const password = String(formData.get("password") ?? "");
+  // The demo role dropdown (handoff 07 §1.1, p5). Optional: the field does not
+  // exist outside the demo environment, and a sign-in without it is an
+  // ordinary sign-in.
+  //
+  // What it is NOT is an authorization input. p4 states the rule and p7
+  // repeats it: the client may DISPLAY the selected role and must never
+  // calculate authorization from the dropdown, the URL, a hidden field or
+  // local storage. So the value below is only ever compared against the role
+  // already stored on the account — it can narrow a sign-in to a failure, and
+  // it can never widen one to a success.
+  const selectedRole = String(formData.get("role") ?? "").trim();
   const c = await data();
 
   // Lockout (compliance 1.5): 10 failed attempts in 15 minutes locks the
@@ -96,21 +108,38 @@ export async function login(formData: FormData) {
     [email]
   )) as { id: string; role: string; password_hash: string } | undefined;
 
-  if (!user || !verifyPassword(password, user.password_hash)) {
-    await audit({ family: "identity", type: "login_failed", target: email });
+  // Three ways to fail, one answer. p8's first required negative test is that
+  // "clinician credentials plus Admin selection returns the same generic login
+  // failure as any other invalid pairing" — so a role mismatch is folded in
+  // here with the unknown account and the wrong password rather than answered
+  // separately. A distinct message would turn the dropdown into an oracle for
+  // which role an address holds.
+  const roleMismatch =
+    selectedRole !== "" && isRole(selectedRole) && user?.role !== selectedRole;
+  // A selection that is not a role at all is also a failure. It cannot come
+  // from the dropdown, so it came from a crafted request.
+  const roleUnknown = selectedRole !== "" && !isRole(selectedRole);
+
+  if (!user || !verifyPassword(password, user.password_hash) || roleMismatch || roleUnknown) {
+    await audit({
+      family: "identity",
+      type: "login_failed",
+      target: email,
+      // The AUDIT may say which it was — it is the record, not the response,
+      // and a reviewer replaying a failed sign-in needs to tell a typo from an
+      // attempt to enter through the wrong door.
+      detail: { reason: !user ? "no_account" : roleMismatch || roleUnknown ? "role_mismatch" : "bad_password" },
+    });
     redirect("/login?error=1");
   }
   await setSessionCookie(user.id);
   await audit({ actorId: user.id, actorRole: user.role, family: "identity", type: "login_success" });
-  // Three roles, three homes. An admin is a Steady Intelligence account and
-  // lands on the organization's operating picture — sending it to /clinician
-  // would put an aggregate role on a person-level surface, which is the
-  // boundary §30.6 exists to hold.
-  redirect(
-    user.role === "member" ? "/app/today"
-      : user.role === "admin" ? "/organization/overview"
-      : "/clinician",
-  );
+  // Six roles, six homes (handoff 07 p6: "reach its correct landing page in
+  // two actions"). The table lives in src/lib/roles.ts beside the labels the
+  // login dropdown renders, so a role cannot be added to one and forgotten in
+  // the other — which is how an aggregate account would end up on a
+  // person-level surface, the boundary §30.6 exists to hold.
+  redirect(landingFor(user.role as Role));
 }
 
 export async function logout() {

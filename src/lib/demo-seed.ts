@@ -30,6 +30,45 @@ export function demoId(n: number, version = DEMO_SEED_VERSION): string {
   return [h.slice(0, 8), h.slice(8, 12), h.slice(12, 16), h.slice(16, 20), h.slice(20, 32)].join("-");
 }
 
+/**
+ * The per-role demo password.
+ *
+ * Handoff 07 p5 says never to commit a password to source or a client bundle,
+ * and p7 says to store the secret outside source control and rotate it before
+ * each external review cycle. Both are honoured by the ENVIRONMENT being
+ * authoritative: `EMDR_DEMO_PASSWORD_<ROLE>` overrides any value here, so a
+ * rotation is a deploy variable rather than a commit.
+ *
+ * The fallbacks below are deliberately present and deliberately weak. This
+ * seeds an isolated tenant of fabricated people with no PHI, where the failure
+ * mode of a forgotten password is a reviewer locked out of a demonstration —
+ * and a fallback nobody can guess means a fresh clone cannot be signed into at
+ * all. They are listed in docs/demo/demo-logins.md rather than hidden, because
+ * a credential that is written down in one known place is safer than one
+ * circulated in a chat thread.
+ *
+ * They must never be reused for anything that is not this demo.
+ */
+export const DEMO_PASSWORDS: Record<string, string> = {
+  member: "patient1234",
+  clinician: "clinician1234",
+  reviewer: "reviewer1234",
+  organization: "org1234",
+  payer: "payer1234",
+  demo_admin: "demoadmin1234",
+};
+
+/** The address the scenario scripts and the e2e suite sign in with. */
+export const PATIENT_EMAIL = "patient.demo@steady.local";
+
+export function demoPassword(role: string): string {
+  return process.env[`EMDR_DEMO_PASSWORD_${role.toUpperCase()}`] ?? DEMO_PASSWORDS[role] ?? "demo1234";
+}
+
+function demoHash(role: string): string {
+  return hashPassword(demoPassword(role));
+}
+
 export function seedDemoData(db: Database.Database) {
   let seq = 0;
   const id = () => demoId(seq++);
@@ -55,20 +94,57 @@ export function seedDemoData(db: Database.Database) {
   const insertUser = db.prepare(
     "INSERT INTO users (id, email, name, role, password_hash, created_at) VALUES (?, ?, ?, ?, ?, ?)"
   );
+  // ── The six demo identities (handoff 07 §1.2 p6, §1.3 p7) ────────────────
+  //
+  // ONE IDENTITY PER ROLE. p7 is explicit: "do not use one account with a
+  // mutable role claim." Until now `org.demo@steady.local` held the single
+  // `admin` role and served BOTH the organization and the payer console, which
+  // meant the boundary between them existed only in a comment. Two accounts,
+  // two roles, and a reviewer can test the difference by signing in.
+  //
+  // A DISTINCT PASSWORD PER ROLE. Same reasoning at a smaller scale: a shared
+  // password makes "which role am I actually signed in as" a question the
+  // presenter answers from memory. Documented in docs/demo/demo-logins.md and
+  // overridable per role from the environment, so an external review cycle can
+  // rotate them without a commit (p7: "store passwords outside source control;
+  // rotate before each external review cycle").
   const alexId = id();
   const samId = id();
   const clinicianId = id();
-  insertUser.run(alexId, "demo@example.com", "Alex Rivera (fictional)", "member", hashPassword("demo1234"), daysAgo(22));
-  insertUser.run(samId, "demo2@example.com", "Sam Okafor (fictional)", "member", hashPassword("demo1234"), daysAgo(2));
-  insertUser.run(clinicianId, "clinician@example.com", "Dr. Maya Chen (fictional)", "clinician", hashPassword("demo1234"), daysAgo(40));
-  // Steady Intelligence. An AGGREGATE role: this account can read the
-  // organization's operating picture and can read no person's record, which is
-  // §30.6's rule that aggregate access does not create care access. It is a
-  // separate login rather than a mode on the clinician account precisely so
-  // that boundary is something a reviewer can test by signing in.
+  insertUser.run(alexId, PATIENT_EMAIL, "Alex Rivera (fictional)", "member", demoHash("member"), daysAgo(22));
+  insertUser.run(samId, "patient2.demo@steady.local", "Sam Okafor (fictional)", "member", demoHash("member"), daysAgo(2));
+  insertUser.run(clinicianId, "clinician.demo@steady.local", "Dr. Maya Chen (fictional)", "clinician", demoHash("clinician"), daysAgo(40));
+
+  // The two AGGREGATE roles, now separate. Each reads a population and can
+  // read no person's record — §30.6's rule that aggregate access does not
+  // create care access — and neither can read the other's tenant.
   insertUser.run(
-    id(), "operations@example.com", "Jordan Idowu (fictional)", "admin",
-    hashPassword("demo1234"), daysAgo(60),
+    id(), "org.demo@steady.local", "Jordan Idowu (fictional)", "organization",
+    demoHash("organization"), daysAgo(60),
+  );
+  insertUser.run(
+    id(), "payer.demo@steady.local", "Priya Raman (fictional)", "payer",
+    demoHash("payer"), daysAgo(60),
+  );
+
+  // The reviewer. p6: fixed gates, evidence, replay, corrections and audit —
+  // and NOT routine treatment decisions. The review console was previously
+  // reachable only through an environment access code, which gated the door
+  // without ever saying who walked through it.
+  insertUser.run(
+    id(), "reviewer.demo@steady.local", "Dr. Ellis Nakamura (fictional)", "reviewer",
+    demoHash("reviewer"), daysAgo(75),
+  );
+
+  // Demo administration. p6 grants this role everything inside the fabricated
+  // environment — every tenant, person, event, reset and QA control — and
+  // nothing outside it. The breadth is the point AND the risk, which is why
+  // the page it lands on says so: production administration must use
+  // purpose-limited permissions and break-glass access, and this role's
+  // blanket visibility must never be carried into it.
+  insertUser.run(
+    id(), "admin.demo@steady.local", "Robin Achebe (fictional)", "demo_admin",
+    demoHash("demo_admin"), daysAgo(90),
   );
 
   // --- Alex: three weeks into the program, improving ---

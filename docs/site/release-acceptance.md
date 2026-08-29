@@ -105,8 +105,8 @@ npm run demo -- health     # schema, seed, spine, tenancy, encryption
 npm run demo -- baseline   # time-invariant hash of the projected state
 ```
 
-Accounts present after a reset are `demo@example.com`, `demo2@example.com`, and
-`clinician@example.com` — all RFC 2606 reserved, so none can route to a real inbox.
+Accounts present after a reset are `patient.demo@steady.local`, `patient2.demo@steady.local`, and
+`clinician.demo@steady.local` — all RFC 2606 reserved, so none can route to a real inbox.
 
 **Standing condition, not a one-time check.** The deployed instance accumulates state from
 its own use: a failed sign-in records the attempted address verbatim in the audit log, and

@@ -18,12 +18,16 @@
 // turns ADR 0011's step 5 from a data migration into a rename.
 
 import { data } from "./data";
+import type { Role as LoginRole } from "./roles";
 import { ulid } from "./ids";
 import { PLATFORM_TENANT_ID } from "./db";
 
 export { PLATFORM_TENANT_ID };
 
-export type Role = "member" | "clinician" | "care_manager" | "admin";
+// The spine's role vocabulary: the six login roles (src/lib/roles.ts) plus
+// `care_manager`, which is a care-relationship role rather than an account
+// role — nobody signs in as one.
+export type Role = LoginRole | "care_manager";
 
 export interface Person {
   id: string;

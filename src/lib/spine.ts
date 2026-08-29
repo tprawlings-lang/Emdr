@@ -16,6 +16,7 @@
 // failure must never break a working product path.
 
 import { appendEventSafe, type Provenance } from "./events";
+import type { Role } from "./roles";
 import { data } from "./data";
 import { ulid } from "./ids";
 import { PLATFORM_TENANT_ID, newId } from "./db";
@@ -36,7 +37,7 @@ export async function provisionPerson(args: {
   userId: string;
   name: string;
   email: string;
-  role: "member" | "clinician" | "admin";
+  role: Role;
   passwordHash?: string | null;
   tenantId?: string;
 }): Promise<void> {

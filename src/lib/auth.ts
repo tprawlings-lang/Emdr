@@ -2,6 +2,7 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import crypto from "crypto";
 import { data } from "./data";
+import { type Role, landingFor, isAggregateRole } from "./roles";
 
 const COOKIE = "emdr_session";
 // Dev-only signing secret. Production: managed secrets, short-lived sessions,
@@ -12,7 +13,7 @@ export interface SessionUser {
   id: string;
   email: string;
   name: string;
-  role: "member" | "clinician" | "admin";
+  role: Role;
 }
 
 function sign(payload: string): string {
@@ -127,47 +128,117 @@ export async function requireMember(): Promise<SessionUser> {
 
 export async function requireClinician(): Promise<SessionUser> {
   const user = await requireUser();
-  // "admin" is NOT admitted. It used to be, as a convenience back when no
-  // admin account existed and the role was a notional superuser — and the
-  // moment one did exist, that line handed an aggregate reporting account the
-  // whole clinical console. tests/e2e/organization.spec.ts caught it.
+  // No aggregate role is admitted, and the reasoning is §30.6's rather than a
+  // permissions preference: a clinician may read a record because of a care
+  // relationship and a consent. An organization analyst has neither, and no
+  // amount of seniority substitutes for them. A role that reports on
+  // populations does not get to read people.
   //
-  // The reasoning is §30.6's, not a permissions preference: a clinician may
-  // read a record because of a care relationship and a consent. An
-  // organization analyst has neither, and no amount of seniority substitutes
-  // for them. A role that reports on populations does not get to read people.
-  if (user.role !== "clinician") {
-    redirect(user.role === "admin" ? "/organization/overview" : "/app/today");
+  // This used to admit "admin" as a convenience, back when no aggregate
+  // account existed and the role was a notional superuser. The moment one did
+  // exist, that line handed a reporting account the whole clinical console.
+  // tests/e2e/organization.spec.ts caught it.
+  if (user.role !== "clinician") redirect(landingFor(user.role));
+  return user;
+}
+
+/**
+ * Any AGGREGATE surface — the shared door for organization, payer and demo
+ * admin (handoff 07 p50).
+ *
+ * This answers "may this account be on an aggregate screen at all". It does
+ * NOT answer "which aggregate screen", which is what let one account read both
+ * consoles for as long as `admin` served both. Use `requireOrganization` or
+ * `requirePayer` on a screen that belongs to one of them; use this only where
+ * the surface genuinely serves both, such as the governed-export endpoint.
+ *
+ * What actually enforces the boundary is downstream: the projections these
+ * screens read cannot return a person id, and the population they report on
+ * has no names in the database at all. This check decides who gets through the
+ * door; it is not what keeps the room safe.
+ */
+export async function requireIntelligence(): Promise<SessionUser> {
+  const user = await requireUser();
+  if (!isAggregateRole(user.role)) redirect(denialFor(user.role));
+  return user;
+}
+
+/** The organization console. A payer account is denied here, and vice versa —
+ *  p6: an organization "cannot see payer-wide data or unrelated
+ *  organizations", and a payer "cannot see patient-level clinical records". */
+export async function requireOrganization(): Promise<SessionUser> {
+  const user = await requireUser();
+  if (user.role !== "organization" && user.role !== "demo_admin") redirect(denialFor(user.role));
+  return user;
+}
+
+/** The payer console. */
+export async function requirePayer(): Promise<SessionUser> {
+  const user = await requireUser();
+  if (user.role !== "payer" && user.role !== "demo_admin") redirect(denialFor(user.role));
+  return user;
+}
+
+/** The reviewer role specifically (p6: fixed gates, evidence, replay,
+ *  corrections, audit — and NOT routine treatment decisions). */
+export async function requireReviewer(): Promise<SessionUser> {
+  const user = await requireUser();
+  if (user.role !== "reviewer" && user.role !== "demo_admin") redirect(denialFor(user.role));
+  return user;
+}
+
+/**
+ * The review console as a whole.
+ *
+ * Wider than `requireReviewer` by one role, deliberately: a CLINICIAN is
+ * admitted because two of these screens record a clinician's sign-off on the
+ * autonomous flow and on BLS configuration, and that authority is theirs
+ * rather than the reviewer's. Denying them here would leave a console that
+ * asks for a decision only one role can make and admits only roles that
+ * cannot.
+ *
+ * Until handoff 07 this layout called `requireClinician`, which was the whole
+ * check — the console had no role of its own, and its own file said so. The
+ * moment `reviewer` existed that line became an infinite redirect: a reviewer
+ * bounced to their landing page, which is inside the console, which bounced
+ * them again.
+ */
+export async function requireReviewAccess(): Promise<SessionUser> {
+  const user = await requireUser();
+  if (user.role !== "reviewer" && user.role !== "clinician" && user.role !== "demo_admin") {
+    redirect(denialFor(user.role));
   }
   return user;
 }
 
-/** Steady Intelligence — the organization and payer surfaces.
+/**
+ * The demo administration surface.
  *
- *  These are AGGREGATE roles, and the distinction is the whole point of the
- *  check: aggregate access must never become person-level care access
- *  (§30.6). A clinician is deliberately NOT admitted here by their clinical
- *  role, because their right to read a record comes from a care relationship
- *  and consent, and neither is what these screens are reporting under.
- *
- *  What actually enforces the boundary is downstream: the projections these
- *  screens read cannot return a person id, and the population they report on
- *  has no names in the database at all. This check decides who gets through
- *  the door; it is not what keeps the room safe. */
-export async function requireIntelligence(): Promise<SessionUser> {
+ * p6 grants this role everything inside the fabricated environment and nothing
+ * outside it. The breadth is deliberate and so is the confinement: production
+ * administration must use purpose-limited permissions and break-glass access,
+ * and this role's blanket visibility must never be carried into it.
+ */
+export async function requireDemoAdmin(): Promise<SessionUser> {
   const user = await requireUser();
-  if (user.role !== "admin") {
-    // A member goes to their own home. Nothing about this surface is their
-    // business, and a denial screen would be an answer to a question they did
-    // not ask.
-    //
-    // A clinician gets /403 instead. This is a SCOPE denial, not a record
-    // denial: the aggregate console is not a secret — it is on the public site
-    // — so saying "outside your scope, here is how to request it" reveals
-    // nothing and is more useful than a silent bounce. The rule that a
-    // forbidden RECORD returns not-found is untouched; it is about existence,
-    // and this is about permission on something whose existence is published.
-    redirect(user.role === "member" ? "/app/today" : "/403");
-  }
+  if (user.role !== "demo_admin") redirect(denialFor(user.role));
   return user;
+}
+
+/**
+ * Where a denied account goes.
+ *
+ * A member goes to their own home. Nothing about an aggregate or review
+ * surface is their business, and a denial screen would be an answer to a
+ * question they did not ask.
+ *
+ * Every other role gets /403. This is a SCOPE denial, not a record denial: the
+ * consoles are not secrets — they are described on the public site — so saying
+ * "outside your scope, here is how to request it" reveals nothing and is more
+ * useful than a silent bounce. The rule that a forbidden RECORD returns
+ * not-found is untouched; that one is about existence, and this is about
+ * permission on something whose existence is published.
+ */
+function denialFor(role: Role): string {
+  return role === "member" ? "/app/today" : "/403";
 }
