@@ -5,7 +5,7 @@
 // same database.
 
 import { data } from "../data";
-import { makeSessionToken, type SessionUser } from "../auth";
+import { makeSessionToken, getUserFromToken, type SessionUser } from "../auth";
 import { hashPassword, newId } from "../db";
 import { encryptField } from "../crypto";
 import { audit } from "../audit";
@@ -66,7 +66,11 @@ export async function signupMobile(input: {
     detail: { wellnessAck: "wellness-ack-v1", via: "mobile" },
   });
   const token = await makeSessionToken(userId);
-  return { token, user: { id: userId, email, name, role: "member" } };
+  // Resolved from the token, so the returned user is exactly what that token
+  // authenticates as.
+  const user = await getUserFromToken(token);
+  if (!user) throw new Error("session could not be resolved immediately after issue");
+  return { token, user };
 }
 
 // ---------- subscribe ----------

@@ -3,8 +3,9 @@ import path from "path";
 import fs from "fs";
 import crypto from "crypto";
 import { seedDemoData, demoId, demoPassword } from "./demo-seed";
-import { seedOrgData } from "./demo-org-seed";
-import { seedPayerData } from "./demo-payer-seed";
+import { seedOrgData, ORG_TENANT_ID } from "./demo-org-seed";
+import { seedPayerData, PAYER_TENANT_ID } from "./demo-payer-seed";
+import { seedPopulationData } from "./demo-population-seed";
 import { ulid, NIL_ULID, ulidFrom } from "./ids";
 
 // Resolved lazily inside getDb() (not at module load) so EMDR_DATA_DIR is
@@ -658,6 +659,57 @@ function migrate(db: Database.Database) {
   -- the equivalent and one DELETE took 36 seconds at 32k rows.
   CREATE INDEX IF NOT EXISTS idx_claims_supersedes ON claims(supersedes_claim_id);
 
+  -- ── Demographic attributes (handoff 07 §2.3, p13) ────────────────────────
+  --
+  -- A SEPARATE table from 'persons', and the separation is the control.
+  --
+  -- p13 permits these fields for exactly three purposes — representation
+  -- audit, disparity audit, and access/fairness review — and forbids them as
+  -- care-selection rules. Federal nondiscrimination rules (45 CFR 92.210)
+  -- prohibit discriminatory use of patient-care decision-support tools and
+  -- describe an ongoing duty to identify tools that use protected factors, so
+  -- the audit path has to exist even while the first engine is descriptive.
+  --
+  -- Keeping them off 'persons' means a clinical query that selects a person
+  -- does not carry race and ethnicity along by default. Reaching them is a
+  -- join someone has to write, which is the moment a reviewer can ask why.
+  --
+  -- Every column is SELF-DESCRIBED and every one permits unknown or declined
+  -- as a distinct value from missing. p13: show unknown, declined and missing
+  -- separately; do not redistribute them.
+  CREATE TABLE IF NOT EXISTS person_attributes (
+    person_id TEXT PRIMARY KEY REFERENCES persons(id),
+    tenant_id TEXT NOT NULL REFERENCES tenants(id),
+    -- Stored exactly; DISPLAYED as a band. A screen cannot become
+    -- person-identifying by being precise about an age.
+    birth_year INTEGER,
+    age_band TEXT,
+    -- JSON array: p13 permits multiple values, so one column with one value
+    -- would force the collapse it forbids.
+    race_json TEXT NOT NULL DEFAULT '[]',
+    -- A separate field from race, never collapsed into it or inferred.
+    ethnicity TEXT,
+    preferred_language TEXT,
+    interpreter_needed INTEGER NOT NULL DEFAULT 0,
+    -- Functional access needs, not labels alone (p13).
+    access_needs_json TEXT NOT NULL DEFAULT '[]',
+    -- U.S. Census region. A REPORTING dimension. If partner operating regions
+    -- arrive later they get their own column — p11 is explicit that the two
+    -- definitions must never be mixed in one chart.
+    census_region TEXT,
+    state TEXT,
+    -- Authored insurance and access-barrier context. p13 forbids deriving a
+    -- hidden deprivation score for person routing from it.
+    socioeconomic_context TEXT,
+    -- Where the value came from. p13 requires patient-reported provenance on
+    -- a clinician surface, and a field with no provenance is a field that gets
+    -- treated as fact.
+    source TEXT NOT NULL DEFAULT 'self_reported',
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+  CREATE INDEX IF NOT EXISTS idx_person_attributes_tenant
+    ON person_attributes(tenant_id, census_region);
+
   -- ── Governed exports (§29.1, §30.4, §31.4) ───────────────────────────────
   --
   -- An export is a WRITE, not a read, which is why §30.4 gives it a POST. It
@@ -782,6 +834,10 @@ export const TENANT_SCOPED_TABLES = [
   // rather than care data, but it is scoped to exactly one tenant and reading
   // another's would show their cohorts, filters and stated purposes.
   "export_jobs",
+  // Demographic attributes are the most sensitive person-scoped table in the
+  // schema. p13 permits them for representation, disparity and access audit
+  // only, and a query that forgets the tenant reads another organization's.
+  "person_attributes",
   // Claims are person-scoped: a claim belongs to one covered life, and a query
   // that forgets the tenant reads another plan's members. It carries tenant_id
   // from creation rather than by backfill, but it belongs on this list so the
@@ -988,8 +1044,46 @@ export function newId(): string {
  *  it through the same path a fresh environment uses, so the two can never
  *  drift into producing subtly different datasets. */
 export function seedDemo(db: Database.Database) {
-  db.transaction(() => { seedDemoData(db); seedOrgData(db); seedPayerData(db); })();
+  db.transaction(() => {
+    seedDemoData(db);
+    seedOrgData(db);
+    seedPayerData(db);
+    seedPopulationData(db);
+    bindAggregateAccounts(db);
+  })();
   refreshDemoDaily(db);
+}
+
+/**
+ * Bind the two aggregate accounts to the tenants they report on.
+ *
+ * This has to run AFTER the org and payer seeds, because it points at tenants
+ * they create — which is why it is a third step rather than a column set at
+ * insert time.
+ *
+ * It exists so scope stops being inferred. `resolveOrgTenant()` used to count
+ * tenants and return the single organization-kind one, failing closed when
+ * there was not exactly one. That worked for as long as there was exactly one,
+ * and broke the moment the payer seed added a second — every organization
+ * screen would have rendered "no organization in scope". It was patched by
+ * excluding tenants that hold a payer contract, which is a second inference
+ * standing on the first, and it would break again the moment handoff 07's Wave
+ * 2 adds eight demo organizations.
+ *
+ * An account belongs to a tenant. That is a fact worth storing rather than
+ * deducing, and §30.6 step 1 says to resolve it before anything else.
+ */
+function bindAggregateAccounts(db: Database.Database) {
+  const bind = db.prepare("UPDATE users SET tenant_id = ? WHERE email = ? AND role = ?");
+  bind.run(ORG_TENANT_ID, "org.demo@steady.local", "organization");
+  bind.run(PAYER_TENANT_ID, "payer.demo@steady.local", "payer");
+  // The identity spine mirrors users onto persons, so the person row has to
+  // move with the account or the two disagree about which tenant it is in.
+  const bindPerson = db.prepare(
+    "UPDATE persons SET tenant_id = ? WHERE id = (SELECT id FROM users WHERE email = ?)",
+  );
+  bindPerson.run(ORG_TENANT_ID, "org.demo@steady.local");
+  bindPerson.run(PAYER_TENANT_ID, "payer.demo@steady.local");
 }
 
 function seed(db: Database.Database) {
@@ -1001,6 +1095,8 @@ function seed(db: Database.Database) {
       seedDemoData(db);
       seedOrgData(db);
       seedPayerData(db);
+      seedPopulationData(db);
+      bindAggregateAccounts(db);
       return;
     }
     const insert = db.prepare(

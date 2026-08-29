@@ -3,7 +3,7 @@
 **Specification:** [`07-demo-login-synthetic-population-and-planning-engine.pdf`](07-demo-login-synthetic-population-and-planning-engine.pdf)
 — *Steady Demo Login, Synthetic Population and Deterministic Planning Engine*, 59 pages.
 
-**Status:** Wave 0 done, **Wave 1 done and shipped**. Waves 2–8 open. This plan is the Wave 0 deliverable the handoff itself asks for
+**Status:** Waves 0, 1 and 2 done and shipped. Waves 3–8 open. This plan is the Wave 0 deliverable the handoff itself asks for
 (§6.1: *"Confirm current routes, roles, tenant model, event schemas and projection
 versions. Exit evidence: gap list and ADRs; no duplicate subsystem"*).
 
@@ -180,23 +180,76 @@ payer screen; no demo password appears on any public page.
    reach the content and the navigation but not the two things the frame exists to keep on
    screen.
 
-**Still open from Wave 1:** G2, the session claims. The token remains
-`userId.issuedAt.epoch.signature`; §1.3's `environment`, `dataset_version`, `tenant_id`,
-`purpose` and `allowed_projections` are not in it, and lifetimes are still 7-day idle /
-30-day absolute rather than the demo's 60 minutes / 8 hours. **D3's scope-resolution fix is
-also still open** — `resolveOrgTenant()` still counts tenants rather than reading the
-session's, so it must be closed before Wave 2 adds eight demo organizations.
+**G2 (session claims) and D3 (scope resolution) closed in a follow-up.** The token now
+carries every claim §1.3 names — environment, dataset_version, tenant_id, person_id (only
+for a role that acts for a person), role, purpose, issued_at, expires_at and
+allowed_projections — signed, with demo lifetimes of 60 minutes idle and 8 hours absolute.
+**The claims grant nothing:** the account row stays authoritative, the claims are checked
+against it, and a disagreement destroys the session rather than resolving in either
+direction. A token that carries a role and is trusted for it has to be revoked; one that
+carries a role and is checked for it revokes itself.
 
-### Wave 2 — Seed manifest
+Scope now reads the session instead of counting tenants. The aggregate accounts are bound
+to their tenants at seed time (after the org and payer seeds, since it points at tenants
+they create), so `resolveOrgTenant()` is a read. Adding Wave 2's eight demo organizations
+changes nothing.
+
+**Two latent bugs this uncovered**, both the same class — configuration read at module load:
+
+- `const SECRET = process.env.EMDR_SESSION_SECRET ?? "dev-only-secret-change-me"` meant a
+  process where the variable is set after the module loads signs and verifies with the dev
+  fallback, silently. Production is unaffected because the environment is set before the
+  process starts, which is exactly why it would never have been noticed there.
+- `const DEMO = process.env.EMDR_DEMO === "1"` froze the session lifetime at import, so the
+  value depended on import order rather than configuration.
+
+The first was found by a **guard that passed for the wrong reason**: a test building an
+expired token signed it with the real secret while the module verified with the fallback,
+so the token was rejected on its signature and the expiry assertion never ran. Deleting the
+expiry check entirely did not fail the test. Both are now read at call time, and the
+mutation bites.
+
+### Wave 2 — Seed manifest ✅ **DONE**
 **Spec: pp11–27. Exit evidence: counts and balance checks pass.**
 
-- The 240-row manifest is *printed in the handoff* (pp16–27) — transcribe it, do not
-  generate it. Region, state, age band, race, ethnicity, language, archetype, clinician,
-  baseline, follow-up and safety state per person.
-- Demographic fields (G6) with p13's use rules as column comments *and* guards.
-- Dictionaries for names, free text and operational notes (p28: *never ask a language model
-  to invent uncontrolled clinical narratives at runtime*).
-- Balance checks: 60 per region, 10 per age band per region, 30 per archetype.
+| Built | Where |
+|---|---|
+| All 240 rows, transcribed from pp16–27, with p29's balance checks computed from them | `src/lib/demo-population-manifest.ts` |
+| Three separate dictionaries — member notes, operational notes, clinician comments — and fabricated names | `src/lib/demo-population-dictionaries.ts` |
+| Eight organization tenants (two per region), twelve clinicians, 240 people with attributes and enrolments | `src/lib/demo-population-seed.ts` |
+| `person_attributes` — p13's fields, on their own table | `src/lib/db.ts` |
+| 13 unit guards, plus a source-only schema lint | `tests/demo-population.test.ts`, `tests/schema-lint.test.ts` |
+
+**The transcription verified itself.** All 240 rows parsed out of the PDF and every one of
+p29's balances passed on the first attempt — 240 exactly, 60 per region, 40 per band, 10 per
+band per region, 30 per archetype, 240 distinct ids. A typo in a race or a state would have
+surfaced as an off-by-one in one of those counts, which is worth more than proofreading 240
+lines. A seventh check was added that p29 does not list: the archetype and the safety column
+are two statements about the same person, and all 30 Safety-pause profiles carry a fixed
+pause with none outside — the handoff is internally consistent, and now provably so.
+
+**Three decisions Wave 2 had to make, because the handoff leaves them open:**
+
+- **The seed formula is ours and stated.** p15 prints one profile carrying `"seed": 100217`
+  for `ST-WE-017`, and no rule in the document derives that number. It illustrates the
+  *shape* of a profile; the requirement beneath it is only that ids are deterministic within
+  a dataset version. A written-down formula satisfies that; one reverse-engineered from a
+  single printed value satisfies nothing.
+- **Demographic attributes live off `persons`.** p13 permits them for representation,
+  disparity and access audit and forbids them as care-selection rules, and the separation is
+  what enforces it: a clinical query that selects a person does not carry race and ethnicity
+  along by default, so reaching them is a join someone writes — which is the moment a
+  reviewer can ask why.
+- **Clinicians split 2/1 across each region's two organizations.** p11 names three clinicians
+  and two organizations per region without saying how they divide. The uneven 160/80 split is
+  deliberate: two organizations of identical size make every cross-organization comparison
+  trivially equal, which hides exactly the difference the console exists to surface.
+
+**Two guards were rewritten during this wave because they could not fail.** The backtick
+schema-lint imported `db.ts`, whose *parse failure* is its entire subject — so the module
+died on load and took the guard with it. And an assertion that arm A did not hold exactly
+half the population was vacuous: each clinician slot holds exactly 80 people, so no two-way
+split of three can produce 120/120. Both now bite.
 
 ### Wave 3 — Deterministic generator
 **Spec: pp14, 28–29. Exit evidence: stable event and projection hashes.**
