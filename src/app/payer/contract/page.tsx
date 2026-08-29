@@ -3,6 +3,9 @@ import { EnvelopeView } from "@/components/presentation/EnvelopeView";
 import { Note, Panel, WithNote } from "@/components/app/surfaces";
 import { buildContractReport } from "@/lib/intelligence/payer";
 import { resolvePayerTenant } from "@/lib/intelligence/scope";
+import { ExportPanel } from "@/components/app/ExportPanel";
+import { requestPayerExport } from "@/lib/intelligence/export-actions";
+import { listExports } from "@/lib/intelligence/export";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Contract report — Steady Intelligence" };
@@ -21,14 +24,22 @@ export const metadata = { title: "Contract report — Steady Intelligence" };
 // zero and never as a pass. Utilisation measures use only months whose claims
 // have arrived, so a rate here is never flattered by a partial month.
 //
-// Download is absent for the same reason it is absent on the organization's
-// reports screen: an export is a disclosure, and it needs filter parity, a
-// cohort version, suppression, a stated purpose, an audit event and a
-// signature before it is one.
+// Download is governed rather than absent: §26's "Download" action exists now,
+// and it requires a stated purpose, carries the contract's cohort version and
+// a hash of the filter, and writes an audit event before the file exists. The
+// export uses only complete months, exactly as the table does — a file that
+// disagreed with the screen it came from would be the filter-parity failure
+// §31.4 names first.
 
-export default async function PayerContractPage() {
+export default async function PayerContractPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ export?: string; refused?: string; error?: string }>;
+}) {
+  const { export: exportId, refused, error } = await searchParams;
   const tenantId = await resolvePayerTenant();
   const envelope = tenantId ? await buildContractReport(tenantId) : null;
+  const history = tenantId ? await listExports(tenantId) : [];
 
   return (
     <PayerPage
@@ -117,6 +128,20 @@ export default async function PayerContractPage() {
             </WithNote>
           )}
         </EnvelopeView>
+      )}
+
+      {tenantId && (
+        <div className="mt-6">
+          <ExportPanel
+            action={requestPayerExport}
+            title="Export the contract report"
+            describe="One row per agreed measure: observed value, target, and whether it was met. Uses only months whose claims have arrived, exactly as the table above does."
+            exportId={exportId}
+            refused={refused}
+            error={error}
+            history={history}
+          />
+        </div>
       )}
     </PayerPage>
   );

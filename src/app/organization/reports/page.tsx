@@ -1,23 +1,25 @@
 import Link from "next/link";
 import { OrgPage } from "@/components/app/OrgPage";
 import { Panel } from "@/components/app/surfaces";
+import { ExportPanel } from "@/components/app/ExportPanel";
+import { requestOrgExport } from "@/lib/intelligence/export-actions";
+import { listExports } from "@/lib/intelligence/export";
+import { resolveOrgTenant } from "@/lib/intelligence/scope";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Reports — Steady Intelligence" };
 
 // Reports (§26: "Create review-ready packets — governed exports — download").
 //
-// The word that stops this shipping as a download button is "governed".
+// The word that stops this shipping as a download button is "governed", and
+// this screen carried a panel saying so for as long as the only alternative
+// WAS a download button.
 //
-// §29.1: "Export must match current filters and write an audit event."
-// §31.4's export row: "filter parity; cohort version; suppression; purpose;
-// audit event; signed file." §30.4 gives it a POST, not a GET, because an
-// export is a write — it creates a disclosure.
-//
-// None of that exists. A CSV endpoint would be an ungoverned disclosure of a
-// covered population with a button next to it, which is a worse outcome than
-// no button. So this screen lists what a packet would have to carry, and says
-// plainly that the mechanism is not built.
+// It is built now, and the six requirements below are columns on export_jobs
+// rather than intentions: filter parity, cohort version, suppression, stated
+// purpose, audit event, signed file. The purpose field is the visible half —
+// a file cannot be produced without saying what it is for, in a sentence, and
+// the sentence is recorded with it.
 
 const REQUIREMENTS: { label: string; body: string }[] = [
   {
@@ -46,29 +48,34 @@ const REQUIREMENTS: { label: string; body: string }[] = [
   },
 ];
 
-export default function OrgReportsPage() {
+export default async function OrgReportsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ export?: string; refused?: string; error?: string }>;
+}) {
+  const { export: exportId, refused, error } = await searchParams;
+  const tenantId = await resolveOrgTenant();
+  const history = tenantId ? await listExports(tenantId) : [];
+
   return (
     <OrgPage
       layer="evidence"
       here="/organization/reports"
       title="Reports"
-      lede="Governed export is not built. This is what one has to carry before it can exist."
+      lede="A governed export: it states its purpose, carries its filter and cohort, suppresses small cells in the file, and writes an audit event before it exists."
     >
       <div className="space-y-6">
-        <Panel>
-          <p className="measure text-ground/90">
-            There is no export mechanism here, and a plain download would not be one. An
-            export of a covered population is a disclosure: it leaves this system, it is
-            copied, and it outlives the screen it came from.
-          </p>
-          <p className="measure mt-3 text-sm text-olive">
-            The six requirements below are not a wish list — they are what separates a
-            governed export from a spreadsheet emailed to someone. Until the mechanism
-            records all six, the honest control is the absence of a button.
-          </p>
-        </Panel>
+        <ExportPanel
+          action={requestOrgExport}
+          title="Export site comparison"
+          describe="One row per site: referred, contacted, started care, and median wait."
+          exportId={exportId}
+          refused={refused}
+          error={error}
+          history={history}
+        />
 
-        <Panel title="What a review-ready packet must carry">
+        <Panel title="What a review-ready packet carries">
           <dl className="divide-y divide-ground/5">
             {REQUIREMENTS.map((r) => (
               <div key={r.label} className="grid gap-1 py-3 sm:grid-cols-[9rem_1fr] sm:gap-4">
@@ -79,14 +86,19 @@ export default function OrgReportsPage() {
           </dl>
         </Panel>
 
-        <Panel title="What does work">
+        <Panel title="What is still by hand">
           <p className="measure text-sm text-ground">
+            A packet is one export at a time. Assembling several into a single signed bundle,
+            and scheduling one to recur, are not built — and a recurring export is a standing
+            disclosure, so it needs an expiry and a review date before it should be.
+          </p>
+          <p className="measure mt-3 text-sm text-olive">
             Every figure on the{" "}
             <Link href="/organization/overview" className="text-state-info underline">operating overview</Link>,{" "}
             <Link href="/organization/access" className="text-state-info underline">access pipeline</Link> and{" "}
             <Link href="/organization/outcomes" className="text-state-info underline">outcomes</Link>{" "}
-            screens carries its denominator, its window and the projection version it was
-            computed under, so a packet assembled by hand from them can at least be checked.
+            screens carries its denominator, window and projection version, so a packet built
+            from them by hand can still be checked.
           </p>
         </Panel>
       </div>

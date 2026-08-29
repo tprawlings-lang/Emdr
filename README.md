@@ -175,13 +175,54 @@ from?" has an answer.
 exist — the drilldown is impossible rather than refused, the same structural
 move as the member score boundary.
 
-Three screens are deliberately not charts:
+Two screens are deliberately not charts:
 
 | Screen | State | Why |
 |---|---|---|
 | Capacity | `partial` | Demand is countable; open first-visit slots are not — no calendar, no slot record. Half a ratio is not a ratio, so the missing source is named above the chart. |
 | Teams | empty | There is no team record in the tenancy model at all. A workload ranking of teams that do not exist, shown to the people who set their budgets, is worse than a blank. |
-| Reports | empty | A governed export needs filter parity, cohort version, suppression, a stated purpose, an audit event and a signature. Until it has all six, the honest control is the absence of a button. |
+
+### The governed export
+
+`/organization/reports` and `/payer/contract` can now produce a file, and the
+word that took the longest to earn is "governed". Both screens carried a panel
+saying export was not built, which was the right call for as long as the only
+alternative was a download button.
+
+An export is a **write**, which is why §30.4 gives it a POST. It takes data out
+of this system into a spreadsheet that gets copied, emailed, pasted into a deck
+and outlives every screen it came from — so the record of it has to outlive the
+file too. §31.4 names six requirements, and each is a column on `export_jobs`
+rather than an intention:
+
+| Requirement | How it is enforced |
+|---|---|
+| Filter parity | `filter_hash` is computed from the filter the **screen** was showing, key-order independent, and travels in the file. An export that silently widened its filter is a disclosure nobody authorised, and without the hash nobody could tell afterwards. |
+| Cohort version | Recorded and written into the file header, so the same report can be reproduced after the cohort definition changes. The payer report carries the contract's cohort, not the network's. |
+| Suppression | Applied to the **rows**, not the rendering. A count below 11 leaves as `under 11`, never as a blank — a blank is indistinguishable from missing data. |
+| Stated purpose | The purpose field *is* the button: there is no path to a file without a sentence of at least twelve characters, and `"report"` is refused. A purpose collected afterwards is a justification, not a reason. |
+| Audit event | Written **before** the file is returned, and again on every download. An unlogged disclosure is worse than a refused one, and a file fetched five times by three people is a different disclosure from one fetched once. |
+| Signed file | HMAC over the content hash, verified at **read** time. A signature checked only at write time cannot catch a record altered afterwards. |
+
+Two decisions are worth keeping:
+
+**The history panel is the disclosure log.** A console that can export but
+cannot show what it has exported has an audit trail nobody can read, so what
+left, under which filter hash, for what stated reason and who asked is on the
+same screen as the button.
+
+**The endpoint checks tenant scope at read time, not only at create time.** An
+export id is a URL: it gets pasted into a ticket and fetched again by whoever
+holds it. Without the read-side check, holding an id was enough to read any
+tenant's cohorts, filters and purposes. Out of scope answers *not found* — a
+403 confirms which ids are real — and is audited before it denies.
+
+The endpoint serves a **manifest**, not the rows: what was released, when, by
+whom and under which hash. That half has to survive independently of the file.
+
+Still by hand: bundling several exports into one signed packet, and scheduling
+one to recur. A recurring export is a standing disclosure, so it needs an
+expiry and a review date before it should exist.
 
 ### The shared access states
 
@@ -258,6 +299,7 @@ others were examined and found unremarkable.
 | — | **The frame** (this work) | done — member, clinician and review |
 | 4 | Aggregate — organization | done — 9 screens, real aggregates |
 | 4 | Aggregate — payer | done — 10 screens, on a real claims model |
+| — | **Governed export** | done — both aggregate consoles, six §31.4 requirements as columns |
 | 5 | Review and public | 5 of 13 review screens |
 | 6 | Hardening — performance, accessibility, security, telemetry | not started |
 

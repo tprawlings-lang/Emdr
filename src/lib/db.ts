@@ -658,6 +658,47 @@ function migrate(db: Database.Database) {
   -- the equivalent and one DELETE took 36 seconds at 32k rows.
   CREATE INDEX IF NOT EXISTS idx_claims_supersedes ON claims(supersedes_claim_id);
 
+  -- ── Governed exports (§29.1, §30.4, §31.4) ───────────────────────────────
+  --
+  -- An export is a WRITE, not a read, which is why §30.4 gives it a POST. It
+  -- takes data out of this system into a spreadsheet that is copied, emailed
+  -- and outlives the screen it came from — so the record of it has to outlive
+  -- the file too.
+  --
+  -- §31.4's export row names six things, and each is a column here rather than
+  -- a convention: filter parity, cohort version, suppression, purpose, audit
+  -- event, signed file. The one that does the most work is filter_hash: it
+  -- is computed from the filter the SCREEN was showing, so a file can be
+  -- checked against the view that produced it. An export that silently widened
+  -- its own filter is a disclosure nobody authorised, and without the hash
+  -- nobody could tell afterwards.
+  CREATE TABLE IF NOT EXISTS export_jobs (
+    id TEXT PRIMARY KEY,
+    tenant_id TEXT NOT NULL REFERENCES tenants(id),
+    requested_by TEXT NOT NULL REFERENCES users(id),
+    -- What the requester said they needed it for, in their own words. Recorded
+    -- before the file exists, because a purpose supplied afterwards is a
+    -- justification rather than a reason.
+    purpose TEXT NOT NULL,
+    surface TEXT NOT NULL,
+    cohort_version TEXT NOT NULL,
+    filter_json TEXT NOT NULL DEFAULT '{}',
+    filter_hash TEXT NOT NULL,
+    row_count INTEGER NOT NULL DEFAULT 0,
+    -- Cells withheld by small-cell suppression IN THE FILE. Suppression that
+    -- only applies to the rendering is not suppression.
+    suppressed_cells INTEGER NOT NULL DEFAULT 0,
+    content_hash TEXT NOT NULL,
+    signature TEXT NOT NULL,
+    -- No audit_event_id column. The audit log is hash-chained and append-only
+    -- and audit() returns nothing, so such a column could only ever be NULL —
+    -- and a null foreign key that claims to link a disclosure to its record is
+    -- worse than no column, because it looks like the link is there. The tie
+    -- is content_hash, which appears in both rows.
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+  CREATE INDEX IF NOT EXISTS idx_export_jobs_tenant ON export_jobs(tenant_id, created_at);
+
   -- A cost model is an ESTIMATE and its status is the whole point: a draft and
   -- an approved model must never render alike, and a superseded one must stay
   -- readable so an old report can be reproduced.
@@ -724,6 +765,10 @@ export const TENANT_SCOPED_TABLES = [
   "program_plans", "care_tracks", "care_track_intake", "practice_completions",
   "upsell_events", "autopilot_plans", "autopilot_events", "lesson_reads",
   "review_notes", "screening_progress",
+  // An export names the person who asked for it. It is a disclosure record
+  // rather than care data, but it is scoped to exactly one tenant and reading
+  // another's would show their cohorts, filters and stated purposes.
+  "export_jobs",
   // Claims are person-scoped: a claim belongs to one covered life, and a query
   // that forgets the tenant reads another plan's members. It carries tenant_id
   // from creation rather than by backfill, but it belongs on this list so the
