@@ -50,7 +50,7 @@ export default async function SessionsPage({ params }: { params: Promise<{ id: s
   }>;
 
   return (
-    <PersonShell person={person} active="/sessions">
+    <PersonShell person={person} active="/sessions" title="Sessions">
       <h2 className="type-display text-xl font-medium text-ground">
         Sessions <span className="text-base font-normal text-olive">({rows.length})</span>
       </h2>

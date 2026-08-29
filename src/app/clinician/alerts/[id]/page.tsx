@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ClinicianPage } from "@/components/clinical/ClinicianPage";
 import { requireClinician } from "@/lib/auth";
 import { data } from "@/lib/data";
 import { PLATFORM_TENANT_ID } from "@/lib/db";
@@ -30,13 +31,12 @@ export default async function AlertTrailPage({
     // A foreign-tenant alert reads as absent rather than forbidden. "Not
     // permitted" would confirm the id exists.
     return (
-      <main className="mx-auto max-w-3xl px-6 py-10">
-        <h1 className="type-display text-2xl font-medium">Not found</h1>
-        <p className="mt-2 text-sm text-olive">No such alert in your organization.</p>
+      <ClinicianPage layer="actions" title="Not found">
+        <p className="-mt-2 text-sm text-olive">No such alert in your organization.</p>
         <Link href="/clinician/caseload" className="mt-4 inline-block text-sm text-olive underline">
           ← Caseload
         </Link>
-      </main>
+      </ClinicianPage>
     );
   }
 
@@ -44,18 +44,11 @@ export default async function AlertTrailPage({
   const closed = a.status !== "open";
 
   return (
-    <main className="mx-auto max-w-4xl px-6 py-10">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <h1 className="type-display text-3xl font-medium">Alert trail</h1>
-          <p className="text-sm text-olive">
-            {a.alert_type.replace(/_/g, " ")} · severity {a.severity}
-          </p>
-        </div>
-        <Link href="/clinician/caseload" className="text-sm text-olive underline">
-          ← Caseload
-        </Link>
-      </div>
+    <ClinicianPage
+      layer="actions"
+      title="Alert trail"
+      lede={`${a.alert_type.replace(/_/g, " ")} · severity ${a.severity}`}
+    >
 
       <dl className="mt-6 grid gap-3 sm:grid-cols-2">
         {[
@@ -96,6 +89,6 @@ export default async function AlertTrailPage({
       <h2 className="mt-8 type-display text-2xl font-medium">Sequence</h2>
       <p className="mt-1 text-sm text-olive">Oldest first.</p>
       <AuditTable entries={trail.entries} showTarget />
-    </main>
+    </ClinicianPage>
   );
 }

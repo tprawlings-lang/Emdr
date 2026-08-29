@@ -45,7 +45,10 @@ test("every §26 clinician screen exists", () => {
 });
 
 test("every clinician screen is reachable from the nav or the person record", () => {
-  const nav = read(path.join(process.cwd(), "src/components/clinical/ClinicianNav.tsx"));
+  // The nav bar is gone: navigation is the shell's rail plus, within a layer,
+  // the sibling row ClinicianPage lists. Both live in these files.
+  const nav = read(path.join(process.cwd(), "src/components/clinical/ClinicianPage.tsx"))
+    + read(path.join(process.cwd(), "src/lib/app/rails.ts"));
   const shell = read(path.join(process.cwd(), "src/components/clinical/PersonShell.tsx"));
   const rows = read(path.join(process.cwd(), "src/components/clinical/WorkQueueRow.tsx"));
   const sources = nav + shell + rows;

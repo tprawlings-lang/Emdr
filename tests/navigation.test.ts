@@ -58,18 +58,29 @@ function hrefsIn(src: string): string[] {
 // Every navigation destination resolves
 // ---------------------------------------------------------------------------
 
-test("every clinician nav destination exists", () => {
-  const src = read(path.join(COMPONENTS, "clinical", "ClinicianNav.tsx"));
-  assert.ok(src.length > 0, "ClinicianNav.tsx is missing");
-  const broken = hrefsIn(src).filter((h) => !routeExists(h));
-  assert.deepEqual(broken, [], `the clinician nav points at routes that do not exist: ${broken.join(", ")}`);
+// The nav components are gone. Navigation is the app shell's rail, and where
+// each of its five layers points per role is one file, so that file is what
+// these check.
+const RAILS = path.join(process.cwd(), "src", "lib", "app", "rails.ts");
+
+function railDestinations(): string[] {
+  return [...read(RAILS).matchAll(/"(\/[^"]+)"/g)].map((m) => m[1]);
+}
+
+test("every rail destination exists", () => {
+  const dests = railDestinations();
+  assert.ok(dests.length > 6, `only ${dests.length} rail destinations found; rails.ts moved`);
+  const broken = dests.filter((h) => !routeExists(h.replace(/\$\{[^}]*\}/g, "x")));
+  assert.deepEqual(broken, [], `the rail points at routes that do not exist: ${broken.join(", ")}`);
 });
 
-test("every member nav destination exists", () => {
-  const src = read(path.join(COMPONENTS, "member", "MemberNav.tsx"));
-  assert.ok(src.length > 0, "MemberNav.tsx is missing");
+test("every console layer nav destination exists", () => {
+  // The screens within a layer, listed under the title. Same promise as the
+  // rail: an unkept one reads as a missing feature rather than a missing link.
+  const src = read(path.join(COMPONENTS, "clinical", "ClinicianPage.tsx"));
+  assert.ok(src.length > 0, "ClinicianPage.tsx is missing");
   const broken = hrefsIn(src).filter((h) => !routeExists(h));
-  assert.deepEqual(broken, [], `the member nav points at routes that do not exist: ${broken.join(", ")}`);
+  assert.deepEqual(broken, [], `the console layer nav points at routes that do not exist: ${broken.join(", ")}`);
 });
 
 test("every guided review destination exists", async () => {
@@ -152,7 +163,28 @@ test("the clinician console has one nav rather than per-page back links", () => 
   // different places. One nav that says where everything is replaces all of
   // them; leaving both means two competing answers to "where am I".
   const layout = read(path.join(APP, "clinician", "layout.tsx"));
-  assert.match(layout, /ClinicianNav/, "the clinician layout does not render the nav");
+  assert.doesNotMatch(layout, /<\w*Nav\b/,
+    "the clinician layout renders a nav bar above the shell's rail — that is two " +
+    "competing answers to 'where am I', which is the defect the nav was added to fix");
+
+  // Every console page reaches the shell, so none of them is the page that
+  // quietly kept its own chrome.
+  const unshelled: string[] = [];
+  const walkShell = (d: string) => {
+    for (const e of fs.readdirSync(d, { withFileTypes: true })) {
+      const p = path.join(d, e.name);
+      if (e.isDirectory()) walkShell(p);
+      else if (e.name === "page.tsx") {
+        const src = read(p);
+        // The index is a redirect and renders nothing.
+        if (/\bredirect\(/.test(src) && !/return \(/.test(src)) continue;
+        if (!/<(ClinicianPage|PersonShell)\b/.test(src)) unshelled.push(path.relative(APP, p));
+      }
+    }
+  };
+  walkShell(path.join(APP, "clinician"));
+  assert.deepEqual(unshelled, [],
+    `these console pages do not render the shell: ${unshelled.join(", ")}`);
 
   const stragglers: string[] = [];
   const walk = (d: string) => {
@@ -173,16 +205,16 @@ test("the clinician console has one nav rather than per-page back links", () => 
 // The nav must not become a scoreboard
 // ---------------------------------------------------------------------------
 
-test("the member nav carries no counts, badges, or notifications", () => {
+test("the rail carries no counts, badges, or notifications", () => {
   // A count on a nav item is a notification, and a notification is a demand.
   // Opening an app to three demands is how someone decides not to come back —
   // and a count of anything is also the streak problem in a smaller box.
-  const src = read(path.join(COMPONENTS, "member", "MemberNav.tsx"));
+  const src = read(path.join(COMPONENTS, "app", "AppShell.tsx")) + read(RAILS);
   const prose = src.replace(/\/\*[\s\S]*?\*\//g, " ").replace(/^\s*\/\/.*$/gm, " ");
   for (const banned of ["count", "badge", "unread", "notification", "streak", "due"]) {
     assert.ok(
       !new RegExp(`\\b${banned}\\b`, "i").test(prose),
-      `the member nav references "${banned}" — nav items carry names, not demands`
+      `the rail references "${banned}" — layer names carry names, not demands`
     );
   }
 });
@@ -191,9 +223,9 @@ test("crisis is a fixed affordance, not a nav item", () => {
   // §6: reachable from every screen at a fixed position, "a safety requirement,
   // not a layout preference: it must be findable without reading." One of five
   // nav items is findable only by reading them.
-  const nav = read(path.join(COMPONENTS, "member", "MemberNav.tsx"));
-  assert.doesNotMatch(nav, /href="\/crisis"/,
-    "crisis is in the nav row, where it is one option among five");
+  const nav = read(path.join(COMPONENTS, "app", "AppShell.tsx")) + read(RAILS);
+  assert.doesNotMatch(nav, /"\/crisis"/,
+    "crisis is in the rail, where it is one option among five");
   const layout = read(path.join(APP, "layout.tsx"));
   assert.match(layout, /SosMount/, "the fixed crisis affordance is not mounted globally");
 });

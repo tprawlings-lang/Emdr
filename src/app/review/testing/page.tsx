@@ -52,7 +52,12 @@ export default async function TestingConsole({
   const matrix = exerciseMatrix();
 
   return (
-    <ReviewPage title="Testing console" lede="What can be exercised in this environment, and where a change request goes.">
+    <ReviewPage
+      layer="actions"
+      here="/review/testing"
+      title="Testing console"
+      lede="What can be exercised in this environment, and where a change request goes."
+    >
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <p className="text-sm text-olive">

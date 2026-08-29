@@ -36,7 +36,7 @@ export const RAIL = [
 export type RailSlug = (typeof RAIL)[number]["slug"];
 
 export function AppShell({
-  role, title, active, railHref, accountHref, children, aside,
+  role, title, active, railHref, accountHref, railFooter, children, aside,
 }: {
   role: ShellRole;
   title: string;
@@ -52,6 +52,10 @@ export function AppShell({
    *  product — so it is a link with a name when a role has an account surface,
    *  and a plain mark when it does not. */
   accountHref?: string;
+  /** A small block under the rail. The mockups draw nothing there, and nothing
+   *  belongs there by default — but a console with no account surface still has
+   *  to let someone sign out, and burying that is not a design decision. */
+  railFooter?: React.ReactNode;
   children: React.ReactNode;
   /** Optional right-hand column, for the record's action rail. */
   aside?: React.ReactNode;
@@ -122,6 +126,11 @@ export function AppShell({
                 );
               })}
             </ul>
+            {railFooter && (
+              <div className="mt-6 hidden border-t border-ground/10 px-4 pt-4 text-xs text-olive sm:block">
+                {railFooter}
+              </div>
+            )}
           </nav>
 
           {/* The content column. */}

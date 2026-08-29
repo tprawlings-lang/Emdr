@@ -1,4 +1,5 @@
 import { requireClinician } from "@/lib/auth";
+import { ClinicianPage } from "@/components/clinical/ClinicianPage";
 import { data } from "@/lib/data";
 import { activePolicy } from "@/lib/clinical-policy";
 import { buildWorkQueue, GROUP_LABEL, type WorkGroup } from "@/lib/clinical/work-queue";
@@ -37,9 +38,8 @@ export default async function ReportsPage() {
   const total = queue.items.length;
 
   return (
-    <main className="mx-auto max-w-5xl px-6 py-10">
-      <h1 className="type-display text-3xl font-medium text-ground">Reports</h1>
-      <p className="mt-1.5 text-sm text-olive">
+    <ClinicianPage layer="evidence" here="/clinician/reports" title="Reports">
+      <p className="-mt-2 mb-6 text-sm text-olive">
         Clinical operations for this tenant. Computed {queue.computedAt} under policy{" "}
         {queue.policyVersion}.
       </p>
@@ -126,6 +126,6 @@ export default async function ReportsPage() {
         denominator here cannot support an outcome claim — that reporting belongs to the
         organization and payer views.
       </p>
-    </main>
+    </ClinicianPage>
   );
 }

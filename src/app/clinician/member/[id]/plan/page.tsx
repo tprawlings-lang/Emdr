@@ -36,7 +36,7 @@ export default async function ClinicianPlanPage({ params }: { params: Promise<{ 
   const [tracks, planRow] = await Promise.all([getMemberTracks(id), getProgramPlan(id)]);
 
   return (
-    <PersonShell person={person} active="/plan">
+    <PersonShell person={person} active="/plan" title="Care plan">
       <section aria-labelledby="tracks">
         <h2 id="tracks" className="type-display text-xl font-medium text-ground">Active paths</h2>
         {tracks.length === 0 ? (

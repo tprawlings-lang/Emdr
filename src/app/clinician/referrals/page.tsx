@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ClinicianPage } from "@/components/clinical/ClinicianPage";
 import { requireClinician } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
@@ -16,9 +17,12 @@ export const metadata = { title: "Referrals — Steady Clinical" };
 export default async function ReferralsPage() {
   await requireClinician();
   return (
-    <main className="mx-auto max-w-3xl px-6 py-10">
-      <h1 className="type-display text-3xl font-medium text-ground">Referrals</h1>
-      <p className="measure mt-2 text-olive">Intake and referral tracking is not part of this environment.</p>
+    <ClinicianPage
+      layer="actions"
+      here="/clinician/referrals"
+      title="Referrals"
+      lede="Intake and referral tracking is not part of this environment."
+    >
 
       <div className="mt-8 rounded-3xl border border-ground/10 bg-linen p-6">
         <p className="measure text-ground/90">There is no referral record, no eligibility check and no wait clock. This screen needs eligibility, consent, wait time and owner; none of those four exist as data yet.</p>
@@ -40,6 +44,6 @@ export default async function ReferralsPage() {
           </li>
         </ul>
       </section>
-    </main>
+    </ClinicianPage>
   );
 }

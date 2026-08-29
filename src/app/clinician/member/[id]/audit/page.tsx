@@ -34,7 +34,7 @@ export default async function PersonAuditPage({ params }: { params: Promise<{ id
   const history = await memberAuditHistory({ personId: id, tenantId });
 
   return (
-    <PersonShell person={person} active="/audit">
+    <PersonShell person={person} active="/audit" title="Audit and lineage">
       <h2 className="type-display text-xl font-medium text-ground">Access and decisions</h2>
       <p className="mt-1 text-sm text-olive">{scopeNote()}</p>
 

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ClinicianPage } from "@/components/clinical/ClinicianPage";
 import { requireClinician } from "@/lib/auth";
 import { data } from "@/lib/data";
 import { PLATFORM_TENANT_ID } from "@/lib/db";
@@ -46,16 +47,12 @@ export default async function ClinicalConsole({
   const overdue = overdueAlerts(alerts);
 
   return (
-    <main className="mx-auto max-w-5xl px-6 py-10">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <h1 className="type-display text-3xl font-medium text-ground">Caseload</h1>
-          <p className="text-sm text-olive">
-            Everyone assigned to {clinician.name}, ordered by clinical need. The work queue is
-            what needs doing; this is who you have.
-          </p>
-        </div>
-      </div>
+    <ClinicianPage
+      layer="progress"
+      here="/clinician/caseload"
+      title="Caseload"
+      lede={`Everyone assigned to ${clinician.name}, ordered by clinical need. The work queue is what needs doing; this is who you have.`}
+    >
 
       {/* Handoff §2: a screen resembling a live service must never imply approval. */}
       <p className="mt-4 rounded-2xl border border-state-caution/40 bg-state-caution-bg px-4 py-3 text-xs text-ground">
@@ -212,6 +209,6 @@ export default async function ClinicalConsole({
 
         <NoteForm surface="Caseload" returnTo="/clinician/caseload" defaultCategory="Caseload and prioritisation" />
       </section>
-    </main>
+    </ClinicianPage>
   );
 }

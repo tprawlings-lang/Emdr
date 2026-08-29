@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ClinicianPage } from "@/components/clinical/ClinicianPage";
 import { requireClinician } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
@@ -16,9 +17,12 @@ export const metadata = { title: "Schedule — Steady Clinical" };
 export default async function SchedulePage() {
   await requireClinician();
   return (
-    <main className="mx-auto max-w-3xl px-6 py-10">
-      <h1 className="type-display text-3xl font-medium text-ground">Schedule</h1>
-      <p className="measure mt-2 text-olive">There is no calendar in this environment.</p>
+    <ClinicianPage
+      layer="actions"
+      here="/clinician/schedule"
+      title="Schedule"
+      lede="There is no calendar in this environment."
+    >
 
       <div className="mt-8 rounded-3xl border border-ground/10 bg-linen p-6">
         <p className="measure text-ground/90">No appointments, no visits and no scheduled reviews are recorded. The due dates that do exist belong to work items and are shown on the queue.</p>
@@ -40,6 +44,6 @@ export default async function SchedulePage() {
           </li>
         </ul>
       </section>
-    </main>
+    </ClinicianPage>
   );
 }

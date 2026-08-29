@@ -53,7 +53,7 @@ export default async function SafetyReviewPage({
   const closed = mine.filter((a) => a.status === "reviewed");
 
   return (
-    <PersonShell person={person} active="/safety">
+    <PersonShell person={person} active="/safety" title="Safety review">
       {error && (
         <p className="mb-4 rounded-2xl border border-state-support/40 bg-state-support-bg/50 px-4 py-3 text-sm text-ground">
           {error}

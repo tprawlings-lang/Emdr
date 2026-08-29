@@ -74,7 +74,7 @@ export default async function SessionDetailPage({
   const delta = s.pre_suds !== null && s.post_suds !== null ? s.post_suds - s.pre_suds : null;
 
   return (
-    <PersonShell person={person} active="/sessions">
+    <PersonShell person={person} active="/sessions" title="Session response">
       <p className="text-sm">
         <Link href={`/clinician/member/${id}/sessions`} className="text-state-info underline">
           ← All sessions

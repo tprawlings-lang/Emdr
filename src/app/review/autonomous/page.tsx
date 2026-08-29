@@ -164,7 +164,12 @@ export default async function AutonomousReview({ searchParams }: { searchParams:
   const chk = "flex items-center gap-2 text-sm text-ground/90";
 
   return (
-    <ReviewPage title="Autonomous review" lede="The engine's parallel decision, beside the one that governed. Neither is a model's opinion.">
+    <ReviewPage
+      layer="evidence"
+      here="/review/autonomous"
+      title="Autonomous review"
+      lede="The engine's parallel decision, beside the one that governed. Neither is a model's opinion."
+    >
       <div className="flex items-center justify-between">
         <div>
           <p className="mt-1 text-sm text-olive">Beta sign-off workbench — simulate decisions and review shadow-mode activity.</p>

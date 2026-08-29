@@ -112,7 +112,7 @@ export default async function MemberDetailPage({
   const gatedModules = MODULES.filter((m) => m.tier === "gated");
 
   return (
-    <PersonShell person={person} active="/measures">
+    <PersonShell person={person} active="/measures" title="Measure history">
       {/* §26: "Review validated change — instrument-specific chart — open
           answers." The page example leads with the change in words — "PHQ-9
           increased 5 points in 14 days. Review due today." — before any chart,

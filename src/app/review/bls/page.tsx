@@ -47,7 +47,12 @@ export default async function BlsOversightPage() {
   const stages = rolloutStages();
 
   return (
-    <ReviewPage title="BLS Part 6 oversight" lede="The live configuration and the gates that hold it — not the protocol's claims about itself." wide={false}>
+    <ReviewPage
+      layer="evidence"
+      here="/review/bls"
+      title="BLS Part 6 oversight"
+      lede="The live configuration and the gates that hold it — not the protocol's claims about itself."
+    >
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <p className="text-sm text-olive">

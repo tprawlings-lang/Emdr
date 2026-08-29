@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ClinicianPage } from "@/components/clinical/ClinicianPage";
 import { requireClinician } from "@/lib/auth";
 import { data } from "@/lib/data";
 import { PLATFORM_TENANT_ID } from "@/lib/db";
@@ -36,9 +37,8 @@ export default async function PatientsPage({
   const attention = directory.rows.filter((r) => r.needsAttention).length;
 
   return (
-    <main className="mx-auto max-w-5xl px-6 py-10">
-      <h1 className="type-display text-3xl">Patients</h1>
-      <p className="measure mt-1 text-olive">
+    <ClinicianPage layer="progress" here="/clinician/patients" title="Patients">
+      <p className="measure -mt-2 mb-6 text-olive">
         Everyone in your organization, alphabetically. To see who needs attention first,
         use the <Link href="/clinician/caseload" className="underline">caseload</Link> —
         it orders by clinical need and states the reason for every band.
@@ -126,6 +126,6 @@ export default async function PatientsPage({
         returnTo="/clinician/patients"
         defaultCategory="Workflow fit"
       />
-    </main>
+    </ClinicianPage>
   );
 }

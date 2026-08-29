@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ClinicianPage } from "@/components/clinical/ClinicianPage";
 import { notFound } from "next/navigation";
 import { requireClinician } from "@/lib/auth";
 import { loadPersonHeader } from "@/lib/clinical/person-header";
@@ -58,15 +59,14 @@ export default async function MemberClinicalRecord({
 
   if (!member) {
     return (
-      <main className="mx-auto max-w-3xl px-6 py-10">
-        <h1 className="type-display text-2xl font-medium">Not found</h1>
-        <p className="mt-2 text-sm text-olive">
+      <ClinicianPage layer="progress" title="Not found">
+        <p className="-mt-2 text-sm text-olive">
           No such member in your organization.
         </p>
         <Link href="/clinician/caseload" className="mt-4 inline-block text-sm text-olive underline">
           ← Caseload
         </Link>
-      </main>
+      </ClinicianPage>
     );
   }
 
@@ -76,10 +76,9 @@ export default async function MemberClinicalRecord({
   const person = await loadPersonHeader({ personId: id, clinicianId: clinician.id, tenantId });
   if (!person) {
     return (
-      <main className="mx-auto max-w-3xl px-6 py-10">
-        <h1 className="type-display text-2xl font-medium">Not found</h1>
-        <p className="mt-2 text-sm text-olive">No such member in your organization.</p>
-      </main>
+      <ClinicianPage layer="progress" title="Not found">
+        <p className="-mt-2 text-sm text-olive">No such member in your organization.</p>
+      </ClinicianPage>
     );
   }
 
@@ -93,7 +92,7 @@ export default async function MemberClinicalRecord({
     // header and its own back-link. Before this it was reachable from the
     // caseload and nowhere else, and a clinician on it could not get to the
     // safety, measures or session tabs without going back out.
-    <PersonShell person={person} active="/record">
+    <PersonShell person={person} active="/record" title="Full record">
       <p className="text-sm text-olive">Clinical record · assembled from the event log</p>
 
       <p className="mt-4 rounded-2xl border border-state-caution/40 bg-state-caution-bg px-4 py-3 text-xs text-ground">

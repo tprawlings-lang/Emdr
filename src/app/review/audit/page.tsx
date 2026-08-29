@@ -30,7 +30,12 @@ export default async function AuditConsolePage() {
   const feed = await scopedAuditFeed({ tenantId, limit: 300 });
 
   return (
-    <ReviewPage title="Audit console" lede="Who did what, in order, with the hash chain verified rather than asserted.">
+    <ReviewPage
+      layer="audit"
+      here="/review/audit"
+      title="Audit and lineage"
+      lede="Who did what, in order, with the hash chain verified rather than asserted."
+    >
       <p className="mt-1 text-sm text-olive">
         Append-only ledger of identity, consent, clinical, module-runtime, specialist, and
         security events. Most recent first.

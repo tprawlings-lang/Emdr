@@ -1,4 +1,5 @@
 import { requireClinician } from "@/lib/auth";
+import { ClinicianPage } from "@/components/clinical/ClinicianPage";
 import { data } from "@/lib/data";
 import { activePolicy } from "@/lib/clinical-policy";
 import { clinicianQueueProjection, inGroup, GROUP_LABEL, type WorkGroup } from "@/lib/clinical/work-queue";
@@ -43,10 +44,7 @@ export default async function WorkQueuePage() {
   });
 
   return (
-    <main className="mx-auto max-w-5xl px-6 py-10">
-      <header>
-        <h1 className="type-display text-3xl font-medium text-ground">Work queue</h1>
-      </header>
+    <ClinicianPage layer="overview" here="/clinician/today" title="Work queue">
 
       <div className="mt-6">
         <EnvelopeView envelope={envelope} title="Work queue">
@@ -101,6 +99,6 @@ export default async function WorkQueuePage() {
         Queue order is deterministic for a given policy version and evidence set. Duplicate
         events for one person and reason collapse into a single item with its event count.
       </p>
-    </main>
+    </ClinicianPage>
   );
 }
