@@ -26,7 +26,8 @@
 
 import { data } from "./data";
 import { ulidFrom } from "./ids";
-import { PLATFORM_TENANT_ID } from "./db";
+// (PLATFORM_TENANT_ID is no longer imported: the tenant now comes from the
+// person the event belongs to, not from a constant.)
 import type { EventType } from "./events";
 
 export interface BackfillResult {
@@ -68,8 +69,22 @@ export async function backfillGenesisEvents(opts: { limit?: number } = {}): Prom
 
   // Only persons that exist may receive events — the FK is real. Users created
   // before the identity spine and never reconciled are counted, not crashed on.
-  const personIds = new Set(
-    ((await c.all("SELECT id FROM persons", [])) as { id: string }[]).map((r) => r.id)
+  //
+  // The TENANT is read here too, and that is a correction rather than an
+  // addition: every reconstructed event was previously written into the
+  // platform tenant regardless of where its person actually lived. It went
+  // unnoticed because every seeded user WAS in the platform tenant — the
+  // 240-profile demo population is the first cohort in organization tenants,
+  // and replay immediately reported thousands of rows rebuilding into the
+  // wrong one.
+  //
+  // It is a tenancy defect, not a cosmetic one: an event in the wrong tenant
+  // is read by a query scoped to that tenant and missed by one scoped to the
+  // right tenant. p29's "cross-tenant references: 0" is the check it would
+  // have failed.
+  const personTenants = new Map<string, string>(
+    ((await c.all("SELECT id, tenant_id FROM persons", [])) as { id: string; tenant_id: string }[])
+      .map((r) => [r.id, r.tenant_id]),
   );
 
   const rows: GenesisRow[] = [];
@@ -261,7 +276,8 @@ export async function backfillGenesisEvents(opts: { limit?: number } = {}): Prom
   result.scanned = slice.length;
 
   for (const row of slice) {
-    if (!personIds.has(row.personId)) { result.skippedNoPerson++; continue; }
+    const tenantId = personTenants.get(row.personId);
+    if (tenantId === undefined) { result.skippedNoPerson++; continue; }
     const id = ulidFrom(row.idTimeMs ?? toMs(row.occurredAt), row.seed);
     const before = await c.get("SELECT 1 AS x FROM longitudinal_events WHERE id = ?", [id]);
     if (before) continue;
@@ -271,7 +287,7 @@ export async function backfillGenesisEvents(opts: { limit?: number } = {}): Prom
           actor_id, actor_type, occurred_at, source_system, provenance, correlation_id)
        VALUES (?, ?, ?, ?, 0, ?, ?, ?, ?, 'backfill', ?, ?)`,
       [
-        id, PLATFORM_TENANT_ID, row.personId, row.type,
+        id, tenantId, row.personId, row.type,
         JSON.stringify(row.payload),
         row.actorId ?? row.personId,
         row.actorType ?? "patient",

@@ -3,7 +3,7 @@
 **Specification:** [`07-demo-login-synthetic-population-and-planning-engine.pdf`](07-demo-login-synthetic-population-and-planning-engine.pdf)
 — *Steady Demo Login, Synthetic Population and Deterministic Planning Engine*, 59 pages.
 
-**Status:** Waves 0, 1 and 2 done and shipped. Waves 3–8 open. This plan is the Wave 0 deliverable the handoff itself asks for
+**Status:** Waves 0–3 done and shipped. Waves 4–8 open. This plan is the Wave 0 deliverable the handoff itself asks for
 (§6.1: *"Confirm current routes, roles, tenant model, event schemas and projection
 versions. Exit evidence: gap list and ADRs; no duplicate subsystem"*).
 
@@ -251,18 +251,52 @@ died on load and took the guard with it. And an assertion that arm A did not hol
 half the population was vacuous: each clinician slot holds exactly 80 people, so no two-way
 split of three can produce 120/120. Both now bite.
 
-### Wave 3 — Deterministic generator
+### Wave 3 — Deterministic generator ✅ **DONE**
 **Spec: pp14, 28–29. Exit evidence: stable event and projection hashes.**
 
-- Six months of events per person from `demo_epoch` + seeded offsets, per p14's per-domain
-  targets.
-- p28's constraints: follow-up must match the authored archetype (never sampled
-  independently); protected status must never determine success; missingness must be
-  intentional and carry a reason — *not due, skipped, declined, interrupted, failed,
-  unavailable*.
-- Edge cases as fixtures: duplicate event, late arrival, correction, stale projection,
-  partial measure, revoked consent, cross-tenant request.
-- The eleven-check quality manifest (G17) and the reset contract.
+| Built | Where |
+|---|---|
+| `StableRandom` (mulberry32), seeded `sha256(dataset_version:profile_seed)` | `src/lib/demo-population-generator.ts` |
+| Eight archetype activity paths — check-in count, module and session ranges, curve shape, miss rate, authored gaps | same |
+| Six months of history: 240 accounts, 483 consents, ~18k check-ins, ~1.3k measures, ~6.5k modules, ~620 sessions | same |
+| Missingness with p28's six reasons, following the archetype rather than drawn at random | same |
+| Edge cases on **named** profiles: duplicate, late arrival, partial measure, revoked consent | same |
+| p29's data-quality manifest, 16 checks computed against the live database | `src/lib/demo-quality.ts`, rendered on `/admin/demo` |
+| 11 unit guards | `tests/demo-generator.test.ts` |
+
+**The exit evidence, measured.** Two independent resets produce the identical baseline hash.
+`npm run demo -- verify` reports **19,736 events applied, 0 differences, 0 gaps** — byte-identical
+replay. A reset takes about 12 seconds against p29's 120-second target.
+
+**How the events are written, and why it is not the pseudocode.** p28 sketches a loop that
+appends events directly. This writes **current-state rows** and lets the existing genesis
+backfill derive the ledger, because the replay guard requires every event carrying a
+projector to name the row it rebuilds. The organization seed learned this the expensive way:
+it wrote clinical event types for people with no clinical records, and the guard reported
+8,008 events claiming rows they could not reconstruct. Events with no current-state row —
+safety gates, clinician actions, corrections, missingness — are written directly, because
+they carry history the current-state tables never held.
+
+**A real tenancy defect, found by replay.** The genesis backfill wrote **every reconstructed
+event into the platform tenant**, regardless of where its person lived. It was invisible for
+as long as every seeded user happened to be in the platform tenant; the 240-profile
+population is the first cohort in organization tenants, and replay immediately reported
+thousands of rows rebuilding into the wrong one. An event in the wrong tenant is read by a
+query scoped to that tenant and missed by one scoped to the right one — p29's "cross-tenant
+references: 0" is the check it would have failed.
+
+**Three of the generator's own defects, caught by its guards.** p14's per-person targets were
+emergent rather than structural, so a per-day probability produced one person with 1 check-in
+and another with 134 against a stated bound of 18–90; drawing miss slots into a `Set`
+collapsed collisions and produced people with ten measures against a ceiling of eight; and a
+`consent.withdrawn` fixture without a `projectionId` failed the replay guard exactly as
+designed. All three are now checked by number rather than assumed.
+
+**Two guards were strengthened after failing to detect their own mutation.** A coherence
+check comparing early responders to no-change used a bare `>`, which two groups drawn from
+the same distribution satisfy about half the time — it now requires a 1.25× margin. And the
+cross-tenant check ran against a database with no reconstructed events at all, so it could
+not have found the defect it was written for; it now runs the backfill first.
 
 ### Wave 4 — Role projections
 **Spec: pp6, 46, 50. Exit evidence: the same events produce correct minimum-necessary views.**
