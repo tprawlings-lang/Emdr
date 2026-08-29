@@ -102,8 +102,21 @@ export async function getCurrentUser(): Promise<SessionUser | null> {
 
 export async function requireUser(): Promise<SessionUser> {
   const user = await getCurrentUser();
-  if (!user) redirect("/login");
-  return user;
+  if (user) return user;
+
+  // Two different situations, and telling them apart is the whole point of
+  // §26 giving /session-expired its own screen. A visitor who was never signed
+  // in needs the sign-in page. Someone whose session ended needs to know that
+  // is what happened — that nothing they saved is lost, and that anything they
+  // were part-way through typing was deliberately not kept.
+  //
+  // The presence of the cookie is what separates them, and it reveals nothing:
+  // whoever holds the browser already knows whether they signed in. A rejected
+  // cookie could be expired, revoked by "sign out everywhere", or forged, and
+  // this deliberately does not distinguish those — the message is the same for
+  // all three, and a forger learns nothing from it.
+  const store = await cookies();
+  redirect(store.get(COOKIE) ? "/session-expired" : "/login");
 }
 
 export async function requireMember(): Promise<SessionUser> {
@@ -144,10 +157,17 @@ export async function requireClinician(): Promise<SessionUser> {
 export async function requireIntelligence(): Promise<SessionUser> {
   const user = await requireUser();
   if (user.role !== "admin") {
-    // Not "forbidden": telling a clinician this surface exists and is barred
-    // is more than they need, and §30.6 step 2 returns a generic denied state
-    // rather than confirming what is on the other side.
-    redirect(user.role === "member" ? "/app/today" : "/clinician/today");
+    // A member goes to their own home. Nothing about this surface is their
+    // business, and a denial screen would be an answer to a question they did
+    // not ask.
+    //
+    // A clinician gets /403 instead. This is a SCOPE denial, not a record
+    // denial: the aggregate console is not a secret — it is on the public site
+    // — so saying "outside your scope, here is how to request it" reveals
+    // nothing and is more useful than a silent bounce. The rule that a
+    // forbidden RECORD returns not-found is untouched; it is about existence,
+    // and this is about permission on something whose existence is published.
+    redirect(user.role === "member" ? "/app/today" : "/403");
   }
   return user;
 }

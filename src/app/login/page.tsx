@@ -61,6 +61,18 @@ export default async function LoginPage({
           Request a review
         </a>
       </p>
+
+      {/* §6: crisis is reachable from every screen. This one had no route to
+          it — the global footer carries the 988 number, but a person who
+          cannot get into their account is exactly who should not have to
+          scroll and read to find the way through. */}
+      <p className="mt-2 text-center text-sm text-olive">
+        Need help right now?{" "}
+        <a href="/crisis" className="font-medium text-ground underline">
+          Crisis support
+        </a>{" "}
+        is open without signing in.
+      </p>
       <div className="mt-8 rounded-3xl border border-ground/10 bg-linen p-5 text-sm text-olive shadow-soft">
         <p className="font-semibold text-ground">Development prototype</p>
         <p className="mt-1">
