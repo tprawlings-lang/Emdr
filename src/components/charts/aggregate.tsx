@@ -127,14 +127,20 @@ export function Funnel({ stages }: { stages: Stage[] }) {
           <li key={s.label} className="grid gap-1 sm:grid-cols-[9rem_1fr] sm:items-center sm:gap-4">
             <span className="text-sm text-ground">{s.label}</span>
             <span className="flex items-center gap-3">
-              <span
-                aria-hidden
-                className="h-4 min-w-1 rounded-full"
-                style={{
-                  width: `${w}%`,
-                  backgroundColor: s.attention ? "var(--color-state-caution)" : "var(--color-sage-deep)",
-                }}
-              />
+              {/* The TRACK is the denominator, drawn. Without it a bar is a
+                  length with nothing to be a fraction of, and the eye reads
+                  the longest bar as full rather than as 74% — which is the
+                  §29.1 denominator rule expressed in pixels rather than in
+                  the label beside them. */}
+              <span aria-hidden className="relative h-4 flex-1 rounded-full bg-moss/60">
+                <span
+                  className="absolute inset-y-0 left-0 min-w-1 rounded-full"
+                  style={{
+                    width: `${w}%`,
+                    backgroundColor: s.attention ? "var(--color-state-caution)" : "var(--color-sage-deep)",
+                  }}
+                />
+              </span>
               <span className="whitespace-nowrap text-sm text-ground">
                 {cell(s.count)}
                 {s.attention && (
@@ -166,14 +172,15 @@ export function BarList({ bars, unit }: { bars: Bar[]; unit?: string }) {
         <li key={b.label} className="grid gap-1 sm:grid-cols-[9rem_1fr] sm:items-center sm:gap-4">
           <span className="text-sm text-ground">{b.label}</span>
           <span className="flex items-center gap-3">
-            <span
-              aria-hidden
-              className="h-4 min-w-1 rounded-full"
-              style={{
-                width: `${Math.max(1, Math.round((b.value / top) * 100))}%`,
-                backgroundColor: b.attention ? "var(--color-state-caution)" : "var(--color-sage-deep)",
-              }}
-            />
+            <span aria-hidden className="relative h-4 flex-1 rounded-full bg-moss/60">
+              <span
+                className="absolute inset-y-0 left-0 min-w-1 rounded-full"
+                style={{
+                  width: `${Math.max(1, Math.round((b.value / top) * 100))}%`,
+                  backgroundColor: b.attention ? "var(--color-state-caution)" : "var(--color-sage-deep)",
+                }}
+              />
+            </span>
             <span className="whitespace-nowrap text-sm text-ground">
               {num(b.value)}{unit ? ` ${unit}` : ""}
               {b.detail && <span className="ml-2 text-olive">{b.detail}</span>}
@@ -272,28 +279,32 @@ export function StackedAllocation({ slices, total }: { slices: Slice[]; total: n
     caution: "var(--color-state-caution)",
     unknown: "var(--color-state-unknown)",
   };
+  // One row per status, every one on a track of the SAME length — the shared
+  // denominator, drawn. This was a single stacked bar, which is a fine way to
+  // show parts of a whole and a poor way to compare two small parts to each
+  // other: "worsened" and "missing follow-up" ended up as two thin adjacent
+  // slivers nobody could measure by eye. The page example uses rows, and rows
+  // keep the shared denominator visible while making the four comparable.
   return (
-    <div>
-      <div aria-hidden className="flex h-10 w-full overflow-hidden rounded-lg">
-        {slices.map((s) => (
-          <div
-            key={s.label}
-            style={{ width: `${Math.max(0.5, (s.n / Math.max(1, total)) * 100)}%`, backgroundColor: TONE[s.tone] }}
-          />
-        ))}
-      </div>
-      <ul className="mt-4 grid gap-2 sm:grid-cols-2">
-        {slices.map((s) => (
-          <li key={s.label} className="flex items-baseline gap-2 text-sm">
-            <span aria-hidden className="mt-1 h-3 w-3 shrink-0 rounded-sm" style={{ backgroundColor: TONE[s.tone] }} />
-            <span className="text-ground">
-              <span className="font-medium">{s.label}</span>{" "}
-              {cell({ n: s.n, of: total })}
+    <ul className="space-y-3">
+      {slices.map((s) => (
+        <li key={s.label} className="grid gap-1 sm:grid-cols-[9rem_1fr] sm:items-center sm:gap-4">
+          <span className="text-sm text-ground">{s.label}</span>
+          <span className="flex items-center gap-3">
+            <span aria-hidden className="relative h-4 flex-1 rounded-full bg-moss/60">
+              <span
+                className="absolute inset-y-0 left-0 min-w-1 rounded-full"
+                style={{
+                  width: `${Math.max(1, Math.round((s.n / Math.max(1, total)) * 100))}%`,
+                  backgroundColor: TONE[s.tone],
+                }}
+              />
             </span>
-          </li>
-        ))}
-      </ul>
-    </div>
+            <span className="whitespace-nowrap text-sm text-ground">{cell({ n: s.n, of: total })}</span>
+          </span>
+        </li>
+      ))}
+    </ul>
   );
 }
 

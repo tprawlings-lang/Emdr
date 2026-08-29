@@ -1,27 +1,29 @@
 import { OrgPage } from "@/components/app/OrgPage";
 import { EnvelopeView } from "@/components/presentation/EnvelopeView";
-import { Callout, Note, Panel, SummaryCards, WithNote } from "@/components/app/surfaces";
-import { Figure, Funnel, num, pct } from "@/components/charts/aggregate";
+import { Note, Panel, WithNote } from "@/components/app/surfaces";
+import { Figure, Funnel, num } from "@/components/charts/aggregate";
 import { buildOrgOverview } from "@/lib/intelligence/organization";
 import { resolveOrgTenant } from "@/lib/intelligence/scope";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Operating overview — Steady Intelligence" };
 
-// Operating overview (§26: "See network change and action — aggregate summary
-// and queue — review location").
+// Operating overview (§26: "See network change and accountable action —
+// aggregate summary and queue — review location").
 //
-// The three cards are the network's current state in three numbers, and each
-// carries its denominator because §29.1 does not allow otherwise. The funnel
-// underneath is the same access pathway /organization/access opens in full;
-// it is here because "where does the network lose people" is the first
-// question this screen exists to answer, not a drill-down.
+// The three summary cards are NOT here. They are the shell's standing header,
+// because every organization page example carries the same three and a header
+// each screen opts into is a header two screens forget.
+//
+// What changed sits in the side card rather than in a banner across the top.
+// That is where the page example puts it, and it is the better place for a
+// reason the example does not state: the finding and the funnel it came from
+// are then readable side by side, and the card has room for the part a banner
+// does not — who is accountable, and by when.
 
 export default async function OrgOverviewPage() {
   const tenantId = await resolveOrgTenant();
-  const envelope = tenantId
-    ? await buildOrgOverview(tenantId)
-    : null;
+  const envelope = tenantId ? await buildOrgOverview(tenantId) : null;
 
   return (
     <OrgPage
@@ -41,56 +43,41 @@ export default async function OrgOverviewPage() {
       ) : (
         <EnvelopeView envelope={envelope} title="Operating overview" audience="operations">
           {(o) => (
-            <div className="space-y-6">
-              {o.changed && <Callout label="What changed">{o.changed}</Callout>}
-
-              <SummaryCards
-                cards={[
-                  {
-                    label: "First contact",
-                    value: o.firstContactDays === null ? "Not enough contacts" : `${o.firstContactDays} days`,
-                    detail: "median, referral to first contact",
-                  },
-                  {
-                    label: "Started care",
-                    value: pct(o.engaged),
-                    detail: "of covered lives",
-                  },
-                  {
-                    label: "Measure coverage",
-                    value: pct(o.measureCoverage),
-                    detail: "of people who started care",
-                  },
-                ]}
-              />
-
-              <WithNote
-                note={
+            <WithNote
+              note={
+                o.changed ? (
                   <Note
-                    tone="caution"
-                    title="Read this first"
-                    boundary="A funnel shows where people stop appearing, not why. None of these stages establishes a cause, and no stage is evidence about any individual."
+                    tone="support"
+                    title="What changed"
+                    owner="Not assigned — no owner record exists for a network finding"
+                    boundary="A difference between sites is not a cause. Case mix, referral source and staffing all differ, and none of them is in this comparison."
+                  >
+                    <p>{o.changed}</p>
+                  </Note>
+                ) : (
+                  <Note
+                    tone="safe"
+                    title="What changed"
+                    boundary="Nothing moved enough to name. That is a finding rather than the absence of one."
                   >
                     <p>
-                      Every stage is counted against the same denominator — the{" "}
-                      {num(o.funnel[0].count.of)} people referred — so the last bar is the
-                      share of referrals that reached care, not the share of the step before
-                      it.
+                      No site is more than two points off the network&apos;s contact rate this
+                      period.
                     </p>
                   </Note>
-                }
-              >
-                <Panel>
-                  <Figure
-                    title="Referral to care start"
-                    summary={`Access pathway for ${num(o.population)} covered lives, five stages, each against ${num(o.funnel[0].count.of)} referrals.`}
-                    footnote={`All referrals on record. Denominator ${num(o.funnel[0].count.of)}. Counts are distinct people, not events.`}
-                  >
-                    <Funnel stages={o.funnel} />
-                  </Figure>
-                </Panel>
-              </WithNote>
-            </div>
+                )
+              }
+            >
+              <Panel>
+                <Figure
+                  title="Access pathway"
+                  summary={`Five access stages for ${num(o.population)} covered lives, each counted against ${num(o.funnel[0].count.of)} referrals.`}
+                  footnote={`Referral to contact to scheduled to started. Denominator ${num(o.funnel[0].count.of)}. Distinct people, not events.`}
+                >
+                  <Funnel stages={o.funnel} />
+                </Figure>
+              </Panel>
+            </WithNote>
           )}
         </EnvelopeView>
       )}

@@ -40,6 +40,7 @@ export default async function OrgOutcomesPage() {
                 <Note
                   tone="info"
                   title="Boundary"
+                  owner="Clinical quality — outcome definitions are theirs, not operations'"
                   boundary="An observed cohort pattern. No causal claim: nothing here establishes that care produced the change, and missing follow-up stays in the denominator."
                 >
                   <p>

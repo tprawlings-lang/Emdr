@@ -1,6 +1,6 @@
 import { OrgPage } from "@/components/app/OrgPage";
 import { EnvelopeView } from "@/components/presentation/EnvelopeView";
-import { Note, Panel, SummaryCards, WithNote } from "@/components/app/surfaces";
+import { Note, Panel, WithNote } from "@/components/app/surfaces";
 import { Figure, num, pct } from "@/components/charts/aggregate";
 import { buildOrgCareDelivery } from "@/lib/intelligence/organization";
 import { resolveOrgTenant } from "@/lib/intelligence/scope";
@@ -37,14 +37,6 @@ export default async function OrgCareDeliveryPage() {
         <EnvelopeView envelope={envelope} title="Care delivery" audience="operations">
           {(d) => (
             <div className="space-y-6">
-              <SummaryCards
-                cards={[
-                  { label: "Started care", value: num(d.started), detail: "distinct people" },
-                  { label: "Sessions delivered", value: num(d.sessions), detail: `${(d.sessions / Math.max(1, d.started)).toFixed(1)} per person` },
-                  { label: "Clinician review", value: pct(d.reviewed), detail: "of people who started care" },
-                ]}
-              />
-
               <WithNote
                 note={
                   <Note

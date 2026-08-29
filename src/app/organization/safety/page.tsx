@@ -1,6 +1,6 @@
 import { OrgPage } from "@/components/app/OrgPage";
 import { EnvelopeView } from "@/components/presentation/EnvelopeView";
-import { Note, Panel, SummaryCards, WithNote } from "@/components/app/surfaces";
+import { Note, Panel, WithNote } from "@/components/app/surfaces";
 import { Figure, Line, num, pct } from "@/components/charts/aggregate";
 import { buildOrgSafetyOps } from "@/lib/intelligence/organization";
 import { resolveOrgTenant } from "@/lib/intelligence/scope";
@@ -41,19 +41,12 @@ export default async function OrgSafetyPage() {
         <EnvelopeView envelope={envelope} title="Safety operations" audience="operations">
           {(s) => (
             <div className="space-y-6">
-              <SummaryCards
-                cards={[
-                  { label: "Gates fired", value: num(s.triggered), detail: "distinct people, all time" },
-                  { label: "Human response recorded", value: pct(s.responded), detail: "of gates fired" },
-                  { label: "Rule authority", value: "Deterministic", detail: "no model makes or clears a gate" },
-                ]}
-              />
-
               <WithNote
                 note={
                   <Note
                     tone="support"
                     title="What this is not"
+                    owner="Clinical safety — gate response is a clinician action, not an operations one"
                     boundary="Not a risk score, not a ranking, and not evidence about any site or person. A gate firing records that a fixed rule matched an answer."
                   >
                     <p>
@@ -64,6 +57,10 @@ export default async function OrgSafetyPage() {
                 }
               >
                 <Panel>
+                  <p className="mb-4 text-sm text-ground">
+                    {num(s.triggered)} people met a fixed gate. A human response is recorded
+                    for {pct(s.responded)}. No model makes, clears or reverses a gate.
+                  </p>
                   <Figure
                     title="Gate volume by month"
                     summary="Count of fixed safety-gate events per month, last six months."

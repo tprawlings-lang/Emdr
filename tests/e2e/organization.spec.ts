@@ -103,8 +103,13 @@ test("missing follow-up stays inside the outcomes denominator", async ({ page })
   // missing slice is in the same bar, on the same total, as the three that
   // look like results.
   await expect(page.getByText("Missing follow-up", { exact: true })).toBeVisible();
-  const text = (await page.locator("main").innerText()).replace(/\s+/g, " ");
+
+  // Scoped to the chart's own figure. The standing header above it carries its
+  // own denominators (covered lives, and people who started care), and reading
+  // the whole page counted those as a second denominator for the slices.
+  const text = (await page.locator("main figure").first().innerText()).replace(/\s+/g, " ");
   const totals = [...text.matchAll(/\/\s*([\d,]+)\)/g)].map((m) => m[1]);
+  expect(totals.length, "no denominators found in the outcomes figure").toBeGreaterThan(3);
   expect(new Set(totals).size, "outcome slices are measured against different denominators").toBe(1);
 });
 

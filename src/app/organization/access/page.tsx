@@ -45,6 +45,7 @@ export default async function OrgAccessPage() {
                   <Note
                     tone="caution"
                     title="Where the loss is"
+                    owner="Not assigned — no owner record exists for a network finding"
                     boundary="The marked stage is the largest drop in count. It is not the cause of the loss and not necessarily the stage to fix."
                   >
                     <p>

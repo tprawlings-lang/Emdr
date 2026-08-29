@@ -45,6 +45,7 @@ export default async function OrgCapacityPage() {
                 <Note
                   tone="caution"
                   title="Half a ratio"
+                  owner="Network operations — but the slot feed it would act on does not exist"
                   boundary="Demand alone cannot say whether a site is over or under capacity. Rebalancing on this chart would be acting on a number that has no denominator."
                 >
                   <p>
