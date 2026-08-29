@@ -193,12 +193,58 @@ test("a measure that cannot be computed is null, never zero", () => {
 // Scope
 // ---------------------------------------------------------------------------
 
-test("payer and provider-network scope cannot resolve to the same tenant", () => {
-  // Seeding the payer added a second organization-kind tenant. The previous
-  // "exactly one organization" rule would have returned null for both.
+test("scope is READ from the session, never inferred from the shape of the data", () => {
+  // The history this guards against, in two steps.
+  //
+  // `resolveOrgTenant` first returned the single organization-kind tenant and
+  // failed closed when there was not exactly one — correct for exactly as long
+  // as there was exactly one. The payer seed added a second, and every
+  // organization screen would have rendered "no organization in scope". That
+  // was patched by excluding tenants that hold a payer contract: an inference
+  // standing on an inference, and one that breaks again the moment handoff 07
+  // Wave 2 adds eight demo organizations.
+  //
+  // An account belongs to a tenant. It is bound at seed time and carried in
+  // the session claims, so resolving it is a read.
   const scope = read(path.join(ROOT, "src", "lib", "intelligence", "scope.ts"));
-  assert.match(scope, /NOT EXISTS \(SELECT 1 FROM payer_contracts/,
-    "resolveOrgTenant does not exclude payer tenants, so adding a plan breaks every " +
-    "organization screen");
   assert.match(scope, /export async function resolvePayerTenant/, "there is no payer scope resolver");
+  assert.match(scope, /getCurrentUser/,
+    "scope is not resolved from the session — §30.6 step 1 resolves the ACTING tenant");
+  assert.match(scope, /user\.tenantId/, "scope does not read the session's tenant");
+
+  // No counting, and no re-deriving a tenant from its shape. Both are the
+  // failure mode, and both are one convenient line away.
+  const code = scope.replace(/\/\*[\s\S]*?\*\//g, " ").replace(/^\s*\/\/.*$/gm, " ");
+  assert.doesNotMatch(code, /kind = 'organization'/,
+    "scope infers the tenant from its kind again");
+  assert.doesNotMatch(code, /NOT EXISTS \(SELECT 1 FROM payer_contracts/,
+    "scope infers the tenant by excluding payer contracts again");
+  assert.doesNotMatch(code, /rows\.length === 1 \? rows\[0\]\.id : null[\s\S]*rows\.length === 1/,
+    "scope counts tenants in more than one place");
+
+  // And the role is checked, so a resolver cannot be talked into naming
+  // another role's tenant. A scope resolver that trusts its caller is one
+  // layer of defence pretending to be two.
+  assert.match(code, /user\.role !== "organization"/, "resolveOrgTenant does not check the role");
+  assert.match(code, /user\.role !== "payer"/, "resolvePayerTenant does not check the role");
+});
+
+test("the aggregate accounts are bound to the tenants they report on", async () => {
+  // The binding is what makes the read above possible, and it has an ordering
+  // requirement that is easy to get wrong: it must run AFTER the org and payer
+  // seeds, because it points at tenants they create.
+  const db = read(path.join(ROOT, "src", "lib", "db.ts"));
+  const seed = db.slice(db.indexOf("export function seedDemo("), db.indexOf("function bindAggregateAccounts"));
+  const orgAt = seed.indexOf("seedOrgData(db)");
+  const payerAt = seed.indexOf("seedPayerData(db)");
+  const bindAt = seed.indexOf("bindAggregateAccounts(db)");
+  assert.ok(orgAt > 0 && payerAt > 0 && bindAt > 0, "the demo seed does not bind the aggregate accounts");
+  assert.ok(bindAt > orgAt && bindAt > payerAt,
+    "the accounts are bound before the tenants exist, so the binding silently does nothing");
+
+  // The person row moves with the account, or the spine and the account
+  // disagree about which tenant they are in.
+  const bind = db.slice(db.indexOf("function bindAggregateAccounts"));
+  assert.match(bind, /UPDATE persons SET tenant_id/,
+    "only the account is re-tenanted, so the identity spine still says platform");
 });

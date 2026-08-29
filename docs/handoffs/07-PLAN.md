@@ -180,12 +180,34 @@ payer screen; no demo password appears on any public page.
    reach the content and the navigation but not the two things the frame exists to keep on
    screen.
 
-**Still open from Wave 1:** G2, the session claims. The token remains
-`userId.issuedAt.epoch.signature`; §1.3's `environment`, `dataset_version`, `tenant_id`,
-`purpose` and `allowed_projections` are not in it, and lifetimes are still 7-day idle /
-30-day absolute rather than the demo's 60 minutes / 8 hours. **D3's scope-resolution fix is
-also still open** — `resolveOrgTenant()` still counts tenants rather than reading the
-session's, so it must be closed before Wave 2 adds eight demo organizations.
+**G2 (session claims) and D3 (scope resolution) closed in a follow-up.** The token now
+carries every claim §1.3 names — environment, dataset_version, tenant_id, person_id (only
+for a role that acts for a person), role, purpose, issued_at, expires_at and
+allowed_projections — signed, with demo lifetimes of 60 minutes idle and 8 hours absolute.
+**The claims grant nothing:** the account row stays authoritative, the claims are checked
+against it, and a disagreement destroys the session rather than resolving in either
+direction. A token that carries a role and is trusted for it has to be revoked; one that
+carries a role and is checked for it revokes itself.
+
+Scope now reads the session instead of counting tenants. The aggregate accounts are bound
+to their tenants at seed time (after the org and payer seeds, since it points at tenants
+they create), so `resolveOrgTenant()` is a read. Adding Wave 2's eight demo organizations
+changes nothing.
+
+**Two latent bugs this uncovered**, both the same class — configuration read at module load:
+
+- `const SECRET = process.env.EMDR_SESSION_SECRET ?? "dev-only-secret-change-me"` meant a
+  process where the variable is set after the module loads signs and verifies with the dev
+  fallback, silently. Production is unaffected because the environment is set before the
+  process starts, which is exactly why it would never have been noticed there.
+- `const DEMO = process.env.EMDR_DEMO === "1"` froze the session lifetime at import, so the
+  value depended on import order rather than configuration.
+
+The first was found by a **guard that passed for the wrong reason**: a test building an
+expired token signed it with the real secret while the module verified with the fallback,
+so the token was rejected on its signature and the expiry assertion never ran. Deleting the
+expiry check entirely did not fail the test. Both are now read at call time, and the
+mutation bites.
 
 ### Wave 2 — Seed manifest
 **Spec: pp11–27. Exit evidence: counts and balance checks pass.**

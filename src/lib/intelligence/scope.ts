@@ -1,51 +1,76 @@
 import { data } from "@/lib/data";
+import { getCurrentUser } from "@/lib/auth";
 
-// Which organization an Intelligence account reports on.
+// Which tenant an Intelligence account reports on (§30.6 step 1: resolve the
+// acting tenant before anything else).
 //
-// §30.6 step 1 resolves the acting tenant before anything else, and every
-// organization projection takes that tenant id rather than reading "the
-// organization" from ambient state. This is the one place that resolution
-// happens, so there is a single line to change when role assignments carry it.
+// This used to COUNT. `resolveOrgTenant` returned the single organization-kind
+// tenant and failed closed when there was not exactly one — which worked for
+// exactly as long as there was exactly one. The payer seed added a second and
+// every organization screen would have rendered "no organization in scope";
+// that was patched by excluding tenants holding a payer contract, an inference
+// standing on an inference, and it would have broken again the moment handoff
+// 07's Wave 2 adds eight demo organizations.
 //
-// In this deployment there is exactly one organization tenant, and the
-// operations account is not yet bound to it by a role assignment — that
-// binding is part of the access-request work §26 puts at /review/access, which
-// is not built. Rather than fake a grant, this resolves the single
-// organization tenant and returns null when there is not exactly one, so an
-// ambiguous case fails closed instead of picking one.
+// An account belongs to a tenant. It is now bound at seed time and carried in
+// the session claims (§1.3, p7), so resolving it is a read rather than a
+// deduction, and adding a hundred tenants changes nothing.
 
-/**
- * A provider network: an organization tenant with no payer contract.
- *
- * The `kind` column cannot tell these apart — a payer is an organization too,
- * and widening the CHECK constraint would be a table rebuild for a
- * distinction that already exists structurally. What actually separates them
- * is that a payer HAS a contract: it reports on a contracted population using
- * claims, and a provider network does not.
- *
- * This mattered immediately. Seeding the payer added a second
- * organization-kind tenant, and the previous "exactly one organization" rule
- * started returning null — every organization screen would have rendered "no
- * organization in scope" the moment the payer work landed.
- */
-export async function resolveOrgTenant(): Promise<string | null> {
-  const c = await data();
-  const rows = (await c.all(
-    `SELECT t.id FROM tenants t
-      WHERE t.kind = 'organization'
-        AND NOT EXISTS (SELECT 1 FROM payer_contracts pc WHERE pc.tenant_id = t.id)
-      ORDER BY t.id`,
-    [],
-  )) as { id: string }[];
-  return rows.length === 1 ? rows[0].id : null;
+/** The tenant this account acts for, from its session. Null when the account
+ *  is not bound to one — which fails closed, and now means "not configured"
+ *  rather than "ambiguous". */
+export async function resolveActingTenant(): Promise<string | null> {
+  const user = await getCurrentUser();
+  if (!user) return null;
+  // The platform tenant is where direct-to-consumer records live. An aggregate
+  // console scoped to it would report on every unassigned person in the
+  // deployment, which is the opposite of minimum necessary.
+  const NIL = "0".repeat(26);
+  return user.tenantId && user.tenantId !== NIL ? user.tenantId : null;
 }
 
-/** A health plan: the tenant that holds a payer contract. Same fail-closed
- *  rule — an ambiguous case returns null rather than picking one. */
+/**
+ * A provider network: the acting tenant, when the account holds the
+ * organization role.
+ *
+ * The role check is what keeps this from becoming a way for a payer account to
+ * name an organization tenant and be believed. The layout guard already denies
+ * that, and this refuses it a second time — a scope resolver that trusts its
+ * caller is one layer of defence pretending to be two.
+ */
+export async function resolveOrgTenant(): Promise<string | null> {
+  const user = await getCurrentUser();
+  if (!user) return null;
+  if (user.role !== "organization" && user.role !== "demo_admin") return null;
+  if (user.role === "demo_admin") return demoAdminTenant("organization");
+  return await resolveActingTenant();
+}
+
+/** A health plan: the acting tenant, when the account holds the payer role. */
 export async function resolvePayerTenant(): Promise<string | null> {
+  const user = await getCurrentUser();
+  if (!user) return null;
+  if (user.role !== "payer" && user.role !== "demo_admin") return null;
+  if (user.role === "demo_admin") return demoAdminTenant("payer");
+  return await resolveActingTenant();
+}
+
+/**
+ * Demo administration is the one role with no tenant of its own (p6: "all
+ * fabricated tenants"), so it needs a tenant NAMED for it to read a console.
+ *
+ * It resolves the same way the seed binds it — through the account that holds
+ * the role — rather than by re-deriving the tenant from its shape. That keeps
+ * one definition of "the payer tenant" in the system instead of two that can
+ * disagree, and it means demo admin sees exactly what the payer sees.
+ */
+async function demoAdminTenant(role: "organization" | "payer"): Promise<string | null> {
   const c = await data();
   const rows = (await c.all(
-    "SELECT DISTINCT tenant_id AS id FROM payer_contracts ORDER BY tenant_id", [],
+    "SELECT tenant_id AS id FROM users WHERE role = ? ORDER BY id", [role],
   )) as { id: string }[];
+  // Still fails closed on ambiguity, and the ambiguity is now a real one — two
+  // accounts holding the same aggregate role in different tenants — rather
+  // than an artefact of counting.
   return rows.length === 1 ? rows[0].id : null;
 }

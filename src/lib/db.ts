@@ -3,8 +3,8 @@ import path from "path";
 import fs from "fs";
 import crypto from "crypto";
 import { seedDemoData, demoId, demoPassword } from "./demo-seed";
-import { seedOrgData } from "./demo-org-seed";
-import { seedPayerData } from "./demo-payer-seed";
+import { seedOrgData, ORG_TENANT_ID } from "./demo-org-seed";
+import { seedPayerData, PAYER_TENANT_ID } from "./demo-payer-seed";
 import { ulid, NIL_ULID, ulidFrom } from "./ids";
 
 // Resolved lazily inside getDb() (not at module load) so EMDR_DATA_DIR is
@@ -988,8 +988,45 @@ export function newId(): string {
  *  it through the same path a fresh environment uses, so the two can never
  *  drift into producing subtly different datasets. */
 export function seedDemo(db: Database.Database) {
-  db.transaction(() => { seedDemoData(db); seedOrgData(db); seedPayerData(db); })();
+  db.transaction(() => {
+    seedDemoData(db);
+    seedOrgData(db);
+    seedPayerData(db);
+    bindAggregateAccounts(db);
+  })();
   refreshDemoDaily(db);
+}
+
+/**
+ * Bind the two aggregate accounts to the tenants they report on.
+ *
+ * This has to run AFTER the org and payer seeds, because it points at tenants
+ * they create — which is why it is a third step rather than a column set at
+ * insert time.
+ *
+ * It exists so scope stops being inferred. `resolveOrgTenant()` used to count
+ * tenants and return the single organization-kind one, failing closed when
+ * there was not exactly one. That worked for as long as there was exactly one,
+ * and broke the moment the payer seed added a second — every organization
+ * screen would have rendered "no organization in scope". It was patched by
+ * excluding tenants that hold a payer contract, which is a second inference
+ * standing on the first, and it would break again the moment handoff 07's Wave
+ * 2 adds eight demo organizations.
+ *
+ * An account belongs to a tenant. That is a fact worth storing rather than
+ * deducing, and §30.6 step 1 says to resolve it before anything else.
+ */
+function bindAggregateAccounts(db: Database.Database) {
+  const bind = db.prepare("UPDATE users SET tenant_id = ? WHERE email = ? AND role = ?");
+  bind.run(ORG_TENANT_ID, "org.demo@steady.local", "organization");
+  bind.run(PAYER_TENANT_ID, "payer.demo@steady.local", "payer");
+  // The identity spine mirrors users onto persons, so the person row has to
+  // move with the account or the two disagree about which tenant it is in.
+  const bindPerson = db.prepare(
+    "UPDATE persons SET tenant_id = ? WHERE id = (SELECT id FROM users WHERE email = ?)",
+  );
+  bindPerson.run(ORG_TENANT_ID, "org.demo@steady.local");
+  bindPerson.run(PAYER_TENANT_ID, "payer.demo@steady.local");
 }
 
 function seed(db: Database.Database) {
@@ -1001,6 +1038,7 @@ function seed(db: Database.Database) {
       seedDemoData(db);
       seedOrgData(db);
       seedPayerData(db);
+      bindAggregateAccounts(db);
       return;
     }
     const insert = db.prepare(

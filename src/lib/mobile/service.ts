@@ -11,7 +11,7 @@
 // mirrored here 1:1. Keep them in lockstep when either changes.
 
 import { data } from "../data";
-import { makeSessionToken, type SessionUser } from "../auth";
+import { makeSessionToken, getUserFromToken, type SessionUser } from "../auth";
 import { newId, verifyPassword } from "../db";
 import {
   checkModuleAccess,
@@ -120,7 +120,13 @@ export async function loginMobile(
   }
   await audit({ actorId: row.id, actorRole: row.role, family: "identity", type: "login_success", detail: { via: "mobile" } });
   const token = await makeSessionToken(row.id);
-  return { token, user: { id: row.id, email: row.email, name: row.name, role: row.role } };
+  // Resolved FROM the token rather than assembled beside it. The two used to
+  // be built separately, so a session could describe a user the token would
+  // not actually authenticate as — a discrepancy nothing would have surfaced
+  // until it mattered.
+  const user = await getUserFromToken(token);
+  if (!user) return null;
+  return { token, user };
 }
 
 // ---------- gating snapshot + module access ----------
