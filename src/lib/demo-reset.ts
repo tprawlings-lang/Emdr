@@ -52,6 +52,13 @@ import { seedDemo, syncIdentitySpine } from "./db";
 export const PRESERVED_TABLES = ["review_notes"] as const;
 
 export const DEMO_DATA_TABLES = [
+  // Payer domain first: claims reference persons, and contract measures
+  // reference their contract. Ordered for, not disabled — a mistake in this
+  // list fails loudly instead of leaving orphans.
+  "claims",
+  "cost_model_versions",
+  "contract_measures",
+  "payer_contracts",
   // Spine — references persons and tenants.
   "longitudinal_events",
   "external_identifiers",

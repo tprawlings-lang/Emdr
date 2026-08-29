@@ -48,9 +48,11 @@ test("no organization screen selects or renders a person identifier", () => {
   const offenders: string[] = [];
   for (const f of [...walk(ORG_APP), ...walk(INTEL_LIB, ".ts")]) {
     const src = code(read(f));
-    // `assertAggregate` names these to reject them; that is the guard, not a
-    // violation of it.
-    if (f.endsWith(path.join("intelligence", "organization.ts"))) {
+    // The projection modules aggregate INSIDE SQL, so they legitimately name
+    // person_id in a COUNT(DISTINCT ...), a GROUP BY or a JOIN — and
+    // `assertAggregate` names the banned keys in order to reject them. What
+    // must not appear is a person identifier outside one of those contexts.
+    if (f.includes(path.join("src", "lib", "intelligence"))) {
       // Only the banned-key regex may mention them, and it is one line.
       const lines = src.split("\n").filter((l) => /person_?id|display_?name/i.test(l));
       const allowed = lines.every((l) => /banned|COUNT\(DISTINCT|GROUP BY|JOIN|WHERE|ON /i.test(l));

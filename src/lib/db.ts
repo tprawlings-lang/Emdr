@@ -4,6 +4,7 @@ import fs from "fs";
 import crypto from "crypto";
 import { seedDemoData, demoId } from "./demo-seed";
 import { seedOrgData } from "./demo-org-seed";
+import { seedPayerData } from "./demo-payer-seed";
 import { ulid, NIL_ULID, ulidFrom } from "./ids";
 
 // Resolved lazily inside getDb() (not at module load) so EMDR_DATA_DIR is
@@ -596,6 +597,86 @@ function migrate(db: Database.Database) {
   -- because its second column is the event id.
   CREATE INDEX IF NOT EXISTS idx_levents_person_type
     ON longitudinal_events(person_id, event_type, occurred_at);
+
+  -- ── Payer domain (§26's ten payer screens, §30.2's enterprise domain) ──
+  --
+  -- A payer reports on a CONTRACTED POPULATION using CLAIMS, and neither
+  -- existed here. The three tables below are the smallest model that lets the
+  -- payer screens be counted rather than asserted.
+  --
+  -- The load-bearing column is claims.received_at. A claim is incurred on one
+  -- date and arrives weeks later, so the most recent months are always
+  -- incomplete — and a per-1,000 trend that ignores that draws utilisation
+  -- falling off a cliff at the right-hand edge, every time, for every payer,
+  -- purely because the post has not arrived. Storing both dates is what lets
+  -- the chart say "incomplete" instead of "improved".
+  CREATE TABLE IF NOT EXISTS payer_contracts (
+    id TEXT PRIMARY KEY,
+    tenant_id TEXT NOT NULL REFERENCES tenants(id),
+    name TEXT NOT NULL,
+    cohort_version TEXT NOT NULL,
+    period_start TEXT NOT NULL,
+    period_end TEXT NOT NULL,
+    -- Typical lag before a claim for a given service date has arrived, in
+    -- days. Stated by the contract rather than inferred, because a reader
+    -- needs to know the expected lag to judge whether the observed one is
+    -- normal.
+    claims_lag_days INTEGER NOT NULL DEFAULT 60,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+
+  CREATE TABLE IF NOT EXISTS contract_measures (
+    id TEXT PRIMARY KEY,
+    contract_id TEXT NOT NULL REFERENCES payer_contracts(id),
+    metric TEXT NOT NULL,
+    label TEXT NOT NULL,
+    target_value REAL NOT NULL,
+    unit TEXT NOT NULL,
+    -- Which direction counts as meeting the target. Stored, because "lower is
+    -- better" is true of ED visits and false of follow-up, and a report that
+    -- assumes one silently inverts half its own rows.
+    better TEXT NOT NULL CHECK (better IN ('lower','higher')),
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+
+  CREATE TABLE IF NOT EXISTS claims (
+    id TEXT PRIMARY KEY,
+    tenant_id TEXT NOT NULL REFERENCES tenants(id),
+    person_id TEXT NOT NULL REFERENCES persons(id),
+    claim_type TEXT NOT NULL,
+    incurred_at TEXT NOT NULL,
+    received_at TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'accepted'
+      CHECK (status IN ('accepted','pending','rejected','corrected')),
+    supersedes_claim_id TEXT REFERENCES claims(id),
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+  CREATE INDEX IF NOT EXISTS idx_claims_tenant_type
+    ON claims(tenant_id, claim_type, incurred_at);
+  CREATE INDEX IF NOT EXISTS idx_claims_person ON claims(person_id);
+  -- Self-referencing foreign key, indexed. The event ledger shipped without
+  -- the equivalent and one DELETE took 36 seconds at 32k rows.
+  CREATE INDEX IF NOT EXISTS idx_claims_supersedes ON claims(supersedes_claim_id);
+
+  -- A cost model is an ESTIMATE and its status is the whole point: a draft and
+  -- an approved model must never render alike, and a superseded one must stay
+  -- readable so an old report can be reproduced.
+  CREATE TABLE IF NOT EXISTS cost_model_versions (
+    id TEXT PRIMARY KEY,
+    tenant_id TEXT NOT NULL REFERENCES tenants(id),
+    model_version TEXT NOT NULL,
+    scenario TEXT NOT NULL,
+    low REAL NOT NULL,
+    point REAL NOT NULL,
+    high REAL NOT NULL,
+    unit TEXT NOT NULL DEFAULT 'PMPM',
+    status TEXT NOT NULL DEFAULT 'draft'
+      CHECK (status IN ('draft','approved','superseded')),
+    assumptions_json TEXT NOT NULL DEFAULT '[]',
+    approved_by TEXT,
+    approved_at TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
   CREATE INDEX IF NOT EXISTS idx_levents_type ON longitudinal_events(event_type, id);
   CREATE INDEX IF NOT EXISTS idx_levents_correlation ON longitudinal_events(correlation_id);
   `);
@@ -643,6 +724,11 @@ export const TENANT_SCOPED_TABLES = [
   "program_plans", "care_tracks", "care_track_intake", "practice_completions",
   "upsell_events", "autopilot_plans", "autopilot_events", "lesson_reads",
   "review_notes", "screening_progress",
+  // Claims are person-scoped: a claim belongs to one covered life, and a query
+  // that forgets the tenant reads another plan's members. It carries tenant_id
+  // from creation rather than by backfill, but it belongs on this list so the
+  // repository's scoping applies and the schema guard keeps counting it.
+  "claims",
 ] as const;
 
 /** Create the platform tenant and mirror `users` onto the identity spine
@@ -741,7 +827,7 @@ export function newId(): string {
  *  it through the same path a fresh environment uses, so the two can never
  *  drift into producing subtly different datasets. */
 export function seedDemo(db: Database.Database) {
-  db.transaction(() => { seedDemoData(db); seedOrgData(db); })();
+  db.transaction(() => { seedDemoData(db); seedOrgData(db); seedPayerData(db); })();
   refreshDemoDaily(db);
 }
 
@@ -753,6 +839,7 @@ function seed(db: Database.Database) {
     if (process.env.EMDR_DEMO === "1") {
       seedDemoData(db);
       seedOrgData(db);
+      seedPayerData(db);
       return;
     }
     const insert = db.prepare(

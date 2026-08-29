@@ -66,8 +66,8 @@ curl -s -o /dev/null -w "%{http_code}\n" https://steady-emdr-demo.onrender.com/a
 ```
 
 ```bash
-npm run test:safety   # 625 pass
-npm run test:e2e      # 122 pass   (PLAYWRIGHT_CHROMIUM_PATH=/opt/pw-browsers/chromium)
+npm run test:safety   # 636 pass
+npm run test:e2e      # 127 pass   (PLAYWRIGHT_CHROMIUM_PATH=/opt/pw-browsers/chromium)
 npm run test:rls      # 12 cross-tenant attack cases against a real Postgres cluster
 npm run build         # clean
 npm run demo -- reset # seed AND rebuild the event log — see the warning below
@@ -137,7 +137,7 @@ about how finished each is.
 | Patient and member | 15 | 15 (36 routes incl. sub-screens) | — |
 | Clinician | 14 | 14 (18 routes) | — |
 | Organization | 9 | 9 | — |
-| Payer | 10 | **0** | every screen; `/payer/*` does not exist. There is no claims feed, no eligibility file, no contract record and no cost model anywhere in this deployment, so all ten would be reporting on nothing |
+| Payer | 10 | 10 | — |
 | Review and administration | 13 | 5 | `/review/access`, `/clinical`, `/safety`, `/lineage`, `/research`, `/release`, `/demo-data`, `/status` |
 | Public institutional site | 11 | 9 | `/personal`, `/intelligence`. Nothing links to them — the home page routes the three products to `/platform`, `/clinical`, `/organizations` and `/payers` instead — so this is a naming gap, not a broken link |
 | Shared access states | 8 | 8 | — |
@@ -210,6 +210,43 @@ Two behaviours are worth knowing:
   otherwise — §1 requires both to survive a write, subscription, sync or
   service failure.
 
+### Steady Intelligence — the payer role
+
+The same `operations@example.com` account reaches both aggregate consoles;
+"Provider network" and the payer rail cross between them. `/payer/*` reports on
+a fabricated contracted population of 12,480 covered lives with ~1,600
+individual claims, a contract with five agreed measures, and an approved cost
+model — all seeded as rows, so every figure is counted.
+
+**Claims lag is the point of the whole build.** `claims` stores `incurred_at`
+and `received_at` separately, because a claim arrives some sixty days after the
+service. Count only what has arrived and utilisation falls off a cliff at the
+right-hand edge — every time, for every payer — and that fall looks exactly
+like the programme working. So a month below 85% of claims received reports
+**no value at all**: the line stops, the withheld months are named, and the
+screen renders `partial`. A short chart someone has to ask about is the correct
+outcome.
+
+**Observed and modelled never mix.** p69's contract row is a prohibition —
+"Never label estimated value as observed savings" — so the cost model is its
+own screen at `/payer/evidence/cost`, drawn in a hatched modelled register that
+no observed chart uses, with the *range* as the mark and the point estimate a
+tick inside it. Only an approved model version renders; drafts are not shown at
+all. Its assumptions are on the screen rather than behind a link, because an
+estimate whose assumptions take a click to reach is one that will be quoted
+without them.
+
+The contract report deliberately contains **a measure that misses** — median
+time to care is 30 days against a 21-day target — because a report where
+everything passes demonstrates nothing about one that has to show a failure. A
+miss renders exactly as legibly as a hit.
+
+`/payer/population-access` is the one honest gap: access gaps between subgroups
+need approved groupings, a suppression rule for the differences as well as the
+cells, and a per-group denominator. None exists here, and an equity screen
+showing only the one dimension that happened to be available would imply the
+others were examined and found unremarkable.
+
 ### Waves, per §31.2
 
 | Wave | | Status |
@@ -220,7 +257,7 @@ Two behaviours are worth knowing:
 | 3 | Clinician | done |
 | — | **The frame** (this work) | done — member, clinician and review |
 | 4 | Aggregate — organization | done — 9 screens, real aggregates |
-| 4 | Aggregate — payer | **not started, 10 screens** — blocked on a claims feed, not on UI |
+| 4 | Aggregate — payer | done — 10 screens, on a real claims model |
 | 5 | Review and public | 5 of 13 review screens |
 | 6 | Hardening — performance, accessibility, security, telemetry | not started |
 
