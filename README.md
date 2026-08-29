@@ -22,6 +22,14 @@ just opened this repository" to "I am doing the next useful thing."
 datasets. Its status, its instructions and everything still owed are in the **GUI launch**
 section immediately below this one. Start there.
 
+**The job after it is handoff 07** — a role-selectable demo login, 240 fabricated
+longitudinal patients across the four U.S. Census regions, and a deterministic planning
+engine. Not started. The specification is
+[`docs/handoffs/07-demo-login-synthetic-population-and-planning-engine.pdf`](docs/handoffs/07-demo-login-synthetic-population-and-planning-engine.pdf)
+and the plan — including its Wave 0 gap list, the eleven subsystems it must **reuse rather
+than rebuild**, and five decisions the PDF leaves open — is
+[`docs/handoffs/07-PLAN.md`](docs/handoffs/07-PLAN.md). Read the plan before the PDF.
+
 ## Read these, in this order
 
 The specifications that drive the build are committed at
@@ -34,6 +42,7 @@ is the index and states which are done.
 | 2. **[Handoff 06, §24–§31 (pp. 37–101)](docs/handoffs/06-web-gui-analytics-and-clinical-presentation.pdf)** | **The live specification.** The coding annex. Section-to-page map is in GUI launch below |
 | 3. [`docs/site/gui-decisions.md`](docs/site/gui-decisions.md) | Two deliberate reversals of handoff 04 and how to undo each. Read before changing a member or clinical surface |
 | 4. [`docs/site/presentation-layer.md`](docs/site/presentation-layer.md) | What handoff 04 produced and *why* each rule exists |
+| 5. [`docs/handoffs/07-PLAN.md`](docs/handoffs/07-PLAN.md) | **The next job after GUI launch.** Its Wave 0 gap list, what to reuse, and the decisions already made |
 
 Do not read the handoffs front to back. They layer, they are long, and only 06 is live.
 
@@ -175,6 +184,25 @@ are a rename.
 
 **Nothing here is a broken link.** `/review` names the eight missing screens on itself
 rather than showing an empty queue, and the two public pages have reachable equivalents.
+
+### What comes after GUI launch
+
+**Handoff 07** — [`docs/handoffs/07-demo-login-synthetic-population-and-planning-engine.pdf`](docs/handoffs/07-demo-login-synthetic-population-and-planning-engine.pdf),
+planned in [`docs/handoffs/07-PLAN.md`](docs/handoffs/07-PLAN.md). It gives these screens a
+population worth looking at (240 fabricated patients with six months of history each, 60
+per Census region), a login that reaches all six roles, and a deterministic planning layer
+above them that produces inspectable hypotheses rather than care orders.
+
+It is not a separate product from GUI launch — it overlaps in three places, and the plan
+resolves each rather than leaving it to be discovered mid-build. **Two of the eighteen rows
+above close as a side effect of its first wave**: row 1 (`/review/access`) is the same
+binding, and the scope resolution that currently fakes it. **Row 5's cohort registry is the
+same gap** handoff 07 specifies on its p33 — build it once.
+
+One thing in the plan is worth knowing before touching either job: handoff 07 needs six
+distinct roles, and this codebase has three, with `admin` serving both the organization and
+payer consoles. That rename is the largest structural change either handoff asks for, and
+it is the decision recorded as **D1**.
 
 ## ▶ NOW: handoff 06 — the frame, and the atlas it comes from
 

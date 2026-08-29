@@ -31,19 +31,32 @@ travels with the code.
 | 04 | [Presentation layer v1](04-presentation-layer-v1.pdf) | How data, gating, routing, and processing are rendered. The member score boundary, day states, the gate, the session flow, the visual system, component contracts | **◐ In progress** — [`../site/presentation-layer.md`](../site/presentation-layer.md). §§2, 3, 4, 5, 7, 8 done. **§6 is next and not started** |
 | 05 | [GUI and decision-surface](05-gui-and-decision-surface.pdf) | How events, measures, gates, summaries, and audit history become screens people can act on. Role views, the presentation contract, gate states, components, tokens, charts, and the build order | **◐ In progress** — [`../site/gui-decisions.md`](../site/gui-decisions.md). Phase 0 and Phase 1 landed; Phases 2–5 open |
 | 06 | [Web GUI, analytics and clinical presentation](06-web-gui-analytics-and-clinical-presentation.pdf) | **Supersedes 05 where they differ.** Part I reprints handoff 05; Part II is the coding annex — an 80-screen route atlas, the `ClinicianPatientProjection` contract, queue ordering, 20 page examples, 22 chart screens, the projection/API/component architecture, and a six-wave build order | **◐ In progress** — [`../site/gui-decisions.md`](../site/gui-decisions.md). Wave 0 done; Waves 1–6 open |
+| 07 | [Demo login, synthetic population and planning engine](07-demo-login-synthetic-population-and-planning-engine.pdf) | Role-selectable demo access for six roles, 240 fabricated longitudinal patients across the four U.S. Census regions, a versioned metric dictionary and cohort registry, seven deterministic planning rules with an eight-state review machine, fairness controls, a model-registry shell, five screens, twelve APIs and ten release gates | **Not started** — plan and Wave 0 gap list in [`07-PLAN.md`](07-PLAN.md) |
 
 ## Reading order for a fresh context window
 
-1. **[`../../README.md`](../../README.md) — the RESUME HERE block at the top.** It names
-   the next build item and the guards that will fail if you break a decision.
-2. **Handoff 04 §6** — the session state machine. That is the next thing to build, and §6
-   is roughly two pages.
-3. **[`../site/presentation-layer.md`](../site/presentation-layer.md)** — what handoff 04
-   already produced and, more usefully, *why* each rule exists. Read this before changing
-   anything on a member surface.
-4. Only then the older handoffs, and only if the work reaches back into them.
+1. **[`../../README.md`](../../README.md) — the RESUME HERE block, then the GUI LAUNCH
+   section.** Together they name the live job, what is left of it, and the page in handoff
+   06 that specifies each remaining item.
+2. **Handoff 06, §24–§31 (pp. 37–101)** — the coding annex. The live specification for
+   screens and charts.
+3. **[`07-PLAN.md`](07-PLAN.md)** — the plan for handoff 07, including its Wave 0 gap list
+   and the eleven subsystems it must reuse rather than rebuild. Read this before starting
+   any demo-login, synthetic-population or planning work, and read it before handoff 07
+   itself: it records five decisions the PDF leaves open.
+4. **[`../site/gui-decisions.md`](../site/gui-decisions.md)** — two deliberate reversals of
+   handoff 04 and how to undo each. Read before changing a member or clinical surface.
+5. Only then the older handoffs, and only if the work reaches back into them.
 
-## The rule that governs all four
+## How 06 and 07 relate
+
+Handoff 06 builds the screens. Handoff 07 gives them a population worth looking at, a login
+that reaches all six roles, and a planning layer above them. They overlap in three places —
+the review console, the aggregate population view, and the cohort registry — and
+[`07-PLAN.md`](07-PLAN.md) resolves each rather than leaving it to be discovered. Two of
+handoff 06's open items close as a side effect of 07's first wave.
+
+## The rule that governs all of them
 
 Every one of these documents restates it, so it is worth stating once here:
 
