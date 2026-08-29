@@ -40,12 +40,12 @@ export async function closeAlertAction(formData: FormData) {
     await closeAlert({ alertId, clinicianId: clinician.id, tenantId, resolution });
   } catch (e) {
     if (e instanceof AlertClosureError) {
-      redirect(`/clinician/clinical?error=${encodeURIComponent(e.message)}`);
+      redirect(`/clinician/caseload?error=${encodeURIComponent(e.message)}`);
     }
     throw e;
   }
-  revalidatePath("/clinician/clinical");
-  redirect("/clinician/clinical");
+  revalidatePath("/clinician/caseload");
+  redirect("/clinician/caseload");
 }
 
 export async function approveSummaryAction(formData: FormData) {
@@ -56,8 +56,8 @@ export async function approveSummaryAction(formData: FormData) {
   const note = String(formData.get("note") ?? "").slice(0, 1000) || undefined;
 
   await approve({ clinicianId: clinician.id, personId, tenantId, subject: "summary", evidenceIds, note });
-  revalidatePath(`/clinician/clinical/${personId}`);
-  redirect(`/clinician/clinical/${personId}?done=approved`);
+  revalidatePath(`/clinician/member/${personId}/record`);
+  redirect(`/clinician/member/${personId}/record?done=approved`);
 }
 
 export async function correctRecordAction(formData: FormData) {
@@ -75,12 +75,12 @@ export async function correctRecordAction(formData: FormData) {
     });
   } catch (e) {
     if (e instanceof ReviewError) {
-      redirect(`/clinician/clinical/${personId}?error=${encodeURIComponent(e.message)}`);
+      redirect(`/clinician/member/${personId}/record?error=${encodeURIComponent(e.message)}`);
     }
     throw e;
   }
-  revalidatePath(`/clinician/clinical/${personId}`);
-  redirect(`/clinician/clinical/${personId}?done=corrected`);
+  revalidatePath(`/clinician/member/${personId}/record`);
+  redirect(`/clinician/member/${personId}/record?done=corrected`);
 }
 
 export async function overrideAction(formData: FormData) {
@@ -94,12 +94,45 @@ export async function overrideAction(formData: FormData) {
     await override({ clinicianId: clinician.id, personId, tenantId, target, reason });
   } catch (e) {
     if (e instanceof ReviewError) {
-      redirect(`/clinician/clinical/${personId}?error=${encodeURIComponent(e.message)}`);
+      redirect(`/clinician/member/${personId}/record?error=${encodeURIComponent(e.message)}`);
     }
     throw e;
   }
-  revalidatePath(`/clinician/clinical/${personId}`);
-  redirect(`/clinician/clinical/${personId}?done=overridden`);
+  revalidatePath(`/clinician/member/${personId}/record`);
+  redirect(`/clinician/member/${personId}/record?done=overridden`);
+}
+
+/** Override recorded from the gate-review drawer (§9.2, §15.1, §15.3).
+ *
+ *  A sibling of `overrideAction` rather than a parameter on it, because the two
+ *  return to different surfaces and a redirect target smuggled through a hidden
+ *  form field is a redirect a caller can choose.
+ *
+ *  §15.1 forbids an optimistic update here: the drawer posts and waits, and
+ *  what comes back is the re-derived server state. §15.3 wants the audit record
+ *  reachable from the result, which `override()` already appends — an event and
+ *  an audit row, both carrying the actor, the target and the reason.
+ *
+ *  The safety boundary is NOT re-implemented here. `override()` refuses a
+ *  never-overridable target itself; this only routes the refusal somewhere the
+ *  clinician can read it. */
+export async function gateOverrideAction(formData: FormData) {
+  const clinician = await requireClinician();
+  const tenantId = await actingTenant(clinician.id);
+  const personId = String(formData.get("personId") ?? "");
+  const target = String(formData.get("target") ?? "");
+  const reason = String(formData.get("reason") ?? "").slice(0, 2000);
+
+  try {
+    await override({ clinicianId: clinician.id, personId, tenantId, target, reason });
+  } catch (e) {
+    if (e instanceof ReviewError) {
+      redirect(`/clinician/member/${personId}?error=${encodeURIComponent(e.message)}`);
+    }
+    throw e;
+  }
+  revalidatePath(`/clinician/member/${personId}`);
+  redirect(`/clinician/member/${personId}?done=overridden`);
 }
 
 export async function feedbackAction(formData: FormData) {
@@ -114,8 +147,8 @@ export async function feedbackAction(formData: FormData) {
     clinicianId: clinician.id, personId, tenantId, category, subject: "summary",
     provenance: { generator }, note,
   });
-  revalidatePath(`/clinician/clinical/${personId}`);
-  redirect(`/clinician/clinical/${personId}?done=${r.requiresImmediateReview ? "flagged" : "feedback"}`);
+  revalidatePath(`/clinician/member/${personId}/record`);
+  redirect(`/clinician/member/${personId}/record?done=${r.requiresImmediateReview ? "flagged" : "feedback"}`);
 }
 
 // ---------------------------------------------------------------------------
@@ -124,7 +157,7 @@ export async function feedbackAction(formData: FormData) {
 
 export async function fileNoteAction(formData: FormData) {
   const clinician = await requireClinician();
-  const returnTo = String(formData.get("returnTo") ?? "/clinician/testing");
+  const returnTo = String(formData.get("returnTo") ?? "/review/testing");
 
   try {
     await fileNote({
@@ -144,7 +177,7 @@ export async function fileNoteAction(formData: FormData) {
     throw e;
   }
 
-  revalidatePath("/clinician/testing");
+  revalidatePath("/review/testing");
   redirect(`${returnTo}?done=note`);
 }
 
@@ -155,6 +188,6 @@ export async function setNoteStatusAction(formData: FormData) {
     status: String(formData.get("status") ?? "acknowledged") as NoteStatus,
     actorId: clinician.id,
   });
-  revalidatePath("/clinician/testing");
-  redirect("/clinician/testing?done=status");
+  revalidatePath("/review/testing");
+  redirect("/review/testing?done=status");
 }

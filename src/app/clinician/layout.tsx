@@ -1,28 +1,18 @@
-import Link from "next/link";
 import { requireClinician } from "@/lib/auth";
-import { logout } from "@/lib/actions";
-import { ClinicianNav } from "@/components/clinical/ClinicianNav";
 
 // Persistent chrome for every clinician surface.
 //
-// Before this, the console was a set of URLs rather than a product: no nav
-// existed anywhere in the app, each page carried its own ad-hoc "← back" link
-// pointing somewhere different, and the member trajectory sat four hops deep
-// with nothing signposting the way. A reviewer who did not already know the
-// route could not find it, which is a navigation defect that reads as a missing
-// feature.
+// There is no nav component here any more. The console's navigation is the app
+// shell's rail (§25's information layers, §28's frame), and every clinician
+// page renders it through ClinicianPage or PersonShell — so a second nav bar
+// above it would be two competing answers to "where am I", which is the exact
+// defect the nav was added to fix, in a new place.
 //
-// Auth is enforced here rather than only per page, so a new console route
-// cannot ship unauthenticated by forgetting a line.
+// What this layout still owns is auth, enforced here rather than only per page
+// so a new console route cannot ship unauthenticated by forgetting a line.
 export default async function ClinicianLayout({
   children,
 }: { children: React.ReactNode }) {
-  const clinician = await requireClinician();
-
-  return (
-    <>
-      <ClinicianNav name={clinician.name} logout={logout} />
-      {children}
-    </>
-  );
+  await requireClinician();
+  return <>{children}</>;
 }

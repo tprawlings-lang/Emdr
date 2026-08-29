@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ClinicianPage } from "@/components/clinical/ClinicianPage";
 import { requireClinician } from "@/lib/auth";
 import { data } from "@/lib/data";
 import { PLATFORM_TENANT_ID } from "@/lib/db";
@@ -36,11 +37,10 @@ export default async function PatientsPage({
   const attention = directory.rows.filter((r) => r.needsAttention).length;
 
   return (
-    <main className="mx-auto max-w-5xl px-6 py-10">
-      <h1 className="type-display text-3xl">Patients</h1>
-      <p className="measure mt-1 text-olive">
+    <ClinicianPage layer="progress" here="/clinician/patients" title="Patients">
+      <p className="measure -mt-2 mb-6 text-olive">
         Everyone in your organization, alphabetically. To see who needs attention first,
-        use the <Link href="/clinician/clinical" className="underline">caseload</Link> —
+        use the <Link href="/clinician/caseload" className="underline">caseload</Link> —
         it orders by clinical need and states the reason for every band.
       </p>
 
@@ -87,7 +87,7 @@ export default async function PatientsPage({
                 {rows.map((r) => (
                   <li key={r.personId} data-testid="directory-row">
                     <Link
-                      href={`/clinician/clinical/${r.personId}`}
+                      href={`/clinician/member/${r.personId}/record`}
                       className="flex flex-wrap items-baseline gap-x-3 gap-y-1 px-5 py-3 transition-colors hover:bg-moss/30"
                     >
                       <span className="font-medium text-ground">{r.displayName}</span>
@@ -101,7 +101,7 @@ export default async function PatientsPage({
                       {r.needsAttention && (
                         <span
                           data-testid="attention"
-                          className="rounded-full border border-pause/60 bg-pause-soft px-2 py-0.5 text-xs text-ground"
+                          className="rounded-full border border-state-caution/40 bg-state-caution-bg px-2 py-0.5 text-xs text-ground"
                         >
                           {r.openAlerts > 0
                             ? `${r.openAlerts} open alert${r.openAlerts === 1 ? "" : "s"}`
@@ -126,6 +126,6 @@ export default async function PatientsPage({
         returnTo="/clinician/patients"
         defaultCategory="Workflow fit"
       />
-    </main>
+    </ClinicianPage>
   );
 }

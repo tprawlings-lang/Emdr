@@ -59,7 +59,7 @@ export async function ReviewGuide({ current }: { current?: string }) {
         <p className="mt-3 text-xs text-olive">
           Nothing here is settled. A default you disagree with is a finding, not a
           misunderstanding —{" "}
-          <Link href="/clinician/testing" className="underline">
+          <Link href="/review/testing" className="underline">
             file it as a change request
           </Link>
           .

@@ -17,7 +17,8 @@
 
 **This block is written for a fresh context window.** It is the shortest path from "I have
 just opened this repository" to "I am doing the next useful thing." Everything below is
-current as of commit `fe4104e`; the detail behind it is in the sections that follow.
+current as of commit `c8797ca` plus the handoff-05 work below; the detail
+behind it is in the sections that follow.
 
 ## Read these, in this order
 
@@ -38,11 +39,34 @@ live work.
 
 ## Where the work is
 
-Three branches are identical and pushed: `claude/launch-status-vh6vbo` (designated),
-`main`, `claude/gifted-keller-501y5d` (Render deploy).
+Two branches, identical and pushed: `claude/launch-status-vh6vbo` (the designated
+development branch) and `main`.
+
+**`main` is what the site serves.** `render.yaml` sets `branch: main`, so nothing reaches
+the deployed site until `main` moves — and work sitting on the development branch looks,
+from a browser, exactly like work that was never done. This has now caused the same
+confusion twice. Deploy with:
 
 ```bash
-npm run test:safety   # 508 pass
+git push origin claude/launch-status-vh6vbo:main   # fast-forward; Render builds on push
+```
+
+**`render.yaml` says `branch: main`, and the live service does not use it.** That file only
+governs a service created from the Blueprint; the running Render service is wired to
+`claude/gifted-keller-501y5d`, which forked at `f006e97` and carries one commit on top
+(`3071750`, the handoff-06 PDF, also on `main`). Verified against production rather than
+assumed: the site serves `/dashboard` and `/practices`, 404s on `/app/today` and
+`/review/*`, and loads no Literata — exactly that branch, and 17 commits behind `main`.
+
+Do not trust `render.yaml` to tell you where the site comes from. Check the deployed app:
+
+```bash
+curl -s -o /dev/null -w "%{http_code}\n" https://steady-emdr-demo.onrender.com/app/today
+# 404 => production predates the route migration, whatever main says
+```
+
+```bash
+npm run test:safety   # 594 pass
 npm run test:e2e      # 105 pass   (PLAYWRIGHT_CHROMIUM_PATH=/opt/pw-browsers/chromium)
 npm run test:rls      # 12 cross-tenant attack cases against a real Postgres cluster
 npm run build         # clean
@@ -68,9 +92,174 @@ below refer to it) drove the last several commits, in its own §9 order:
 | — | **Patient directory**, separate from the caseload | `709b582` |
 | §5 | **The gate as a paced sequence** — one question per screen, resumable | `1ea82c0` |
 
+## ▶ NOW: handoff 06 — the frame, and the atlas it comes from
+
+[`docs/handoffs/06-web-gui-analytics-and-clinical-presentation.pdf`](docs/handoffs/06-web-gui-analytics-and-clinical-presentation.pdf)
+is the live specification: 101 pages, of which **pages 54–73 are drawn page examples**.
+Part I reprints handoff 05; Part II (§25–§31) is the coding annex.
+
+> **Open the mockups before writing a screen.** The first pass at this handoff was built
+> from its text alone, and the result did not resemble it. Two things in particular get
+> rebuilt wrong from memory: the left rail is §25's four **information layers**, not a
+> feature menu, and the top bar is **light** — it reads as dark because the wordmark and
+> the avatar sit on it in deep green.
+
+**What every one of the twenty examples draws.** `src/components/app/AppShell.tsx`:
+
+- an ivory page, with the app in a rounded near-white panel;
+- a bar with the wordmark, the role, a FABRICATED pill and an avatar;
+- a pale rail: **Overview · Progress · Actions · Evidence · Audit** — the same five for
+  every role, because roles differ in what each layer *contains*, not in which layers
+  exist. `src/lib/app/rails.ts` says where each one goes per role, and a layer with no
+  destination renders as plain text rather than a dead link;
+- the title, then the standing line "Action first. Meaning second. Evidence third.".
+
+Under it, four repeated pieces in `src/components/app/surfaces.tsx`: a tinted `Callout`,
+`SummaryCards` (capped at three — a fourth means the screen has not decided what matters),
+a white `Panel` with a required footnote, and a `Note` beside it with a **required
+`boundary`** — the sentence saying what the panel does not prove. Optional, it would be
+the first thing dropped.
+
+**Where the shell is.** All 36 member routes, all 18 clinician routes, all 5 review
+routes. `MemberPage`, `ClinicianPage`, `PersonShell` and `ReviewPage` all render it;
+`MemberNav`, `ClinicianNav` and `ReviewNav` are deleted. Running activities and sessions
+stay deliberately chrome-free. The rail is five items everywhere, so screens *within* a
+layer are a small sibling row under the title — five links cannot reach fourteen
+destinations without stranding nine.
+
+### The atlas, screen by screen — what exists and what does not
+
+§26 specifies 80 screens across six roles. Counts are routes on disk, not judgements
+about how finished each is.
+
+| Role | Spec | Built | Gap |
+|---|---|---|---|
+| Patient and member | 15 | 15 (36 routes incl. sub-screens) | — |
+| Clinician | 14 | 14 (18 routes) | — |
+| Organization | 9 | **0** | every screen; `/organization/*` does not exist |
+| Payer | 10 | **0** | every screen; `/payer/*` does not exist |
+| Review and administration | 13 | 5 | `/review/access`, `/clinical`, `/safety`, `/lineage`, `/research`, `/release`, `/demo-data`, `/status` |
+| Public institutional site | 11 | 9 | `/personal`, `/intelligence`. Nothing links to them — the home page routes the three products to `/platform`, `/clinical`, `/organizations` and `/payers` instead — so this is a naming gap, not a broken link |
+| Shared access states | 8 | 1 | only `/login`. Missing `/verify`, `/reset`, `/invite/[token]`, `/403`, `/404`, `/session-expired`, `/status/degraded` |
+
+**Also specified and not built:** §29's chart contracts — 22 chart screens (clinician 7,
+organization 7, payer 8), of which the eight worked examples are pages 76–83. §29.1's
+rules for every chart (denominator with its numerator, the window and refresh time always
+shown, no mixed clinical scales on one surface, no predictive risk score) apply to the
+charts that do exist and are not yet encoded as a guard.
+
+**Deliberately not built, and why it is not a gap:**
+
+- `/review` shows no review queue. §26 asks for one; scoped access requests, release
+  sign-offs and clinical language approvals are not records anywhere in this deployment.
+  An empty queue would claim a channel that is quiet. The screen names the eight missing
+  screens instead.
+- Organization and payer screens are aggregate-only by §30.6 — aggregate access must not
+  create person-level care access. That is a data-model requirement, not a page.
+
+### Waves, per §31.2
+
+| Wave | | Status |
+|---|---|---|
+| 0 | Baseline | done |
+| 1 | Presentation spine | done |
+| 2 | Member | done |
+| 3 | Clinician | done |
+| — | **The frame** (this work) | done — member, clinician and review |
+| 4 | Aggregate — organization and payer | **not started, 19 screens** |
+| 5 | Review and public | 5 of 13 review screens |
+| 6 | Hardening — performance, accessibility, security, telemetry | not started |
+
+## ✔ DONE: handoff 05, the GUI and decision-surface work
+
+[`docs/handoffs/05-gui-and-decision-surface.pdf`](docs/handoffs/05-gui-and-decision-surface.pdf)
+is the live specification. **Read [`docs/site/gui-decisions.md`](docs/site/gui-decisions.md)
+before changing a member or clinical surface** — it records two deliberate reversals of
+handoff 04 and how to undo each.
+
+One thing to know before reading handoff 05 against this code: **it reviewed the repository
+at `c39447a`, the commit before handoff 04's six feature commits.** It never saw the member
+score boundary, the one-family type system, navigation, the patient directory, or the paced
+gate. Several apparent reversals are gaps in that snapshot rather than decisions.
+
+**Landed (Phase 0 and Phase 1):**
+
+| | Work |
+|---|---|
+| §8.2 | `src/lib/presentation/contract.ts` — `DecisionSurface` and friends; `assertRenderable` refuses a surface with no headline, explanation, or freshness, and refuses to render a safety-stop override (§15.2) |
+| §3.8 | **Notification truth.** Four surfaces claimed a care team "has been notified" off the back of one `INSERT`. There is no delivery channel and no receipt column. Now `src/lib/notify/delivery.ts` with the five states; `delivered` without a receipt throws |
+| §12.2 | Semantic `--color-state-*` palette, all six pairs verified ≥4.5:1 on their own background and on ivory and linen |
+| §3.9 | The four sub-AA tokens banned as text. `sage-deep` at 2.34:1 was rendering the SOS panel's breathing prompt and grounding link |
+| §12.3 | The identity serif (Literata), bounded to `.type-identity` on 26 page `<h1>`s outside `/clinician` and `/clinical` |
+
+**Phase 3, the clinical cockpit (partial):** `/clinician/today` is the work queue — §10.3's
+five groups, duplicate collapse, owner, due state, one action per row, order deterministic
+for a policy version and evidence set. `/clinician/member/[id]` is the person overview —
+sticky identity/owner/consent header, "since your last review" with citations, active work,
+right rail. Backed by `src/lib/clinical/work-queue.ts` and §11 primitives in
+`src/components/clinical/primitives.tsx`. Routes now follow handoff 06 §26's atlas — see the migration table in
+[`docs/site/gui-decisions.md`](docs/site/gui-decisions.md).
+
+**The gate review drawer (§9.1, §9.2)** is on the person overview: every module decision
+mapped to one of six member states, collapsed by cause, each showing the rule, its evidence,
+the prior decision, the exact sentence the member sees, and — always, not only when an
+override exists — what cannot be overridden. `src/lib/clinical/gate-review.ts` and
+`src/components/clinical/GateReviewDrawer.tsx`.
+
+**Open:** Phase 2 (member shell), organization/payer/trust workspaces, human-factors
+validation.
+
+**New guards:** `tests/notification-truth.test.ts`, `tests/contrast.test.ts`, `tests/work-queue.test.ts`, `tests/gate-review.test.ts`, `tests/presentation-spine.test.ts`, `tests/member-screens.test.ts`, `tests/bls-visual.test.ts`, `tests/clinician-screens.test.ts`, `tests/design-consistency.test.ts`.
+`tests/type-system.test.ts` now records the two-family reversal and its bounds.
+
+## ✔ RESOLVED — visual BLS (ledger A7 reversed)
+
+**Verified, then decided.** The finding was confirmed in the running app: the session offered
+"Moving dot" as the **pre-selected default**, with a Slow/Medium/Faster speed picker, to a
+seeded member — while `visualStimulationEnabled` was `false`, `BLS_NO_VISUAL_BETA` said
+"visual BLS stays disabled", and a passing test asserted the capability was off.
+
+The product owner's call was that the product was right and the config wrong, so the flag
+flipped to `true`. What went with it, because a flag alone would not have fixed anything:
+
+| | |
+|---|---|
+| **The config is now load-bearing** | The session read *none* of it — that was the real defect. `visualAllowed` is computed server-side from the config **and** the member's seizure answer, and both must hold. Verified by flipping the flag back to `false` in the running app: the dot, the modality choice and the speed picker all disappear. |
+| **WCAG 2.3.2 is enforced in code** | `BLS.maxFlashesPerSecond` was a number in config and a sentence in the rule catalog, applied nowhere. `BlsVisual` now clamps to it. This is the a11y control ledger A7 was waiting on. |
+| **Photosensitivity removes the modality** | It used to *default away* from it — the screen told a member who answered yes to the seizure question that audio-only was "your default… **You can change it**", with the control one tap away. The choice is now absent, not unselected. |
+| **A control for an absent thing is gone** | "Dot speed" rendered in audio-only mode. |
+
+**Still outstanding:** the *device* validation half of A7. The flag permits the modality; it
+does not certify it. `tests/bls-visual.test.ts` holds all of the above, including that the
+reversal did not enable autonomous reprocessing — `autonomousStimulationEnabled` is still
+`false`.
+
 ## ▶ THE NEXT THING: §6, the session state machine
 
 Everything else in the handoff is done. §6 is not started.
+
+**Scope evidence, gathered 2026-08-28.** The guided flow runs on neither the session reducer
+nor the safety engine — it re-derives its own state from raw profile fields. That is the
+shared root cause of the missing closure state *and* of the finding above.
+
+| | Lines | Unit-tested |
+|---|---|---|
+| `src/lib/safety/session.ts` (the reducer) | 294 | **yes** — `safety-session.test.ts` covers every transition, incl. `completeClosure` |
+| `ResourcingSession.tsx` (wires the reducer) | 266 | via the reducer |
+| `SessionPlayer.tsx` (guided flow) | 1066, ~700 in one function | **none — no test imports it** |
+
+`ResourcingSession` honours the 120s closure floor because the reducer enforces it;
+`SessionPlayer` has no `closure` state at all. Its `Phase` union (line 28) is
+`intro | running | ground | sudpause | hardstop | finishing` — parallel to the reducer
+rather than driven by it. Adding §6’s states to that union by hand reproduces the
+divergence at a larger scale; the alternative is to drive it from the reducer the way
+`ResourcingSession` does. Note the regression net is thinner than it looks: the 508 unit
+tests do not cover `SessionPlayer` at all, so the exposure is `session-narration.spec.ts`,
+`smoke.spec.ts`, and looking at it.
+
+**Agreed approach:** write the guards first — `tests/session-states.test.ts` asserting every
+§6 rule against the current flow — and let the failure count decide the scope, rather than
+choosing the refactor up front.
 
 The state machine already exists in Vol 2 and maps almost one-to-one onto screens:
 
@@ -172,6 +361,10 @@ why the rule exists.
    violations, which is not the same thing.
 5. **`EMDR_REVIEW_ACCESS_CODE` is unset on Render**, so the review gateway is closed. That
    is the intended default; set it before a reviewer session.
+6. **Should the guided flow’s visual BLS exist at all?** See the open finding above. The
+   config, the rule catalog, and a passing test all say no; the UI ships it as the default
+   for members without a seizure flag. Whether that is a live compliance exposure or a
+   known, accepted prototype gap is not a judgement to make from the code.
 
 ---
 

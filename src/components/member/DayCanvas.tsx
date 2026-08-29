@@ -66,7 +66,7 @@ export function PracticeCard({
 }: { id: string; name: string; minutes: number; primary?: boolean }) {
   return (
     <Link
-      href={`/session/${id}`}
+      href={`/app/session/${id}`}
       data-testid="practice-card"
       className={`block rounded-3xl border px-5 py-4 transition-colors ${
         primary
@@ -122,7 +122,7 @@ export function DayCanvas({ day }: { day: MemberDay }) {
           </p>
           <div className="mt-3 flex flex-wrap gap-3">
             <Link
-              href="/ground"
+              href="/app/ground"
               className="rounded-full bg-ground px-5 py-2.5 text-sm font-medium text-ivory"
             >
               Grounding

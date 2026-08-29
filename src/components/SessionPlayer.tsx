@@ -9,6 +9,7 @@ import { getAudioContext, unlockMedia } from "@/components/media-unlock";
 import { useSpeech } from "@/components/useSpeech";
 import BreathePacer from "@/components/BreathePacer";
 import { personalizedCues } from "@/lib/safety/resourcing";
+import { BLS } from "@/lib/safety/config";
 import type { SessionFocus } from "@/lib/session-focus";
 import type { Practice } from "@/lib/practices";
 import { finishSession, logSafetyEvent, recordSessionTrigger, speakInSession, startSession, recordSessionPrepare, completePractice } from "@/lib/actions";
@@ -19,8 +20,9 @@ import {
   SESSION_WINDDOWN_MIN,
   sudsDecision,
 } from "@/lib/session-safety";
+import { escalationNotice } from "@/lib/notify/delivery";
 
-// In-session safety rules live in lib/session-safety.ts (deterministic,
+// In-session safety rules live in lib/app/session-safety.ts (deterministic,
 // covered by the @safety test suite). The player also inserts a rest pause
 // between BLS sets.
 const REST_SECONDS = 8;
@@ -35,6 +37,10 @@ interface Props {
   calmPlace?: string | null;
   /** Default to audio-only bilateral stimulation (photosensitivity flag). */
   audioOnlyDefault?: boolean;
+  /** Whether the moving dot may be offered. Decided on the server from the
+   *  safety config AND this member's photosensitivity answer; the client does
+   *  not re-derive it (§8.1: the client must not infer safety). */
+  visualAllowed?: boolean;
   /** Offer voice answers on free-text reflections (demo/flagged; typing stays
    *  the full path either way). */
   voiceEnabled?: boolean;
@@ -56,15 +62,32 @@ function isAppleTouch(): boolean {
   return /iPad|iPhone|iPod/.test(ua) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
 }
 
+/** The WCAG 2.3.2 floor on cycle time.
+ *
+ *  BLS.maxFlashesPerSecond existed as a number in the safety config and a
+ *  sentence in the rule catalog, and was enforced nowhere. It is the a11y
+ *  control ledger A7 was waiting on, so enabling visual BLS without it would
+ *  claim a validation the code does not perform.
+ *
+ *  The dot crosses the midline TWICE per cosine cycle, so traverses per second
+ *  are 2000/speedMs and the shortest permissible cycle is 2000/max. Computed
+ *  from the config rather than hard-coded: if the ceiling is ever lowered, this
+ *  follows it without anyone remembering to. */
+const MIN_CYCLE_MS = 2000 / BLS.maxFlashesPerSecond;
+
 function BlsVisual({
   running,
-  speedMs,
+  speedMs: requestedMs,
   soundOn,
 }: {
   running: boolean;
   speedMs: number;
   soundOn: boolean;
 }) {
+  // Clamped, not validated-and-rejected: a caller asking for something too fast
+  // gets the fastest safe speed rather than a broken session. The ceiling is a
+  // property of the renderer, so no call site can opt out of it.
+  const speedMs = Math.max(requestedMs, MIN_CYCLE_MS);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const lastSideRef = useRef<number>(0);
 
@@ -367,7 +390,7 @@ const GROUNDING_STEPS = [
   "Look around the room. Notice where you are, today's date, that you are here now.",
 ];
 
-export default function SessionPlayer({ module: mod, focus, calmPlace, audioOnlyDefault, voiceEnabled = false, memberName, liveEnabled = false, preparePractice = null, relatedLessons = [] }: Props) {
+export default function SessionPlayer({ module: mod, focus, calmPlace, audioOnlyDefault, visualAllowed = false, voiceEnabled = false, memberName, liveEnabled = false, preparePractice = null, relatedLessons = [] }: Props) {
   const router = useRouter();
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [phase, setPhase] = useState<Phase>("intro");
@@ -376,7 +399,11 @@ export default function SessionPlayer({ module: mod, focus, calmPlace, audioOnly
   const [prepared, setPrepared] = useState(false);
   const [selectedFocusId, setSelectedFocusId] = useState<string | null>(null);
   const [customFocus, setCustomFocus] = useState("");
-  const [blsMode, setBlsMode] = useState<"visual" | "audio">(audioOnlyDefault ? "audio" : "visual");
+  // Audio unless the server said visual is permitted. The old expression read
+  // `audioOnlyDefault ? "audio" : "visual"`, which made visual the fallback for
+  // everything the seizure flag did not catch — including a configuration that
+  // had disabled it outright.
+  const [blsMode, setBlsMode] = useState<"visual" | "audio">(visualAllowed ? "visual" : "audio");
   const [windDown, setWindDown] = useState(false);
   const startedAtRef = useRef<number | null>(null);
   const cappedRef = useRef(false);
@@ -444,7 +471,7 @@ export default function SessionPlayer({ module: mod, focus, calmPlace, audioOnly
   const endSession = useCallback(
     async (outcome: "completed" | "hard_stop" | "abandoned", reason?: string, trail?: number[]) => {
       if (!sessionId) {
-        router.push("/dashboard");
+        router.push("/app/today");
         return;
       }
       const t = trail ?? sudsTrail;
@@ -459,11 +486,11 @@ export default function SessionPlayer({ module: mod, focus, calmPlace, audioOnly
         sudsTrail: t,
       });
       if (outcome === "completed") {
-        router.push(`/session/${mod.id}/complete?sid=${sessionId}`);
+        router.push(`/app/session/${mod.id}/complete?sid=${sessionId}`);
       } else if (outcome === "hard_stop") {
         // stay; hard-stop overlay offers crisis/grounding choices
       } else {
-        router.push("/dashboard");
+        router.push("/app/today");
       }
     },
     [sessionId, sudsTrail, mod.id, router]
@@ -679,37 +706,56 @@ export default function SessionPlayer({ module: mod, focus, calmPlace, audioOnly
               voice once in Settings → Accessibility → Spoken Content → Voices.
             </p>
           )}
-          <fieldset className="mt-4">
-            <legend className="font-medium">Bilateral stimulation</legend>
-            <div className="mt-2 flex gap-2">
-              <label className="cursor-pointer rounded-full border border-ground/15 bg-ivory px-4 py-1.5 has-checked:border-clay has-checked:bg-clay has-checked:font-semibold">
-                <input
-                  type="radio"
-                  name="blsmode"
-                  checked={blsMode === "visual"}
-                  onChange={() => setBlsMode("visual")}
-                  className="sr-only"
-                />
-                Moving dot
-              </label>
-              <label className="cursor-pointer rounded-full border border-ground/15 bg-ivory px-4 py-1.5 has-checked:border-clay has-checked:bg-clay has-checked:font-semibold">
-                <input
-                  type="radio"
-                  name="blsmode"
-                  checked={blsMode === "audio"}
-                  onChange={() => setBlsMode("audio")}
-                  className="sr-only"
-                />
-                Audio only (no motion)
-              </label>
-            </div>
-            {audioOnlyDefault && (
-              <p className="mt-2 text-xs text-olive">
-                Audio-only is your default based on your fit questions — gentler for
-                photosensitivity. You can change it.
+          {/* The modality choice is only a choice when both modalities are
+              permitted.
+
+              What was here offered the moving dot to everyone and told a
+              photosensitive member "Audio-only is your default based on your
+              fit questions — gentler for photosensitivity. You can change it."
+              That is a default, not a restriction: the member who answered yes
+              to the seizure question was handed a control to undo it, one tap
+              away, described as a preference.
+
+              Photosensitivity removes the modality. It does not soften it. */}
+          {visualAllowed ? (
+            <fieldset className="mt-4">
+              <legend className="font-medium">Bilateral stimulation</legend>
+              <div className="mt-2 flex gap-2">
+                <label className="cursor-pointer rounded-full border border-ground/15 bg-ivory px-4 py-1.5 has-checked:border-clay has-checked:bg-clay has-checked:font-semibold">
+                  <input
+                    type="radio"
+                    name="blsmode"
+                    checked={blsMode === "visual"}
+                    onChange={() => setBlsMode("visual")}
+                    className="sr-only"
+                  />
+                  Moving dot
+                </label>
+                <label className="cursor-pointer rounded-full border border-ground/15 bg-ivory px-4 py-1.5 has-checked:border-clay has-checked:bg-clay has-checked:font-semibold">
+                  <input
+                    type="radio"
+                    name="blsmode"
+                    checked={blsMode === "audio"}
+                    onChange={() => setBlsMode("audio")}
+                    className="sr-only"
+                  />
+                  Audio only (no motion)
+                </label>
+              </div>
+            </fieldset>
+          ) : (
+            <div className="mt-4">
+              <p className="font-medium">Bilateral stimulation</p>
+              <p className="mt-1 text-sm text-ground/90">
+                This session uses sound and tapping. There is no moving image.
               </p>
-            )}
-          </fieldset>
+              {audioOnlyDefault && (
+                <p className="mt-1 text-xs text-olive">
+                  Based on your fit questions, visual stimulation is not used for you.
+                </p>
+              )}
+            </div>
+          )}
           {blsMode === "visual" && (
             <label className="mt-4 flex items-center gap-2">
               <input
@@ -720,18 +766,23 @@ export default function SessionPlayer({ module: mod, focus, calmPlace, audioOnly
               Add alternating audio tones (left/right)
             </label>
           )}
-          <label className="mt-3 block">
-            Dot speed
-            <select
-              value={speedMs}
-              onChange={(e) => setSpeedMs(Number(e.target.value))}
-              className="ml-2 rounded-2xl border border-ground/15 bg-ivory px-3 py-1"
-            >
-              <option value={3200}>Slow</option>
-              <option value={2400}>Medium</option>
-              <option value={1700}>Faster</option>
-            </select>
-          </label>
+          {/* Only where there is a dot. This rendered unconditionally, so a
+              member in audio-only mode was offered a speed control for
+              something not on their screen. */}
+          {blsMode === "visual" && (
+            <label className="mt-3 block">
+              Dot speed
+              <select
+                value={speedMs}
+                onChange={(e) => setSpeedMs(Number(e.target.value))}
+                className="ml-2 rounded-2xl border border-ground/15 bg-ivory px-3 py-1"
+              >
+                <option value={3200}>Slow</option>
+                <option value={2400}>Medium</option>
+                <option value={1700}>Faster</option>
+              </select>
+            </label>
+          )}
         </div>
         {relatedLessons.length > 0 && (
           <div className="mt-6 rounded-3xl border border-ground/10 bg-linen p-5 shadow-soft">
@@ -739,7 +790,7 @@ export default function SessionPlayer({ module: mod, focus, calmPlace, audioOnly
             <ul className="mt-2 space-y-1">
               {relatedLessons.map((l) => (
                 <li key={l.id}>
-                  <a href={`/learn/${l.id}`} className="text-sm text-ground underline">
+                  <a href={`/app/learn/${l.id}`} className="text-sm text-ground underline">
                     {l.title}
                   </a>
                 </li>
@@ -847,8 +898,8 @@ export default function SessionPlayer({ module: mod, focus, calmPlace, audioOnly
         <div className="rounded-3xl border-2 border-pause/60 bg-pause-soft p-7 shadow-soft">
           <h1 className="type-display text-3xl font-medium">Session paused for your safety</h1>
           <p className="mt-3 text-ground/90">
-            {hardStopReason}. That is the system working as designed — not a failure. Your care
-            team has been notified and will review this session.
+            {hardStopReason}. That is the system working as designed — not a failure.{" "}
+            {escalationNotice()}
           </p>
           <div className="mt-5 rounded-3xl bg-linen p-5 text-ground">
             <p className="font-semibold">Ground yourself now</p>
@@ -871,7 +922,7 @@ export default function SessionPlayer({ module: mod, focus, calmPlace, audioOnly
               I need help now
             </a>
             <a
-              href="/dashboard"
+              href="/app/today"
               className="rounded-full border border-ground/20 px-5 py-3 text-center text-ground/80 transition-colors hover:bg-moss"
             >
               I am settled — back to dashboard

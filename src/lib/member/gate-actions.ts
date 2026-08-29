@@ -17,7 +17,7 @@ export async function answerGateItemAction(formData: FormData) {
   const instrumentId = String(formData.get("instrument") ?? "");
   const index = Number(formData.get("index") ?? -1);
   const value = Number(formData.get("value") ?? -1);
-  const base = `/screening/${encodeURIComponent(instrumentId)}`;
+  const base = `/app/screening/${encodeURIComponent(instrumentId)}`;
 
   let result;
   try {
@@ -51,5 +51,5 @@ export async function answerGateItemAction(formData: FormData) {
  *  this is purely a route away, and it says so. */
 export async function pauseGateAction() {
   await requireMember();
-  redirect("/dashboard?paused=gate");
+  redirect("/app/today?paused=gate");
 }

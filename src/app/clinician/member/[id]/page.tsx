@@ -2,394 +2,252 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireClinician } from "@/lib/auth";
 import { data } from "@/lib/data";
+import { activePolicy } from "@/lib/clinical-policy";
+import { memberTimeline } from "@/lib/clinical/timeline";
+import { buildSummary, summaryCoverageNote } from "@/lib/clinical/summary";
+import { buildWorkQueue } from "@/lib/clinical/work-queue";
+import { gateDecisionsFor, groupGateDecisions, overrideAllowed } from "@/lib/clinical/gate-review";
+import { gateOverrideAction } from "@/lib/clinical/actions";
+import { GateReviewDrawer } from "@/components/clinical/GateReviewDrawer";
+import { PersonShell } from "@/components/clinical/PersonShell";
+import { loadPersonHeader } from "@/lib/clinical/person-header";
 import { MODULES } from "@/lib/modules";
-import { audit } from "@/lib/audit";
-import { scoreItq } from "@/lib/instruments";
-import { decryptField } from "@/lib/crypto";
-import { getProgramPlan } from "@/lib/program-plan";
-import { clinicianCloseModule, clinicianOpenModule } from "@/lib/actions";
-import TrendChart from "@/components/TrendChart";
+import { WorkQueueRow } from "@/components/clinical/WorkQueueRow";
+import {
+  PriorityBadge, FreshnessLabel, OwnerChip, ReviewBadge, EmptyState,
+} from "@/components/clinical/primitives";
 
-export default async function MemberDetailPage({
-  params,
+// Person overview (GUI and Decision-Surface Handoff §10.4).
+//
+// The existing person record holds the right material but stacks it in one
+// vertical flow, which §3.2 names precisely: "decisions, evidence, corrections,
+// and audit compete." §10.4's answer is a sticky header that always says who
+// this is and what is true now, a main column that opens on change rather than
+// on records, and a right rail of allowed actions.
+//
+// It does not duplicate the deep views. Timeline, audit, and trajectory already
+// exist and are linked; this page's job is the first thirty seconds — who,
+// what changed, what is mine to do — not to be a second copy of the record.
+
+export const dynamic = "force-dynamic";
+
+export default async function PersonOverviewPage({
+  params, searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ done?: string; error?: string }>;
 }) {
-  const clinician = await requireClinician();
   const { id } = await params;
+  const { done, error } = await searchParams;
+  const clinician = await requireClinician();
   const c = await data();
 
-  const member = await c.get("SELECT id, name, email, created_at FROM users WHERE id = ? AND role = 'member'", [id]) as { id: string; name: string; email: string; created_at: string } | undefined;
-  if (!member) notFound();
+  const me = (await c.get("SELECT tenant_id FROM users WHERE id = ?", [clinician.id])) as
+    | { tenant_id: string } | undefined;
+  const tenantId = me?.tenant_id ?? "";
 
-  // Record-access events belong in the audit trail too.
-  await audit({
-    actorId: clinician.id,
-    actorRole: "clinician",
-    family: "security",
-    type: "member_record_viewed",
-    target: member.id,
+  // Tenant-scoped read. A person outside this tenant is not found rather than
+  // forbidden — §20.3: "Cross-tenant and unauthorized person requests return no
+  // record detail", and a 403 confirms the record exists.
+  const person = (await c.get(
+    "SELECT id, name, tenant_id FROM users WHERE id = ? AND tenant_id = ? AND role = 'member'",
+    [id, tenantId]
+  )) as { id: string; name: string } | undefined;
+  if (!person) notFound();
+
+  const personHeader = await loadPersonHeader({ personId: id, clinicianId: clinician.id, tenantId });
+  if (!personHeader) notFound();
+
+  const policy = activePolicy();
+  const [queue, timeline, consent] = await Promise.all([
+    buildWorkQueue({ clinicianId: clinician.id, tenantId, policy }),
+    memberTimeline(person.id, { policy }),
+    // Revoked consent must not read as consent, so revoked_at is filtered
+    // rather than merely displayed — the header states a boundary the clinician
+    // acts on, not a history of one.
+    c.get(
+      "SELECT granted_at FROM consents WHERE user_id = ? AND revoked_at IS NULL ORDER BY granted_at DESC LIMIT 1",
+      [person.id]
+    ) as Promise<{ granted_at: string } | undefined>,
+  ]);
+
+  // Gate decisions for every module, worst state first — the binding
+  // constraint rather than the alphabetically-first module.
+  const gates = await gateDecisionsFor({
+    personId: person.id,
+    moduleIds: MODULES.map((m) => m.id),
+    policy,
   });
 
-  const screenings = await c.all("SELECT instrument, total_score, answers_json, risk_flags_json, created_at FROM screenings WHERE user_id = ? ORDER BY created_at DESC", [id]) as {
-    instrument: string;
-    total_score: number;
-    answers_json: string;
-    risk_flags_json: string;
-    created_at: string;
-  }[];
+  const gateGroups = groupGateDecisions(gates);
 
-  const pcl5Series = screenings
-    .filter((s) => s.instrument === "pcl-5")
-    .reverse()
-    .map((s) => ({ date: s.created_at.slice(0, 10), value: s.total_score }));
-  const itqSeries = screenings
-    .filter((s) => s.instrument === "itq")
-    .reverse()
-    .map((s) => ({
-      date: s.created_at.slice(0, 10),
-      ...scoreItq(JSON.parse(decryptField(s.answers_json))),
-    }));
-
-  const checkins = await c.all("SELECT * FROM checkins WHERE user_id = ? ORDER BY checkin_date DESC LIMIT 14", [id]) as {
-    checkin_date: string;
-    activation: number;
-    shutdown: number;
-    dissociation: number;
-    sleep_quality: number;
-    recommended_action: string;
-  }[];
-
-  const sessions = await c.all("SELECT * FROM therapy_sessions WHERE user_id = ? ORDER BY started_at DESC LIMIT 20", [id]) as {
-    id: string;
-    module_id: string;
-    status: string;
-    pre_suds: number | null;
-    post_suds: number | null;
-    peak_suds: number | null;
-    hard_stop_reason: string | null;
-    started_at: string;
-  }[];
-
-  const unlocks = await c.all("SELECT * FROM module_unlocks WHERE user_id = ? ORDER BY requested_at DESC", [id]) as {
-    module_id: string;
-    status: string;
-    decision_reason: string | null;
-    override: number;
-    requested_at: string;
-    decided_at: string | null;
-  }[];
-
-  const consents = await c.all("SELECT policy_version, scope, granted_at, revoked_at FROM consents WHERE user_id = ?", [id]) as { policy_version: string; scope: string; granted_at: string; revoked_at: string | null }[];
-
-  const moduleName = (mid: string) => MODULES.find((m) => m.id === mid)?.name ?? mid;
-  const planRow = await getProgramPlan(member.id);
-
-  // Latest unlock row per module (unlocks are ordered newest-first), so the
-  // specialist controls show current access state.
-  const unlockByModule = new Map<string, (typeof unlocks)[number]>();
-  for (const u of unlocks) if (!unlockByModule.has(u.module_id)) unlockByModule.set(u.module_id, u);
-  const gatedModules = MODULES.filter((m) => m.tier === "gated");
+  const summary = buildSummary(timeline);
+  const mine = queue.items.filter((i) => i.personId === person.id);
+  const head = mine[0] ?? null;
 
   return (
-    <main className="mx-auto max-w-5xl px-6 py-10">
-      <h1 className="mt-3 type-display text-3xl font-medium">{member.name}</h1>
-      <p className="text-sm text-olive">
-        {member.email} · joined {member.created_at.slice(0, 10)}
-      </p>
+    <PersonShell person={personHeader} active="">
+      {/* ---- Sticky header (§10.4): identity, owner, state, freshness,
+              consent boundary, contact. Sticky because these are the facts a
+              clinician must not lose while scrolling a record — particularly
+              the consent boundary, which governs what they may do next. ---- */}
+      {/* The sticky header lived here first; PersonShell was extracted from
+          it so the other five tabs could carry the same facts. Keeping a second
+          copy is how the two would drift — a consent boundary shown on one tab
+          and not the next. */}
 
-      {(pcl5Series.length > 0 || itqSeries.length > 0) && (
-        <section className="mt-8">
-          <h2 className="type-display text-2xl font-medium">Outcome trends</h2>
-          <div className="mt-2 grid gap-4 md:grid-cols-2">
-            {pcl5Series.length > 0 && (
-              <TrendChart
-                title="PCL-5 total"
-                max={80}
-                series={[{ label: "PCL-5", color: "#2f3a33", points: pcl5Series }]}
-              />
-            )}
-            {itqSeries.length > 0 && (
-              <TrendChart
-                title="ITQ symptom sums"
-                max={24}
-                series={[
-                  {
-                    label: "PTSD",
-                    color: "#5c7884",
-                    points: itqSeries.map((s) => ({ date: s.date, value: s.ptsdSum })),
-                  },
-                  {
-                    label: "DSO",
-                    color: "#c9a98f",
-                    points: itqSeries.map((s) => ({ date: s.date, value: s.dsoSum })),
-                  },
-                ]}
-              />
-            )}
-          </div>
-          {itqSeries.length > 0 && (
-            <p className="mt-2 text-sm text-olive">
-              Latest ITQ classification:{" "}
-              <span className="font-semibold">{itqSeries[itqSeries.length - 1].label}</span>{" "}
-              (provisional, screen-based — diagnosis remains a clinical decision)
-            </p>
-          )}
-        </section>
+      {/* §15.3: the mutation's result is rendered from what came back, never
+          patched in optimistically by the control that submitted it. */}
+      {done === "overridden" && (
+        <p className="mt-4 rounded-2xl border border-state-safe/40 bg-state-safe-bg/50 px-4 py-3 text-sm text-ground">
+          Override recorded with its reason and appended to this person&apos;s audit history.
+        </p>
+      )}
+      {error && (
+        <p className="mt-4 rounded-2xl border border-state-support/40 bg-state-support-bg/50 px-4 py-3 text-sm text-ground">
+          {error}
+        </p>
       )}
 
-      {planRow && (
-        <section className="mt-8">
-          <h2 className="type-display text-2xl font-medium">Program plan (AI-drafted)</h2>
-          <div className="mt-2 rounded-3xl border border-ground/10 bg-linen p-6 shadow-soft">
-            <p className="text-sm text-olive">
-              Generated {planRow.created_at.slice(0, 10)} ·{" "}
-              {planRow.generated_by === "ai" ? "model-drafted from the trigger map" : "rules-engine draft"} ·
-              advisory only — your unlock decisions outrank it
-            </p>
-            <p className="mt-3 text-sm leading-relaxed text-ground/90">{planRow.plan.summary}</p>
-            {planRow.plan.targets.length > 0 && (
-              <ul className="mt-3 space-y-1 text-sm text-ground/90">
-                {planRow.plan.targets.map((t, i) => (
-                  <li key={i}>
-                    <span className="font-medium">{t.name}</span>
-                    {t.intensity !== null ? ` · ${t.intensity}/10` : ""} — {t.approach}
-                    {t.belief ? ` · belief: “${t.belief}”` : ""}
+      <div className="mt-6 grid gap-6 lg:grid-cols-[1fr_18rem]">
+        <div className="space-y-6">
+          {/* ---- Since your last review (§10.4) ---- */}
+          <section aria-labelledby="since" className="rounded-3xl border border-ground/10 bg-linen p-5">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h2 id="since" className="type-display text-lg font-medium text-ground">
+                Since your last review
+              </h2>
+              {/* §9.3: model-produced content is labelled by state, never by a
+                  sparkle, and never styled like a system fact. This summary is
+                  deterministic and citation-validated, so it is "evidence
+                  checked" rather than "reviewed" — no human has approved it. */}
+              <ReviewBadge state="validated" />
+            </div>
+
+            {summary.claims.length === 0 ? (
+              <p className="mt-3 text-sm text-olive">
+                No claim in the window met the citation contract. The timeline remains the record.
+              </p>
+            ) : (
+              <ul className="mt-3 space-y-2">
+                {summary.claims.map((claim, n) => (
+                  <li key={n} className="text-sm text-ground/90">
+                    {claim.text}{" "}
+                    {/* Every claim opens its evidence (§20.3: "Person summary
+                        claims open their cited evidence"). */}
+                    <Link
+                      href={`/clinician/member/${person.id}/record#timeline`}
+                      className="text-xs text-state-info underline"
+                    >
+                      {claim.citations.length} cited
+                    </Link>
                   </li>
                 ))}
               </ul>
             )}
-            {planRow.plan.nextSteps.length > 0 && (
-              <ol className="mt-3 list-decimal space-y-1 pl-5 text-sm text-olive">
-                {planRow.plan.nextSteps.map((s, i) => (
-                  <li key={i}>
-                    {moduleName(s.moduleId)} — focus: {s.focus} ({s.why})
-                  </li>
-                ))}
-              </ol>
+
+            {/* Omitted claims are surfaced, not swallowed — a suppressed claim
+                is information about the generator. */}
+            {summary.omitted.length > 0 && (
+              <p className="mt-3 text-xs text-state-caution">
+                {summary.omitted.length} generated claim(s) failed validation and were withheld.
+              </p>
             )}
-          </div>
-        </section>
-      )}
+            <p className="mt-3 text-xs text-olive">{summaryCoverageNote(summary)}</p>
+          </section>
 
-      <section className="mt-8">
-        <h2 className="type-display text-2xl font-medium">Screenings</h2>
-        <div className="mt-2 overflow-x-auto rounded-3xl border border-ground/10 bg-linen shadow-soft">
-          <table className="w-full text-sm">
-            <thead className="bg-sand/40 text-left">
-              <tr>
-                <th className="px-4 py-2">Instrument</th>
-                <th className="px-4 py-2">Score</th>
-                <th className="px-4 py-2">Risk flags</th>
-                <th className="px-4 py-2">Date</th>
-              </tr>
-            </thead>
-            <tbody>
-              {screenings.map((s, i) => {
-                const flags = JSON.parse(s.risk_flags_json) as string[];
-                const itq =
-                  s.instrument === "itq" ? scoreItq(JSON.parse(decryptField(s.answers_json))) : null;
-                return (
-                  <tr key={i} className="border-t border-ground/10">
-                    <td className="px-4 py-2 font-medium">{s.instrument}</td>
-                    <td className="px-4 py-2">
-                      {itq
-                        ? `PTSD ${itq.ptsdSum}/24 · DSO ${itq.dsoSum}/24 — ${itq.label}`
-                        : s.total_score}
-                    </td>
-                    <td className="px-4 py-2 text-support-deep">{flags.join(", ") || "—"}</td>
-                    <td className="px-4 py-2">{s.created_at}</td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      </section>
+          {/* ---- Active work ---- */}
+          <section aria-labelledby="work">
+            <h2 id="work" className="type-display text-lg font-medium text-ground">
+              Active work{" "}
+              <span className="text-base font-normal text-olive">({mine.length})</span>
+            </h2>
+            {mine.length === 0 ? (
+              <div className="mt-3">
+                <EmptyState
+                  kind="clear"
+                  title="No open work for this person"
+                  detail={`The queue ran at ${queue.computedAt} under policy ${queue.policyVersion} and found nothing open. This is an empty result, not a failed load.`}
+                />
+              </div>
+            ) : (
+              <ul className="mt-3 overflow-hidden rounded-3xl border border-ground/10 bg-linen">
+                {mine.map((i) => (
+                  <WorkQueueRow key={i.id} item={i} now={queue.computedAt} hidePerson />
+                ))}
+              </ul>
+            )}
+          </section>
 
-      <section className="mt-8">
-        <h2 className="type-display text-2xl font-medium">Check-ins (last 14)</h2>
-        <div className="mt-2 overflow-x-auto rounded-3xl border border-ground/10 bg-linen shadow-soft">
-          <table className="w-full text-sm">
-            <thead className="bg-sand/40 text-left">
-              <tr>
-                <th className="px-4 py-2">Date</th>
-                <th className="px-4 py-2">Activation</th>
-                <th className="px-4 py-2">Shutdown</th>
-                <th className="px-4 py-2">Dissociation</th>
-                <th className="px-4 py-2">Sleep</th>
-                <th className="px-4 py-2">Routed to</th>
-              </tr>
-            </thead>
-            <tbody>
-              {checkins.map((c) => (
-                <tr key={c.checkin_date} className="border-t border-ground/10">
-                  <td className="px-4 py-2">{c.checkin_date}</td>
-                  <td className="px-4 py-2">{c.activation}</td>
-                  <td className="px-4 py-2">{c.shutdown}</td>
-                  <td className="px-4 py-2">{c.dissociation}</td>
-                  <td className="px-4 py-2">{c.sleep_quality}</td>
-                  <td className="px-4 py-2">{c.recommended_action.replaceAll("_", " ")}</td>
-                </tr>
+          {/* ---- Gate review (§9.2) ---- */}
+          <section aria-labelledby="gates">
+            <h2 id="gates" className="type-display text-lg font-medium text-ground">
+              Gate review
+            </h2>
+            <p className="mt-1 text-sm text-olive">
+              Every module decision for this person, most constrained first. Each drawer shows
+              the rule, its evidence, the prior decision, and the sentence the member sees.
+            </p>
+            <div className="mt-3 space-y-2">
+              {gateGroups.map((g) => (
+                <GateReviewDrawer
+                  key={g.decision.moduleId}
+                  decision={g.decision}
+                  moduleNames={g.moduleNames}
+                  // Decided on the server. §15.2: a safety-stop override is not
+                  // rendered at all, so the question is answered before the
+                  // control is drawn rather than after it is pressed.
+                  canOverride={overrideAllowed(g.decision)}
+                  overrideAction={gateOverrideAction}
+                />
               ))}
-            </tbody>
-          </table>
+            </div>
+          </section>
         </div>
-      </section>
 
-      <section className="mt-8">
-        <h2 className="type-display text-2xl font-medium">Sessions (last 20)</h2>
-        <div className="mt-2 overflow-x-auto rounded-3xl border border-ground/10 bg-linen shadow-soft">
-          <table className="w-full text-sm">
-            <thead className="bg-sand/40 text-left">
-              <tr>
-                <th className="px-4 py-2">Module</th>
-                <th className="px-4 py-2">Status</th>
-                <th className="px-4 py-2">SUDS pre → post (peak)</th>
-                <th className="px-4 py-2">Hard-stop reason</th>
-                <th className="px-4 py-2">Started</th>
-              </tr>
-            </thead>
-            <tbody>
-              {sessions.map((s) => (
-                <tr key={s.id} className="border-t border-ground/10">
-                  <td className="px-4 py-2 font-medium">{moduleName(s.module_id)}</td>
-                  <td className="px-4 py-2">
-                    <span
-                      className={
-                        s.status === "hard_stop"
-                          ? "font-semibold text-support-deep"
-                          : s.status === "completed"
-                            ? "text-safe-deep"
-                            : "text-olive"
-                      }
-                    >
-                      {s.status.replaceAll("_", " ")}
-                    </span>
-                  </td>
-                  <td className="px-4 py-2">
-                    {s.pre_suds ?? "—"} → {s.post_suds ?? "—"} ({s.peak_suds ?? "—"})
-                  </td>
-                  <td className="px-4 py-2">{s.hard_stop_reason ?? "—"}</td>
-                  <td className="px-4 py-2">{s.started_at}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </section>
-
-      <section className="mt-8">
-        <h2 className="type-display text-2xl font-medium">Module access</h2>
-        <p className="mt-1 text-sm text-olive">
-          Open a gated module ahead of the program&apos;s pacing when your review supports it. An
-          override relaxes prerequisites and the readiness track only — the daily check-in,
-          cooldown, and cap safety gates still apply, and the member still moves through today&apos;s
-          check-in. A reason is required and recorded.
-        </p>
-        <div className="mt-3 space-y-3">
-          {gatedModules.map((mod) => {
-            const u = unlockByModule.get(mod.id);
-            const open = u?.status === "unlocked";
-            const isOverride = open && u?.override === 1;
-            return (
-              <div key={mod.id} className="rounded-3xl border border-ground/10 bg-linen p-5 shadow-soft">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <div>
-                    <p className="font-semibold">{mod.name}</p>
-                    <p className="text-xs text-olive">
-                      {open
-                        ? isOverride
-                          ? "Open by your override"
-                          : "Unlocked"
-                        : u?.status === "requested"
-                          ? "Member has requested this"
-                          : u?.status === "denied"
-                            ? "Previously declined"
-                            : "Not open"}
-                    </p>
-                  </div>
-                  <span
-                    className={`rounded-full px-3 py-1 text-xs font-medium ${
-                      open ? "bg-safe/20 text-safe-deep" : "bg-sand/50 text-olive"
-                    }`}
-                  >
-                    {open ? "Open" : "Closed"}
-                  </span>
-                </div>
-                {open ? (
-                  <form action={clinicianCloseModule} className="mt-3 flex flex-wrap items-center gap-2">
-                    <input type="hidden" name="memberId" value={member.id} />
-                    <input type="hidden" name="moduleId" value={mod.id} />
-                    <input
-                      type="text"
-                      name="reason"
-                      required
-                      placeholder="Reason for closing (recorded)"
-                      className="min-w-64 flex-1 rounded-2xl border border-ground/15 bg-ivory px-4 py-2 text-sm focus:border-sage focus:outline-none"
-                    />
-                    <button className="rounded-full border border-support px-5 py-2 text-sm font-medium text-support-deep transition-colors hover:bg-support hover:text-white">
-                      Close module
-                    </button>
-                  </form>
-                ) : (
-                  <form action={clinicianOpenModule} className="mt-3 flex flex-wrap items-center gap-2">
-                    <input type="hidden" name="memberId" value={member.id} />
-                    <input type="hidden" name="moduleId" value={mod.id} />
-                    <input
-                      type="text"
-                      name="reason"
-                      required
-                      placeholder="Clinical reason for opening early (recorded)"
-                      className="min-w-64 flex-1 rounded-2xl border border-ground/15 bg-ivory px-4 py-2 text-sm focus:border-sage focus:outline-none"
-                    />
-                    <button className="rounded-full border border-ground px-5 py-2 text-sm font-medium transition-colors hover:bg-ground hover:text-ivory">
-                      Open module
-                    </button>
-                  </form>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      </section>
-
-      <section className="mt-8 grid gap-6 md:grid-cols-2">
-        <div>
-          <h2 className="type-display text-2xl font-medium">Unlock history</h2>
-          <div className="mt-2 space-y-2">
-            {unlocks.length === 0 && <p className="text-sm text-olive">None.</p>}
-            {unlocks.map((u, i) => (
-              <div key={i} className="rounded-3xl border border-ground/10 bg-linen p-4 text-sm shadow-soft">
-                <p className="font-medium">
-                  {moduleName(u.module_id)} — {u.status}
-                </p>
-                {u.decision_reason && <p className="text-olive">Reason: {u.decision_reason}</p>}
-                <p className="text-xs text-olive">
-                  requested {u.requested_at}
-                  {u.decided_at ? ` · decided ${u.decided_at}` : ""}
-                </p>
-              </div>
-            ))}
+        {/* ---- Right rail (§10.4): allowed actions, safety plan, team ---- */}
+        <aside className="space-y-4">
+          <div className="rounded-3xl border border-ground/10 bg-linen p-4">
+            <h2 className="text-xs font-semibold uppercase tracking-wide text-olive">Allowed actions</h2>
+            <div className="mt-2 flex flex-col gap-2">
+              <Link href={`/clinician/member/${person.id}/record`} className="text-sm text-state-info underline">
+                Review summary and record
+              </Link>
+              <Link href={`/clinician/member/${person.id}/record#timeline`} className="text-sm text-state-info underline">
+                Unified timeline
+              </Link>
+              <Link href={`/review/audit?person=${person.id}`} className="text-sm text-state-info underline">
+                Audit history
+              </Link>
+            </div>
+            {/* §15.2 is explicit that an attempted safety-stop override does not
+                render at all. Not disabled — absent. A disabled control teaches
+                that the override exists and is merely unavailable today. */}
+            <p className="mt-3 border-t border-ground/10 pt-3 text-xs text-olive">
+              Ordinary overrides relax pacing only. A safety stop cannot be overridden and is
+              not offered as an action.
+            </p>
           </div>
-        </div>
-        <div>
-          <h2 className="type-display text-2xl font-medium">Consent ledger</h2>
-          <div className="mt-2 space-y-2">
-            {consents.map((c, i) => (
-              <div key={i} className="rounded-3xl border border-ground/10 bg-linen p-4 text-sm shadow-soft">
-                <p className="font-medium">
-                  {c.policy_version} · {c.scope}
-                </p>
-                <p className="text-xs text-olive">
-                  granted {c.granted_at}
-                  {c.revoked_at ? ` · revoked ${c.revoked_at}` : " · active"}
-                </p>
+
+          <div className="rounded-3xl border border-ground/10 bg-linen p-4">
+            <h2 className="text-xs font-semibold uppercase tracking-wide text-olive">Care context</h2>
+            <dl className="mt-2 space-y-1.5 text-sm">
+              <div className="flex justify-between gap-2">
+                <dt className="text-olive">Owner</dt>
+                <dd className="text-ground">{head?.ownerName ?? "Unassigned"}</dd>
               </div>
-            ))}
+              <div className="flex justify-between gap-2">
+                <dt className="text-olive">Caseload model</dt>
+                <dd className="text-ground">{policy.caseload}</dd>
+              </div>
+              <div className="flex justify-between gap-2">
+                <dt className="text-olive">Policy</dt>
+                <dd className="text-ground">{queue.policyVersion}</dd>
+              </div>
+            </dl>
           </div>
-        </div>
-      </section>
-    </main>
+        </aside>
+      </div>
+    </PersonShell>
   );
 }

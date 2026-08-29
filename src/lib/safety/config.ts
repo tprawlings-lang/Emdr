@@ -61,9 +61,29 @@ export const BETA_CONFIG = {
    *  present-focused grounding/orienting skill, never memory processing.
    *  When false, the engine removes the `stimulation` capability globally. */
   autonomousStimulationEnabled: false,
-  /** Auditory + self-tapping only in beta; no visual BLS until a11y/device
-   *  validation. Enforced as a global capability removal. (Ledger A7.) */
-  visualStimulationEnabled: false,
+  /** Visual BLS (the moving dot), enabled by product-owner decision on
+   *  2026-08-28. This REVERSES ledger A7, which read "auditory + self-tapping
+   *  only in beta; no visual BLS until a11y/device validation."
+   *
+   *  Why it was reversed rather than the UI corrected: the session has been
+   *  offering the moving dot as the DEFAULT modality all along, with a speed
+   *  picker, to every member without a seizure flag — verified in the running
+   *  app, not inferred. The config said one thing and the product did another,
+   *  and the owner's call was that the product was right.
+   *
+   *  What this flag now means, precisely:
+   *    - visual BLS is a permitted modality, not a validated one;
+   *    - the a11y control A7 was waiting for is now IMPLEMENTED rather than
+   *      pending — BlsVisual clamps traverses to BLS.maxFlashesPerSecond
+   *      (WCAG 2.3.2), which until now existed only as a number here and a
+   *      sentence in the rule catalog;
+   *    - photosensitivity still removes it entirely, per the engine capability
+   *      and the fitness screener's seizure flag;
+   *    - DEVICE validation has still not happened. That half of A7 is open.
+   *
+   *  Flipping this back to false now actually works: SessionPlayer reads the
+   *  capability rather than ignoring it, which was the underlying defect. */
+  visualStimulationEnabled: true,
   /** Clinical-review revision (ledger A9): DES-II is NOT surfaced or scored in
    *  beta until lawful commercial licensing, scoring fidelity, interpretation
    *  limits, and clinician workflow are independently confirmed. When false,

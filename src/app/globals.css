@@ -28,6 +28,49 @@
   --color-safe: #7fa37b;
   --color-safe-deep: #6d9069;
 
+  /* SEMANTIC STATE TOKENS (GUI and Decision-Surface Handoff §12.2).
+     
+     Split from the brand colors deliberately. The brand tokens above are tuned
+     for surfaces and decoration; several of them fail as text and were being
+     used as text anyway — §3.9 measured sage-deep at 2.34:1, clay at 1.96:1,
+     safe-deep at 3.20:1, mist-deep at 4.18:1, all against ivory, all short of
+     the 4.5:1 normal-text minimum.
+     
+     Each pair below is verified at >= 4.5:1 against its own background AND
+     against ivory and linen, so a state chip reads whether it sits on a card,
+     the canvas, or its own tint. tests/contrast.test.ts recomputes them.
+     
+     Color never carries the meaning alone (§12.2): every state also takes an
+     icon and a label. */
+  --color-state-safe: #3f6a43;
+  --color-state-safe-bg: #dce9dc;
+  --color-state-info: #375d70;
+  --color-state-info-bg: #e2edf1;
+  --color-state-caution: #7a5110;
+  --color-state-caution-bg: #f3e4c8;
+  --color-state-support: #8a4335;
+  --color-state-support-bg: #f3ddd8;
+  --color-state-review: #5b4b78;
+  --color-state-review-bg: #ece7f3;
+  --color-state-unknown: #545e53;
+  --color-state-unknown-bg: #ece9e2;
+
+  /* APP SHELL (Web GUI handoff, the 20 page examples).
+     
+     Sampled from the mockups rather than guessed. Every one of the 20 page
+     examples uses the same frame: an ivory page, a near-white app surface
+     inside a rounded border, a pale rail on the left, and one deep green for
+     the wordmark, the avatar and the primary action.
+     
+     Note the bar is LIGHT. It reads as dark at a glance because the wordmark
+     and the avatar are dark on it, which is worth writing down because it is
+     the thing that gets rebuilt wrong from memory. */
+  --color-app-surface: #fffdf8;  /* the app's own ground, inside the frame */
+  --color-app-rail: #edf2ec;     /* the left navigation panel */
+  --color-app-accent: #dfe9e2;   /* selected scale step, soft fill */
+  --color-app-ink: #173a32;      /* wordmark, avatar, primary action */
+  --color-app-flag: #f3e3d0;     /* the FABRICATED pill */
+
   /* ONE FAMILY, TWO OPTICAL ROLES (Presentation Layer Handoff §7).
      
      Steady previously ran Inter for body and Cormorant Garamond for headings —
@@ -46,7 +89,28 @@
      falls back to Georgia if one is missed. */
   --font-sans: var(--font-inter), ui-sans-serif, system-ui, -apple-system,
     "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-  --font-serif: var(--font-sans);
+  /* THE SERIF, RESTORED FOR ONE ROLE (GUI handoff §12.3).
+     
+     Handoff 04 §7 retired Cormorant Garamond and collapsed the system to one
+     family. That rationale still stands and is worth restating, because it is
+     the thing a second family can quietly undo: Vol 1 requires legibility under
+     fatigue and cognitive load, and Cormorant is a Garamond revival — small
+     x-height, high stroke contrast, drawn for display. Those properties fail a
+     tired reader, and the tired reader is this product's design centre.
+     
+     §12.3 asks for the serif back: "serif display type for page identity,
+     human explanation, and member-facing completion moments… sans-serif for
+     controls, tables, labels, measures, and dense clinical work."
+     
+     Both can hold, because the original objection was to Cormorant's DRAWING,
+     not to serifs. Literata answers it directly: it was designed for long-form
+     reading on screens, with a large x-height and low stroke contrast — the
+     inverse of the properties that got Cormorant retired.
+     
+     It is confined to .type-identity. Dense clinical work keeps .type-display,
+     which stays one family differentiated by scale and tracking, so the serif
+     cannot spread into tables by habit. */
+  --font-serif: var(--font-literata), ui-serif, Georgia, Cambria, serif;
 
   /* §7: minimum body size 17px, line height 1.6 minimum on body copy.
      Redefining the base step rather than patching per-page means the floor
@@ -71,6 +135,16 @@ body {
   font-family: var(--font-sans);
   font-weight: 500;
   letter-spacing: -0.021em;
+}
+
+/* §12.3's serif role: page identity, human explanation, and member completion
+   moments. Not for controls, tables, labels, measures, or dense clinical work
+   — those keep .type-display. Literata's x-height runs large, so it sets a
+   touch tighter than the sans to sit at the same optical weight. */
+.type-identity {
+  font-family: var(--font-serif);
+  font-weight: 500;
+  letter-spacing: -0.011em;
 }
 
 /* §7: line length capped at ~60 characters. Long measure is a specific

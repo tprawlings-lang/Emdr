@@ -13,8 +13,8 @@ test("clinician can open the autonomous review console and see gated decisions",
   await expect(page).toHaveURL(/\/clinician/);
 
   // A harm-urge scenario must show the crisis ceiling; a banned message blocked.
-  await page.goto("/clinician/autonomous?harmUrge=on&companionText=" + encodeURIComponent("I care about you"));
-  await expect(page.getByRole("heading", { name: /autonomous review console/i })).toBeVisible();
+  await page.goto("/review/autonomous?harmUrge=on&companionText=" + encodeURIComponent("I care about you"));
+  await expect(page.getByRole("heading", { name: /autonomous review/i })).toBeVisible();
   await expect(page.getByText(/access ceiling: crisis/i)).toBeVisible();
   await expect(page.getByText(/DAILY_HARM_URGE/).first()).toBeVisible();
   await expect(page.getByText(/Blocked —/)).toBeVisible();
@@ -23,7 +23,7 @@ test("clinician can open the autonomous review console and see gated decisions",
   // still show blocked: the signed beta config (beta-clinrev-2026-07) keeps
   // autonomous stimulation OFF, a clinician sign-off condition. The safe
   // behavior IS the expected behavior.
-  await page.goto("/clinician/autonomous?track=steady");
+  await page.goto("/review/autonomous?track=steady");
   await expect(page.getByText(/access ceiling: steady/i)).toBeVisible();
   await expect(page.getByText(/✗ blocked/)).toBeVisible();
 
@@ -43,7 +43,7 @@ test("clinician can open the autonomous review console and see gated decisions",
   await expect(ruleForm.locator('input[name="note"]')).toHaveValue(/DSM age gate/);
 
   // Session-runtime simulator: a +5 jump from a start of 3 must contain.
-  await page.goto("/clinician/autonomous?s_startSuds=3&s_postSuds=8");
+  await page.goto("/review/autonomous?s_startSuds=3&s_postSuds=8");
   await expect(page.getByRole("heading", { name: /what the session engine decides/i })).toBeVisible();
   await expect(page.getByText("containment", { exact: true })).toBeVisible();
   await expect(page.getByText(/8h|48h/)).toBeVisible(); // cooldown shown
@@ -56,7 +56,7 @@ test("clinician can open the autonomous review console and see gated decisions",
   await expect(page.getByText(/1 agreed/)).toBeVisible();
 
   // Voice-response review: the section renders and its guardrails are sign-offable.
-  await page.goto("/clinician/autonomous");
+  await page.goto("/review/autonomous");
   await expect(page.getByRole("heading", { name: /voice responses/i })).toBeVisible();
   const voiceForm = page.locator('form:has(input[name="rule_id"][value="VOICE_INPUT_CONFIRM"])');
   await voiceForm.getByRole("button", { name: "Agree" }).click();
@@ -64,7 +64,7 @@ test("clinician can open the autonomous review console and see gated decisions",
 
   // CSV export (fetched in-page so it carries the clinician session cookie).
   const out = await page.evaluate(async () => {
-    const r = await fetch("/clinician/autonomous/export");
+    const r = await fetch("/review/autonomous/export");
     return { status: r.status, ct: r.headers.get("content-type") ?? "", text: await r.text() };
   });
   expect(out.status).toBe(200);

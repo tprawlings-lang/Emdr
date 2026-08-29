@@ -9,7 +9,7 @@ import { test, expect, type Page } from "@playwright/test";
 test.skip(Boolean(process.env.E2E_BASE_URL), "runs only against the hermetic seeded server");
 
 // Sam is the intake-stage persona: screenings seeded but the profile
-// incomplete, so /dashboard routes to the gate. Exactly the member this flow
+// incomplete, so /app/today routes to the gate. Exactly the member this flow
 // exists for.
 /** Click an option and wait for the redirect to land.
  *
@@ -36,7 +36,7 @@ test("one question per screen, with position rather than a percentage", async ({
   // so "Question 1 of" is a stable assertion. Every other test owns a
   // different questionnaire, because the suite runs in parallel against one
   // server and one persona.
-  await page.goto("/screening/pcl-5");
+  await page.goto("/app/screening/pcl-5");
 
   // Exactly one question. Vol 1 B-6: one primary task per screen, minimal
   // reading during activation.
@@ -54,15 +54,15 @@ test("one question per screen, with position rather than a percentage", async ({
 
 test("answering advances, and leaving entirely resumes where you were", async ({ page }) => {
   await signInAsSam(page);
-  await page.goto("/screening/gad-7");
+  await page.goto("/app/screening/gad-7");
   await expect(page.getByTestId("gate-position")).toHaveText(/Question 1 of/);
 
   await answer(page);
   await expect(page.getByTestId("gate-position")).toHaveText(/Question 2 of/);
 
   // Leave the flow completely — not a back button, an actual departure.
-  await page.goto("/dashboard");
-  await page.goto("/screening/gad-7");
+  await page.goto("/app/today");
+  await page.goto("/app/screening/gad-7");
 
   // §5: "Resumable by default, saved continuously… Never a 'start over.'"
   await expect(page.getByTestId("gate-position")).toHaveText(/Question 2 of/);
@@ -70,7 +70,7 @@ test("answering advances, and leaving entirely resumes where you were", async ({
 
 test("stepping back shows the answer you gave, and it can be changed", async ({ page }) => {
   await signInAsSam(page);
-  await page.goto("/screening/itq");
+  await page.goto("/app/screening/itq");
   await answer(page);
   await expect(page.getByTestId("gate-position")).toHaveText(/Question 2 of/);
 
@@ -82,13 +82,13 @@ test("stepping back shows the answer you gave, and it can be changed", async ({ 
 
   // And changing it works — a member fixing a mistake is not an attacker.
   await answer(page, 1);
-  await page.goto("/screening/itq?i=0");
+  await page.goto("/app/screening/itq?i=0");
   await expect(page.getByTestId("gate-option").nth(1)).toHaveAttribute("aria-current", "true");
 });
 
 test("every step offers a pause, never a quit", async ({ page }) => {
   await signInAsSam(page);
-  await page.goto("/screening/phq-9");
+  await page.goto("/app/screening/phq-9");
 
   for (let step = 0; step < 3; step++) {
     // §5: "Exit affordance on every step. Labeled as a pause, not a quit —
@@ -102,15 +102,15 @@ test("every step offers a pause, never a quit", async ({ page }) => {
 
   // Pausing leaves, and nothing is lost by it.
   await page.getByTestId("gate-pause").click();
-  await expect(page).toHaveURL(/\/dashboard/);
-  await page.goto("/screening/phq-9");
+  await expect(page).toHaveURL(/\/app\/today/);
+  await page.goto("/app/screening/phq-9");
   await expect(page.getByTestId("gate-position")).toHaveText(/Question 4 of/);
 });
 
 test("the gate terminates in a day, not a score", async ({ page }) => {
   await signInAsSam(page);
   // pc-ptsd-5 is the shortest instrument — walk it to the end.
-  await page.goto("/screening/pc-ptsd-5");
+  await page.goto("/app/screening/pc-ptsd-5");
   // Walk to the end. Each click is a form post that redirects, so the button
   // detaches mid-click — wait for the URL to actually change rather than
   // letting Playwright retry against a stale element.
@@ -140,7 +140,7 @@ test("the gate is never rendered in an alarm register", async ({ page }) => {
   // §5: "Denial is not an error state… No red. No warning iconography. No
   // apology." The whole flow stays in one visual register.
   await signInAsSam(page);
-  await page.goto("/screening/pcl-5");
+  await page.goto("/app/screening/pcl-5");
   const alarm = await page.locator("main [class*='support'], main [class*='red-']").count();
   expect(alarm, "the gate uses an alarm colour").toBe(0);
 });
@@ -154,7 +154,7 @@ test("the sequence works as plain form posts", async ({ page, context }) => {
     // Nothing to disable — the assertion is that each option is a real submit
     // button inside its own form, which works without client JS at all.
   });
-  await page.goto("/screening/pcl-5");
+  await page.goto("/app/screening/pcl-5");
   const isFormButton = await page.getByTestId("gate-option").first().evaluate(
     (el) => el.tagName === "BUTTON" && Boolean(el.closest("form"))
   );

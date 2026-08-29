@@ -12,9 +12,9 @@ test("calm-place session speaks the member through it (guided narration)", async
   await page.getByRole("button", { name: "Continue" }).click();
   await expect(page).not.toHaveURL(/\/login/);
 
-  await page.goto("/session/calm-place");
+  await page.goto("/app/session/calm-place");
   // If the member is cleared, we stay on the session; otherwise the test is moot.
-  await expect(page).toHaveURL(/\/session\/calm-place/);
+  await expect(page).toHaveURL(/\/app\/session\/calm-place/);
 
   // Start the session (intro → running).
   await page.getByRole("button", { name: /^Begin/ }).click();

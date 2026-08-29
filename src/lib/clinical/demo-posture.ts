@@ -49,35 +49,35 @@ export function exerciseMatrix(): ExerciseRow[] {
       id: "caseload",
       name: "Caseload, timeline, summaries, review actions",
       available: true,
-      href: "/clinician/clinical",
+      href: "/clinician/caseload",
       note: "Approve, correct, and override all write real events against fabricated records.",
     },
     {
       id: "alerts",
       name: "Alerts and closure with a documented action",
       available: true,
-      href: "/clinician/clinical",
+      href: "/clinician/caseload",
       note: "Immediate and high bands refuse an acknowledgement-only closure. Try it — the refusal is the behaviour under review.",
     },
     {
       id: "audit",
       name: "Audit history and alert trails",
       available: true,
-      href: "/clinician/audit",
+      href: "/review/audit",
       note: "Tenant-scoped, free text withheld, hash chain verified and displayed.",
     },
     {
       id: "policy",
       name: "Switching clinical policy modes",
       available: true,
-      href: "/clinician/clinical",
+      href: "/clinician/caseload",
       note: "Six policy questions are versioned configuration. Switch one and compare — the defaults are assumptions, not approvals.",
     },
     {
       id: "gated-modules",
       name: "The full guided module set",
       available: openGated,
-      href: "/paths",
+      href: "/app/paths",
       note: openGated
         ? "Open without a per-member unlock so the whole set can be walked. Set EMDR_OPEN_GATED=0 to review the request-and-approve workflow instead."
         : "Gated. Unlock per member from the clinical console — this is the setting for reviewing the unlock workflow itself.",
@@ -86,7 +86,7 @@ export function exerciseMatrix(): ExerciseRow[] {
       id: "bls-resourcing",
       name: "Resourcing BLS session (Part 6, stage 4a)",
       available: bls,
-      href: bls ? "/session/resourcing" : null,
+      href: bls ? "/app/session/resourcing" : null,
       note: bls
         ? "Runnable. Still requires the member's processing-session consent, which is seeded for Alex and deliberately not for Sam so the refusal path is visible too."
         : blsDisabled()
@@ -105,21 +105,21 @@ export function exerciseMatrix(): ExerciseRow[] {
       id: "companion",
       name: "Companion, with the output guard enforcing",
       available: true,
-      href: "/companion",
+      href: "/app/companion",
       note: "In demo the guard blocks a violating response rather than only logging it. Without an API key the deterministic fallback runs, which is a complete path.",
     },
     {
       id: "voice",
       name: "Voice input and live spoken sessions",
       available: liveSessionEnabled() && voiceInputEnabled(),
-      href: "/session/resourcing",
+      href: "/app/session/resourcing",
       note: "On in demo so the highest-risk surface can be experienced and judged. Typing is always available and never required.",
     },
     {
       id: "autonomous-engine",
       name: "Autonomous safety engine",
       available: true,
-      href: "/clinician/autonomous",
+      href: "/review/autonomous",
       note: autonomousSafetyEnabled()
         ? "Master flag on. Simulate any scenario and compare the engine against the human-authored chain."
         : "Runs in shadow: it computes and logs a parallel decision and governs nothing. Comparing the two is the review, so both run side by side by design.",
@@ -128,14 +128,14 @@ export function exerciseMatrix(): ExerciseRow[] {
       id: "bls-oversight",
       name: "BLS Part 6 oversight",
       available: true,
-      href: "/clinician/bls",
+      href: "/review/bls",
       note: "Gates, rollout ladder, pre-registered thresholds, and hard stops read against live configuration.",
     },
     {
       id: "member-walk",
       name: "The member experience end to end",
       available: true,
-      href: "/dashboard",
+      href: "/app/today",
       note: "Sign in as a fabricated member from the review gateway. Check-in, grounding, practices, learn, SOS, and the crisis route are all reachable.",
     },
     {

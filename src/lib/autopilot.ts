@@ -234,14 +234,14 @@ async function compose(userId: string, checkinState: string): Promise<AutopilotP
       kind: "checkin",
       title: "Start with your check-in",
       detail: "90 seconds. The rest of this plan takes its shape from it.",
-      href: "/check-in",
+      href: "/app/check-in",
     });
     const breath = await pickPractice(userId, "breathwork");
     if (breath) {
       items.push({
         kind: "practice", title: breath.title,
         detail: "A few minutes to settle before anything else.",
-        href: "/practices/breathe",
+        href: "/app/activities/breathe",
       });
     }
     const lesson = await pickLesson(userId);
@@ -249,7 +249,7 @@ async function compose(userId: string, checkinState: string): Promise<AutopilotP
       items.push({
         kind: "lesson", title: lesson.title,
         detail: `A ${lesson.readMinutes}-minute read for whenever suits.`,
-        href: `/learn/${lesson.id}`,
+        href: `/app/learn/${lesson.id}`,
       });
     }
   } else if (checkinState === "crisis") {
@@ -258,7 +258,7 @@ async function compose(userId: string, checkinState: string): Promise<AutopilotP
     items.push({
       kind: "ground", title: "Come back to the room",
       detail: "One step at a time, with your own grounding tools.",
-      href: "/ground",
+      href: "/app/ground",
     });
   } else if (checkinState === "grounding_only") {
     headline = "A gentle day, on purpose";
@@ -269,20 +269,20 @@ async function compose(userId: string, checkinState: string): Promise<AutopilotP
       items.push({
         kind: "practice", title: med.title,
         detail: "Eyes open, feet on the floor — orienting comes before anything deeper.",
-        href: "/practices/meditate",
+        href: "/app/activities/meditate",
       });
     }
     items.push({
       kind: "ground", title: "Your grounding tools",
       detail: "The ones that have worked before, in one place.",
-      href: "/ground",
+      href: "/app/ground",
     });
     const lesson = await pickLesson(userId, "grounding-nervous-system");
     if (lesson) {
       items.push({
         kind: "lesson", title: lesson.title,
         detail: `Understanding what your body is doing — ${lesson.readMinutes} minutes.`,
-        href: `/learn/${lesson.id}`,
+        href: `/app/learn/${lesson.id}`,
       });
     }
   } else {
@@ -297,7 +297,7 @@ async function compose(userId: string, checkinState: string): Promise<AutopilotP
       items.push({
         kind: "practice", title: `Prepare: ${breath.title}`,
         detail: "A short on-ramp so the session starts from settled.",
-        href: "/practices/breathe",
+        href: "/app/activities/breathe",
       });
     }
     const step = await pickSessionStep(userId);
@@ -305,7 +305,7 @@ async function compose(userId: string, checkinState: string): Promise<AutopilotP
       items.push({
         kind: "session", title: step.name,
         detail: `Today's focus: ${step.focus}`,
-        href: `/session/${step.moduleId}`,
+        href: `/app/session/${step.moduleId}`,
       });
     }
     const lesson = await pickLesson(userId, step?.moduleId);
@@ -313,7 +313,7 @@ async function compose(userId: string, checkinState: string): Promise<AutopilotP
       items.push({
         kind: "lesson", title: lesson.title,
         detail: `${lesson.readMinutes} minutes, before or after the session.`,
-        href: `/learn/${lesson.id}`,
+        href: `/app/learn/${lesson.id}`,
       });
     }
   }

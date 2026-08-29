@@ -114,6 +114,6 @@ export async function requireMember(): Promise<SessionUser> {
 
 export async function requireClinician(): Promise<SessionUser> {
   const user = await requireUser();
-  if (user.role !== "clinician" && user.role !== "admin") redirect("/dashboard");
+  if (user.role !== "clinician" && user.role !== "admin") redirect("/app/today");
   return user;
 }

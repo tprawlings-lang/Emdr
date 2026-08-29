@@ -22,8 +22,8 @@ test("member can log in and reach an authenticated session", async ({ page }) =>
 
   // The session is real: the dashboard is now reachable and offers sign-out
   // (requireMember would bounce an anonymous visitor back to /login).
-  await page.goto("/dashboard");
-  await expect(page).toHaveURL(/\/dashboard/);
+  await page.goto("/app/today");
+  await expect(page).toHaveURL(/\/app\/today/);
   await expect(page.getByRole("button", { name: /sign out/i })).toBeVisible();
 });
 
@@ -34,6 +34,6 @@ test("invalid credentials are rejected", async ({ page }) => {
   await page.getByRole("button", { name: "Continue" }).click();
   // Stays on the login surface; no session is minted.
   await expect(page).toHaveURL(/\/login/);
-  await page.goto("/dashboard");
+  await page.goto("/app/today");
   await expect(page).toHaveURL(/\/login/);
 });

@@ -1,12 +1,14 @@
 import { Suspense } from "react";
 import { getCurrentUser } from "@/lib/auth";
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+import { Inter, Literata } from "next/font/google";
 import "./globals.css";
 import SosMount from "@/components/SosMount";
 import { ReviewGuide } from "@/components/ReviewGuide";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
+// §12.3's identity serif. Text-grade by design — see the note in globals.css.
+const literata = Literata({ subsets: ["latin"], variable: "--font-literata" });
 
 export const metadata: Metadata = {
   title: "steady — a steadier way through trauma",
@@ -35,7 +37,7 @@ export default function RootLayout({
 }: Readonly<{ children: React.ReactNode }>) {
   const demo = process.env.EMDR_DEMO === "1";
   return (
-    <html lang="en" className={`h-full antialiased ${inter.variable}`}>
+    <html lang="en" className={`h-full antialiased ${inter.variable} ${literata.variable}`}>
       <body className="min-h-full flex flex-col bg-ivory font-sans text-ground">
         {demo && (
           // Handoff §1 and §3: every surface carries this label, in these

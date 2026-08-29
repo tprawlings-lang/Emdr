@@ -72,5 +72,5 @@ export async function enterPersonaAction(formData: FormData) {
     actorId: user.id, actorRole: user.role as "member" | "clinician",
     family: "security", type: "review_persona_entered", detail: { path: cfg.id },
   });
-  redirect(user.role === "clinician" ? "/clinician/clinical" : "/dashboard");
+  redirect(user.role === "clinician" ? "/clinician/caseload" : "/app/today");
 }

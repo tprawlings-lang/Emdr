@@ -194,7 +194,7 @@ export const CONTROLS: Control[] = [
     state: "current",
     detail:
       "Every model response is validated before display. Crisis routing is deterministic and never model-decided.",
-    evidence: "src/lib/safety/companion-guard.ts",
+    evidence: "src/lib/safety/app/companion-guard.ts",
     owner: "Engineering",
   },
   {

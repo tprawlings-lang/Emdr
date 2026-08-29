@@ -96,7 +96,7 @@ export const CAPABILITIES: Capability[] = [
     summary:
       "A supportive conversational companion. Memory is member-controlled and can be switched off; a deterministic guard checks every response before it is shown.",
     status: "working_demo",
-    evidence: "src/lib/companion-ai.ts · src/lib/safety/companion-guard.ts",
+    evidence: "src/lib/app/companion-ai.ts · src/lib/safety/app/companion-guard.ts",
     owner: "Engineering",
     lastReviewed: "2026-08-27",
     audiences: ["public", "clinical", "security", "investor"],
@@ -220,7 +220,7 @@ export const CAPABILITIES: Capability[] = [
     summary:
       "A separately gated clinical-validation workstream. A clinician oversight console reports the six protocol gates, the staged rollout, the pre-registered thresholds, and the hard stopping criteria against the configuration actually running — so a signed document and a live flag cannot quietly disagree.",
     status: "simulation",
-    evidence: "docs/autonomous/ · src/lib/clinical/bls-oversight.ts · /clinician/bls",
+    evidence: "docs/autonomous/ · src/lib/clinical/bls-oversight.ts · /review/bls",
     owner: "Clinical",
     lastReviewed: "2026-08-27",
     audiences: ["public", "clinical", "investor"],

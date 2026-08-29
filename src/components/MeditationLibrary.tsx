@@ -77,7 +77,7 @@ export default function MeditationLibrary({
           >
             {copy.anotherLabel}
           </button>
-          <Link href="/dashboard" className="text-sm text-olive underline">
+          <Link href="/app/today" className="text-sm text-olive underline">
             Back to dashboard
           </Link>
         </div>

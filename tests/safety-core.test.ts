@@ -35,7 +35,11 @@ test("clear member reaches steady tier but activating sessions are OFF in beta (
   // stimulation capability is off globally and no activating session may start.
   assert.equal(d.capabilities.stimulation, false);
   assert.equal(d.activatingSessionsAllowed, false);
-  assert.equal(d.capabilities.visualStimulation, false);
+  // Ledger A7 reversed 2026-08-28 by product-owner decision: visual BLS is a
+  // permitted modality. Photosensitivity still removes it — asserted in
+  // "photosensitivity removes visual stimulation" below, which is the case
+  // that actually protects someone.
+  assert.equal(d.capabilities.visualStimulation, true);
   assert.equal(d.hits.length, 0);
 });
 
