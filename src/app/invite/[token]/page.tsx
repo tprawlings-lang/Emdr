@@ -17,6 +17,14 @@ export const metadata = { title: "Invitation — Steady" };
 //
 // Scoped review access DOES exist, through /request-review, so this points
 // there rather than leaving someone with an invitation and nowhere to take it.
+//
+// One honest caveat, so nobody finds it later and thinks this is broken: Next
+// puts the requested path into the RSC router-state payload in the HTML
+// source, so the token is in `view-source` on this page as it is on every
+// page. That is not a disclosure this page makes — the token was in the URL
+// the browser sent, and is already in history and the access log. What this
+// page controls is whether it is RENDERED, where it would reach a screenshot,
+// a shared screen or a shoulder. It is not.
 
 export default function InvitePage() {
   return (

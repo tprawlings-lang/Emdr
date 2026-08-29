@@ -50,6 +50,12 @@ test("every access state renders and offers a route to crisis", async ({ page })
 
 test("the invitation screen does not put the token on the page", async ({ page }) => {
   await page.goto("/invite/tok_9f3ac1e5b7");
+  // innerText, not the HTML source, and deliberately: Next embeds the
+  // requested path in the RSC router-state payload on every page, so the raw
+  // source contains it no matter what this page does. The token was in the URL
+  // the browser sent and is already in history and the access log. What this
+  // page controls is whether it is RENDERED — where it would reach a
+  // screenshot, a shared screen or a shoulder.
   const body = await page.locator("body").innerText();
   expect(body).not.toContain("tok_9f3ac1e5b7");
 });
