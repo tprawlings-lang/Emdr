@@ -1,7 +1,7 @@
 import { requireMember } from "@/lib/auth";
 import { data } from "@/lib/data";
 import Link from "next/link";
-import { MemberNav } from "@/components/member/MemberNav";
+import { MemberPage } from "@/components/member/MemberPage";
 import { buildMemberProgress } from "@/lib/member/progress";
 import { EnvelopeView } from "@/components/presentation/EnvelopeView";
 import { ProgressView } from "@/components/member/ProgressView";
@@ -43,15 +43,11 @@ export default async function ProgressPage({
   });
 
   return (
-    <>
-      <MemberNav />
-      <main className="mx-auto max-w-3xl px-6 py-10">
-        <h1 className="type-identity text-3xl text-ground">Your progress</h1>
-        <p className="measure mt-2 text-olive">
-          Patterns over time, with the periods they are drawn from. This is not a score, a
-          grade, or a judgement about how you are doing.
-        </p>
-
+    <MemberPage
+      layer="progress"
+      title="Your progress"
+      lede="Patterns over time, with the periods they are drawn from. This is not a score, a grade, or a judgement about how you are doing."
+    >
         <nav aria-label="Comparison window" className="mt-5 flex gap-2">
           {[30, 90].map((d) => (
             <Link
@@ -77,7 +73,6 @@ export default async function ProgressPage({
           If any of this is worth talking through, your care team can see the same
           information. Grounding and support stay open whatever the pattern shows.
         </p>
-      </main>
-    </>
+    </MemberPage>
   );
 }

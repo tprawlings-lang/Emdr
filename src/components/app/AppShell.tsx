@@ -36,7 +36,7 @@ export const RAIL = [
 export type RailSlug = (typeof RAIL)[number]["slug"];
 
 export function AppShell({
-  role, title, active, railHref, children, aside,
+  role, title, active, railHref, accountHref, children, aside,
 }: {
   role: ShellRole;
   title: string;
@@ -47,6 +47,11 @@ export function AppShell({
    *  tests/navigation.test.ts has failed the build on that since the console
    *  had no navigation at all. */
   railHref: Partial<Record<RailSlug, string>>;
+  /** Where the avatar goes. The mockups draw an avatar on every screen and
+   *  give it no label, which works on paper and strands a keyboard user in a
+   *  product — so it is a link with a name when a role has an account surface,
+   *  and a plain mark when it does not. */
+  accountHref?: string;
   children: React.ReactNode;
   /** Optional right-hand column, for the record's action rail. */
   aside?: React.ReactNode;
@@ -67,7 +72,16 @@ export function AppShell({
             <span className="rounded-full bg-app-flag px-3 py-1 text-xs font-semibold uppercase tracking-wide text-app-ink">
               Fabricated
             </span>
-            <span aria-hidden className="h-8 w-8 shrink-0 rounded-full bg-app-ink" />
+            {accountHref ? (
+              <Link
+                href={accountHref}
+                className="block h-8 w-8 shrink-0 rounded-full bg-app-ink transition-opacity hover:opacity-80"
+              >
+                <span className="sr-only">Profile and privacy</span>
+              </Link>
+            ) : (
+              <span aria-hidden className="h-8 w-8 shrink-0 rounded-full bg-app-ink" />
+            )}
           </div>
         </div>
 

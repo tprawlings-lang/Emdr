@@ -1,4 +1,5 @@
 import { requireMember } from "@/lib/auth";
+import { MemberPage } from "@/components/member/MemberPage";
 import { hasConsent } from "@/lib/gating";
 import { grantConsent } from "@/lib/actions";
 import { currentConsentSections, currentConsentVersion } from "@/lib/policy";
@@ -14,17 +15,20 @@ export default async function OnboardingPage() {
   const consentSections = currentConsentSections();
 
   return (
-    <main className="mx-auto max-w-3xl px-6 py-12">
+    <MemberPage
+      layer="evidence"
+      title="Before you begin"
+      lede="Please read each section at your own pace — nothing here is rushed."
+    >
       <div className="sticky top-0 z-10 -mx-6 mb-6 border-b border-ground/10 bg-ivory/95 px-6 py-3 text-sm font-medium text-ground/80">
         Emergency use: <span className="font-bold text-ground">No</span> · Step 2 of 4 —
         Informed consent
       </div>
 
-      <h1 className="type-identity text-4xl font-medium">Before you begin</h1>
-      <p className="mt-3 text-olive">
-        Please read each section at your own pace — nothing here is rushed. This is the
-        agreement that governs your care program. A printable copy is available on every screen,
-        and this consent is versioned ({consentVersion}) so you always know what you agreed to.
+      <p className="measure mt-4 text-olive">
+        This is the agreement that governs your care program. A printable copy is available on
+        every screen, and this consent is versioned ({consentVersion}) so you always know what
+        you agreed to.
       </p>
 
       <div className="mt-8 space-y-4">
@@ -48,6 +52,6 @@ export default async function OnboardingPage() {
           which is recorded with a timestamp in your consent ledger.
         </p>
       </form>
-    </main>
+    </MemberPage>
   );
 }

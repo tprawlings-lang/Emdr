@@ -32,6 +32,7 @@ export default async function CarePlanPage() {
 
   return (
     <MemberPage
+      layer="evidence"
       title="Your care plan"
       lede="What is active for you at the moment, where it came from, and who has looked at it."
     >

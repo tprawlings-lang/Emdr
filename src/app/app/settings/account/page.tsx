@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { MemberPage } from "@/components/member/MemberPage";
 import { requireUser } from "@/lib/auth";
 import { deleteAccount, signOutEverywhere } from "@/lib/actions";
 
@@ -14,11 +15,10 @@ export default async function AccountSettingsPage({
   const { error } = await searchParams;
 
   return (
-    <main className="mx-auto max-w-2xl px-6 py-12">
-      <Link href="/app/today" className="text-sm text-olive underline">
-        ← Back to dashboard
-      </Link>
-      <h1 className="mt-3 type-display text-4xl font-medium">Your account</h1>
+    <MemberPage
+      layer="evidence"
+      title="Your account"
+    >
 
       <section className="mt-8 rounded-3xl border border-ground/10 bg-linen p-7 shadow-soft">
         <h2 className="type-display text-2xl font-medium">Sign out everywhere</h2>
@@ -75,6 +75,6 @@ export default async function AccountSettingsPage({
           Memory controls
         </Link>
       </p>
-    </main>
+    </MemberPage>
   );
 }

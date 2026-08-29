@@ -1,5 +1,5 @@
 import { AppShell } from "@/components/app/AppShell";
-import { MEMBER_RAIL } from "@/lib/member/rail";
+import { MEMBER_RAIL } from "@/lib/app/rails";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { requireMember } from "@/lib/auth";

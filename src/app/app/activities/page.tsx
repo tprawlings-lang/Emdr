@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { requireMember } from "@/lib/auth";
-import { MemberNav } from "@/components/member/MemberNav";
+import { MemberPage } from "@/components/member/MemberPage";
 import { MODULES } from "@/lib/modules";
 import { checkModuleAccess } from "@/lib/gating";
 
@@ -74,14 +74,11 @@ export default async function ActivitiesPage() {
   );
 
   return (
-    <>
-      <MemberNav />
-      <main className="mx-auto max-w-3xl px-6 py-10">
-        <h1 className="type-identity text-3xl">Practices</h1>
-        <p className="measure mt-2 text-olive">
-          Short things you can do on their own, whenever you want them. Nothing here needs
-          to lead anywhere.
-        </p>
+    <MemberPage
+        layer="actions"
+        title="Practices"
+        lede="Short things you can do on their own, whenever you want them. Nothing here needs to lead anywhere."
+      >
 
         <ul className="mt-8 grid gap-4 sm:grid-cols-2">
           {PRACTICES.map((p) => (
@@ -144,7 +141,6 @@ export default async function ActivitiesPage() {
           Grounding and crisis support are always one tap away, on every screen, whether or
           not anything else is open today.
         </p>
-      </main>
-    </>
+      </MemberPage>
   );
 }

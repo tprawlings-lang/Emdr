@@ -35,6 +35,7 @@ export default async function CareTeamPage() {
 
   return (
     <MemberPage
+      layer="evidence"
       title="Care team"
       lede="Who can see your information, what they can see, and how to withdraw it."
     >

@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { MemberPage } from "@/components/member/MemberPage";
 import { requireMember } from "@/lib/auth";
 import { data } from "@/lib/data";
 import { submitPostSessionCheck } from "@/lib/actions";
@@ -55,12 +56,11 @@ export default async function PostSessionPage({
   if (alreadyChecked) redirect("/app/today");
 
   return (
-    <main className="mx-auto max-w-2xl px-6 py-12">
-      <h1 className="type-identity text-4xl font-medium">Before you go</h1>
-      <p className="mt-2 text-sm text-olive">
-        Two minutes. You do not need to solve everything today — this is how we make sure the
-        session landed safely, so your system can settle.
-      </p>
+    <MemberPage
+      layer="actions"
+      title="Before you go"
+      lede="Two minutes. You do not need to solve everything today — this is how we make sure the session landed safely, so your system can settle."
+    >
 
       <form action={submitPostSessionCheck} className="mt-10 space-y-8">
         <input type="hidden" name="sessionId" value={sid} />
@@ -113,6 +113,6 @@ export default async function PostSessionPage({
         </button>
         <p className="text-center text-sm text-olive">Let your system settle.</p>
       </form>
-    </main>
+    </MemberPage>
   );
 }

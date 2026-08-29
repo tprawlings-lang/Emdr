@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { MemberPage } from "@/components/member/MemberPage";
 import { redirect } from "next/navigation";
 import { requireMember } from "@/lib/auth";
 import { subscriptionActive } from "@/lib/billing";
@@ -23,7 +24,7 @@ export default async function TakeMeasurePage({
   if (!instrument || !TRACKED.has(instrument.id)) redirect("/app/measures");
 
   return (
-    <main className="mx-auto max-w-3xl px-6 py-12">
+    <MemberPage layer="progress" title={instrument.title}>
       <div className="sticky top-0 z-10 -mx-6 mb-6 border-b border-ground/10 bg-ivory/95 px-6 py-3 text-sm font-medium text-ground/80">
         Weekly measure ·{" "}
         <Link href="/crisis" className="font-semibold text-ground underline">
@@ -31,8 +32,7 @@ export default async function TakeMeasurePage({
         </Link>
       </div>
 
-      <h1 className="type-identity text-3xl font-medium">{instrument.title}</h1>
-      <p className="mt-2 text-olive">{instrument.intro}</p>
+      <p className="measure mt-1 text-olive">{instrument.intro}</p>
       {/* cutoffNote printed here too — the same criteria-label leak as the
           screening page. Removed for the same reason: it is a clinician-facing
           interpretation note, and showing it tells someone how to answer to
@@ -42,6 +42,6 @@ export default async function TakeMeasurePage({
       </p>
 
       <InstrumentForm instrument={instrument} context="weekly" />
-    </main>
+    </MemberPage>
   );
 }

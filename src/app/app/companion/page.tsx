@@ -1,4 +1,4 @@
-import { MemberNav } from "@/components/member/MemberNav";
+import { MemberPage } from "@/components/member/MemberPage";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { requireMember } from "@/lib/auth";
@@ -37,21 +37,7 @@ export default async function CompanionPage({
   const tools: string[] = ctx.plan ? JSON.parse(ctx.plan.grounding_tools_json) : [];
 
   return (
-    <>
-      <MemberNav />
-      <main className="mx-auto max-w-4xl px-6 py-12">
-      <div className="flex items-center justify-between">
-        <h1 className="type-identity text-4xl font-medium">Your companion</h1>
-        <div className="flex items-center gap-4 text-sm">
-          <Link href="/app/today" className="text-olive underline">
-            Dashboard
-          </Link>
-          <Link href="/crisis" className="font-semibold text-ground underline">
-            Need help now?
-          </Link>
-        </div>
-      </div>
-
+    <MemberPage layer="actions" title="Your companion">
       <details className="mt-4 rounded-3xl border border-state-caution/40 bg-state-caution-bg px-5 py-3 text-sm text-ground" open>
         <summary className="cursor-pointer font-semibold">
           Not for emergencies — your companion is not monitored in real time
@@ -109,7 +95,6 @@ export default async function CompanionPage({
           )}
         </aside>
       </div>
-    </main>
-    </>
+    </MemberPage>
   );
 }

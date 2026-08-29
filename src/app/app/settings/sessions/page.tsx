@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { MemberPage } from "@/components/member/MemberPage";
 import { redirect } from "next/navigation";
 import { requireMember } from "@/lib/auth";
 import { hasConsent, hasProcessingConsent } from "@/lib/gating";
@@ -15,11 +16,7 @@ export default async function SessionConsentPage() {
   const featureOn = blsResourcingEnabled();
 
   return (
-    <main className="mx-auto max-w-2xl px-6 py-12">
-      <Link href="/app/settings/account" className="text-sm text-olive underline">
-        ← Settings
-      </Link>
-      <h1 className="mt-3 type-display text-3xl font-medium">Guided calm-place sessions</h1>
+    <MemberPage layer="evidence" title="Guided calm-place sessions">
       <p className="mt-2 text-sm text-olive">
         These sessions add short, gentle rounds of sound and tapping (bilateral stimulation) to a
         calm-place exercise. Because this is a self-guided processing exercise with no clinician
@@ -80,6 +77,6 @@ export default async function SessionConsentPage() {
           </p>
         </form>
       )}
-    </main>
+    </MemberPage>
   );
 }

@@ -1,4 +1,4 @@
-import { MemberNav } from "@/components/member/MemberNav";
+import { MemberPage } from "@/components/member/MemberPage";
 import Link from "next/link";
 import { requireMember } from "@/lib/auth";
 import { LESSONS, readLessonIds } from "@/lib/lessons";
@@ -10,14 +10,11 @@ export default async function LearnPage() {
   const read = new Set(await readLessonIds(user.id));
 
   return (
-    <>
-      <MemberNav />
-      <main className="mx-auto max-w-xl px-6 py-12">
-      <h1 className="type-identity text-3xl font-medium">Learn</h1>
-      <p className="mt-2 text-olive">
-        A few short reads to make sense of what you&apos;re working with — the window of tolerance,
-        why the method works, understanding triggers. Two to four minutes each.
-      </p>
+    <MemberPage
+        layer="evidence"
+        title="Learn"
+        lede="A few short reads to make sense of what you&apos;re working with — the window of tolerance, why the method works, understanding triggers. Two to four minutes each."
+      >
       <p className="mt-2 text-sm text-olive">
         {read.size} of {LESSONS.length} read
       </p>
@@ -38,7 +35,6 @@ export default async function LearnPage() {
           </Link>
         ))}
       </div>
-    </main>
-    </>
+    </MemberPage>
   );
 }

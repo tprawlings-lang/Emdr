@@ -1,4 +1,4 @@
-import { MemberNav } from "@/components/member/MemberNav";
+import { MemberPage } from "@/components/member/MemberPage";
 import Link from "next/link";
 import { getCurrentUser } from "@/lib/auth";
 import { getSafetyPlan } from "@/lib/profile";
@@ -12,11 +12,11 @@ export default async function GroundPage() {
   const tools: string[] = plan ? JSON.parse(plan.grounding_tools_json) : [];
 
   return (
-    <>
-      <MemberNav />
-      <main className="mx-auto max-w-xl px-6 py-14">
-      <h1 className="type-identity text-4xl font-medium">Come back to the room</h1>
-      <p className="mt-3 text-lg text-olive">No rush. One step at a time.</p>
+    <MemberPage
+        layer="actions"
+        title="Come back to the room"
+        lede="No rush. One step at a time."
+      >
 
       <ol className="mt-8 space-y-4">
         {[
@@ -69,7 +69,6 @@ export default async function GroundPage() {
           I need more help than this
         </Link>
       </div>
-    </main>
-    </>
+    </MemberPage>
   );
 }

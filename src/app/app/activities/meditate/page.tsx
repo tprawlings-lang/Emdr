@@ -1,4 +1,3 @@
-import { MemberNav } from "@/components/member/MemberNav";
 import { requireMember } from "@/lib/auth";
 import { listPractices } from "@/lib/practices";
 import MeditationLibrary from "@/components/MeditationLibrary";

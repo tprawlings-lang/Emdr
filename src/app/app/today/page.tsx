@@ -1,4 +1,4 @@
-import { MemberNav } from "@/components/member/MemberNav";
+import { MemberPage } from "@/components/member/MemberPage";
 import { buildMemberToday } from "@/lib/member/today";
 import { TodayDecision } from "@/components/member/TodayDecision";
 import { EnvelopeView } from "@/components/presentation/EnvelopeView";
@@ -18,7 +18,6 @@ import {
   resourcingBlsAvailable,
   screeningComplete,
 } from "@/lib/gating";
-import { logout } from "@/lib/actions";
 import { getFitnessState } from "@/lib/fitness-screener";
 import {
   getActiveTriggers,
@@ -110,9 +109,11 @@ export default async function DashboardPage({
   const autopilot = await getAutopilotPlan(user.id);
 
   return (
-    <>
-      <MemberNav />
-      <main className="mx-auto max-w-4xl px-6 py-12">
+    <MemberPage
+      layer="overview"
+      title={`Hello, ${user.name}`}
+      lede="You are here today. That is enough."
+    >
 
       {fitness.status === "none" && (
         <div className="mb-6 rounded-3xl border border-state-caution/40 bg-state-caution-bg p-5">
@@ -143,27 +144,6 @@ export default async function DashboardPage({
           </Link>
         </div>
       )}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="type-identity text-4xl font-medium">Hello, {user.name}</h1>
-          <p className="mt-1 text-sm text-olive">You are here today. That is enough.</p>
-        </div>
-        <div className="flex items-center gap-4">
-          <Link href="/crisis" className="text-sm font-semibold text-ground underline">
-            Need help now?
-          </Link>
-          <Link href="/app/settings/memory" className="text-sm text-olive underline">
-            Memory
-          </Link>
-          <Link href="/app/settings/billing" className="text-sm text-olive underline">
-            Membership
-          </Link>
-          <form action={logout}>
-            <button className="text-sm text-olive underline">Sign out</button>
-          </form>
-        </div>
-      </div>
-
       {/* §10.1's above-the-fold order: greeting and local date, then the Today
           state card, then one primary action. The card sat above the greeting
           and read as though the page began mid-sentence.
@@ -336,7 +316,6 @@ export default async function DashboardPage({
           Your progress
         </Link>
       </p>
-    </main>
-    </>
+    </MemberPage>
   );
 }

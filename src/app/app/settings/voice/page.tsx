@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { MemberPage } from "@/components/member/MemberPage";
 import { redirect } from "next/navigation";
 import { requireMember } from "@/lib/auth";
 import { hasConsent, hasVoiceConsent } from "@/lib/gating";
@@ -15,11 +16,7 @@ export default async function VoiceSettingsPage() {
   const granted = await hasVoiceConsent(user.id);
 
   return (
-    <main className="mx-auto max-w-2xl px-6 py-12">
-      <Link href="/app/settings/account" className="text-sm text-olive underline">
-        ← Settings
-      </Link>
-      <h1 className="mt-3 type-display text-3xl font-medium">Voice &amp; speaking</h1>
+    <MemberPage layer="evidence" title="Voice & speaking">
       <p className="mt-2 text-sm text-olive">
         Speaking during sessions is entirely optional — typing and tapping always work exactly
         the same. Because your voice can be sensitive information, this is a separate choice.
@@ -80,6 +77,6 @@ export default async function VoiceSettingsPage() {
           </p>
         </form>
       )}
-    </main>
+    </MemberPage>
   );
 }

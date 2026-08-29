@@ -1,4 +1,4 @@
-import { MemberNav } from "@/components/member/MemberNav";
+import { MemberPage } from "@/components/member/MemberPage";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { requireMember } from "@/lib/auth";
@@ -47,17 +47,11 @@ export default async function MeasuresPage({
   );
 
   return (
-    <>
-      <MemberNav />
-      <main className="mx-auto max-w-2xl px-6 py-12">
-      <Link href="/app/today" className="text-sm text-olive underline">
-        ← Back to dashboard
-      </Link>
-      <h1 className="mt-3 type-display text-3xl font-medium">Weekly measures</h1>
-      <p className="mt-2 text-sm text-olive">
-        These short questionnaires are how you and your care team see whether the program is
-        actually helping. Once a week is enough — more often does not make the signal better.
-      </p>
+    <MemberPage
+        layer="progress"
+        title="Weekly measures"
+        lede="These short questionnaires are how you and your care team see whether the program is actually helping. Once a week is enough — more often does not make the signal better."
+      >
 
       {submitted && (
         <p className="mt-4 rounded-2xl border border-state-safe/40 bg-state-safe-bg/60 px-4 py-3 text-sm text-ground">
@@ -100,7 +94,6 @@ export default async function MeasuresPage({
           );
         })}
       </div>
-    </main>
-    </>
+    </MemberPage>
   );
 }

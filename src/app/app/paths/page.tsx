@@ -1,4 +1,4 @@
-import { MemberNav } from "@/components/member/MemberNav";
+import { MemberPage } from "@/components/member/MemberPage";
 import Link from "next/link";
 import { buildMemberDay } from "@/lib/member/view";
 import { DayCanvas } from "@/components/member/DayCanvas";
@@ -52,23 +52,11 @@ export default async function PathsPage() {
   const completed = await completedModuleIds(user.id);
 
   return (
-    <>
-      <MemberNav />
-      <main className="mx-auto max-w-3xl px-6 py-12">
-      <div className="flex items-center justify-between">
-        <Link href="/app/today" className="text-sm text-olive underline">
-          ← Dashboard
-        </Link>
-        <Link href="/crisis" className="text-sm font-semibold text-ground underline">
-          Need help now?
-        </Link>
-      </div>
-
-      <h1 className="mt-4 type-display text-4xl font-medium">Find your path</h1>
-      <p className="mt-2 text-olive">
-        Tell us what you&apos;d like to work on, in your own words. We&apos;ll point you to a
-        starting place — and you can follow more than one path, or change at any time.
-      </p>
+    <MemberPage
+        layer="evidence"
+        title="Find your path"
+        lede="Tell us what you&apos;d like to work on, in your own words. We&apos;ll point you to a starting place — and you can follow more than one path, or change at any time."
+      >
 
       {/* Goal intake */}
       <form action={saveTrackIntakeAction} className="mt-8 rounded-3xl border border-ground/10 bg-linen p-6 shadow-soft">
@@ -265,7 +253,6 @@ export default async function PathsPage() {
           and your specialist&apos;s review — a path never skips those.
         </p>
       </section>
-    </main>
-    </>
+    </MemberPage>
   );
 }

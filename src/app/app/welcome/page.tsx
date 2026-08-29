@@ -45,6 +45,7 @@ export default async function WelcomePage() {
   await requireMember();
   return (
     <MemberPage
+      layer="overview"
       title="Before you start"
       lede="Four things worth knowing. It takes about a minute, and you can come back to it."
     >

@@ -51,6 +51,7 @@ export default async function SessionPreparePage({
 
   return (
     <MemberPage
+      layer="actions"
       title="Before you begin"
       lede={`${mod.name} — about ${mod.durationLabel}.`}
     >

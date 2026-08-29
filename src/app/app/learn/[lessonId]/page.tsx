@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { MemberPage } from "@/components/member/MemberPage";
 import { notFound } from "next/navigation";
 import { requireMember } from "@/lib/auth";
 import { getLesson } from "@/lib/lessons";
@@ -12,12 +13,11 @@ export default async function LessonPage({ params }: { params: Promise<{ lessonI
   if (!lesson) notFound();
 
   return (
-    <main className="mx-auto max-w-2xl px-6 py-12">
+    <MemberPage layer="evidence" title={lesson.title}>
       <MarkLessonRead lessonId={lesson.id} />
       <Link href="/app/learn" className="text-sm text-olive underline">
         ← All lessons
       </Link>
-      <h1 className="mt-4 type-display text-3xl font-medium">{lesson.title}</h1>
       <p className="mt-1 text-sm text-olive">{lesson.readMinutes} min read</p>
       <div className="mt-6">
         <LessonBody markdown={lesson.body} />
@@ -29,6 +29,6 @@ export default async function LessonPage({ params }: { params: Promise<{ lessonI
         </Link>{" "}
         has support that can help now.
       </p>
-    </main>
+    </MemberPage>
   );
 }

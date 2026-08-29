@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { MemberPage } from "@/components/member/MemberPage";
 import { redirect } from "next/navigation";
 import { requireMember } from "@/lib/auth";
 import { getFitnessState } from "@/lib/fitness-screener";
@@ -18,10 +19,7 @@ export default async function FitPausePage() {
   const us = CRISIS_REGIONS.find((r) => r.code === "US")!;
 
   return (
-    <main className="mx-auto max-w-xl px-6 py-14">
-      <h1 className="type-identity text-4xl font-medium">
-        This program isn&apos;t the right fit right now
-      </h1>
+    <MemberPage layer="progress" title="This program isn&apos;t the right fit right now">
       <p className="mt-4 leading-relaxed text-ground/90">
         That is not a judgment, and it is not a closed door — it means what you&apos;re
         carrying right now deserves more support than a self-guided program can safely give.
@@ -72,6 +70,6 @@ export default async function FitPausePage() {
       <Link href="/crisis" className="mt-6 block text-center text-sm font-semibold text-ground underline">
         Open the full crisis page
       </Link>
-    </main>
+    </MemberPage>
   );
 }

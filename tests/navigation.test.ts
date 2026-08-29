@@ -93,19 +93,55 @@ test("every guided review destination exists", async () => {
 // ---------------------------------------------------------------------------
 
 test("every member surface carries the nav", () => {
-  // /app/learn and /app/activities previously had zero internal links. A screen with no
-  // way out is not a page, it is a trap — and the member most likely to hit it
-  // is the one least able to work around it.
-  const ROUTES = [
-    "app/today", "app/paths", "app/ground", "app/learn", "app/activities",
-    "app/companion", "app/measures", "app/check-in",
-  ];
-  // Either shell provides the way out. The app shell (the handoff's own frame)
-  // is replacing MemberNav screen by screen; what must not change is that no
-  // member surface is a dead end.
-  const missing = ROUTES.filter(
-    (r) => !/MemberNav|AppShell/.test(read(path.join(APP, r, "page.tsx")))
-  );
+  // /app/learn and /app/activities previously had zero internal links. A screen
+  // with no way out is not a page, it is a trap — and the member most likely to
+  // hit it is the one least able to work around it.
+  //
+  // This walks the whole /app tree rather than a hand-kept list, because the
+  // list is what goes stale: the two screens that had no nav were the two
+  // nobody had thought to add to it.
+  //
+  // Navigation now arrives through the app shell (§28's frame), usually via
+  // MemberPage, so the check resolves one hop through a component: a page
+  // counts if it renders AppShell, or renders something that does.
+  const shellsThatCarryNav = new Set<string>();
+  for (const dir of ["app", "member", "clinical", "presentation"]) {
+    const d = path.join(COMPONENTS, dir);
+    if (!fs.existsSync(d)) continue;
+    for (const f of fs.readdirSync(d).filter((n) => n.endsWith(".tsx"))) {
+      if (/AppShell/.test(read(path.join(d, f)))) {
+        shellsThatCarryNav.add(f.replace(/\.tsx$/, ""));
+      }
+    }
+  }
+  assert.ok(shellsThatCarryNav.has("AppShell"), "AppShell.tsx is missing");
+
+  const pages: string[] = [];
+  (function walk(dir: string, rel: string) {
+    for (const n of fs.readdirSync(dir)) {
+      const full = path.join(dir, n);
+      if (fs.statSync(full).isDirectory()) walk(full, `${rel}/${n}`);
+      else if (n === "page.tsx") pages.push(rel.replace(/^\//, ""));
+    }
+  })(path.join(APP, "app"), "");
+
+  assert.ok(pages.length > 20, `only ${pages.length} member pages found; the walk is wrong`);
+
+  // An activity or session in progress is deliberately chrome-free: §26 and
+  // Vol 1 B-6 both ask for minimal reading during activation, and a nav rail
+  // beside a running session is an invitation to leave it half-finished. These
+  // screens end in an explicit "done" action instead.
+  const IMMERSIVE = new Set([
+    "activities/breathe", "activities/meditate", "activities/move", "activities/sleep",
+    "session/[moduleId]", "session/resourcing",
+  ]);
+
+  const missing = pages.filter((r) => {
+    if (IMMERSIVE.has(r)) return false;
+    const src = read(path.join(APP, "app", ...r.split("/"), "page.tsx"));
+    if (/AppShell/.test(src)) return false;
+    return ![...shellsThatCarryNav].some((c) => new RegExp(`<${c}[\\s>]`).test(src));
+  });
   assert.deepEqual(missing, [],
     `these member surfaces have no navigation: ${missing.join(", ")}. ` +
     "A screen a member cannot leave is a dead end.");

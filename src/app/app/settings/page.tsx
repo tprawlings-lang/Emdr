@@ -58,6 +58,7 @@ export default async function SettingsPage() {
   await requireMember();
   return (
     <MemberPage
+      layer="evidence"
       title="Profile and privacy"
       lede="Your account, and the choices about what Steady keeps and who can see it."
     >

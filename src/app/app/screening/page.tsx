@@ -1,4 +1,5 @@
 import { requireMember } from "@/lib/auth";
+import { MemberPage } from "@/components/member/MemberPage";
 import { hasConsent } from "@/lib/gating";
 import { data } from "@/lib/data";
 import { INSTRUMENTS } from "@/lib/instruments";
@@ -19,20 +20,19 @@ export default async function ScreeningPage() {
   if (fitness.status === "cooldown") redirect("/app/screening/fit");
   if (fitness.status === "none") {
     return (
-      <main className="mx-auto max-w-2xl px-6 py-12">
+      <MemberPage
+        layer="progress"
+        title="A few questions before we begin"
+        lede="Self-guided work isn&apos;t the right fit for every situation, and that has nothing to do with strength or readiness. Eight yes-or-no questions, no wrong answers."
+      >
         <div className="sticky top-0 z-10 -mx-6 mb-6 border-b border-ground/10 bg-ivory/95 px-6 py-3 text-sm font-medium text-ground/80">
           Step 3 of 4 — Is this program a safe fit? ·{" "}
           <Link href="/crisis" className="font-semibold text-ground underline">
             Need help now?
           </Link>
         </div>
-        <h1 className="type-identity text-3xl font-medium">A few questions before we begin</h1>
-        <p className="mt-2 leading-relaxed text-olive">
-          Self-guided work isn&apos;t the right fit for every situation, and that has nothing
-          to do with strength or readiness. Eight yes-or-no questions, no wrong answers.
-        </p>
         <FitnessScreener items={FITNESS_ITEMS} />
-      </main>
+      </MemberPage>
     );
   }
 
@@ -55,7 +55,7 @@ export default async function ScreeningPage() {
   const resumable = (await savedAnswers(user.id, next.id)).size > 0;
 
   return (
-    <main className="mx-auto max-w-3xl px-6 py-12">
+    <MemberPage layer="progress" title={next.title}>
       <div className="sticky top-0 z-10 -mx-6 mb-6 border-b border-ground/10 bg-ivory/95 px-6 py-3 text-sm font-medium text-ground/80">
         Step 3 of 4 — Baseline screening · Current place: questionnaire {position} of {INSTRUMENTS.length} ·{" "}
         <Link href="/crisis" className="font-semibold text-ground underline">
@@ -63,8 +63,7 @@ export default async function ScreeningPage() {
         </Link>
       </div>
 
-      <h1 className="type-identity text-3xl font-medium">{next.title}</h1>
-      <p className="mt-2 text-olive">{next.intro}</p>
+      <p className="measure mt-1 text-olive">{next.intro}</p>
       <p className="measure mt-2 text-sm text-olive">
         These answers go to your care team. There are no wrong answers, and there is no score
         to see at the end.
@@ -91,6 +90,6 @@ export default async function ScreeningPage() {
           want and come back to the same place.
         </p>
       </div>
-    </main>
+    </MemberPage>
   );
 }

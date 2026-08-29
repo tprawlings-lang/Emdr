@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { requireMember } from "@/lib/auth";
 import { data } from "@/lib/data";
-import { MemberNav } from "@/components/member/MemberNav";
+import { MemberPage } from "@/components/member/MemberPage";
 import { buildGateView, assertGateSafe, type GatePhase } from "@/lib/member/gate-view";
 import { hasData } from "@/lib/presentation/envelope";
 
@@ -51,19 +51,21 @@ export default async function SafetyGatePage({
   const gate = hasData(envelope) ? assertGateSafe(envelope.data) : null;
 
   return (
-    <>
-      <MemberNav />
-      <main className="mx-auto max-w-2xl px-6 py-12">
+    <MemberPage layer="actions" title="Support before we continue">
         {gate ? (
           <>
-            <div className="rounded-3xl border-2 border-ground/25 bg-linen p-7">
-              {/* Weight through typography and contrast, never alarm colour. */}
+            <div className="rounded-3xl border border-state-support/30 bg-state-support-bg p-7">
+              {/* Weight through typography and contrast, never alarm colour.
+                  The mockup (p56) draws this card in the pale rose tint, and
+                  that is what state-support-bg is: a verified 4.5:1 ground for
+                  the text on it, not a red. The rule the note protects — no
+                  alarm colour, no flashing, no urgency styling — still holds. */}
               <p className="text-xs font-semibold uppercase tracking-widest text-olive">
                 {gate.headline}
               </p>
-              <h1 className="type-identity mt-3 text-3xl leading-snug text-ground">
+              <h2 className="type-identity mt-3 text-3xl leading-snug text-ground">
                 Let&apos;s make sure you have support right now.
-              </h1>
+              </h2>
               <p className="measure mt-3 text-ground/90">{gate.explanation}</p>
 
               {/* §30.7's authority statement. The member is told what did not
@@ -120,8 +122,8 @@ export default async function SafetyGatePage({
           </>
         ) : (
           // The gate itself failing must not remove the reason it exists.
-          <div className="rounded-3xl border-2 border-ground/25 bg-linen p-7">
-            <h1 className="type-identity text-3xl text-ground">Support is available now</h1>
+          <div className="rounded-3xl border border-state-support/30 bg-state-support-bg p-7">
+            <h2 className="type-identity text-3xl text-ground">Support is available now</h2>
             <p className="measure mt-3 text-ground/90">
               Something went wrong loading this screen. That does not change what is
               available to you.
@@ -134,7 +136,6 @@ export default async function SafetyGatePage({
             </a>
           </div>
         )}
-      </main>
-    </>
+    </MemberPage>
   );
 }

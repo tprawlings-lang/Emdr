@@ -23,6 +23,7 @@ export default async function MessagesPage() {
   await requireMember();
   return (
     <MemberPage
+      layer="actions"
       title="Messages"
       lede="Secure messaging with a care team is not part of this environment."
     >

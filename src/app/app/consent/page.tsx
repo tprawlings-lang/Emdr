@@ -35,6 +35,7 @@ export default async function ConsentPage() {
 
   return (
     <MemberPage
+      layer="evidence"
       title="Consent and sharing"
       lede="What you have agreed to, when, and under which version of the terms."
     >

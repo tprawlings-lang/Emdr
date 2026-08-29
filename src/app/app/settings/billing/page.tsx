@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { MemberPage } from "@/components/member/MemberPage";
 import { requireMember } from "@/lib/auth";
 import { PLANS, getPlan, getCurrentSubscription, getPayments, type PlanId } from "@/lib/billing";
 import { cancelSubscription, restartSubscription, resumeSubscription, changePlanAction } from "@/lib/actions";
@@ -20,11 +21,10 @@ export default async function BillingPage() {
     : [];
 
   return (
-    <main className="mx-auto max-w-2xl px-6 py-12">
-      <Link href="/app/today" className="text-sm text-olive underline">
-        ← Back to dashboard
-      </Link>
-      <h1 className="mt-3 type-display text-4xl font-medium">Membership</h1>
+    <MemberPage
+      layer="evidence"
+      title="Membership"
+    >
 
       {!sub ? (
         <div className="mt-8 rounded-3xl border border-ground/10 bg-linen p-7 shadow-soft">
@@ -143,6 +143,6 @@ export default async function BillingPage() {
           </div>
         </section>
       )}
-    </main>
+    </MemberPage>
   );
 }

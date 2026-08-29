@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { requireMember } from "@/lib/auth";
-import { MemberNav } from "@/components/member/MemberNav";
+import { MemberPage } from "@/components/member/MemberPage";
 import { gatePosition, GATE_COPY, completedAnswers, clearProgress } from "@/lib/member/gate";
 import { answerGateItemAction, pauseGateAction } from "@/lib/member/gate-actions";
 import { finishGateAction } from "@/lib/member/gate-finish";
@@ -42,11 +42,8 @@ export default async function GateStepPage({
   if (done === "1" && pos.complete) {
     const day = await buildMemberDay(user.id);
     return (
-      <>
-        <MemberNav />
-        <main className="mx-auto max-w-2xl px-6 py-14">
-          <h1 className="type-identity text-3xl">{GATE_COPY["gate.done.v1"]}</h1>
-          <p className="measure mt-3 text-ground/80">{DAY_MESSAGE[day.messageKey]}</p>
+      <MemberPage layer="progress" title={GATE_COPY["gate.done.v1"]}>
+          <p className="measure -mt-2 text-ground/80">{DAY_MESSAGE[day.messageKey]}</p>
 
           <form action={finishGateAction} className="mt-8">
             <input type="hidden" name="instrument" value={pos.instrument.id} />
@@ -59,8 +56,7 @@ export default async function GateStepPage({
             Your answers go to the care team that reviews them. There is no result to read
             here and nothing to compare yourself against.
           </p>
-        </main>
-      </>
+      </MemberPage>
     );
   }
 
@@ -68,9 +64,7 @@ export default async function GateStepPage({
   const section = pos.instrument.sections?.find((s) => s.startIndex === pos.index);
 
   return (
-    <>
-      <MemberNav />
-      <main className="mx-auto max-w-2xl px-6 py-12">
+    <MemberPage layer="progress" title={pos.instrument.title}>
         {/* §5: position, not percentage. "Question 3 of 20" is a place in a
             sequence; "15%" invites the arithmetic of how much is left, which is
             abandonment maths. */}
@@ -82,7 +76,7 @@ export default async function GateStepPage({
           <h2 className="type-display mt-4 text-lg text-olive">{section.heading}</h2>
         )}
 
-        <h1 className="type-identity measure mt-3 text-2xl leading-snug">{item}</h1>
+        <h2 className="type-identity measure mt-3 text-2xl leading-snug">{item}</h2>
 
         {error && (
           <p className="mt-4 rounded-2xl border border-ground/20 bg-linen px-4 py-3 text-sm">
@@ -151,7 +145,6 @@ export default async function GateStepPage({
             </Link>
           </p>
         )}
-      </main>
-    </>
+    </MemberPage>
   );
 }

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { MemberPage } from "@/components/member/MemberPage";
 import { redirect } from "next/navigation";
 import { requireMember } from "@/lib/auth";
 import { hasConsent } from "@/lib/gating";
@@ -48,15 +49,11 @@ export default async function MemoryControlsPage() {
   }
 
   return (
-    <main className="mx-auto max-w-2xl px-6 py-12">
-      <Link href="/app/today" className="text-sm text-olive underline">
-        ← Back to dashboard
-      </Link>
-      <h1 className="mt-3 type-display text-4xl font-medium">Memory controls</h1>
-      <p className="mt-2 text-olive">
-        Everything your companion remembers, where it came from, and the controls to change it.
-        Deleting here removes it from the companion&apos;s memory.
-      </p>
+    <MemberPage
+      layer="evidence"
+      title="Memory controls"
+      lede="Everything your companion remembers, where it came from, and the controls to change it. Deleting here removes it from the companion&apos;s memory."
+    >
 
       <form action={setMemoryEnabled} className="mt-8 rounded-3xl border border-ground/10 bg-linen p-6 shadow-soft">
         <h2 className="font-semibold">Companion memory</h2>
@@ -144,6 +141,6 @@ export default async function MemoryControlsPage() {
           </p>
         </form>
       )}
-    </main>
+    </MemberPage>
   );
 }
