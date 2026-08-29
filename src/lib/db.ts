@@ -2,7 +2,7 @@ import Database from "better-sqlite3";
 import path from "path";
 import fs from "fs";
 import crypto from "crypto";
-import { seedDemoData, demoId, demoPassword } from "./demo-seed";
+import { seedDemoData, reconcileDemoAccounts, demoId, demoPassword } from "./demo-seed";
 import { seedOrgData, ORG_TENANT_ID } from "./demo-org-seed";
 import { seedPayerData, PAYER_TENANT_ID } from "./demo-payer-seed";
 import { seedPopulationData, orgTenantId } from "./demo-population-seed";
@@ -41,6 +41,12 @@ export function getDb(): Database.Database {
   // recorded by a server action vanished before the export route read it.
   // Resetting is an explicit operation (`npm run demo -- reset`), never a side
   // effect of opening the database.
+  // Demo accounts are reconciled on EVERY boot, not only on a fresh seed.
+  // `seed()` returns early when any user exists, so on a deployed database it
+  // has run exactly once — and every account added since then reached the code
+  // and never reached the data. That is precisely what happened: the login
+  // screen offered six roles and none of the addresses it named existed.
+  reconcileDemoAccounts(db);
   refreshDemoDaily(db);
   return db;
 }

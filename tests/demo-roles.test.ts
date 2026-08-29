@@ -17,6 +17,7 @@ process.env.EMDR_DATA_KEY = process.env.EMDR_DATA_KEY ?? "roles-test-key";
 import { strict as assert } from "node:assert";
 import test from "node:test";
 import fs from "node:fs";
+import { execFileSync } from "node:child_process";
 import path from "node:path";
 import { ROLES, DEMO_ROLES, AGGREGATE_ROLES, PERMISSIONS, landingFor, isRole, isAggregateRole } from "../src/lib/roles";
 import { getDb } from "../src/lib/db";
@@ -262,4 +263,95 @@ test("the demo logins document lists every role and its landing page", () => {
     "the logins document does not say what each role cannot reach");
   assert.match(doc, /EMDR_DEMO_PASSWORD_/,
     "the logins document does not say how to rotate the passwords");
+});
+
+// ---------------------------------------------------------------------------
+// An EXISTING database gets the new accounts (the deployed-demo failure)
+// ---------------------------------------------------------------------------
+
+test("every demo account is created on a database that predates it", async () => {
+  // The failure this guards against is specific to seeded demos and easy to
+  // miss entirely in development, where the database is always fresh.
+  //
+  // `seed()` returns early when any user exists, so it runs exactly once per
+  // database. Everything added to it afterwards — three new roles, six renamed
+  // addresses, six new passwords — reached the code and never reached the
+  // deployed data. The login screen offered six roles and every credential it
+  // named failed, on a build where all the tests passed.
+  const Database = (await import("better-sqlite3")).default;
+  const dir = `/tmp/steady-legacy-${process.pid}-${Date.now()}`;
+  fs.mkdirSync(dir, { recursive: true });
+
+  // A database in the state the deployed one was in: the OLD addresses, the
+  // retired `admin` role, and a CHECK constraint that does not admit the new
+  // roles.
+  const legacy = new Database(path.join(dir, "emdr.db"));
+  legacy.exec(`
+    CREATE TABLE users (
+      id TEXT PRIMARY KEY, email TEXT UNIQUE NOT NULL, name TEXT NOT NULL,
+      role TEXT NOT NULL CHECK (role IN ('member','clinician','admin')),
+      password_hash TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'active',
+      created_at TEXT NOT NULL DEFAULT (datetime('now')));
+  `);
+  const ins = legacy.prepare("INSERT INTO users (id,email,name,role,password_hash) VALUES (?,?,?,?,?)");
+  const ALEX = "f37a73fa-1e6d-203c-f7c9-d60dd841f412";
+  ins.run(ALEX, "demo@example.com", "Alex Rivera (fictional)", "member", "aa:bb");
+  ins.run("7d2a26c0-bd72-c335-5661-ad42add2d2c4", "clinician@example.com", "Dr. Maya Chen (fictional)", "clinician", "aa:bb");
+  ins.run("44991366-20b0-4f2c-50ba-07df2ad93c69", "operations@example.com", "Jordan Idowu (fictional)", "admin", "aa:bb");
+  legacy.close();
+
+  // Boot the current code against it IN A SUBPROCESS, the way a deploy does.
+  //
+  // Not a dynamic import: `getDb()` memoises its handle in module state, so
+  // re-importing it inside this process returns the database the test suite
+  // already opened rather than the one just built. The first version of this
+  // guard did exactly that and passed against BOTH deliberate breaks —
+  // removing the reconciliation entirely, and recreating accounts instead of
+  // renaming them. A guard that cannot fail is worse than none, because it is
+  // counted.
+  const saved = process.env.EMDR_DATA_DIR;
+  try {
+    const out = execFileSync(
+      "npx", ["tsx", "scripts/testing/boot-and-report-logins.ts"],
+      {
+        cwd: process.cwd(),
+        encoding: "utf8",
+        env: {
+          ...process.env,
+          EMDR_DATA_DIR: dir,
+          EMDR_DEMO: "1",
+          EMDR_SESSION_SECRET: "legacy-boot-secret-at-least-32-characters",
+          EMDR_DATA_KEY: process.env.EMDR_DATA_KEY ?? "legacy-boot-key",
+        },
+      },
+    );
+    const result = JSON.parse(out) as { problems: string[]; alexId: string | null; legacyRemaining: number };
+
+    assert.deepEqual(result.problems, [],
+      "these logins fail on an existing database:\n  " + result.problems.join("\n  "));
+
+    // RENAMED IN PLACE, not duplicated. The id is the person and the address
+    // is a label — a second account at the new address would leave every
+    // consent, check-in and event hanging off an account nobody can sign in to.
+    assert.equal(result.alexId, ALEX,
+      "Alex was recreated rather than renamed, so his history is orphaned");
+    assert.equal(result.legacyRemaining, 0,
+      "a legacy address survived alongside its replacement");
+  } finally {
+    process.env.EMDR_DATA_DIR = saved;
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("rotating a password from the environment takes effect on the next boot", async () => {
+  // p7: "store passwords outside source control; rotate before each external
+  // review cycle." A rotation that needs a database reset is a rotation nobody
+  // performs, so the hash is rewritten on every boot from the current value.
+  const { DEMO_ACCOUNTS, demoPassword } = await import("../src/lib/demo-seed");
+  const src = read("src/lib/demo-seed.ts");
+  const fn = src.slice(src.indexOf("export function reconcileDemoAccounts"));
+  assert.match(fn, /rehash\.run\(demoHash\(a\.role\), a\.email\)/,
+    "the password is not rewritten on boot, so rotating the environment variable does nothing");
+  assert.ok(DEMO_ACCOUNTS.length >= 8, "the account catalogue is incomplete");
+  assert.equal(demoPassword("payer"), "payer1234");
 });

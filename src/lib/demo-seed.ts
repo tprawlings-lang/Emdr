@@ -82,6 +82,102 @@ export const ALEX_ID = demoId(0);
 export const SAM_ID = demoId(1);
 export const DEMO_CLINICIAN_ID = demoId(2);
 
+/**
+ * The demo accounts, as data rather than as inline inserts.
+ *
+ * Split out so `reconcileDemoAccounts` below can create a MISSING one on an
+ * existing database. `seedDemoData` only runs when the database is empty, so
+ * every account added after the first deployment was invisible in production:
+ * the code shipped, the login screen offered six roles, and none of the
+ * addresses it named existed. That is what the deployed environment did — the
+ * dropdown was there and every credential failed.
+ */
+export interface DemoAccount {
+  seq: number;
+  email: string;
+  name: string;
+  role: string;
+  /** The address this account used to have, if it was renamed. Renaming keeps
+   *  the row — and therefore the whole history hanging off its id — rather
+   *  than creating a second person with the same story. */
+  formerEmail?: string;
+  daysAgo: number;
+}
+
+export const DEMO_ACCOUNTS: DemoAccount[] = [
+  { seq: 0, email: PATIENT_EMAIL, name: "Alex Rivera (fictional)", role: "member", formerEmail: "demo@example.com", daysAgo: 22 },
+  { seq: 1, email: "patient2.demo@steady.local", name: "Sam Okafor (fictional)", role: "member", formerEmail: "demo2@example.com", daysAgo: 2 },
+  { seq: 2, email: "clinician.demo@steady.local", name: "Dr. Maya Chen (fictional)", role: "clinician", formerEmail: "clinician@example.com", daysAgo: 40 },
+  { seq: 3, email: "org.demo@steady.local", name: "Jordan Idowu (fictional)", role: "organization", formerEmail: "operations@example.com", daysAgo: 60 },
+  { seq: 4, email: "payer.demo@steady.local", name: "Priya Raman (fictional)", role: "payer", daysAgo: 60 },
+  { seq: 5, email: "reviewer.demo@steady.local", name: "Dr. Ellis Nakamura (fictional)", role: "reviewer", daysAgo: 75 },
+  { seq: 6, email: "admin.demo@steady.local", name: "Robin Achebe (fictional)", role: "demo_admin", daysAgo: 90 },
+  { seq: 7, email: "network.demo@steady.local", name: "Dana Okonkwo (fictional)", role: "organization", daysAgo: 60 },
+];
+
+/**
+ * Bring an EXISTING database's demo accounts up to date.
+ *
+ * Runs on every boot in the demo environment, and is the answer to a failure
+ * that is specific to seeded demos and easy to miss: `seed()` returns early
+ * when any user exists, so it only ever runs once per database. Everything
+ * added to it afterwards — three new roles, six renamed addresses, six new
+ * passwords — reached the code and never reached the deployed data.
+ *
+ * Three operations, each idempotent:
+ *
+ *   RENAME. An account that still holds its former address is renamed in
+ *   place. The row keeps its id, so consents, check-ins, sessions and every
+ *   event hanging off that id follow it — which is the whole reason to rename
+ *   rather than insert a second account with the same name.
+ *
+ *   CREATE. An account that does not exist at either address is inserted.
+ *
+ *   RE-HASH. The password is set to the role's current value on every boot, so
+ *   rotating `EMDR_DEMO_PASSWORD_*` takes effect at the next restart without a
+ *   reset — which is what p7 means by rotating before an external review
+ *   cycle.
+ *
+ * It does NOT touch a person's history, tenancy or role assignments. Those are
+ * the seed's business, and a reconciliation that quietly rewrote them would be
+ * a migration wearing a smaller name.
+ */
+export function reconcileDemoAccounts(db: Database.Database): { renamed: number; created: number; rehashed: number } {
+  if (process.env.EMDR_DEMO !== "1") return { renamed: 0, created: 0, rehashed: 0 };
+  const out = { renamed: 0, created: 0, rehashed: 0 };
+
+  const byEmail = db.prepare("SELECT id, role FROM users WHERE email = ?");
+  const rename = db.prepare("UPDATE users SET email = ?, name = ?, role = ? WHERE id = ?");
+  const create = db.prepare(
+    `INSERT INTO users (id, email, name, role, password_hash, created_at)
+     VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT(email) DO NOTHING`);
+  const rehash = db.prepare("UPDATE users SET password_hash = ? WHERE email = ?");
+
+  for (const a of DEMO_ACCOUNTS) {
+    const current = byEmail.get(a.email) as { id: string; role: string } | undefined;
+    if (!current && a.formerEmail) {
+      const legacy = byEmail.get(a.formerEmail) as { id: string } | undefined;
+      if (legacy) {
+        // Rename in place: the id is the person, and the address is a label.
+        rename.run(a.email, a.name, a.role, legacy.id);
+        out.renamed++;
+      }
+    }
+    if (!byEmail.get(a.email)) {
+      const t = new Date(Date.now() - a.daysAgo * 86400000);
+      t.setUTCHours(10, 15, 0, 0);
+      create.run(
+        demoId(a.seq), a.email, a.name, a.role, demoHash(a.role),
+        t.toISOString().slice(0, 19).replace("T", " "),
+      );
+      out.created++;
+    }
+    rehash.run(demoHash(a.role), a.email);
+    out.rehashed++;
+  }
+  return out;
+}
+
 export function seedDemoData(db: Database.Database) {
   let seq = 0;
   const id = () => demoId(seq++);
