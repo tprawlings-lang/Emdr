@@ -60,7 +60,22 @@ export const REVIEW_RAIL: Rail = {
   audit: "/review/audit",
 };
 
-/** Steady Intelligence — organization and payer (p64–p69). Wave 4; the routes
- *  do not exist yet, so every layer is currently undestined and the rail
- *  renders as plain text rather than five broken links. */
-export const INTEL_RAIL: Rail = {};
+/** Steady Intelligence — the organization surfaces (p64–p66).
+ *
+ *  Audit has no destination. An organization reads aggregates, and a governed
+ *  event log is person-level by construction — §30.6's rule that aggregate
+ *  access does not create person-level access makes this omission the point
+ *  rather than a gap. What this role can audit is its own exports, which lives
+ *  under Evidence with the reports. */
+export const ORGANIZATION_RAIL: Rail = {
+  overview: "/organization/overview",
+  progress: "/organization/outcomes",
+  actions: "/organization/access",
+  evidence: "/organization/reports",
+};
+
+/** Steady Intelligence — the payer surfaces (p67–p69). Not built: there is no
+ *  claims feed, no eligibility file and no contract record in this deployment,
+ *  so every payer screen would be reporting on nothing. Left undestined rather
+ *  than pointed at pages that would invent their own subject. */
+export const PAYER_RAIL: Rail = {};

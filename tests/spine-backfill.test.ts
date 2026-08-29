@@ -35,14 +35,34 @@ test("backfill reconstructs the demo history across every source table", async (
 });
 
 test("every reconstructed event is marked as such — never original evidence", async () => {
-  const events = await readEvents({});
-  assert.ok(events.length > 0);
-  for (const e of events) {
+  // Scoped to what the backfill produced. This used to read the whole ledger
+  // and assert every row was a genesis event, which held only while the
+  // backfill was the ledger's only producer — an assumption, not a property.
+  // The organization's covered population arrives from an integration feed and
+  // is original evidence of its own, so the unscoped version started failing
+  // the moment a second producer existed.
+  const all = await readEvents({});
+  assert.ok(all.length > 0);
+
+  const genesis = all.filter((e) => e.source_system === "backfill");
+  assert.ok(genesis.length > 0, "the backfill produced nothing to check");
+  for (const e of genesis) {
     assert.equal(e.payload_version, 0, "genesis events use payload_version 0");
-    assert.equal(e.source_system, "backfill");
     assert.equal(e.provenance.reconstructed, true);
     assert.ok(e.provenance.sourceRow, "traceable to the row it came from");
     assert.ok(isReconstructed(e), "the exclusion helper agrees");
+  }
+
+  // The other direction matters just as much, and is the half the original
+  // test could not express: nothing that was NOT reconstructed may claim to
+  // have been. A live event marked reconstructed would be quietly excluded
+  // from every consumer that filters genesis rows out.
+  for (const e of all.filter((e) => e.source_system !== "backfill")) {
+    assert.notEqual(e.provenance.reconstructed, true,
+      `${e.event_type} from ${e.source_system} claims to be reconstructed`);
+    assert.ok(!isReconstructed(e), "the exclusion helper disagrees with the provenance");
+    assert.notEqual(e.payload_version, 0,
+      `${e.event_type} from ${e.source_system} uses the genesis payload version`);
   }
 });
 

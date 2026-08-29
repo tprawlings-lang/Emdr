@@ -31,10 +31,30 @@ const STYLE: Record<PresentationState, { cls: string; glyph: string; label: stri
   audit_unavailable:  { cls: "border-state-support/40 bg-state-support-bg/50", glyph: "▲", label: "Actions unavailable" },
 };
 
-/** Support, rendered in every non-ready state.
+/** Who is reading this surface.
  *
- *  Not conditional on the state, and deliberately not a prop with a default —
- *  there is no failure this system can have in which the way out gets smaller. */
+ *  "person" means someone whose own care is on the screen — every member
+ *  surface, and the clinician ones, where the subject is present in the room
+ *  or one message away. "operations" means an aggregate surface: an
+ *  organization or payer analyst reading a population. Nobody's care is on the
+ *  screen and no individual is present.
+ *
+ *  It defaults to "person" so a surface that forgets to say keeps the support
+ *  paths. That is the safe direction to be wrong in. */
+export type Audience = "person" | "operations";
+
+/** Support, rendered in every non-ready state on a person-facing surface.
+ *
+ *  Not conditional on the STATE, and never smaller because something failed —
+ *  there is no failure this system can have in which the way out narrows.
+ *
+ *  It is conditional on the AUDIENCE, which is a different question and one
+ *  this component originally got wrong: an organization capacity screen
+ *  rendering `partial` offered its analyst "Grounding" and "Crisis support".
+ *  Those links are for a person in distress. On an aggregate surface there is
+ *  no such person — the screen is a count of a population — so the links are
+ *  noise at best, and at worst they hand an aggregate role a route onto a
+ *  member surface, which is the boundary the whole role exists to hold. */
 function SupportPaths() {
   return (
     <p className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-sm">
@@ -45,8 +65,8 @@ function SupportPaths() {
 }
 
 export function StateNotice<T>({
-  envelope, title,
-}: { envelope: Envelope<T>; title?: string }) {
+  envelope, title, audience = "person",
+}: { envelope: Envelope<T>; title?: string; audience?: Audience }) {
   const s = STYLE[envelope.state];
   const e = envelope;
   return (
@@ -90,8 +110,9 @@ export function StateNotice<T>({
         <p className="mt-1.5 text-xs text-olive">Reference {e.correlationId}</p>
       )}
 
-      {/* Every state that is not ready keeps the way out visible. */}
-      {e.state !== "ready" && <SupportPaths />}
+      {/* Every state that is not ready keeps the way out visible — for the
+          reader who might need one. See SupportPaths. */}
+      {e.state !== "ready" && audience === "person" && <SupportPaths />}
 
       {/* Provenance. §8.3 requires it on the projection; showing it is what
           lets a reviewer tell a stale screen from a fresh one without asking. */}
@@ -107,13 +128,14 @@ export function StateNotice<T>({
  *  The signature is the enforcement: `children` receives the unwrapped data, so
  *  a page cannot reach the data without going through the state check. */
 export function EnvelopeView<T>({
-  envelope, children, title,
+  envelope, children, title, audience = "person",
 }: {
   envelope: Envelope<T>;
   children: (data: T) => React.ReactNode;
   title?: string;
+  audience?: Audience;
 }) {
-  if (!hasData(envelope)) return <StateNotice envelope={envelope} title={title} />;
+  if (!hasData(envelope)) return <StateNotice envelope={envelope} title={title} audience={audience} />;
   return (
     <>
       {/* Stale and partial carry data AND a caveat. Showing the data without
@@ -121,7 +143,7 @@ export function EnvelopeView<T>({
           release for. */}
       {envelope.state !== "ready" && (
         <div className="mb-4">
-          <StateNotice envelope={envelope} title={title} />
+          <StateNotice envelope={envelope} title={title} audience={audience} />
         </div>
       )}
       {children(envelope.data)}
