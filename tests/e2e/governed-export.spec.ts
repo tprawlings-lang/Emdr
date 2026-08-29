@@ -23,11 +23,22 @@ test.skip(
 
 type Page = import("@playwright/test").Page;
 
+async function signInAsPayer(page: Page) {
+  await page.goto("/login");
+  await page.waitForLoadState("networkidle");
+  await page.locator('input[name="email"]').fill("payer.demo@steady.local");
+  await page.locator('input[name="password"]').fill("payer1234");
+  await Promise.all([
+    page.waitForURL(/\/payer/),
+    page.locator('form button[type="submit"]').click(),
+  ]);
+}
+
 async function signInAsOperations(page: Page) {
   await page.goto("/login");
   await page.waitForLoadState("networkidle");
-  await page.locator('input[name="email"]').fill("operations@example.com");
-  await page.locator('input[name="password"]').fill("demo1234");
+  await page.locator('input[name="email"]').fill("org.demo@steady.local");
+  await page.locator('input[name="password"]').fill("org1234");
   await page.locator('form button[type="submit"]').click();
   await expect(page).toHaveURL(/\/organization/);
 }
@@ -164,7 +175,11 @@ test("the export endpoint is not reachable without an aggregate account", async 
 });
 
 test("the payer console exports its own contract report, with its own cohort", async ({ page }) => {
-  await signInAsOperations(page);
+  // Signed in as the PAYER, not the organization. requestPayerExport now takes
+  // requirePayer(), so an organization account producing a payer contract
+  // report would be a disclosure across a boundary that the export's own audit
+  // trail would have recorded as legitimate.
+  await signInAsPayer(page);
   await page.goto("/payer/contract");
 
   const PURPOSE = "Joint operating committee pack for the April contract review";

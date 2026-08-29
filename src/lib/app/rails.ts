@@ -86,3 +86,18 @@ export const PAYER_RAIL: Rail = {
   evidence: "/payer/evidence",
   audit: "/payer/data-quality",
 };
+
+/** Demo administration (handoff 07 §1.5, p9).
+ *
+ *  Four layers, and Audit is one of them — this is the only aggregate-facing
+ *  rail where it has a destination on the GOVERNANCE log rather than a
+ *  person's. That is the shape of the role: it inspects the fabricated
+ *  environment's own record, and the environment contains no real person to
+ *  protect. Progress has no destination, because a demo environment does not
+ *  have one — it has a state, which the overview reports. */
+export const ADMIN_RAIL: Rail = {
+  overview: "/admin/demo",
+  actions: "/review/testing",
+  evidence: "/review/safety",
+  audit: "/review/audit",
+};

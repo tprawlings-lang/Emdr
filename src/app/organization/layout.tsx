@@ -1,4 +1,4 @@
-import { requireIntelligence } from "@/lib/auth";
+import { requireOrganization } from "@/lib/auth";
 
 // Persistent chrome for every organization surface.
 //
@@ -9,6 +9,6 @@ import { requireIntelligence } from "@/lib/auth";
 export default async function OrganizationLayout({
   children,
 }: { children: React.ReactNode }) {
-  await requireIntelligence();
+  await requireOrganization();
   return <>{children}</>;
 }

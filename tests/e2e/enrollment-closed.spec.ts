@@ -27,7 +27,7 @@ test("review sign in shows no shared credentials", async ({ page }) => {
   await expect(page.getByRole("heading", { name: /review sign in/i })).toBeVisible();
   const body = (await page.locator("body").textContent()) ?? "";
   // §3: a password printed on a public page outlives every other control.
-  expect(body).not.toMatch(/demo1234/);
+  expect(body).not.toMatch(/patient1234|clinician1234|reviewer1234|org1234|payer1234|demoadmin1234|demo1234/);
   expect(body).not.toMatch(/first week free/i);
 });
 

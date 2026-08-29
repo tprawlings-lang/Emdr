@@ -36,11 +36,11 @@ scoped to the path: read-only paths are offered no write-capable role.
 
 | Persona | Account | Role | Use |
 |---|---|---|---|
-| Alex Rivera | `demo@example.com` | Member, three weeks in, improving | The member journey. Has processing-session consent, so resourcing BLS is walkable |
-| Sam Okafor | `demo2@example.com` | Member, intake stage | **Clinician-side persona.** Their screening tripped the urgent queue; the story is told from the alert queue. Signing in as Sam lands on `/screening` — intake is genuinely incomplete, which is the point |
-| Dr. Maya Chen | `clinician@example.com` | Clinician | Every clinical console |
+| Alex Rivera | `patient.demo@steady.local` | Member, three weeks in, improving | The member journey. Has processing-session consent, so resourcing BLS is walkable |
+| Sam Okafor | `patient2.demo@steady.local` | Member, intake stage | **Clinician-side persona.** Their screening tripped the urgent queue; the story is told from the alert queue. Signing in as Sam lands on `/screening` — intake is genuinely incomplete, which is the point |
+| Dr. Maya Chen | `clinician.demo@steady.local` | Clinician | Every clinical console |
 
-Direct sign-in with `demo1234` still works for your own setup and for the automated suites.
+Direct sign-in with `clinician1234` still works for your own setup and for the automated suites.
 Do not hand that password to a reviewer — the gateway exists so no credential travels.
 
 **If something goes wrong mid-demo:** `npm run demo -- reset` and resume. Say so out loud

@@ -1,7 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { requireIntelligence } from "@/lib/auth";
+import { requireOrganization, requirePayer } from "@/lib/auth";
 import { data } from "@/lib/data";
 import { createExport, ExportRefused } from "@/lib/intelligence/export";
 import { resolveOrgTenant, resolvePayerTenant } from "@/lib/intelligence/scope";
@@ -17,7 +17,12 @@ import { hasData } from "@/lib/presentation/envelope";
 // the file itself is fetched separately and checked against its signature.
 
 export async function requestOrgExport(formData: FormData) {
-  const user = await requireIntelligence();
+  // The ORGANIZATION guard, not the shared one. While a single `admin` role
+  // served both consoles this distinction could not be made, and a payer
+  // account could have produced a provider-network export — a disclosure
+  // across a boundary that the export's own audit trail would have recorded
+  // as legitimate.
+  const user = await requireOrganization();
   const tenantId = await resolveOrgTenant();
   if (!tenantId) redirect("/organization/reports?error=scope");
 
@@ -59,7 +64,7 @@ export async function requestOrgExport(formData: FormData) {
 }
 
 export async function requestPayerExport(formData: FormData) {
-  const user = await requireIntelligence();
+  const user = await requirePayer();
   const tenantId = await resolvePayerTenant();
   if (!tenantId) redirect("/payer/contract?error=scope");
 

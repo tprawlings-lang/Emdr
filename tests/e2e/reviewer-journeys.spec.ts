@@ -13,13 +13,23 @@ import { test, expect, type Page } from "@playwright/test";
 
 test.skip(Boolean(process.env.E2E_BASE_URL), "runs only against the hermetic seeded server");
 
-const ALEX = "demo@example.com";
-const SAM = "demo2@example.com";
+const ALEX = "patient.demo@steady.local";
+const SAM = "patient2.demo@steady.local";
+
+// One password per role (handoff 07 p7), so the password has to follow the
+// account rather than the file. A shared constant here silently signed the
+// clinician in with the patient's password the moment the roles were split.
+const PASSWORDS: Record<string, string> = {
+  "patient.demo@steady.local": "patient1234",
+  "patient2.demo@steady.local": "patient1234",
+  "clinician.demo@steady.local": "clinician1234",
+  "reviewer.demo@steady.local": "reviewer1234",
+};
 
 async function signIn(page: Page, email: string) {
   await page.goto("/login");
   await page.locator('input[name="email"]').fill(email);
-  await page.locator('input[name="password"]').fill("demo1234");
+  await page.locator('input[name="password"]').fill(PASSWORDS[email] ?? "patient1234");
   await page.getByRole("button", { name: "Continue" }).click();
   await expect(page).not.toHaveURL(/\/login/);
 }
@@ -105,7 +115,7 @@ test("the companion is reachable and does not claim a human is present", async (
 // ---------------------------------------------------------------------------
 
 test("the clinician journey has no dead ends across its consoles", async ({ page }) => {
-  await signIn(page, "clinician@example.com");
+  await signIn(page, "clinician.demo@steady.local");
   // Every console the specialist dashboard offers must load. A broken link here
   // is a dead end in a scheduled review session.
   for (const path of [
@@ -119,7 +129,7 @@ test("the clinician journey has no dead ends across its consoles", async ({ page
 });
 
 test("every link on the specialist dashboard resolves", async ({ page, request }) => {
-  await signIn(page, "clinician@example.com");
+  await signIn(page, "clinician.demo@steady.local");
   await page.goto("/clinician");
   const hrefs = new Set(
     (await page.locator("a").evaluateAll(
@@ -139,7 +149,7 @@ test("every link on the specialist dashboard resolves", async ({ page, request }
 // ---------------------------------------------------------------------------
 
 test("every capability the testing console calls available actually loads", async ({ page, request }) => {
-  await signIn(page, "clinician@example.com");
+  await signIn(page, "clinician.demo@steady.local");
   await page.goto("/review/testing");
 
   const rows = page.getByTestId("exercise-row");
