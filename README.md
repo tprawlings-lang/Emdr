@@ -22,14 +22,16 @@ just opened this repository" to "I am doing the next useful thing."
 datasets. Its status, its instructions and everything still owed are in the **GUI launch**
 section immediately below this one. Start there.
 
-**Handoff 07 has started.** **Waves 1–4 are done**: six demo roles with one account and one
+**Handoff 07 has started.** **Waves 1–5 are done**: six demo roles with one account and one
 password each and the organization/payer boundary enforced rather than commented; the
 240-profile population, 60 per U.S. Census region across eight demo organizations,
 transcribed from the handoff rather than generated; and six months of deterministic history
 for each of them — two independent resets produce the identical baseline hash, and replay
 rebuilds 19,736 events byte-identically with zero gaps; and six role projections over that
 one ledger, where the clinician's numbers and the organization's are checked to be equal
-rather than merely similar. **All demo logins are in
+rather than merely similar; and a ten-metric dictionary with a cohort registry, whose
+arithmetic is checked against hand calculations written out in the tests rather than against
+itself. **All demo logins are in
 [`docs/demo/demo-logins.md`](docs/demo/demo-logins.md)** — start there to sign in as
 anyone. Waves 2–8 (the 240-patient population and the planning engine) are open. The
 specification is
@@ -85,7 +87,7 @@ This manual merge is required on every deploy until Render is repointed at `main
 repoint is a Render dashboard change, not a code change, and it is worth making.
 
 ```bash
-npm run test:safety   # 708 pass
+npm run test:safety   # 735 pass
 npm run test:e2e      # 151 pass   (PLAYWRIGHT_CHROMIUM_PATH=/opt/pw-browsers/chromium-1194/chrome-linux/chrome)
 npm run test:rls      # 12 cross-tenant attack cases against a real Postgres cluster
 npm run build         # clean

@@ -3,7 +3,7 @@
 **Specification:** [`07-demo-login-synthetic-population-and-planning-engine.pdf`](07-demo-login-synthetic-population-and-planning-engine.pdf)
 — *Steady Demo Login, Synthetic Population and Deterministic Planning Engine*, 59 pages.
 
-**Status:** Waves 0–4 done and shipped. Waves 5–8 open. This plan is the Wave 0 deliverable the handoff itself asks for
+**Status:** Waves 0–5 done and shipped. Waves 6–8 open. This plan is the Wave 0 deliverable the handoff itself asks for
 (§6.1: *"Confirm current routes, roles, tenant model, event schemas and projection
 versions. Exit evidence: gap list and ADRs; no duplicate subsystem"*).
 
@@ -380,16 +380,54 @@ helper — the project's existing fix for that last family — split on newlines
 disclaimer that wrapped across two lines lost its negation. That helper is fixed in both
 files that use it.
 
-### Wave 5 — Metrics
+### Wave 5 — Metrics ✅ **DONE**
 **Spec: pp32–33, 48. Exit evidence: metric fixtures match hand calculations.**
 
-- The ten-metric dictionary (G8) with versions.
-- The cohort registry (G9): executable JSON, immutable versions, *resolve eligibility
-  before group filters — never remove non-users from an engagement denominator* (p33).
-- p48's typed aggregate response: numerator, denominator, missingness breakdown,
-  suppression, status, all four versions, refresh time, lineage reference.
-- **Hand-calculate the fixtures.** A metric checked only against its own implementation is
-  checked against nothing.
+| Built | Where |
+|---|---|
+| The ten-metric dictionary, each with a version, its required display and what it must **not** be read as | `src/lib/metrics/dictionary.ts` |
+| The cohort registry — executable JSON, immutable versions, recursive hash | `src/lib/metrics/cohorts.ts` |
+| The arithmetic, **pure over typed observations** | `src/lib/metrics/compute.ts` |
+| The database layer that produces observations and computes nothing | `src/lib/metrics/population-metrics.ts` |
+| p48's typed response, rendered with its failed state | `src/components/app/MetricPanel.tsx` |
+| 11 hand calculations, 7 population invariants, 9 contract guards | `tests/metrics.test.ts` |
+
+**The exit evidence is arithmetic written out in the tests.** Each fixture is three or four
+people, and the expected answer is worked through in the comment — 10 active weeks over 30
+observed, 6 complete of 12 due, 1 retained of 3 observable. A metric checked against its own
+implementation is checked against nothing, so the computation is **pure**: it takes rows and
+returns a number, with no database in reach. The loading layer is separate and is checked by
+invariants over the 240. Neither half could catch both kinds of mistake.
+
+**Suppression moved out of the computation.** It was applied inside `base()`, which meant
+every hand calculation read a withheld value instead of the answer — a suppression bug would
+have hidden behind the suppression. p29 scopes small-cell suppression to "aggregate
+**external** views", so it is a disclosure control applied at the boundary by
+`suppressExternal`, and p37's internal minimum analysis size (n ≥ 30) is a different control
+that belongs to the fairness layer.
+
+**Four defects the guards caught in this wave's own code:**
+
+1. **The cohort hash ignored nested keys.** `JSON.stringify(c, Object.keys(c).sort())` looks
+   like key-order normalisation and is not — the replacer array is an allow-list applied at
+   every depth, so changing a cohort's age band left its fingerprint identical. A hash that
+   ignores the part most likely to change is worse than none, because it is trusted.
+2. **The population view divided two fields to make a percentage**, which p48 forbids the
+   client from doing. It now reads `pct()`, which cannot render a rate without its
+   denominator.
+3. **Six missingness reasons were squeezed into four buckets**, relabelling "skipped" as
+   "unavailable" — which made a system outage the largest category by construction and would
+   have pointed an investigation at the delivery pipeline instead of at reminders. The six
+   are now one-to-one, and the numbers moved: 182 skipped, 90 unavailable.
+4. **Time to review paired a pause with the next clinician action of any kind**, giving a
+   median of 593 hours — the average distance between two unrelated events, not a latency.
+   The generator now writes an explicit documented response referencing the gate, and the
+   median is 10 hours with a p90 of 32.
+
+**One artefact made legible rather than hidden.** Day-180 retention on a 180-day window is
+structurally unobservable, and reported 0 of 18 with 224 censored — arithmetically right and
+reads as a finding. Results now carry `mostly_censored`, and the panel draws it as *not
+observable yet* instead of as zero per cent.
 
 ### Wave 6 — Planning rules
 **Spec: pp34–36, 44, 49. Exit evidence: no person-level actions; full audit.**

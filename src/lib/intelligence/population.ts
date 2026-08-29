@@ -4,6 +4,14 @@ import { CLINICAL_POLICY_VERSION } from "@/lib/clinical-policy";
 import { assertAggregate } from "./organization";
 import { SMALL_CELL } from "@/components/charts/aggregate";
 import { DATASET_VERSION } from "@/lib/demo-population-manifest";
+import { loadObservations, metricContext } from "@/lib/metrics/population-metrics";
+import { ALL_ELIGIBLE } from "@/lib/metrics/cohorts";
+import {
+  suppressExternal, computeActivation, computeWeeklyEngagement,
+  computeFollowupCompletion, computeObservedChange, computeResponderRate,
+  computeSafetyPauseRate, computeTimeToReview, computeRetention,
+  type MetricResult,
+} from "@/lib/metrics/compute";
 
 /** The envelope's metadata. Every projection carries the schema it satisfies,
  *  the build that produced it, the newest event it reflects and the policy in
@@ -224,6 +232,36 @@ function emptyOverview(): PopulationOverview {
     window: "Six months to today",
     refreshedAt: new Date().toISOString().slice(0, 19).replace("T", " "),
   };
+}
+
+/**
+ * The metric dictionary, computed for a tenant scope.
+ *
+ * Returned as p48's typed responses rather than as numbers, so a screen reads
+ * `numerator`, `denominator`, `missing`, `status` and the four versions rather
+ * than dividing anything itself. p48: "the client does not calculate clinical
+ * or business metrics from raw records."
+ *
+ * Suppression is applied HERE, on the way out, because this is the boundary
+ * where a result becomes an external aggregate view. The computation returns
+ * true values so an internal check can read the answer.
+ */
+export async function buildMetricPanel(tenantIds: string[]): Promise<MetricResult[]> {
+  if (tenantIds.length === 0) return [];
+  const rows = await loadObservations(tenantIds);
+  const ctx = metricContext(new Date().toISOString().slice(0, 10).replace(/-/g, ""));
+  return [
+    computeActivation(rows, ALL_ELIGIBLE, ctx),
+    computeWeeklyEngagement(rows, ALL_ELIGIBLE, ctx),
+    computeFollowupCompletion(rows, ALL_ELIGIBLE, ctx),
+    computeObservedChange(rows, ALL_ELIGIBLE, ctx),
+    computeResponderRate(rows, ALL_ELIGIBLE, ctx),
+    computeSafetyPauseRate(rows, ALL_ELIGIBLE, ctx),
+    computeTimeToReview(rows, ALL_ELIGIBLE, ctx),
+    computeRetention(rows, ALL_ELIGIBLE, ctx, 30),
+    computeRetention(rows, ALL_ELIGIBLE, ctx, 90),
+    computeRetention(rows, ALL_ELIGIBLE, ctx, 180),
+  ].map(suppressExternal);
 }
 
 /** Every organization tenant holding demo-population people. The organization

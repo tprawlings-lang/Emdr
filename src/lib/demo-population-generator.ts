@@ -505,6 +505,31 @@ function generateInner(db: Database.Database): GeneratedCounts {
         dayStamp(epoch, gateDay, 9), dayStamp(epoch, gateDay, 9), PROV, popId("corr", row.id), null,
       );
       counts.safetyEvents++;
+
+      // The DOCUMENTED RESPONSE to the gate, within a day or two.
+      //
+      // p32's time-to-review metric measures "elapsed time from a fixed review
+      // event to a documented response", and without this event there was
+      // nothing to measure to: the query paired a pause with the next
+      // clinician action of any kind, which is scattered across six months, so
+      // the median read 593 hours. That is not a latency, it is the average
+      // distance between two unrelated things.
+      const responseHours = 6 + (seed % 42);
+      insEvent.run(
+        popId("gate", `${row.id}:response`), tenant, personId, "clinician.reviewed",
+        JSON.stringify({
+          kind: "safety_response",
+          respondsTo: popId("gate", `${row.id}:open`),
+          note: pick(CLINICIAN_COMMENTS, seed, 0),
+          fabricated: true,
+        }),
+        clinicianPersonId(row.clinician), "clinician",
+        dayStamp(epoch, gateDay + Math.floor(responseHours / 24), 9 + (responseHours % 12)),
+        dayStamp(epoch, gateDay + Math.floor(responseHours / 24), 9 + (responseHours % 12)),
+        PROV, popId("corr", row.id), null,
+      );
+      counts.clinicianActions++;
+
       if (row.safety === "Fixed pause") {
         // Bounded re-entry, not an indefinite hold. A pause with no recorded
         // end is a lockout wearing a different word.

@@ -24,8 +24,6 @@ export function PopulationOverviewView({
   meta: ProjectionMeta;
   audience: "organization" | "payer";
 }) {
-  const missedPct = data.missedMeasures.of > 0
-    ? Math.round((data.missedMeasures.n / data.missedMeasures.of) * 100) : 0;
 
   return (
     <div className="space-y-6">
@@ -43,8 +41,14 @@ export function PopulationOverviewView({
           },
           {
             label: "Measures missed",
-            value: `${missedPct}%`,
-            detail: `${data.missedMeasures.n.toLocaleString()} of ${data.missedMeasures.of.toLocaleString()} that came due`,
+            // `pct()` renders the rate WITH its numerator and denominator and
+            // is the only sanctioned way to show a proportion here. The card
+            // used to divide the two fields itself and print a bare
+            // percentage — p48 is explicit that the client does not calculate
+            // metrics from raw records, and a component that can divide can
+            // divide by the wrong denominator.
+            value: pct(data.missedMeasures),
+            detail: "of the measures that came due",
           },
         ]}
       />
