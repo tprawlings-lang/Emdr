@@ -125,3 +125,56 @@ test("every person-level chart is inside a ClinicalFigure", () => {
     "charts rendered without a figure, so with no window, no summary and no caveat:\n  " +
     offenders.join("\n  "));
 });
+
+// ---------------------------------------------------------------------------
+// Engagement — the chart with no drawn example, and the easiest to get wrong
+// ---------------------------------------------------------------------------
+
+test("engagement is not a streak, a rate, or a prediction", () => {
+  const lib = code(read(path.join(ROOT, "src", "lib", "clinical", "engagement.ts")));
+  const chart = code(read(CHART));
+  const slice = chart.slice(chart.indexOf("export function PresenceStrip"), chart.indexOf("Shared frame"));
+
+  for (const banned of ["streak", "consecutive", "adherence", "compliance", "bestRun"]) {
+    assert.ok(!new RegExp(banned, "i").test(lib + slice),
+      `engagement references "${banned}" — a running total is a performance demand, and it ` +
+      "turns a missed day into a number shown to someone on their worst week");
+  }
+
+  // No rate is computed. The actionable facts are which days and how long the
+  // silence ran; a percentage invites a threshold and a threshold invites a rule.
+  assert.doesNotMatch(lib, /\*\s*100\b/, "engagement computes a percentage");
+  assert.doesNotMatch(lib, /\brate\b\s*[:=]/, "engagement computes a rate");
+});
+
+test("days before enrolment are not counted as missed days", () => {
+  // The defect this replaced: the strip drew the week before a person's record
+  // began exactly like days they skipped, and reported a six-day "longest gap"
+  // that was simply the time before they existed here.
+  const lib = read(path.join(ROOT, "src", "lib", "clinical", "engagement.ts"));
+  assert.match(lib, /enrolled: d >= startedOn/, "days are not marked against the record's start");
+  assert.match(lib, /if \(!d\.enrolled\)/,
+    "a pre-enrolment day still extends the longest-gap run");
+  assert.match(lib, /availableDays/,
+    "the denominator is the window rather than the days this person actually had");
+
+  const page = read(path.join(ROOT, "src", "app", "clinician", "member", "[id]", "page.tsx"));
+  assert.match(page, /availableDays/,
+    "the screen reports check-ins against the window instead of against the enrolled days");
+});
+
+test("the engagement strip draws absence rather than leaving whitespace", () => {
+  const chart = read(CHART);
+  const slice = chart.slice(chart.indexOf("export function PresenceStrip"));
+  assert.match(slice, /border-dashed/,
+    "a day with no check-in is drawn as nothing, which reads as 'no data yet' rather than " +
+    "as 'nobody checked in'");
+  // Three states need three marks, and each is named in the legend.
+  assert.match(slice, /before enrolment/, "the third state has no legend entry");
+});
+
+test("engagement is tenant scoped", () => {
+  const lib = read(path.join(ROOT, "src", "lib", "clinical", "engagement.ts"));
+  assert.match(lib, /tenant_id\s*=\s*\?/,
+    "engagement reads by person id with no tenant predicate");
+});
