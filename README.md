@@ -142,11 +142,24 @@ about how finished each is.
 | Public institutional site | 11 | 9 | `/personal`, `/intelligence`. Nothing links to them — the home page routes the three products to `/platform`, `/clinical`, `/organizations` and `/payers` instead — so this is a naming gap, not a broken link |
 | Shared access states | 8 | 8 | — |
 
-**Also specified and not built:** §29's chart contracts — 22 chart screens (clinician 7,
-organization 7, payer 8), of which the eight worked examples are pages 76–83. §29.1's
-rules for every chart (denominator with its numerator, the window and refresh time always
-shown, no mixed clinical scales on one surface, no predictive risk score) apply to the
-charts that do exist and are not yet encoded as a guard.
+**§29's chart contracts — 22 chart screens specified (clinician 7, organization 7, payer
+8), of which the eight worked examples are pages 76–83.** Fifteen screens now carry at
+least one figure: clinician 3, organization 6, payer 6. §29.1's rules are no longer
+review notes — they fail the build:
+
+| Rule | Guard |
+|---|---|
+| A proportion always carries its numerator and denominator | `tests/aggregate-boundary.test.ts` — `pct()` takes a `Count`, and a hand-rolled `* 100` on any organization screen fails |
+| The window and refresh time are always shown | `Figure` requires `summary` and `footnote`; a chart outside a `Figure` fails |
+| Missing data stays visible | The outcomes denominator must keep its missing-follow-up slice; a null in a trend must break the line rather than interpolate |
+| No predictive risk score | `tests/aggregate-boundary.test.ts` and `tests/clinical-charts.test.ts` — a gate rate per site sorted descending is a risk ranking whatever it is called |
+| No mixed clinical scales, no valence colour on a clinical trend | `tests/clinical-charts.test.ts` — the slope chart encodes open/close by shape, not by green and red |
+| An estimate is never rendered as an observed value | `tests/payer-boundary.test.ts` — the modelled register is hatched and may not use the observed series colour |
+| Export matches the filter and writes an audit event | `tests/governed-export.test.ts` and `tests/e2e/governed-export.spec.ts` |
+
+Known remaining charts: the clinician's function-and-goals and plan-response screens, both
+blocked on a goals model that does not exist in the tenancy schema. The rest of the
+22-chart remainder has not been re-derived against the handoff since the payer work landed.
 
 **Deliberately not built, and why it is not a gap:**
 
