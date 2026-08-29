@@ -6,6 +6,8 @@ import { DEMO_ROLES } from "@/lib/roles";
 import { data } from "@/lib/data";
 import { replayScenarios } from "@/lib/safety/scenarios";
 import { ADMIN_RAIL } from "@/lib/app/rails";
+import { getDb } from "@/lib/db";
+import { runQualityChecks, qualitySummary } from "@/lib/demo-quality";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Demo administration — Steady" };
@@ -42,6 +44,12 @@ export default async function AdminDemoPage() {
 
   const scenarios = replayScenarios();
   const failing = scenarios.filter((s) => !s.pass).length;
+
+  // p29's data-quality manifest, computed NOW against the live database. A
+  // manifest recorded at build time reports the state of the last good build,
+  // which is the one thing a presenter does not need to know.
+  const quality = runQualityChecks(getDb());
+  const q = qualitySummary(quality);
 
   return (
     <AppShell
@@ -120,6 +128,36 @@ export default async function AdminDemoPage() {
             </dl>
           </Panel>
         </WithNote>
+
+        <Panel
+          title="Data quality"
+          footnote="Handoff 07 p29. Computed now, against the live database — not recorded at build time. p29 blocks external demonstrations when the latest reset or projection verification failed, and a presenter must never repair the demo by editing rows directly."
+        >
+          {q.ok ? (
+            <p className="measure text-sm text-ground">
+              All {q.passed} checks pass on this dataset.
+            </p>
+          ) : (
+            <p role="alert" className="measure text-sm font-semibold text-state-support">
+              {q.failed} of {quality.length} checks fail. This dataset is not fit to
+              demonstrate: fix the generator and reset, and do not edit rows to make the
+              numbers agree.
+            </p>
+          )}
+          <ul className="mt-3 divide-y divide-ground/5">
+            {quality.map((c) => (
+              <li key={c.check} className="grid gap-1 py-2 sm:grid-cols-[15rem_1fr] sm:gap-4">
+                <span className="text-sm text-app-ink">{c.check}</span>
+                <span className="text-xs">
+                  <span className={c.pass ? "text-state-safe" : "font-semibold text-state-support"}>
+                    {c.pass ? "\u2713" : "\u2715"} {c.actual}
+                  </span>
+                  <span className="ml-2 text-olive">expected {c.expected}</span>
+                </span>
+              </li>
+            ))}
+          </ul>
+        </Panel>
 
         <Panel
           title="Controls that are not built"
@@ -207,6 +245,6 @@ const PENDING: Array<{ control: string; behavior: string; needs: string }> = [
   {
     control: "Export QA report",
     behavior: "A manifest of counts, hashes and failed checks, labelled fabricated on every page.",
-    needs: "The eleven-check data-quality manifest — handoff 07 p29.",
+    needs: "The checks themselves now run above; what is missing is releasing them as a signed file through the governed export.",
   },
 ];

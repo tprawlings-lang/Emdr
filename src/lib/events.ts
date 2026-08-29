@@ -99,6 +99,20 @@ export const EVENT_TYPES = {
   "coverage.gate_recorded": 1,
   "coverage.gate_responded": 1,
 
+  // Missingness, recorded rather than inferred (handoff 07 §2.7, p28).
+  //
+  // "Create missingness intentionally and record why the value is absent: not
+  // due, skipped, declined, interrupted, failed or unavailable."
+  //
+  // A measure that was never taken and one that was DECLINED look identical in
+  // a table, and only the second is a fact about the person. §29.1 requires
+  // missing, incomplete, late, rejected and suppressed data to stay visible,
+  // and it can only stay visible if it was written down.
+  //
+  // No projector: there is no current-state row for a thing that did not
+  // happen. That is the distinction the coverage.* types were introduced for.
+  "measure.not_completed": 1,
+
   // Clinical action
   "clinician.reviewed": 1,
   "module_unlock.requested": 2,
