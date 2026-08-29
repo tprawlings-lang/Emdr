@@ -1,0 +1,412 @@
+// Aggregate chart primitives (§29).
+//
+// §29.1 sets eight rules for every chart, and most of them are the kind a
+// component either enforces or quietly loses:
+//
+//   Denominator   never a percentage without its numerator and denominator
+//   Range         always the window, the comparison anchor and the refresh time
+//   Missing data  missing, incomplete, late, rejected and suppressed stay visible
+//   Scale         no overlay of different clinical scales
+//   Events        annotations mark events; they never imply cause
+//   Safety        no predictive risk score
+//   Accessibility direct labels, non-colour encoding, screen-reader summary
+//   Export        export matches current filters and writes an audit event
+//
+// Three of those are encoded here as required parameters rather than
+// documented as guidance. `Count` cannot be constructed without a denominator.
+// Every chart requires a `summary` and a `footnote`. And the bar charts are
+// built from HTML and CSS with real text in the DOM rather than from SVG, so
+// the number beside every bar IS the accessible representation — there is no
+// second description to drift from the picture. Only the line chart needs SVG,
+// and it carries a visually-hidden table of its own values.
+//
+// Colour never carries meaning alone: every series is also named in text next
+// to its own mark, which is what "direct labels, non-colour encoding" asks for
+// and is why there are no legends here.
+
+import type { ReactNode } from "react";
+
+/** A number that cannot be rendered without what it is out of. §29.1's first
+ *  rule, as a type: `share` can only be computed from both parts, so a
+ *  percentage with no denominator is not representable. */
+export interface Count {
+  n: number;
+  of: number;
+}
+
+export function share(c: Count): number {
+  return c.of === 0 ? 0 : c.n / c.of;
+}
+
+/** "72% (3,470 / 4,820)" — the only rendering of a proportion in this codebase.
+ *  §29.1: never show a percentage without numerator and denominator in the
+ *  same view. */
+export function pct(c: Count): string {
+  if (c.of === 0) return `no denominator (0 / 0)`;
+  return `${Math.round(share(c) * 100)}% (${c.n.toLocaleString()} / ${c.of.toLocaleString()})`;
+}
+
+export function num(n: number): string {
+  return n.toLocaleString();
+}
+
+/**
+ * Small-cell suppression (§30.6 step 6, §26's organization acceptance).
+ *
+ * Below the threshold a count is not rounded or blurred, it is withheld — and
+ * the DENOMINATOR still shows, because "3 of 4,820" is disclosive while "under
+ * 11, out of 4,820" is not, and hiding the denominator too would make the
+ * suppression itself invisible. §29.1 requires suppressed data to remain
+ * visible as suppressed.
+ */
+export const SMALL_CELL = 11;
+
+export function suppressed(c: Count): boolean {
+  return c.n > 0 && c.n < SMALL_CELL;
+}
+
+export function cell(c: Count): string {
+  return suppressed(c) ? `under ${SMALL_CELL} (of ${num(c.of)})` : pct(c);
+}
+
+// ---------------------------------------------------------------------------
+// Frame
+// ---------------------------------------------------------------------------
+
+/**
+ * Every chart sits in this. `summary` and `footnote` are required: the first
+ * is what a screen reader is given before the marks, the second is §29.1's
+ * range rule — the window, the anchor and when the numbers were computed.
+ */
+export function Figure({
+  title, summary, footnote, children,
+}: {
+  title: string;
+  /** One sentence stating what the chart shows and its denominator. */
+  summary: string;
+  /** Window, comparison anchor and refresh time. */
+  footnote: string;
+  children: ReactNode;
+}) {
+  return (
+    <figure className="m-0">
+      <figcaption>
+        <span className="text-sm font-semibold text-app-ink">{title}</span>
+        <span className="sr-only"> — {summary}</span>
+      </figcaption>
+      <div className="mt-4">{children}</div>
+      <p className="mt-4 text-xs text-olive">{footnote}</p>
+    </figure>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Horizontal funnel (p79) and bar list
+// ---------------------------------------------------------------------------
+
+export interface Stage {
+  label: string;
+  count: Count;
+  /** Marks the stage where the largest drop occurred. Non-colour encoding:
+   *  the row also says so in words. */
+  attention?: boolean;
+}
+
+/**
+ * The access funnel. Each stage carries its own denominator, so a reader never
+ * has to hold the top number in their head to interpret the fourth bar — which
+ * is the specific way funnels mislead.
+ */
+export function Funnel({ stages }: { stages: Stage[] }) {
+  const top = Math.max(1, ...stages.map((s) => s.count.of));
+  return (
+    <ol className="space-y-3">
+      {stages.map((s) => {
+        const w = Math.max(1, Math.round((s.count.n / top) * 100));
+        return (
+          <li key={s.label} className="grid gap-1 sm:grid-cols-[9rem_1fr] sm:items-center sm:gap-4">
+            <span className="text-sm text-ground">{s.label}</span>
+            <span className="flex items-center gap-3">
+              <span
+                aria-hidden
+                className="h-4 min-w-1 rounded-full"
+                style={{
+                  width: `${w}%`,
+                  backgroundColor: s.attention ? "var(--color-state-caution)" : "var(--color-sage-deep)",
+                }}
+              />
+              <span className="whitespace-nowrap text-sm text-ground">
+                {cell(s.count)}
+                {s.attention && (
+                  <span className="ml-2 text-xs font-medium text-state-caution">largest drop</span>
+                )}
+              </span>
+            </span>
+          </li>
+        );
+      })}
+    </ol>
+  );
+}
+
+export interface Bar {
+  label: string;
+  value: number;
+  /** Shown after the value — a wait in days, a rate, whatever the row means. */
+  detail?: string;
+  attention?: boolean;
+}
+
+/** A plain comparison of one measure across categories (locations, teams). */
+export function BarList({ bars, unit }: { bars: Bar[]; unit?: string }) {
+  const top = Math.max(1, ...bars.map((b) => b.value));
+  return (
+    <ul className="space-y-3">
+      {bars.map((b) => (
+        <li key={b.label} className="grid gap-1 sm:grid-cols-[9rem_1fr] sm:items-center sm:gap-4">
+          <span className="text-sm text-ground">{b.label}</span>
+          <span className="flex items-center gap-3">
+            <span
+              aria-hidden
+              className="h-4 min-w-1 rounded-full"
+              style={{
+                width: `${Math.max(1, Math.round((b.value / top) * 100))}%`,
+                backgroundColor: b.attention ? "var(--color-state-caution)" : "var(--color-sage-deep)",
+              }}
+            />
+            <span className="whitespace-nowrap text-sm text-ground">
+              {num(b.value)}{unit ? ` ${unit}` : ""}
+              {b.detail && <span className="ml-2 text-olive">{b.detail}</span>}
+            </span>
+          </span>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Grouped bars (p80)
+// ---------------------------------------------------------------------------
+
+export interface Group {
+  label: string;
+  /** Two named series. Named, not coloured: the name is beside its own value
+   *  on every row, so the chart survives being printed in grey. */
+  a: { name: string; value: number; observed: boolean };
+  b: { name: string; value: number; observed: boolean } | null;
+}
+
+/**
+ * Demand against supply, per location. §29.1 requires observed and modelled
+ * values to use separate surfaces and labels, so `observed` is per-series and
+ * a modelled series is drawn hatched AND labelled — never merely a different
+ * colour.
+ */
+export function GroupedBars({ groups }: { groups: Group[] }) {
+  const top = Math.max(1, ...groups.flatMap((g) => [g.a.value, g.b?.value ?? 0]));
+  return (
+    <ul className="space-y-4">
+      {groups.map((g) => (
+        <li key={g.label}>
+          <p className="text-sm font-medium text-ground">{g.label}</p>
+          <ul className="mt-1.5 space-y-1.5">
+            {[g.a, g.b].filter(Boolean).map((s) => {
+              const series = s as NonNullable<typeof g.b>;
+              return (
+                <li key={series.name} className="grid gap-1 sm:grid-cols-[7rem_1fr] sm:items-center sm:gap-3">
+                  <span className="text-xs text-olive">{series.name}</span>
+                  <span className="flex items-center gap-3">
+                    <span
+                      aria-hidden
+                      className="h-3.5 min-w-1 rounded-full"
+                      style={{
+                        width: `${Math.max(1, Math.round((series.value / top) * 100))}%`,
+                        backgroundColor: series.observed
+                          ? "var(--color-sage-deep)"
+                          : "var(--color-mist-deep)",
+                        backgroundImage: series.observed
+                          ? undefined
+                          : "repeating-linear-gradient(45deg, rgba(255,255,255,.55) 0 3px, transparent 3px 6px)",
+                      }}
+                    />
+                    <span className="whitespace-nowrap text-sm text-ground">
+                      {num(series.value)}
+                      {!series.observed && (
+                        <span className="ml-2 text-xs font-medium text-state-info">modelled</span>
+                      )}
+                    </span>
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Stacked allocation (p81)
+// ---------------------------------------------------------------------------
+
+export interface Slice {
+  label: string;
+  n: number;
+  tone: "safe" | "info" | "caution" | "unknown";
+}
+
+/**
+ * Outcome status across a cohort, with missing follow-up kept IN the total.
+ *
+ * That is the entire reason this is one bar rather than three: a missing row
+ * dropped from the denominator turns "62% improved of those we measured" into
+ * "62% improved", which is the release gate §31.6 calls "any clean chart hiding
+ * incomplete data".
+ */
+export function StackedAllocation({ slices, total }: { slices: Slice[]; total: number }) {
+  const TONE: Record<Slice["tone"], string> = {
+    safe: "var(--color-state-safe)",
+    info: "var(--color-state-info)",
+    caution: "var(--color-state-caution)",
+    unknown: "var(--color-state-unknown)",
+  };
+  return (
+    <div>
+      <div aria-hidden className="flex h-10 w-full overflow-hidden rounded-lg">
+        {slices.map((s) => (
+          <div
+            key={s.label}
+            style={{ width: `${Math.max(0.5, (s.n / Math.max(1, total)) * 100)}%`, backgroundColor: TONE[s.tone] }}
+          />
+        ))}
+      </div>
+      <ul className="mt-4 grid gap-2 sm:grid-cols-2">
+        {slices.map((s) => (
+          <li key={s.label} className="flex items-baseline gap-2 text-sm">
+            <span aria-hidden className="mt-1 h-3 w-3 shrink-0 rounded-sm" style={{ backgroundColor: TONE[s.tone] }} />
+            <span className="text-ground">
+              <span className="font-medium">{s.label}</span>{" "}
+              {cell({ n: s.n, of: total })}
+            </span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Line (p76, p82)
+// ---------------------------------------------------------------------------
+
+export interface Series {
+  name: string;
+  points: { x: string; y: number | null }[];
+  observed: boolean;
+}
+
+/**
+ * One measure over time. ONE measure — §29.1 forbids overlaying different
+ * clinical scales, so this takes a single unit and a caller wanting two scales
+ * has to draw two charts, which is the intended friction.
+ *
+ * A null y is a gap and is drawn as one: the line breaks. Interpolating across
+ * a missing month is the most common way a chart claims data it does not have.
+ */
+export function Line({ series, unit }: { series: Series[]; unit: string }) {
+  const xs = series[0]?.points.map((p) => p.x) ?? [];
+  const ys = series.flatMap((s) => s.points.map((p) => p.y)).filter((y): y is number => y !== null);
+  const max = Math.max(1, ...ys);
+  const min = Math.min(0, ...ys);
+  const W = 640;
+  const H = 180;
+  const px = (i: number) => (xs.length < 2 ? W / 2 : (i / (xs.length - 1)) * (W - 40) + 20);
+  const py = (y: number) => H - 20 - ((y - min) / Math.max(1, max - min)) * (H - 40);
+
+  return (
+    <div>
+      <div className="overflow-x-auto">
+        <svg
+          viewBox={`0 0 ${W} ${H}`}
+          className="h-44 w-full min-w-[32rem]"
+          role="img"
+          aria-label={`${series.map((s) => s.name).join(" and ")}, ${unit}, by period`}
+        >
+          {series.map((s, si) => {
+            // Break the path at every gap rather than bridging it.
+            const runs: string[] = [];
+            let cur: string[] = [];
+            s.points.forEach((p, i) => {
+              if (p.y === null) { if (cur.length) runs.push(cur.join(" ")); cur = []; return; }
+              cur.push(`${cur.length ? "L" : "M"}${px(i).toFixed(1)},${py(p.y).toFixed(1)}`);
+            });
+            if (cur.length) runs.push(cur.join(" "));
+            const color = si === 0 ? "var(--color-sage-deep)" : "var(--color-state-caution)";
+            return (
+              <g key={s.name}>
+                {runs.map((d, i) => (
+                  <path
+                    key={i}
+                    d={d}
+                    fill="none"
+                    stroke={color}
+                    strokeWidth={2}
+                    strokeDasharray={s.observed ? undefined : "5 4"}
+                  />
+                ))}
+                {s.points.map((p, i) =>
+                  p.y === null ? null : (
+                    <circle key={i} cx={px(i)} cy={py(p.y)} r={3} fill={color} />
+                  ),
+                )}
+              </g>
+            );
+          })}
+          {xs.map((x, i) => (
+            <text key={x} x={px(i)} y={H - 4} textAnchor="middle" className="fill-olive" style={{ fontSize: 10 }}>
+              {x}
+            </text>
+          ))}
+        </svg>
+      </div>
+
+      {/* The accessible representation. A sighted reader gets the shape; every
+          reader gets the numbers, including the gaps, stated as gaps. */}
+      <table className="sr-only">
+        <caption>{series.map((s) => s.name).join(" and ")} by period, in {unit}</caption>
+        <thead>
+          <tr>
+            <th scope="col">Period</th>
+            {series.map((s) => <th key={s.name} scope="col">{s.name}</th>)}
+          </tr>
+        </thead>
+        <tbody>
+          {xs.map((x, i) => (
+            <tr key={x}>
+              <th scope="row">{x}</th>
+              {series.map((s) => (
+                <td key={s.name}>{s.points[i]?.y === null || s.points[i]?.y === undefined ? "no data" : `${s.points[i].y} ${unit}`}</td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+
+      <ul className="mt-3 flex flex-wrap gap-x-5 gap-y-1">
+        {series.map((s, si) => (
+          <li key={s.name} className="flex items-center gap-2 text-xs text-ground">
+            <span
+              aria-hidden
+              className="h-0.5 w-5"
+              style={{ backgroundColor: si === 0 ? "var(--color-sage-deep)" : "var(--color-state-caution)" }}
+            />
+            {s.name}
+            {!s.observed && <span className="font-medium text-state-info">modelled</span>}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}

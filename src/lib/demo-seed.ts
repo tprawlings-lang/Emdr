@@ -21,7 +21,7 @@ import { hashPassword } from "./db";
 // covered.
 
 /** Bump when the dataset changes. The baseline hash changes with it. */
-export const DEMO_SEED_VERSION = "demo-2026-08-v1";
+export const DEMO_SEED_VERSION = "demo-2026-08-v2";
 
 /** UUID-shaped but deterministic: sha256(version:n) rendered in UUID form, so
  *  it drops into every existing `TEXT` id column unchanged. */
@@ -61,6 +61,15 @@ export function seedDemoData(db: Database.Database) {
   insertUser.run(alexId, "demo@example.com", "Alex Rivera (fictional)", "member", hashPassword("demo1234"), daysAgo(22));
   insertUser.run(samId, "demo2@example.com", "Sam Okafor (fictional)", "member", hashPassword("demo1234"), daysAgo(2));
   insertUser.run(clinicianId, "clinician@example.com", "Dr. Maya Chen (fictional)", "clinician", hashPassword("demo1234"), daysAgo(40));
+  // Steady Intelligence. An AGGREGATE role: this account can read the
+  // organization's operating picture and can read no person's record, which is
+  // §30.6's rule that aggregate access does not create care access. It is a
+  // separate login rather than a mode on the clinician account precisely so
+  // that boundary is something a reviewer can test by signing in.
+  insertUser.run(
+    id(), "operations@example.com", "Jordan Idowu (fictional)", "admin",
+    hashPassword("demo1234"), daysAgo(60),
+  );
 
   // --- Alex: three weeks into the program, improving ---
   db.prepare(

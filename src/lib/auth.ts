@@ -114,6 +114,40 @@ export async function requireMember(): Promise<SessionUser> {
 
 export async function requireClinician(): Promise<SessionUser> {
   const user = await requireUser();
-  if (user.role !== "clinician" && user.role !== "admin") redirect("/app/today");
+  // "admin" is NOT admitted. It used to be, as a convenience back when no
+  // admin account existed and the role was a notional superuser — and the
+  // moment one did exist, that line handed an aggregate reporting account the
+  // whole clinical console. tests/e2e/organization.spec.ts caught it.
+  //
+  // The reasoning is §30.6's, not a permissions preference: a clinician may
+  // read a record because of a care relationship and a consent. An
+  // organization analyst has neither, and no amount of seniority substitutes
+  // for them. A role that reports on populations does not get to read people.
+  if (user.role !== "clinician") {
+    redirect(user.role === "admin" ? "/organization/overview" : "/app/today");
+  }
+  return user;
+}
+
+/** Steady Intelligence — the organization and payer surfaces.
+ *
+ *  These are AGGREGATE roles, and the distinction is the whole point of the
+ *  check: aggregate access must never become person-level care access
+ *  (§30.6). A clinician is deliberately NOT admitted here by their clinical
+ *  role, because their right to read a record comes from a care relationship
+ *  and consent, and neither is what these screens are reporting under.
+ *
+ *  What actually enforces the boundary is downstream: the projections these
+ *  screens read cannot return a person id, and the population they report on
+ *  has no names in the database at all. This check decides who gets through
+ *  the door; it is not what keeps the room safe. */
+export async function requireIntelligence(): Promise<SessionUser> {
+  const user = await requireUser();
+  if (user.role !== "admin") {
+    // Not "forbidden": telling a clinician this surface exists and is barred
+    // is more than they need, and §30.6 step 2 returns a generic denied state
+    // rather than confirming what is on the other side.
+    redirect(user.role === "member" ? "/app/today" : "/clinician/today");
+  }
   return user;
 }

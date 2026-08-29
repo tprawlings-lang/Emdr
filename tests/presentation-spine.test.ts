@@ -128,11 +128,28 @@ test("the renderer handles all eight states", () => {
   }
 });
 
-test("support paths render in every non-ready state", () => {
+test("support paths render in every non-ready state, for the reader who might need one", () => {
   const src = fs.readFileSync(path.join(process.cwd(), "src/components/presentation/EnvelopeView.tsx"), "utf8");
-  assert.match(src, /state !== "ready" && <SupportPaths/,
-    "support is conditional on something other than 'not ready'");
+
+  // The original rule was "not conditional on anything but the state". That
+  // was right about the thing it was protecting — the way out must never
+  // narrow because something failed — and wrong about one case: an
+  // organization capacity screen rendering `partial` offered its operations
+  // analyst grounding and crisis support. There is no person on that screen.
+  //
+  // So the rule is now narrower and more exact. Support is UNCONDITIONAL on
+  // state, and conditional ONLY on audience, which defaults to "person" so a
+  // surface that forgets keeps the links. Both halves are checked, because
+  // dropping either is how this becomes a gate on failure again.
+  assert.match(src, /state !== "ready" && audience === "person" && <SupportPaths/,
+    "support is conditional on something other than 'not ready' and the audience");
+  assert.match(src, /audience = "person"/,
+    "audience does not default to person — a surface that forgets must keep the way out");
   assert.match(src, /\/crisis/, "the crisis path is not in the state notice");
+
+  // And it must not become conditional on the state again by another route.
+  assert.doesNotMatch(src, /state === "(stale|partial|empty)"[^\n]*SupportPaths/,
+    "support is being narrowed to particular failure states");
 });
 
 // ---------------------------------------------------------------------------

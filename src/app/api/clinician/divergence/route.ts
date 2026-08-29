@@ -10,7 +10,8 @@ export const dynamic = "force-dynamic";
 
 export async function GET() {
   const user = await getCurrentUser();
-  if (!user || (user.role !== "clinician" && user.role !== "admin")) {
+  // Aggregate roles are not clinical roles — see requireClinician.
+  if (!user || user.role !== "clinician") {
     return NextResponse.json({ error: "Clinician access required." }, { status: 403 });
   }
   return NextResponse.json(await divergenceReport());

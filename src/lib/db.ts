@@ -3,6 +3,7 @@ import path from "path";
 import fs from "fs";
 import crypto from "crypto";
 import { seedDemoData, demoId } from "./demo-seed";
+import { seedOrgData } from "./demo-org-seed";
 import { ulid, NIL_ULID, ulidFrom } from "./ids";
 
 // Resolved lazily inside getDb() (not at module load) so EMDR_DATA_DIR is
@@ -572,7 +573,29 @@ function migrate(db: Database.Database) {
     supersedes_event_id TEXT REFERENCES longitudinal_events(id)
   );
   CREATE INDEX IF NOT EXISTS idx_levents_person ON longitudinal_events(person_id, id);
+  -- supersedes_event_id is a foreign key onto this same table, and an
+  -- unindexed one makes every DELETE scan the whole table to prove no row
+  -- references the one going away. At demo scale that was invisible; at 32,000
+  -- events a single DELETE FROM longitudinal_events took 36 seconds, which
+  -- is quadratic and would get worse, not better, in a real deployment. It
+  -- also slows every correction, since a superseding write updates this
+  -- column.
+  CREATE INDEX IF NOT EXISTS idx_levents_supersedes ON longitudinal_events(supersedes_event_id);
   CREATE INDEX IF NOT EXISTS idx_levents_tenant ON longitudinal_events(tenant_id, id);
+  -- Aggregate reporting asks a different question of this table than the
+  -- record does: "how many distinct people in this tenant have an event of
+  -- this type", not "what happened to this person". Neither index above helps
+  -- with that, so the organization projections were doing full scans — the
+  -- operating overview took 7.8 seconds and the location comparison 13.0.
+  -- Ordered (tenant_id, event_type, person_id) so the tenant filter, the type
+  -- filter and the DISTINCT are all served by the same index.
+  CREATE INDEX IF NOT EXISTS idx_levents_tenant_type
+    ON longitudinal_events(tenant_id, event_type, person_id);
+  -- The access-pathway joins pair a person's referral with their later contact
+  -- by (person_id, event_type), which the person index above cannot serve
+  -- because its second column is the event id.
+  CREATE INDEX IF NOT EXISTS idx_levents_person_type
+    ON longitudinal_events(person_id, event_type, occurred_at);
   CREATE INDEX IF NOT EXISTS idx_levents_type ON longitudinal_events(event_type, id);
   CREATE INDEX IF NOT EXISTS idx_levents_correlation ON longitudinal_events(correlation_id);
   `);
@@ -718,7 +741,7 @@ export function newId(): string {
  *  it through the same path a fresh environment uses, so the two can never
  *  drift into producing subtly different datasets. */
 export function seedDemo(db: Database.Database) {
-  db.transaction(() => { seedDemoData(db); })();
+  db.transaction(() => { seedDemoData(db); seedOrgData(db); })();
   refreshDemoDaily(db);
 }
 
@@ -729,6 +752,7 @@ function seed(db: Database.Database) {
   db.transaction(() => {
     if (process.env.EMDR_DEMO === "1") {
       seedDemoData(db);
+      seedOrgData(db);
       return;
     }
     const insert = db.prepare(

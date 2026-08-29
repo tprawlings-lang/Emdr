@@ -60,6 +60,45 @@ export const EVENT_TYPES = {
   "safety_state.changed": 1,
   "crisis.routed": 1,
 
+  // Access pathway (Web GUI handoff §26's organization atlas, §29's access
+  // funnel). These are operational rather than clinical: they record a
+  // population's movement from referral to care start, which is what an
+  // organization is accountable for and what no existing event type carried.
+  //
+  // Each is a discrete, dated fact about one person, so the funnel on
+  // /organization/access is COUNTED from the ledger rather than stored as four
+  // numbers. That matters: §29.1 requires a denominator beside every
+  // numerator, and a stored percentage has neither.
+  "referral.received": 1,
+  "contact.attempted": 1,
+  "contact.made": 1,
+  "visit.scheduled": 1,
+  "care.started": 1,
+  // The observed status of a cohort member at the end of a window. NOT a
+  // prediction and not a score: §29.1 forbids a predictive risk score outright,
+  // and this records what was measured, including that nothing was.
+  "outcome.classified": 1,
+  // Operational facts about a COVERED POPULATION, arriving from an integration
+  // feed rather than from someone using Steady.
+  //
+  // These deliberately do not reuse "assessment.scored", "session.completed"
+  // or "clinician.reviewed". Those are clinical events: each one asserts that
+  // a current-state row exists and carries the projectionId that identifies
+  // it, so the ledger can be replayed back into that row. A covered life
+  // ingested from an eligibility file has no such row — writing a clinical
+  // event for one produces an event that claims a record it cannot rebuild,
+  // which is exactly what the replay guard caught when this seed first used
+  // them.
+  //
+  // So these are their own types with no projector: countable, never
+  // replayable into a person's record, and impossible to confuse with the
+  // clinical event of the same name.
+  "coverage.measure_recorded": 1,
+  "coverage.session_delivered": 1,
+  "coverage.reviewed": 1,
+  "coverage.gate_recorded": 1,
+  "coverage.gate_responded": 1,
+
   // Clinical action
   "clinician.reviewed": 1,
   "module_unlock.requested": 2,

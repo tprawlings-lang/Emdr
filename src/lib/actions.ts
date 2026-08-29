@@ -102,7 +102,15 @@ export async function login(formData: FormData) {
   }
   await setSessionCookie(user.id);
   await audit({ actorId: user.id, actorRole: user.role, family: "identity", type: "login_success" });
-  redirect(user.role === "member" ? "/app/today" : "/clinician");
+  // Three roles, three homes. An admin is a Steady Intelligence account and
+  // lands on the organization's operating picture — sending it to /clinician
+  // would put an aggregate role on a person-level surface, which is the
+  // boundary §30.6 exists to hold.
+  redirect(
+    user.role === "member" ? "/app/today"
+      : user.role === "admin" ? "/organization/overview"
+      : "/clinician",
+  );
 }
 
 export async function logout() {
