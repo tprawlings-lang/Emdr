@@ -69,6 +69,19 @@ function demoHash(role: string): string {
   return hashPassword(demoPassword(role));
 }
 
+/**
+ * The three narrative personas, by name rather than by position in a counter.
+ *
+ * They were `demoId(0)`, `demoId(1)` and `demoId(2)` — correct, and a trap:
+ * anything outside this file that needed one had to know the insertion order,
+ * and inserting a fourth account at the top would silently repoint every
+ * reference. Handoff 07's Wave 4 needs the clinician's id from two other
+ * modules, so they get names.
+ */
+export const ALEX_ID = demoId(0);
+export const SAM_ID = demoId(1);
+export const DEMO_CLINICIAN_ID = demoId(2);
+
 export function seedDemoData(db: Database.Database) {
   let seq = 0;
   const id = () => demoId(seq++);
@@ -125,6 +138,25 @@ export function seedDemoData(db: Database.Database) {
   insertUser.run(
     id(), "payer.demo@steady.local", "Priya Raman (fictional)", "payer",
     demoHash("payer"), daysAgo(60),
+  );
+
+  // A SECOND organization account, and it is not a duplicate.
+  //
+  // There are two organization populations in this deployment and they are
+  // deliberately separate: Northside Behavioral Health's 4,820 covered lives,
+  // which have no names by design so an aggregate drilldown is impossible, and
+  // handoff 07's 240 fabricated profiles enrolled with the eight demo care
+  // networks. One account cannot report on both — an organization sees its own
+  // tenant, which is the point — so `org.demo` stays on Northside and this one
+  // operates a demo network.
+  //
+  // p7 anticipates exactly this: "one identity per role and OPTIONAL PRESENTER
+  // IDENTITIES PER AUDIENCE." Two accounts in the same role, in different
+  // tenants, is only possible because scope is now read from the session
+  // rather than deduced by counting organization tenants.
+  insertUser.run(
+    id(), "network.demo@steady.local", "Dana Okonkwo (fictional)", "organization",
+    demoHash("organization"), daysAgo(60),
   );
 
   // The reviewer. p6: fixed gates, evidence, replay, corrections and audit —

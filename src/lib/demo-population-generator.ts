@@ -4,7 +4,7 @@ import { hashPassword } from "./db";
 import {
   MANIFEST, DATASET_VERSION, seedFor, type ManifestRow, type Archetype,
 } from "./demo-population-manifest";
-import { tenantForRow } from "./demo-population-seed";
+import { tenantForRow, clinicianPersonId } from "./demo-population-seed";
 import {
   MEMBER_NOTES, OPERATIONAL_NOTES, CLINICIAN_COMMENTS, pick,
 } from "./demo-population-dictionaries";
@@ -326,6 +326,35 @@ function generateInner(db: Database.Database): GeneratedCounts {
       counts.consents++;
     }
 
+    // ── The access pathway (handoff 06 §26's funnel) ─────────────────────
+    //
+    // Referral, contact, visit, care start. Not in handoff 07's p14 recipe,
+    // and required by the same claim it makes: the organization console's
+    // existing screens count these events, so without them a demo care network
+    // whose every member is engaged reports "0 of 44 started care". The e2e
+    // suite caught exactly that — a header reading 0% over a population that
+    // is fully active.
+    //
+    // Dated BEFORE enrolment, in the order they happened, because a funnel
+    // whose stages are simultaneous is four numbers rather than a pathway. The
+    // Access-barrier archetype stalls between contact and visit, which is what
+    // "missed activity linked to authored access events" means (p12).
+    const stalls = row.archetype === "Access barrier" && rng.chance(0.45);
+    const pathway: Array<[string, number]> = [
+      ["referral.received", -12],
+      ["contact.attempted", -9],
+      ["contact.made", -6],
+      ...(stalls ? [] : [["visit.scheduled", -3] as [string, number], ["care.started", 0] as [string, number]]),
+    ];
+    for (const [type, offset] of pathway) {
+      const day = Math.max(0, startDay + offset);
+      insEvent.run(
+        popId("pathway", `${row.id}:${type}`), tenant, personId, type,
+        JSON.stringify({ fabricated: true }), null, "integration",
+        dayStamp(epoch, day, 9), dayStamp(epoch, day, 9), PROV, null, null,
+      );
+    }
+
     // ── Check-ins: an explicit count, placed across the window ──────────
     //
     // The count is drawn first and then placed, rather than emerging from a
@@ -504,7 +533,9 @@ function generateInner(db: Database.Database): GeneratedCounts {
           operational: pick(OPERATIONAL_NOTES, seed, i + 1),
           fabricated: true,
         }),
-        popId("clinician", row.clinician), "clinician",
+        // NE-C1 resolves to the demo clinician account, so a presenter signing
+        // in sees these reviews as their own rather than a stranger's.
+        clinicianPersonId(row.clinician), "clinician",
         dayStamp(epoch, day, 14), dayStamp(epoch, day, 14), PROV, null, null,
       );
       counts.clinicianActions++;

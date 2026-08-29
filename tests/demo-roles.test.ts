@@ -92,10 +92,35 @@ test("the seeded database holds exactly one account per role, and no `admin`", a
     assert.ok((byRole[r] ?? 0) >= 1, `no seeded account holds the ${r} role`);
   }
   // p7: "do not use one account with a mutable role claim." The two aggregate
-  // roles in particular must be two accounts — one served both for as long as
-  // `admin` existed, and the boundary between them was therefore untestable.
-  assert.equal(byRole.organization, 1, "there is not exactly one organization account");
+  // roles in particular must be separate accounts — one served both for as
+  // long as `admin` existed, and the boundary between them was therefore
+  // untestable.
   assert.equal(byRole.payer, 1, "there is not exactly one payer account");
+
+  // TWO organization accounts, and the second is not a duplicate. There are
+  // two organization populations in this deployment and they are separate by
+  // design: Northside's 4,820 covered lives have no names, so an aggregate
+  // drilldown is impossible; handoff 07's 240 fabricated profiles are enrolled
+  // with the eight demo care networks and do have names. An organization sees
+  // its OWN tenant, so one account cannot report on both.
+  //
+  // p7 anticipates this: "one identity per role and optional presenter
+  // identities per audience." It is only possible because scope is read from
+  // the session rather than deduced by counting organization tenants.
+  assert.equal(byRole.organization, 2,
+    "the organization role does not hold exactly the two accounts this deployment needs");
+  const orgs = (await c.all(
+    "SELECT email FROM users WHERE role = 'organization' ORDER BY email", [],
+  )) as { email: string }[];
+  assert.deepEqual(orgs.map((o) => o.email).sort(),
+    ["network.demo@steady.local", "org.demo@steady.local"]);
+
+  // And they are in DIFFERENT tenants, or the second account is decoration.
+  const tenants = (await c.all(
+    "SELECT DISTINCT tenant_id AS t FROM users WHERE role = 'organization'", [],
+  )) as { t: string }[];
+  assert.equal(tenants.length, 2,
+    "both organization accounts are in the same tenant, so they report on the same population");
 });
 
 // ---------------------------------------------------------------------------

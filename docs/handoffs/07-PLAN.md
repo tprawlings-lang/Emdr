@@ -3,7 +3,7 @@
 **Specification:** [`07-demo-login-synthetic-population-and-planning-engine.pdf`](07-demo-login-synthetic-population-and-planning-engine.pdf)
 — *Steady Demo Login, Synthetic Population and Deterministic Planning Engine*, 59 pages.
 
-**Status:** Waves 0–3 done and shipped. Waves 4–8 open. This plan is the Wave 0 deliverable the handoff itself asks for
+**Status:** Waves 0–4 done and shipped. Waves 5–8 open. This plan is the Wave 0 deliverable the handoff itself asks for
 (§6.1: *"Confirm current routes, roles, tenant model, event schemas and projection
 versions. Exit evidence: gap list and ADRs; no duplicate subsystem"*).
 
@@ -135,6 +135,25 @@ cutoffs"* and must be stored in policy configuration with an owner and approval 
 from quiet edits. **Decision: a `policy_thresholds` table with owner, approval date and
 version — not a `const` in a rules file.** A threshold changed without a recorded owner is
 the failure this row exists to prevent.
+
+### Decisions confirmed with the author
+
+Answered 2026-08-29, so they are settled rather than assumed. Recorded here because
+the next person to read this plan will otherwise re-open all three.
+
+| # | Question | Decision |
+|---|---|---|
+| A1 | The demo clinician has no panel over the 240 — they sit in the platform tenant with Alex and Sam, while the 240 live in eight organization tenants under twelve clinician *persons* with no logins. | **`clinician.demo@steady.local` becomes NE-C1**, inside NE Care Network A, and Alex and Sam move with them. One account, one tenant, a real panel of roughly forty of the 240 plus the two narrative personas. The alternative — a cross-tenant panel — was rejected: it would break the tenant scoping every other guard in the project enforces, leaving §30.6's boundary in place only for the aggregate roles. |
+| A2 | The 240 were made sign-in-able (`st-<region>-<nnn>@steady.local`, patient password) so a presenter can open a specific archetype from the inside. | **Kept.** p14 lists "1 account" per profile, the environment holds no PHI, and the password is already documented. The address pattern is now named in the logins document rather than left to be discovered. |
+| A3 | p15 prints `"seed": 100217` for `ST-WE-017` and no rule in the handoff derives it. | **No rule existed** — it was an illustrative value in a sample JSON blob. The formula in `demo-population-manifest.ts` stands: region offset (NE 100 000, MW 200 000, SO 300 000, WE 400 000) plus the row number, documented in place. |
+
+**Still needed from a human, and not yet:**
+
+- **Who owns the planning thresholds** (D5). p34 requires a named owner and an approval date
+  before any rule may fire, so this is needed *before* Wave 6, not during it.
+- **Whether the 240 get a nightly reset in the deployed demo, and on whose clock** (Wave 8).
+  A reset currently takes about 12 seconds against p29's 120-second target, so the constraint
+  is scheduling rather than duration.
 
 ---
 
@@ -298,12 +317,68 @@ the same distribution satisfy about half the time — it now requires a 1.25× m
 cross-tenant check ran against a database with no reconstructed events at all, so it could
 not have found the defect it was written for; it now runs the backfill first.
 
-### Wave 4 — Role projections
+### Wave 4 — Role projections ✅ **DONE**
 **Spec: pp6, 46, 50. Exit evidence: the same events produce correct minimum-necessary views.**
 
-Six views over one ledger. The rule that makes this wave meaningful is that they are
-*projections of the same events*, so a discrepancy between the clinician's and the
-organization's number is a bug rather than a difference of opinion.
+| Built | Where |
+|---|---|
+| The clinician's panel — person-level, named, tenant-scoped | `src/lib/clinical/panel.ts`, `/clinician/population` |
+| The population overview — aggregate, laundered, shared by both consoles | `src/lib/intelligence/population.ts`, `/organization/population`, `/payer/population` |
+| The demo clinician bound as NE-C1 in NE Care Network A, with Alex and Sam | `src/lib/demo-population-seed.ts` |
+| A network-operator account for the demo networks | `src/lib/demo-seed.ts` |
+| The access pathway for the 240, so handoff 06's funnel screens work over them too | `src/lib/demo-population-generator.ts` |
+| 12 unit guards, 9 e2e | `tests/role-projections.test.ts`, `tests/e2e/role-projections.spec.ts` |
+
+**The exit evidence, checked as an equality rather than asserted.** The panel counts 42
+people and the organization counts 42; the improvement count derived from the panel's own
+rows equals the organization's; so does the missed-measure total. They cannot disagree,
+because there is nothing for them to disagree about.
+
+**Two mechanisms, deliberately different.** Person-level views are scoped in the SQL, so a
+caller cannot widen them by passing a different argument. Aggregate views go through
+`assertAggregate`, which **throws rather than filters** — a projection carrying a person id
+does not render with the id hidden, because it would still have carried it into every cache
+and log on the way.
+
+**A file in the wrong place, caught by an existing guard.** `buildClinicianPanel` first
+lived in `src/lib/intelligence/`, and `tests/aggregate-boundary.test.ts` fails the build on
+a person identifier anywhere in that directory. The choice was to carve an exception into
+the guard or move the file; the guard's rule is "nothing under intelligence/ touches a
+person", and a rule with one exception is a rule somebody adds a second exception to. It
+moved to `src/lib/clinical/panel.ts`.
+
+**Two organization accounts, and the second is not a duplicate.** There are two organization
+populations here by design (D2): Northside's 4,820 have no names so a drilldown is
+impossible, and the 240 do. An organization sees its own tenant, so one account cannot report
+on both. `org.demo` stays on Northside and correctly renders **empty** on the population
+screen; `network.demo` operates NE Care Network A. This is only possible because D3 made
+scope a read of the session rather than a count of organization tenants.
+
+**Defects this wave surfaced:**
+
+1. **A silent zero.** The population overview returned `ready` with every figure at zero for
+   an organization holding none of the demo population — a console reporting "0 covered, 0
+   active, 0 improved" has told the reader something false with great confidence. It now
+   returns `empty` with a reason.
+2. **`refreshDemoDaily` wrote today's check-in with a defaulted tenant.** Correct for exactly
+   as long as every demo member lived in the platform tenant. Once Alex and Sam moved, that
+   was the one row of theirs still filed under the old tenant, and replay caught it.
+3. **An import cycle.** `db.ts` computed a tenant id at module load from a module that
+   imports back from `db.ts`; the cycle resolved with one side undefined and announced itself
+   as "cannot read DATASET_VERSION of undefined" in an unrelated test file. Third instance
+   this handoff of the same root cause — configuration evaluated at module load.
+4. **A header reading 0%.** The organization shell counts `care.started`, which the Wave 3
+   generator never emitted, so a fully-engaged demo network reported "0 of 44 started care".
+   The generator now writes the access pathway, which makes handoff 06's funnel screens work
+   over these tenants too.
+
+**Four of my own guards could not fail, and were rewritten.** An empty-group check measured
+140 characters past the heading and was reading its neighbour's; a denominator check accepted
+any "of N" within 80 characters and passed on a card whose own denominator had been deleted;
+a panel-ranking check tripped on the sentence disclaiming ranking; and the `affirmative()`
+helper — the project's existing fix for that last family — split on newlines, so any
+disclaimer that wrapped across two lines lost its negation. That helper is fixed in both
+files that use it.
 
 ### Wave 5 — Metrics
 **Spec: pp32–33, 48. Exit evidence: metric fixtures match hand calculations.**

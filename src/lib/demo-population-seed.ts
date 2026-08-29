@@ -6,6 +6,7 @@ import {
   type ManifestRow, type Region,
 } from "./demo-population-manifest";
 import { displayName, pick, MEMBER_NOTES } from "./demo-population-dictionaries";
+import { ALEX_ID, SAM_ID, DEMO_CLINICIAN_ID } from "./demo-seed";
 
 // The 240-profile demo population (handoff 07 §2, pp10–29).
 //
@@ -69,6 +70,26 @@ export function armFor(clinician: string): "A" | "B" {
 
 export function tenantForRow(row: ManifestRow): string {
   return orgTenantId(row.region, armFor(row.clinician));
+}
+
+/**
+ * The person id behind a manifest clinician code.
+ *
+ * NE-C1 resolves to the DEMO CLINICIAN ACCOUNT rather than to a person of its
+ * own, so that `clinician.demo@steady.local` is one of p11's twelve rather
+ * than a thirteenth standing beside them. The consequence is the point: the
+ * `clinician.reviewed` events the generator authors for NE-C1 are attributed
+ * to the account a presenter signs in as, so the console shows "my reviews"
+ * rather than someone else's.
+ *
+ * The other eleven are persons with no account. Nobody signs in as them, and
+ * eleven unused logins would be eleven more credentials to rotate for no
+ * demonstration value.
+ */
+export const DEMO_CLINICIAN_CODE = "NE-C1";
+
+export function clinicianPersonId(code: string): string {
+  return code === DEMO_CLINICIAN_CODE ? DEMO_CLINICIAN_ID : popId("clinician", code);
 }
 
 export function seedPopulationData(db: Database.Database) {
@@ -135,14 +156,24 @@ function seedPopulationInner(db: Database.Database) {
      VALUES (?, ?, ?, 'behavioral-health', 'covered', ?, ?)`,
   );
 
+  // The narrative personas move first: NE-C1's role assignment below points at
+  // the demo clinician's person row, which does not exist until this runs.
+  bindNarrativePersonas(db);
+
   // The twelve clinicians (p11). PERSONS with a role assignment, not accounts:
   // nobody signs in as them, and creating twelve logins that no one uses would
   // be twelve more credentials to rotate for no demonstration value.
   for (const region of Object.keys(REGION_NAMES) as Region[]) {
     for (const n of [1, 2, 3]) {
       const code = `${region}-C${n}`;
-      const id = popId("clinician", code);
+      const id = clinicianPersonId(code);
       const tenant = orgTenantId(region, armFor(code));
+      // NE-C1 is the demo clinician's own account, seeded already. It gets a
+      // role assignment in this tenant below, not a second person row.
+      if (code === DEMO_CLINICIAN_CODE) {
+        insertRole.run(popId("role", code), id, tenant, "clinician", sql(at(EPOCH_DAYS + 20)));
+        continue;
+      }
       // A clinician's own seed, from the region offset plus 900 + n, so it
       // cannot collide with any of the 240 profile seeds (which end 001–060).
       const clinicianSeed = REGION_SEED_OFFSET[region] + 900 + n;
@@ -191,6 +222,85 @@ function seedPopulationInner(db: Database.Database) {
     insertEnrollment.run(
       popId("enrollment", row.id), id, tenant, sql(at(enrolledDaysAgo)), sql(at(enrolledDaysAgo)),
     );
+  }
+}
+
+/**
+ * Move the demo clinician and the two narrative members into NE Care Network A.
+ *
+ * The caseload is TENANT-scoped, so a clinician in the platform tenant has an
+ * empty panel over a population that lives in organization tenants. Three
+ * options were open and two were wrong: a cross-tenant panel would break the
+ * scoping every other guard in this project enforces, and leaving the demo
+ * clinician where they were would mean the 240 could be aggregated but never
+ * opened.
+ *
+ * Alex and Sam move with them because they are the two people with a full
+ * hand-authored story — consent, safety plan, companion memory, an urgent
+ * queue entry — and a clinician console that shows forty generated profiles
+ * and neither of them is a worse demonstration than one that shows both.
+ *
+ * Their two rows join NE Care Network A's counts. That is a real effect on the
+ * organization console's denominators, and it is correct: they are enrolled
+ * there now.
+ */
+function bindNarrativePersonas(db: Database.Database) {
+  const tenant = orgTenantId("NE", "A");
+  const moveUser = db.prepare("UPDATE users SET tenant_id = ? WHERE id = ?");
+  // The person row may not exist yet. `backfillIdentitySpine` mirrors users
+  // onto persons AFTER seeding in both the boot and the reset path, so an
+  // UPDATE here would be a silent no-op on a fresh database and would work
+  // fine on an existing one — the most expensive kind of bug, because it only
+  // appears on the path nobody runs locally.
+  //
+  // Inserting with ON CONFLICT DO NOTHING creates it if the backfill has not
+  // yet, and defers to the backfill if it has. Same pattern and same reason as
+  // the platform tenant above.
+  const ensurePerson = db.prepare(
+    `INSERT INTO persons (id, tenant_id, display_name)
+       SELECT id, ?, name FROM users WHERE id = ?
+     ON CONFLICT(id) DO NOTHING`);
+  const movePerson = db.prepare("UPDATE persons SET tenant_id = ? WHERE id = ?");
+  const attrs = db.prepare(
+    `INSERT INTO person_attributes
+       (person_id, tenant_id, age_band, race_json, ethnicity, preferred_language,
+        census_region, state, socioeconomic_context, source)
+     VALUES (?, ?, ?, '[]', NULL, 'English', 'Northeast', ?, 'standard', 'self_reported')
+     ON CONFLICT(person_id) DO NOTHING`);
+  for (const id of [DEMO_CLINICIAN_ID, ALEX_ID, SAM_ID]) {
+    moveUser.run(tenant, id);
+    ensurePerson.run(tenant, id);
+    movePerson.run(tenant, id);
+  }
+  // Alex and Sam get attributes because they are now enrolled in a real
+  // organization and appear in its counts. Without them they fell into an
+  // "Unrecorded" region bucket of two people, which the regional breakdown
+  // then had to suppress — a two-person row that exists only because two
+  // people were left half-described.
+  //
+  // Race and ethnicity are left NULL rather than invented. p13 requires these
+  // to be SELF-DESCRIBED and to show unknown separately from missing; guessing
+  // them for a persona in order to tidy a chart is the exact inference the
+  // rule forbids. The clinician is deliberately not given attributes at all —
+  // they are staff, not a member of the reported population.
+  attrs.run(ALEX_ID, tenant, "25-34", "MA");
+  attrs.run(SAM_ID, tenant, "35-44", "NY");
+  // Their existing records move too, or a tenant-scoped read of a person's own
+  // history returns nothing while the person themselves is visible — the worst
+  // of both, and exactly the shape of the cross-tenant defect the backfill had.
+  for (const table of [
+    "consents", "screenings", "checkins", "therapy_sessions", "practice_completions",
+    "lesson_reads", "module_unlocks", "alerts", "safety_plans", "user_profiles",
+    "readiness_assessments", "post_session_checks", "program_plans", "care_tracks",
+  ]) {
+    try {
+      db.prepare(`UPDATE ${table} SET tenant_id = ? WHERE user_id IN (?, ?, ?)`)
+        .run(tenant, DEMO_CLINICIAN_ID, ALEX_ID, SAM_ID);
+    } catch {
+      // A table without a user_id column is not an error here: this list is
+      // deliberately generous, and a miss would be caught by the cross-tenant
+      // quality check rather than by hoping the list is complete.
+    }
   }
 }
 

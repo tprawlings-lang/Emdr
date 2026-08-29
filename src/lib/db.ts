@@ -5,7 +5,7 @@ import crypto from "crypto";
 import { seedDemoData, demoId, demoPassword } from "./demo-seed";
 import { seedOrgData, ORG_TENANT_ID } from "./demo-org-seed";
 import { seedPayerData, PAYER_TENANT_ID } from "./demo-payer-seed";
-import { seedPopulationData } from "./demo-population-seed";
+import { seedPopulationData, orgTenantId } from "./demo-population-seed";
 import { generatePopulationHistory } from "./demo-population-generator";
 import { ulid, NIL_ULID, ulidFrom } from "./ids";
 
@@ -54,17 +54,25 @@ function refreshDemoDaily(db: Database.Database) {
   if (process.env.EMDR_DEMO !== "1") return;
   const today = new Date().toISOString().slice(0, 10);
   for (const email of ["patient.demo@steady.local", "patient2.demo@steady.local"]) {
-    const m = db.prepare("SELECT id FROM users WHERE email = ?").get(email) as { id: string } | undefined;
+    // The TENANT is read with the id, and that is a correction. This insert
+    // omitted tenant_id and took the column default — the platform tenant —
+    // which was right for exactly as long as every demo member lived there.
+    // Once Alex and Sam moved into NE Care Network A, today's check-in was the
+    // one row of theirs still filed under the old tenant, and replay caught it
+    // immediately: the ledger rebuilt it into the person's tenant while the
+    // live row said platform.
+    const m = db.prepare("SELECT id, tenant_id FROM users WHERE email = ?").get(email) as
+      | { id: string; tenant_id: string } | undefined;
     if (!m) continue;
     const has = db.prepare("SELECT 1 FROM checkins WHERE user_id = ? AND checkin_date = ?").get(m.id, today);
     if (has) continue;
     db.prepare(
-      `INSERT INTO checkins (id, user_id, checkin_date, activation, shutdown, harm_urge, feels_safe,
-         dissociation, sleep_quality, substance_flag, recommended_action)
-       VALUES (?, ?, ?, 3, 1, 0, 1, 1, 6, 0, 'processing_ok')`
+      `INSERT INTO checkins (id, user_id, tenant_id, checkin_date, activation, shutdown, harm_urge,
+         feels_safe, dissociation, sleep_quality, substance_flag, recommended_action)
+       VALUES (?, ?, ?, ?, 3, 1, 0, 1, 1, 6, 0, 'processing_ok')`
       // Deterministic per member per day, so a reset reproduces it and a
       // second boot on the same day cannot create a duplicate.
-    ).run(demoId(0, `checkin:${m.id}:${today}`), m.id, today);
+    ).run(demoId(0, `checkin:${m.id}:${today}`), m.id, m.tenant_id, today);
   }
 }
 
@@ -1076,9 +1084,21 @@ export function seedDemo(db: Database.Database) {
  * deducing, and §30.6 step 1 says to resolve it before anything else.
  */
 function bindAggregateAccounts(db: Database.Database) {
+  // Computed HERE, not at module load. A top-level `const NE_NETWORK_A =
+  // orgTenantId("NE", "A")` forced demo-population-seed to finish evaluating
+  // during this module's own evaluation — and that module imports
+  // PLATFORM_TENANT_ID back from here, so the cycle resolved with one side
+  // still undefined. It surfaced as "cannot read DATASET_VERSION of
+  // undefined" in an unrelated test file, which is how import cycles always
+  // announce themselves.
+  const neNetworkA = orgTenantId("NE", "A");
   const bind = db.prepare("UPDATE users SET tenant_id = ? WHERE email = ? AND role = ?");
   bind.run(ORG_TENANT_ID, "org.demo@steady.local", "organization");
   bind.run(PAYER_TENANT_ID, "payer.demo@steady.local", "payer");
+  // The network operator reports on a demo care network rather than on
+  // Northside — the two organization populations are separate by design (the
+  // 4,820 have no names; the 240 do), and one account cannot see both.
+  bind.run(neNetworkA, "network.demo@steady.local", "organization");
   // The identity spine mirrors users onto persons, so the person row has to
   // move with the account or the two disagree about which tenant it is in.
   const bindPerson = db.prepare(
@@ -1086,6 +1106,7 @@ function bindAggregateAccounts(db: Database.Database) {
   );
   bindPerson.run(ORG_TENANT_ID, "org.demo@steady.local");
   bindPerson.run(PAYER_TENANT_ID, "payer.demo@steady.local");
+  bindPerson.run(neNetworkA, "network.demo@steady.local");
 }
 
 function seed(db: Database.Database) {

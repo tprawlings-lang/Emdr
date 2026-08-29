@@ -16,6 +16,7 @@ import { hasData } from "@/lib/presentation/envelope";
 // clinician console already uses.
 
 export const ORG_SCREENS: Array<{ href: string; label: string; layer: RailSlug }> = [
+  { href: "/organization/population", label: "Population", layer: "overview" },
   { href: "/organization/overview", label: "Operating overview", layer: "overview" },
   { href: "/organization/safety", label: "Safety operations", layer: "overview" },
   { href: "/organization/outcomes", label: "Outcomes", layer: "progress" },
