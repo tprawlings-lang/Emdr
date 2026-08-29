@@ -1,7 +1,8 @@
 import { PayerPage } from "@/components/app/PayerPage";
 import { EnvelopeView } from "@/components/presentation/EnvelopeView";
 import { PopulationOverviewView } from "@/components/app/PopulationOverviewView";
-import { buildPopulationOverview, populationTenants } from "@/lib/intelligence/population";
+import { MetricPanel } from "@/components/app/MetricPanel";
+import { buildMetricPanel, buildPopulationOverview, populationTenants } from "@/lib/intelligence/population";
 import { resolvePayerTenant } from "@/lib/intelligence/scope";
 
 export const dynamic = "force-dynamic";
@@ -25,6 +26,9 @@ export default async function PayerPopulationPage() {
   // says so, rather than reporting on a population it has no claim to.
   const tenants = payerTenant ? await populationTenants() : [];
   const envelope = await buildPopulationOverview(tenants);
+  // The dictionary, computed over the same scope. Read as typed results — the
+  // screen divides nothing.
+  const metrics = await buildMetricPanel(tenants);
 
   return (
     <PayerPage
@@ -38,6 +42,10 @@ export default async function PayerPopulationPage() {
           <PopulationOverviewView data={data} meta={envelope.meta} audience="payer" />
         )}
       </EnvelopeView>
+
+      <div className="mt-6">
+        <MetricPanel results={metrics} />
+      </div>
     </PayerPage>
   );
 }
