@@ -1,4 +1,6 @@
 import { notFound } from "next/navigation";
+import { ClinicalFigure, EventTimeline } from "@/components/charts/clinical";
+import { buildSafetyTimeline } from "@/lib/clinical/safety-timeline";
 import { requireClinician } from "@/lib/auth";
 import { data } from "@/lib/data";
 import { activePolicy } from "@/lib/clinical-policy";
@@ -52,12 +54,31 @@ export default async function SafetyReviewPage({
   const open = mine.filter((a) => a.status === "open");
   const closed = mine.filter((a) => a.status === "reviewed");
 
+  // What the fixed gates did, in order, and what a person did about each.
+  const timeline = await buildSafetyTimeline(id, tenantId);
+
   return (
     <PersonShell person={person} active="/safety" title="Safety review">
       {error && (
         <p className="mb-4 rounded-2xl border border-state-support/40 bg-state-support-bg/50 px-4 py-3 text-sm text-ground">
           {error}
         </p>
+      )}
+
+      {timeline && (
+        <section className="mb-8 rounded-2xl border border-ground/10 bg-app-surface px-5 py-5">
+          <ClinicalFigure
+            title="Fixed gate events and human response"
+            summary={`${timeline.events.length} safety events in order, each showing the rule that fired and whether a person responded.`}
+            footnote={
+              timeline.awaitingResponse > 0
+                ? `${timeline.awaitingResponse} gate event(s) have no recorded human response. Every mark is an event that happened; nothing here is computed forward.`
+                : "Every gate event on record has a documented human response. Every mark is an event that happened; nothing here is computed forward."
+            }
+          >
+            <EventTimeline events={timeline.events} />
+          </ClinicalFigure>
+        </section>
       )}
 
       <section aria-labelledby="open">
