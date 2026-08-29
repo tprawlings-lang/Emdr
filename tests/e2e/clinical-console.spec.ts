@@ -335,3 +335,59 @@ test("the directory stays a directory, not a second triage queue", async ({ page
   // that disagree is worse than one.
   await expect(page.getByTestId("band")).toHaveCount(0);
 });
+
+// ---------------------------------------------------------------------------
+// §29's person-level charts
+// ---------------------------------------------------------------------------
+
+async function openMemberWithSessions(page: import("@playwright/test").Page): Promise<string> {
+  await page.goto("/clinician/caseload");
+  const hrefs = await page
+    .locator('a[href*="/clinician/member/"]')
+    .evaluateAll((as) => as.map((a) => a.getAttribute("href")));
+  const ids = [...new Set(hrefs.filter(Boolean).map((h) => (h as string).split("/")[3]))];
+  // The seeded member with a session history is the second in the caseload.
+  return ids[1] ?? ids[0];
+}
+
+test("session response shows both readings, and keeps the session that went the wrong way", async ({ page }) => {
+  await signInAsClinician(page);
+  const id = await openMemberWithSessions(page);
+  await page.goto(`/clinician/member/${id}/sessions`);
+
+  await expect(page.getByText("Activation before and after each session")).toBeVisible();
+
+  // The hard stop is the row a clinician most needs, and it is the one a
+  // status filter would remove: it opened at 6 and closed at 9.
+  await expect(page.getByText("6 → 9")).toBeVisible();
+  await expect(page.getByText("higher at close")).toBeVisible();
+
+  // The footnote accounts for every session in the window: how many were
+  // looked at, and how many of the plotted ones recorded a close. Whether the
+  // seed happens to contain an unplottable session depends on the time of day
+  // the demo was built, so the assertion is on the ACCOUNTING being present,
+  // not on a particular gap existing.
+  await expect(page.getByText(/Last \d+ sessions\./)).toBeVisible();
+  await expect(page.getByText(/recorded a reading at close/)).toBeVisible();
+});
+
+test("the safety timeline shows fixed gates and never a risk score", async ({ page }) => {
+  await signInAsClinician(page);
+  const id = await openMemberWithSessions(page);
+  await page.goto(`/clinician/member/${id}/safety`);
+
+  await expect(page.getByText("Fixed gate events and human response")).toBeVisible();
+  // The marks carry a word, not only a colour.
+  await expect(page.getByText("BLOCK", { exact: true })).toBeVisible();
+  await expect(page.getByText("CLEAR", { exact: true })).toBeVisible();
+
+  // §29.1's rule, stated on the screen a clinician reads.
+  await expect(page.getByText(/No predictive risk score/)).toBeVisible();
+
+  // And nothing on the page offers a forward-looking number. The screen's own
+  // disclaimer says the words "risk score", so it comes out before the scan —
+  // otherwise the safeguard reads as the violation.
+  const body = (await page.locator("main").innerText())
+    .replace(/No predictive risk score[^.]*\./g, " ");
+  expect(body).not.toMatch(/\b(risk score|likelihood|probability of|predicted)\b/i);
+});

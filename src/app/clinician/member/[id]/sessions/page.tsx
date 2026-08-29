@@ -6,6 +6,8 @@ import { getModule } from "@/lib/modules";
 import { loadPersonHeader } from "@/lib/clinical/person-header";
 import { PersonShell } from "@/components/clinical/PersonShell";
 import { EmptyState, relativeAge } from "@/components/clinical/primitives";
+import { ClinicalFigure, Slope } from "@/components/charts/clinical";
+import { buildSessionResponse } from "@/lib/clinical/session-response";
 
 export const dynamic = "force-dynamic";
 
@@ -49,11 +51,34 @@ export default async function SessionsPage({ params }: { params: Promise<{ id: s
     hard_stop_reason: string | null; started_at: string; ended_at: string | null;
   }>;
 
+  // The pattern, above the list. A clinician scanning this asks whether
+  // sessions are settling this person before they ask about any one session.
+  const response = await buildSessionResponse(id);
+
   return (
     <PersonShell person={person} active="/sessions" title="Sessions">
       <h2 className="type-display text-xl font-medium text-ground">
         Sessions <span className="text-base font-normal text-olive">({rows.length})</span>
       </h2>
+
+      {response && (
+        <section className="mb-8 rounded-2xl border border-ground/10 bg-app-surface px-5 py-5">
+          <ClinicalFigure
+            title="Activation before and after each session"
+            summary={`Opening and closing activation for the last ${response.rows.length} sessions, on a 0 to ${response.scaleMax} scale.`}
+            footnote={[
+              `Last ${response.total} sessions.`,
+              response.noOpening > 0
+                ? `${response.noOpening} recorded no opening reading and cannot be placed on this scale.`
+                : null,
+              `${response.withClose} of ${response.rows.length} plotted sessions recorded a reading at close; the rest keep their row and say why.`,
+              "One session does not establish that anything changed.",
+            ].filter(Boolean).join(" ")}
+          >
+            <Slope rows={response.rows} max={response.scaleMax} />
+          </ClinicalFigure>
+        </section>
+      )}
 
       {rows.length === 0 ? (
         <div className="mt-3">
