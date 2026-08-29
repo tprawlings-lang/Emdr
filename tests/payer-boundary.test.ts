@@ -46,8 +46,19 @@ function code(src: string): string {
  */
 function affirmative(src: string): string {
   return src
-    .split(/(?<=[.!?])\s+|\n/)
-    .filter((sentence) => !/\b(no|not|never|nothing|neither|without)\b/i.test(sentence))
+    // Whitespace is collapsed FIRST, so a sentence wrapped across source lines
+    // rejoins before it is split. The previous version split on newlines too,
+    // which severs any disclaimer that wraps — leaving a fragment with no
+    // negation in it, and a guard that reports the disclaimer as the
+    // violation. This file's version passed only because its disclaimers
+    // happened to fit on one line.
+    .replace(/\s+/g, " ")
+    // Split on sentence AND statement terminators. Prose ends in a full stop;
+    // code ends in a semicolon or a brace. Without the second kind an entire
+    // source file collapses into one chunk, and one negation anywhere in it
+    // would excuse everything else.
+    .split(/(?<=[.!?;}])\s+/)
+    .filter((chunk) => !/\b(no|not|never|nothing|neither|without|forbids?)\b/i.test(chunk))
     .join(" ");
 }
 function walk(dir: string): string[] {

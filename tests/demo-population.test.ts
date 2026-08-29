@@ -20,7 +20,7 @@ import test from "node:test";
 import fs from "node:fs";
 import path from "node:path";
 import {
-  MANIFEST, checkManifest, seedFor, DATASET_VERSION,
+  MANIFEST, MANIFEST_EMAIL_LIKE, checkManifest, seedFor, DATASET_VERSION,
 } from "../src/lib/demo-population-manifest";
 import { orgTenantId, armFor, tenantForRow, REGION_NAMES } from "../src/lib/demo-population-seed";
 import { getDb } from "../src/lib/db";
@@ -186,11 +186,18 @@ test("eight demo organizations, two per region, and everyone is inside one", () 
 test("the seeded population lands in the database with its attributes", async () => {
   getDb();
   const c = await data();
-  const n = (await c.get("SELECT COUNT(*) AS n FROM person_attributes", [])) as { n: number };
+  // Scoped to the manifest profiles, because "has attributes" is a larger set:
+  // Alex and Sam were enrolled into NE Care Network A and given attributes of
+  // their own, which is right and makes person_attributes 242.
+  const n = (await c.get(
+    `SELECT COUNT(*) AS n FROM person_attributes a
+       JOIN users u ON u.id = a.person_id WHERE u.email LIKE ?`, [MANIFEST_EMAIL_LIKE],
+  )) as { n: number };
   assert.equal(Number(n.n), 240, "the demo population did not seed");
 
   const byRegion = (await c.all(
-    "SELECT census_region, COUNT(*) AS n FROM person_attributes GROUP BY 1", [],
+    `SELECT a.census_region, COUNT(*) AS n FROM person_attributes a
+       JOIN users u ON u.id = a.person_id WHERE u.email LIKE ? GROUP BY 1`, [MANIFEST_EMAIL_LIKE],
   )) as { census_region: string; n: number }[];
   assert.equal(byRegion.length, 4);
   for (const r of byRegion) assert.equal(Number(r.n), 60, `${r.census_region} has ${r.n} people`);
@@ -205,8 +212,8 @@ test("the 240 have names and the 4,820 still do not", async () => {
   const c = await data();
   const named = (await c.get(
     `SELECT COUNT(*) AS n FROM persons p
-       JOIN person_attributes a ON a.person_id = p.id
-      WHERE p.display_name IS NOT NULL`, [],
+       JOIN users u ON u.id = p.id
+      WHERE u.email LIKE ? AND p.display_name IS NOT NULL`, [MANIFEST_EMAIL_LIKE],
   )) as { n: number };
   assert.equal(Number(named.n), 240, "the demo population has no names, so no panel can show it");
 
@@ -246,7 +253,7 @@ test("every fabricated name says so", async () => {
   const c = await data();
   const rows = (await c.all(
     `SELECT p.display_name AS n FROM persons p
-       JOIN person_attributes a ON a.person_id = p.id LIMIT 500`, [],
+       JOIN users u ON u.id = p.id WHERE u.email LIKE ? LIMIT 500`, [MANIFEST_EMAIL_LIKE],
   )) as { n: string }[];
   const unmarked = rows.filter((r) => !/fabricated|fictional/i.test(r.n));
   assert.deepEqual(unmarked.map((r) => r.n), [],

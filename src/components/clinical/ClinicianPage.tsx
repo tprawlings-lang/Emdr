@@ -23,6 +23,7 @@ export const CONSOLE_SCREENS: Array<{
   layer: RailSlug;
 }> = [
   { href: "/clinician/today", label: "Work queue", layer: "overview" },
+  { href: "/clinician/population", label: "Population", layer: "overview" },
   { href: "/clinician/caseload", label: "Caseload", layer: "progress" },
   { href: "/clinician/patients", label: "Patients", layer: "progress" },
   { href: "/clinician/handoffs", label: "Handoffs", layer: "actions" },

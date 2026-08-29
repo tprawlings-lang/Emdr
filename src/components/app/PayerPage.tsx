@@ -11,6 +11,7 @@ import { hasData } from "@/lib/presentation/envelope";
 // The payer console shell (§26's ten payer screens, §28's frame).
 
 export const PAYER_SCREENS: Array<{ href: string; label: string; layer: RailSlug }> = [
+  { href: "/payer/population", label: "Population", layer: "overview" },
   { href: "/payer/overview", label: "Population overview", layer: "overview" },
   { href: "/payer/utilization", label: "Utilisation", layer: "overview" },
   { href: "/payer/outcomes", label: "Outcomes", layer: "progress" },

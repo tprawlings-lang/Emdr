@@ -23,6 +23,7 @@ failure as any other wrong pairing.
 | **Clinician** | `clinician.demo@steady.local` | `clinician1234` | `/clinician/today` |
 | **Reviewer** | `reviewer.demo@steady.local` | `reviewer1234` | `/review/safety` |
 | **Organization** | `org.demo@steady.local` | `org1234` | `/organization/overview` |
+| Organization (demo network) | `network.demo@steady.local` | `org1234` | `/organization/overview` |
 | **Payer** | `payer.demo@steady.local` | `payer1234` | `/payer/overview` |
 | **Demo Admin** | `admin.demo@steady.local` | `demoadmin1234` | `/admin/demo` |
 
@@ -42,9 +43,10 @@ reserved ranges reaches a public page.
 |---|---|---|
 | `patient.demo@steady.local` | Alex Rivera | Three weeks into the programme and improving. Consent, processing-session consent, baseline and follow-up measures, check-ins, a safety plan, companion memory. The end-to-end member experience |
 | `patient2.demo@steady.local` | Sam Okafor | Two days in, and PHQ-9 item 9 tripped the urgent queue. **Deliberately has no processing-session consent** — a demo where every gate is pre-satisfied demonstrates nothing about the gates |
-| `clinician.demo@steady.local` | Dr. Maya Chen | The clinical console: caseload, safety queue, cited summaries, module decisions, autonomous-flow sign-off |
+| `clinician.demo@steady.local` | Dr. Maya Chen | Clinician **NE-C1** in NE Care Network A: a panel of 42 — forty of the fabricated profiles plus Alex and Sam — with 84 reviews attributed to this account. Caseload, safety queue, cited summaries, module decisions |
 | `reviewer.demo@steady.local` | Dr. Ellis Nakamura | The review console: fixed safety-scenario replay, BLS oversight, the testing console, the audit trail |
-| `org.demo@steady.local` | Jordan Idowu | Northside Behavioral Health — 4,820 covered lives across four sites. Aggregate only |
+| `org.demo@steady.local` | Jordan Idowu | Northside Behavioral Health — 4,820 covered lives across four sites, none of them named. Aggregate only |
+| `network.demo@steady.local` | Dana Okonkwo | NE Care Network A — 42 of the 240 fabricated profiles. The account to use for the **Population** screen; `org.demo` reports on a different population and says so |
 | `payer.demo@steady.local` | Priya Raman | Meridian Health Plan — 12,480 covered lives, one contract, five measures, 1,635 claims. Aggregate only |
 | `admin.demo@steady.local` | Robin Achebe | Every fabricated tenant, person and event; environment state and QA |
 

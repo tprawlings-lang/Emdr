@@ -1,5 +1,5 @@
 import type Database from "better-sqlite3";
-import { MANIFEST, checkManifest, type CheckResult } from "./demo-population-manifest";
+import { MANIFEST, MANIFEST_EMAIL_LIKE, checkManifest, type CheckResult } from "./demo-population-manifest";
 import { TARGETS } from "./demo-population-generator";
 
 // The data-quality manifest (handoff 07 §2.8, p29).
@@ -26,7 +26,10 @@ export function runQualityChecks(db: Database.Database): CheckResult[] {
   const one = (sql: string): number =>
     Number((db.prepare(sql).get() as { n: number } | undefined)?.n ?? 0);
 
-  const POP = "(SELECT id FROM users WHERE email LIKE 'st-%@steady.local')";
+  // Scoped to the MANIFEST profiles. Not "everyone with demographic
+  // attributes": Alex and Sam were enrolled into NE Care Network A and given
+  // attributes of their own, which is correct and makes that set 242.
+  const POP = `(SELECT id FROM users WHERE email LIKE '${MANIFEST_EMAIL_LIKE}')`;
 
   const out: CheckResult[] = [...checkManifest()];
 
@@ -62,8 +65,8 @@ export function runQualityChecks(db: Database.Database): CheckResult[] {
   // building still carries it.
   const unmarkedPeople = one(
     `SELECT COUNT(*) AS n FROM persons p
-       JOIN person_attributes a ON a.person_id = p.id
-      WHERE p.display_name IS NULL OR p.display_name NOT LIKE '%fabricated%'`);
+      WHERE p.id IN ${POP}
+        AND (p.display_name IS NULL OR p.display_name NOT LIKE '%fabricated%')`);
   out.push({
     check: "Fabricated flag — people", expected: "0 unmarked",
     actual: String(unmarkedPeople), pass: unmarkedPeople === 0,
@@ -121,7 +124,7 @@ export function runQualityChecks(db: Database.Database): CheckResult[] {
   });
 
   // ── The population is present at all ───────────────────────────────────
-  const accounts = one(`SELECT COUNT(*) AS n FROM users WHERE email LIKE 'st-%@steady.local'`);
+  const accounts = one(`SELECT COUNT(*) AS n FROM users WHERE email LIKE '${MANIFEST_EMAIL_LIKE}'`);
   out.push({
     check: "Accounts", expected: `${MANIFEST.length}`, actual: String(accounts),
     pass: accounts === MANIFEST.length,

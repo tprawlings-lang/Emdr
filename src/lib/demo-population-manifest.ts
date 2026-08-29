@@ -71,6 +71,21 @@ export interface ManifestRow {
 export const DATASET_VERSION = "demo-population-v1";
 
 /**
+ * How a manifest profile is recognised in the database.
+ *
+ * Needed because "has demographic attributes" stopped meaning "is one of the
+ * 240" the moment Alex and Sam were enrolled into NE Care Network A and given
+ * attributes of their own — which was correct, and immediately made three
+ * counts read 242. A check that says 240 and means "the manifest" has to say
+ * which rows it means.
+ */
+export const MANIFEST_EMAIL_LIKE = "st-%@steady.local";
+
+export function manifestEmail(id: string): string {
+  return `${id.toLowerCase()}@steady.local`;
+}
+
+/**
  * One stable seed per profile (p14).
  *
  * The formula is ours and stated here, deliberately. p15 prints one example
