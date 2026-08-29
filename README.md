@@ -605,6 +605,38 @@ Tracked so they are not lost between sessions:
 
 ---
 
+## Project direction: from prototype to platform
+
+Steady is being built in stages from the current wellness prototype into one longitudinal behavioral-health system with three connected product surfaces:
+
+- **Steady Personal:** the continuous patient relationship between appointments.
+- **Steady Clinical:** supervised workflow for clinicians and care managers.
+- **Steady Intelligence:** future population, navigation, outcome, utilization, and cost intelligence for healthcare organizations and payers.
+
+The governing engineering rule is: **design from Handoff E backward and implement from Handoff A forward.** Early implementation choices must preserve the identity, event, provenance, consent, tenant, clinical, interoperability, outcome, and cost contracts required by later stages.
+
+The current objective is an investor-ready and clinician-supervised prototype. Code may be expanded for demonstrations and controlled testing. Nothing becomes available to consumers or the public until the applicable clinical, cybersecurity, privacy, legal, and operational review gates are complete. Autonomous bilateral stimulation and trauma reprocessing remain disabled unless their separate approval gates are completed.
+
+### Where the execution documents live
+
+| Need | Repository location |
+|---|---|
+| Strategy overview and document index | [`docs/strategy/README.md`](docs/strategy/README.md) |
+| Engineering narrative and roadmap | [`docs/strategy/Steady_Engineering_Executive_Summary.pdf`](docs/strategy/Steady_Engineering_Executive_Summary.pdf) |
+| Master Handoffs A through E | [`docs/strategy/Steady_Master_Engineering_Handoff_Series_A_to_E.pdf`](docs/strategy/Steady_Master_Engineering_Handoff_Series_A_to_E.pdf) |
+| Investor future-platform narrative | [`docs/strategy/Steady_Future_Platform_VC.pdf`](docs/strategy/Steady_Future_Platform_VC.pdf) |
+| Active investor-prototype build plan | [`docs/strategy/INVESTOR_PROTOTYPE_PHASE_0_BUILD_PLAN.md`](docs/strategy/INVESTOR_PROTOTYPE_PHASE_0_BUILD_PLAN.md) |
+| Clinical and autonomous review evidence | [`docs/autonomous/`](docs/autonomous/) |
+| Consolidated approval and testing gates | [`docs/signoff-checklist.md`](docs/signoff-checklist.md) |
+| Compliance status and founder actions | [`COMPLIANCE.md`](COMPLIANCE.md), [`docs/audit-open-items.md`](docs/audit-open-items.md) |
+| Architecture decisions | [`docs/adr/`](docs/adr/) |
+| API contracts | [`openapi.yaml`](openapi.yaml), [`docs/api.md`](docs/api.md) |
+| Application and tests | [`src/`](src/), [`tests/`](tests/) |
+
+Planning history is preserved rather than silently replaced. New decisions should be recorded through dated documents or Architecture Decision Records, and implementation should proceed through tested pull requests.
+
+---
+
 ## Start here — pick your path
 
 | If you are… | Read this | Why |
