@@ -16,14 +16,14 @@ test("the caseload orders by clinical need and always shows its reason", async (
   await signInAsClinician(page);
   await page.goto("/clinician/caseload");
 
-  await expect(page.getByRole("heading", { name: "Steady Clinical" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Caseload", level: 1 })).toBeVisible();
 
   // A demonstration surface must never imply approval (handoff §2).
   await expect(page.getByText(/Provisional configuration/)).toBeVisible();
   await expect(page.getByText(/not clinically approved/)).toBeVisible();
 
   // Bands are visible, and the demo dataset produces at least one flagged member.
-  await expect(page.getByRole("heading", { name: "Caseload" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Caseload", level: 1 })).toBeVisible();
 
   // The rule that matters most on this screen: a band never appears as a bare
   // label. Every row carrying a band carries at least one written reason.
@@ -202,7 +202,7 @@ test("the testing console shows what is exercisable and takes a change request",
   await signInAsClinician(page);
   await page.goto("/review/testing");
 
-  await expect(page.getByRole("heading", { name: "Clinician testing" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Testing console" })).toBeVisible();
   // The matrix reads live configuration, so a reviewer is never told a feature
   // is available with nowhere to go.
   const rows = page.getByTestId("exercise-row");

@@ -592,6 +592,76 @@ stops checking.
 **Verification:** test:safety 590, test:e2e 105, build clean. Every sub-route rendered against
 the seeded demo.
 
+## The retrofit — one visual system
+
+Reported as: *"why don't any of the screens look different on the clinician side."*
+
+The cause was that Wave 3 built new screens **beside** the old ones instead of restyling
+them. Comparing shipped content against `f006e97` — before this session:
+
+| Screen | Lines | Actually changed |
+|---|---|---|
+| `/review/audit` | 55 | **0** |
+| `/review/autonomous` | 553 | 2 |
+| `/review/bls` | 250 | 2 |
+| `/review/testing` | 241 | 4 |
+| `/clinician/patients` | 131 | 4 |
+| `/clinician/caseload` | 201 | 6 |
+| `…/member/[id]/record` | 361 | 8 |
+| `…/member/[id]/measures` | 392 | 83 |
+
+`/review/audit` was byte-identical. The rest changed only their route strings. **They were
+renamed and counted as delivered.** The commit message was accurate line by line and
+misleading overall; the summary was worse, claiming all 14 screens without saying eight were
+already there.
+
+The semantic palette compounded it: it was used in exactly the files written that week, so a
+clinician moving from Today to Caseload crossed from one design language into another — and
+the older one was most of their screens.
+
+### What the retrofit did
+
+- **The palette, everywhere.** 63 lines across nine clinician and review surfaces, then the
+  member side and `AuditView` when the guard found them too. Mapped by *meaning*, not hue:
+  `support` carried both "urgent" and "this is a support resource"; `pause` carried both
+  "caution" and "pending review". The semantic tokens split those, which is why it is a table
+  rather than a regex over colour names.
+- **The record joined the person shell.** It stood alone with its own header and back-link;
+  a clinician on it could not reach the safety, measures or session tabs without going out.
+- **The overview joined it too** — it was written *before* `PersonShell` existed and carried
+  its own copy of the sticky header, which is the header the shell was extracted from.
+- **Caseload rows use `PriorityBadge`, `OwnerChip`, `FreshnessLabel`.** The rows were tinted
+  by band, so a caseload read as four blocks of colour and the person's name competed with
+  the tint. Neutral card, state in the badge.
+- **The alert list stopped disagreeing with the rows beneath it** — two band treatments for
+  one concept, on one screen.
+- **The four review consoles share `ReviewPage`** — they opened at three widths with three
+  subtitle conventions.
+
+### Two things the retrofit itself surfaced
+
+**The caseload titled itself "Steady Clinical"** with the caseload as a subtitle — a leftover
+from when it was the console home, before §26 gave that job to `/clinician/today`. Renamed to
+"Caseload", which then collided with its own "Caseload" section heading; the section is now
+"People". A page and its section sharing a name says nothing, and it made the page heading
+ambiguous to anything looking for it.
+
+**Three e2e tests asserted the old headings.** Legitimate updates — the names changed on
+purpose — and the caseload assertion is now scoped to `level: 1` so a future section cannot
+make it ambiguous again.
+
+### The guard
+
+`tests/design-consistency.test.ts`: state is never expressed with the old brand tokens on any
+member, clinician or review surface; priority is styled in exactly one place (`primitives.tsx`
+is the definition, nobody else defines a second); the shelled surfaces stay shelled; and the
+person tab strip reaches all six sub-routes.
+
+It found three things I had missed when I first ran it — the member surfaces still on the old
+palette, `AuditView`, and the overview's duplicate header.
+
+**Verification:** test:safety 594, test:e2e 105, build clean.
+
 ## Not started
 
 Phase 2 (member shell), organization and payer workspaces (Phase 4), and human-factors

@@ -9,10 +9,10 @@ import type { ChainVerification } from "@/lib/audit";
 // is what stops that from coming back on the next surface someone adds.
 
 const KIND_STYLE: Record<AuditKind, string> = {
-  access: "bg-mist/25 text-ground border-mist/50",
+  access: "bg-state-info-bg/60 text-ground border-state-info/40",
   clinical: "bg-moss/40 text-ground border-sage/60",
-  safety: "bg-support/15 text-support-deep border-support/50",
-  consent: "bg-pause-soft text-ground border-pause/60",
+  safety: "bg-state-support-bg/60 text-state-support border-state-support/40",
+  consent: "bg-state-caution-bg text-ground border-state-caution/40",
   alert: "bg-linen text-ground border-ground/20",
   other: "bg-linen text-olive border-ground/10",
 };
@@ -26,8 +26,8 @@ export function ChainBanner({ chain }: { chain: ChainVerification }) {
       data-testid="chain-banner"
       className={`mt-4 rounded-2xl border px-4 py-3 text-sm ${
         chain.ok
-          ? "border-safe/40 bg-safe/10 text-ground"
-          : "border-support/50 bg-support/10 text-support-deep"
+          ? "border-state-safe/40 bg-state-safe-bg/60 text-ground"
+          : "border-state-support/40 bg-state-support-bg/60 text-state-support"
       }`}
     >
       {chain.ok ? (
@@ -99,7 +99,7 @@ export function AuditTable({
                   </span>
                 )}
                 {!e.chained && (
-                  <span className="ml-1 rounded bg-pause-soft px-1 py-0.5 text-[10px]">
+                  <span className="ml-1 rounded bg-state-caution-bg px-1 py-0.5 text-[10px]">
                     predates chaining
                   </span>
                 )}

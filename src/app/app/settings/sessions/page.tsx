@@ -31,7 +31,7 @@ export default async function SessionConsentPage() {
           <span className="font-medium">Status</span>
           <span
             className={`rounded-full px-3 py-1 text-xs ${
-              granted ? "bg-safe/25 text-ground" : "bg-linen text-olive"
+              granted ? "bg-state-safe-bg/60 text-ground" : "bg-linen text-olive"
             }`}
           >
             {granted ? "Consent on file" : "Not enabled"}

@@ -1,5 +1,8 @@
 import Link from "next/link";
+import { notFound } from "next/navigation";
 import { requireClinician } from "@/lib/auth";
+import { loadPersonHeader } from "@/lib/clinical/person-header";
+import { PersonShell } from "@/components/clinical/PersonShell";
 import { data } from "@/lib/data";
 import { PLATFORM_TENANT_ID } from "@/lib/db";
 import { memberTimeline, type TimelineLane } from "@/lib/clinical/timeline";
@@ -67,32 +70,43 @@ export default async function MemberClinicalRecord({
     );
   }
 
+  // The shared header. The member lookup above already established the tenant
+  // boundary; this adds the state, owner, freshness and consent the shell shows
+  // on every tab.
+  const person = await loadPersonHeader({ personId: id, clinicianId: clinician.id, tenantId });
+  if (!person) {
+    return (
+      <main className="mx-auto max-w-3xl px-6 py-10">
+        <h1 className="type-display text-2xl font-medium">Not found</h1>
+        <p className="mt-2 text-sm text-olive">No such member in your organization.</p>
+      </main>
+    );
+  }
+
   const timeline = await memberTimeline(id, { asOf, policy });
   const summary = buildSummary(timeline);
   const history = await memberAuditHistory({ personId: id, tenantId });
   const trajectory = buildTrajectory(timeline);
 
   return (
-    <main className="mx-auto max-w-4xl px-6 py-10">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <h1 className="type-display text-3xl font-medium">{member.name}</h1>
-          <p className="text-sm text-olive">Clinical record · assembled from the event log</p>
-        </div>
-        <Link href="/clinician/caseload" className="text-sm text-olive underline">← Caseload</Link>
-      </div>
+    // The record joins the person shell rather than standing alone with its own
+    // header and its own back-link. Before this it was reachable from the
+    // caseload and nowhere else, and a clinician on it could not get to the
+    // safety, measures or session tabs without going back out.
+    <PersonShell person={person} active="/record">
+      <p className="text-sm text-olive">Clinical record · assembled from the event log</p>
 
-      <p className="mt-4 rounded-2xl border border-pause/50 bg-pause-soft px-4 py-3 text-xs text-ground">
+      <p className="mt-4 rounded-2xl border border-state-caution/40 bg-state-caution-bg px-4 py-3 text-xs text-ground">
         <strong>Provisional configuration.</strong> {policyBanner(policy)}
       </p>
 
       {error && (
-        <p className="mt-4 rounded-2xl border border-support/40 bg-support/10 px-4 py-3 text-sm text-support-deep">
+        <p className="mt-4 rounded-2xl border border-state-support/40 bg-state-support-bg/60 px-4 py-3 text-sm text-state-support">
           {error}
         </p>
       )}
       {done && DONE_MESSAGE[done] && (
-        <p className="mt-4 rounded-2xl border border-safe/40 bg-safe/10 px-4 py-3 text-sm text-ground">
+        <p className="mt-4 rounded-2xl border border-state-safe/40 bg-state-safe-bg/60 px-4 py-3 text-sm text-ground">
           {DONE_MESSAGE[done]}
         </p>
       )}
@@ -173,8 +187,8 @@ export default async function MemberClinicalRecord({
         )}
 
         {summary.omitted.length > 0 && (
-          <div className="mt-3 rounded-2xl border border-support/30 bg-support/5 px-4 py-3">
-            <p className="text-xs font-medium text-support-deep">
+          <div className="mt-3 rounded-2xl border border-state-support/40 bg-state-support-bg/40 px-4 py-3">
+            <p className="text-xs font-medium text-state-support">
               {summary.omitted.length} claim(s) suppressed before display
             </p>
             <ul className="mt-1 list-disc pl-5 text-xs text-ground/80">
@@ -255,7 +269,7 @@ export default async function MemberClinicalRecord({
               key={e.eventId}
               className={`rounded-2xl border px-4 py-3 ${
                 e.aiProduced
-                  ? "border-mist/60 bg-mist/10"     // AI output is visually separate
+                  ? "border-state-info/40 bg-state-info-bg/60"     // AI output is visually separate
                   : "border-ground/10 bg-linen/40"
               }`}
             >
@@ -265,12 +279,12 @@ export default async function MemberClinicalRecord({
                 <span>· {e.actorType}</span>
                 {e.reconstructed && (
                   // ADR 0010: reconstructed history is never original evidence.
-                  <span className="rounded bg-pause-soft px-1.5 py-0.5 text-ground">
+                  <span className="rounded bg-state-caution-bg px-1.5 py-0.5 text-ground">
                     reconstructed — not original evidence
                   </span>
                 )}
                 {e.aiProduced && (
-                  <span className="rounded bg-mist/40 px-1.5 py-0.5 text-ground">AI-produced</span>
+                  <span className="rounded bg-state-info-bg/60 px-1.5 py-0.5 text-ground">AI-produced</span>
                 )}
               </div>
               <p className="mt-1 text-sm">{e.headline}</p>
@@ -356,6 +370,6 @@ export default async function MemberClinicalRecord({
         subjectId={id}
         defaultCategory="Clinical accuracy"
       />
-    </main>
+    </PersonShell>
   );
 }

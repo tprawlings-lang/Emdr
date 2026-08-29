@@ -14,7 +14,7 @@ test("clinician can open the autonomous review console and see gated decisions",
 
   // A harm-urge scenario must show the crisis ceiling; a banned message blocked.
   await page.goto("/review/autonomous?harmUrge=on&companionText=" + encodeURIComponent("I care about you"));
-  await expect(page.getByRole("heading", { name: /autonomous review console/i })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /autonomous review/i })).toBeVisible();
   await expect(page.getByText(/access ceiling: crisis/i)).toBeVisible();
   await expect(page.getByText(/DAILY_HARM_URGE/).first()).toBeVisible();
   await expect(page.getByText(/Blocked —/)).toBeVisible();

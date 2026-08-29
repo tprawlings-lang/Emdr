@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ReviewPage } from "@/components/clinical/ReviewPage";
 import { requireClinician } from "@/lib/auth";
 import { data } from "@/lib/data";
 import { PLATFORM_TENANT_ID } from "@/lib/db";
@@ -24,9 +25,9 @@ export const dynamic = "force-dynamic";
 // *should* be reachable would be wrong the first time a flag changed.
 
 const PRIORITY_STYLE: Record<NotePriority, string> = {
-  blocker: "border-support/50 bg-support/10",
-  change: "border-pause/60 bg-pause-soft",
-  question: "border-mist/60 bg-mist/10",
+  blocker: "border-state-support/40 bg-state-support-bg/60",
+  change: "border-state-caution/40 bg-state-caution-bg",
+  question: "border-state-info/40 bg-state-info-bg/60",
   idea: "border-ground/15 bg-linen/40",
 };
 
@@ -51,10 +52,9 @@ export default async function TestingConsole({
   const matrix = exerciseMatrix();
 
   return (
-    <main className="mx-auto max-w-5xl px-6 py-10">
+    <ReviewPage title="Testing console" lede="What can be exercised in this environment, and where a change request goes.">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="type-display text-3xl font-medium">Clinician testing</h1>
           <p className="text-sm text-olive">
             What you can exercise, and what you would change · {clinician.name}
           </p>
@@ -62,22 +62,22 @@ export default async function TestingConsole({
       </div>
 
       {error && (
-        <p className="mt-4 rounded-2xl border border-support/40 bg-support/10 px-4 py-3 text-sm text-support-deep">
+        <p className="mt-4 rounded-2xl border border-state-support/40 bg-state-support-bg/60 px-4 py-3 text-sm text-state-support">
           {error}
         </p>
       )}
       {done === "note" && (
-        <p className="mt-4 rounded-2xl border border-safe/40 bg-safe/10 px-4 py-3 text-sm text-ground">
+        <p className="mt-4 rounded-2xl border border-state-safe/40 bg-state-safe-bg/60 px-4 py-3 text-sm text-ground">
           Change request filed with the active policy and safety-config versions attached.
         </p>
       )}
       {done === "status" && (
-        <p className="mt-4 rounded-2xl border border-safe/40 bg-safe/10 px-4 py-3 text-sm text-ground">
+        <p className="mt-4 rounded-2xl border border-state-safe/40 bg-state-safe-bg/60 px-4 py-3 text-sm text-ground">
           Status updated.
         </p>
       )}
 
-      <p className="mt-4 rounded-2xl border border-pause/50 bg-pause-soft px-4 py-3 text-xs text-ground">
+      <p className="mt-4 rounded-2xl border border-state-caution/40 bg-state-caution-bg px-4 py-3 text-xs text-ground">
         <strong>Provisional configuration.</strong> {policyBanner(policy)}. Every default here
         is a demonstration assumption waiting for exactly the kind of judgement this page
         collects — nothing on it has been ratified.
@@ -108,7 +108,7 @@ export default async function TestingConsole({
                       data-testid="exercise-state"
                       className={`rounded-full border px-2 py-0.5 text-xs ${
                         m.available
-                          ? "border-safe/50 bg-safe/15"
+                          ? "border-state-safe/40 bg-state-safe-bg/60"
                           : "border-ground/20 bg-linen"
                       }`}
                     >
@@ -149,7 +149,7 @@ export default async function TestingConsole({
             {stats.total}
           </span>
           {stats.openBlockers > 0 && (
-            <span className="ml-2 rounded-full bg-support px-2.5 py-0.5 text-sm text-ivory">
+            <span className="ml-2 rounded-full bg-state-support px-2.5 py-0.5 text-sm text-ivory">
               {stats.openBlockers} open blocker{stats.openBlockers === 1 ? "" : "s"}
             </span>
           )}
@@ -236,6 +236,6 @@ export default async function TestingConsole({
           )}
         </section>
       )}
-    </main>
+    </ReviewPage>
   );
 }

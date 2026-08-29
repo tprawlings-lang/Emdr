@@ -80,7 +80,7 @@ export default async function AlertTrailPage({
       </dl>
 
       {!closed && (
-        <p className="mt-4 rounded-2xl border border-pause/50 bg-pause-soft px-4 py-3 text-sm text-ground">
+        <p className="mt-4 rounded-2xl border border-state-caution/40 bg-state-caution-bg px-4 py-3 text-sm text-ground">
           This alert is still open. Immediate and high bands close with a documented action,
           never an acknowledgement and never by the passage of time.
         </p>

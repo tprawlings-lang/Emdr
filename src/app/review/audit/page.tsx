@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ReviewPage } from "@/components/clinical/ReviewPage";
 import { requireClinician } from "@/lib/auth";
 import { data } from "@/lib/data";
 import { PLATFORM_TENANT_ID } from "@/lib/db";
@@ -29,8 +30,7 @@ export default async function AuditConsolePage() {
   const feed = await scopedAuditFeed({ tenantId, limit: 300 });
 
   return (
-    <main className="mx-auto max-w-5xl px-6 py-10">
-      <h1 className="mt-3 type-display text-3xl font-medium">Audit console</h1>
+    <ReviewPage title="Audit console" lede="Who did what, in order, with the hash chain verified rather than asserted.">
       <p className="mt-1 text-sm text-olive">
         Append-only ledger of identity, consent, clinical, module-runtime, specialist, and
         security events. Most recent first.
@@ -50,6 +50,6 @@ export default async function AuditConsolePage() {
       </p>
 
       <AuditTable entries={feed.entries} showTarget />
-    </main>
+    </ReviewPage>
   );
 }

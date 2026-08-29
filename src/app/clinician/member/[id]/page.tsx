@@ -9,6 +9,8 @@ import { buildWorkQueue } from "@/lib/clinical/work-queue";
 import { gateDecisionsFor, groupGateDecisions, overrideAllowed } from "@/lib/clinical/gate-review";
 import { gateOverrideAction } from "@/lib/clinical/actions";
 import { GateReviewDrawer } from "@/components/clinical/GateReviewDrawer";
+import { PersonShell } from "@/components/clinical/PersonShell";
+import { loadPersonHeader } from "@/lib/clinical/person-header";
 import { MODULES } from "@/lib/modules";
 import { WorkQueueRow } from "@/components/clinical/WorkQueueRow";
 import {
@@ -53,6 +55,9 @@ export default async function PersonOverviewPage({
   )) as { id: string; name: string } | undefined;
   if (!person) notFound();
 
+  const personHeader = await loadPersonHeader({ personId: id, clinicianId: clinician.id, tenantId });
+  if (!personHeader) notFound();
+
   const policy = activePolicy();
   const [queue, timeline, consent] = await Promise.all([
     buildWorkQueue({ clinicianId: clinician.id, tenantId, policy }),
@@ -81,40 +86,15 @@ export default async function PersonOverviewPage({
   const head = mine[0] ?? null;
 
   return (
-    <main className="mx-auto max-w-5xl px-6 py-8">
+    <PersonShell person={personHeader} active="">
       {/* ---- Sticky header (§10.4): identity, owner, state, freshness,
               consent boundary, contact. Sticky because these are the facts a
               clinician must not lose while scrolling a record — particularly
               the consent boundary, which governs what they may do next. ---- */}
-      <header className="sticky top-0 z-10 -mx-6 border-b border-ground/10 bg-ivory/95 px-6 py-4 backdrop-blur">
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div className="min-w-0">
-            <div className="flex flex-wrap items-center gap-3">
-              <h1 className="type-display text-2xl font-medium text-ground">{person.name}</h1>
-              {head ? <PriorityBadge band={head.band} /> : <PriorityBadge band="none" />}
-            </div>
-            <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1">
-              <OwnerChip name={head?.ownerName ?? null} />
-              <FreshnessLabel evidenceAt={head?.evidenceAt ?? null} now={queue.computedAt} />
-              {/* Consent is a boundary, so it is stated either way rather than
-                  shown only when present. */}
-              <span
-                className={`text-xs font-medium ${consent ? "text-state-safe" : "text-state-caution"}`}
-              >
-                {consent ? "◆ Consent active" : "○ No consent on record"}
-              </span>
-            </div>
-          </div>
-          <div className="flex shrink-0 gap-2">
-            <Link
-              href={`/clinician/member/${person.id}/record`}
-              className="rounded-full bg-ground px-4 py-2 text-sm font-medium text-ivory hover:bg-ground/90"
-            >
-              Full record
-            </Link>
-          </div>
-        </div>
-      </header>
+      {/* The sticky header lived here first; PersonShell was extracted from
+          it so the other five tabs could carry the same facts. Keeping a second
+          copy is how the two would drift — a consent boundary shown on one tab
+          and not the next. */}
 
       {/* §15.3: the mutation's result is rendered from what came back, never
           patched in optimistically by the control that submitted it. */}
@@ -268,6 +248,6 @@ export default async function PersonOverviewPage({
           </div>
         </aside>
       </div>
-    </main>
+    </PersonShell>
   );
 }

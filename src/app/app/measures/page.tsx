@@ -60,7 +60,7 @@ export default async function MeasuresPage({
       </p>
 
       {submitted && (
-        <p className="mt-4 rounded-2xl border border-safe/40 bg-safe/15 px-4 py-3 text-sm text-ground">
+        <p className="mt-4 rounded-2xl border border-state-safe/40 bg-state-safe-bg/60 px-4 py-3 text-sm text-ground">
           Measure recorded. Your care team can see the updated trend.
         </p>
       )}

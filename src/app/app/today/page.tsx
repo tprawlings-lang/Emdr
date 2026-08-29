@@ -29,13 +29,13 @@ import {
 function actionLabel(action: string): { label: string; tone: string } {
   switch (action) {
     case "processing_ok":
-      return { label: "Safe to continue — all cleared modules are open today", tone: "text-ground bg-safe/15 border-safe/40" };
+      return { label: "Safe to continue — all cleared modules are open today", tone: "text-ground bg-state-safe-bg/60 border-state-safe/40" };
     case "stabilization":
-      return { label: "A gentler day — stabilization modules are open", tone: "text-ground bg-pause-soft border-pause/40" };
+      return { label: "A gentler day — stabilization modules are open", tone: "text-ground bg-state-caution-bg border-state-caution/40" };
     case "grounding_only":
-      return { label: "Grounding only today (Calm Place, Containment)", tone: "text-ground bg-pause-soft border-pause/40" };
+      return { label: "Grounding only today (Calm Place, Containment)", tone: "text-ground bg-state-caution-bg border-state-caution/40" };
     case "crisis":
-      return { label: "Sessions paused — use the support options below", tone: "text-ground bg-ground/10 border-pause/50" };
+      return { label: "Sessions paused — use the support options below", tone: "text-ground bg-ground/10 border-state-caution/40" };
     default:
       return { label: action, tone: "text-ground bg-linen border-ground/10" };
   }
@@ -115,7 +115,7 @@ export default async function DashboardPage({
       <main className="mx-auto max-w-4xl px-6 py-12">
 
       {fitness.status === "none" && (
-        <div className="mb-6 rounded-3xl border border-pause/40 bg-pause-soft p-5">
+        <div className="mb-6 rounded-3xl border border-state-caution/40 bg-state-caution-bg p-5">
           <p className="font-semibold text-ground">One new step before your next session</p>
           <p className="mt-1 text-sm text-ground/90">
             Steady added eight quick yes-or-no program-fit questions for everyone — including
@@ -131,7 +131,7 @@ export default async function DashboardPage({
         </div>
       )}
       {fitness.status === "cooldown" && (
-        <div className="mb-6 rounded-3xl border border-pause/50 bg-ground/10 p-5">
+        <div className="mb-6 rounded-3xl border border-state-caution/40 bg-ground/10 p-5">
           <p className="font-semibold text-ground">Sessions are paused right now</p>
           <p className="mt-1 text-sm text-ground/90">
             Based on your fit answers, the safest step today is support from a person. The

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ReviewPage } from "@/components/clinical/ReviewPage";
 import { requireClinician } from "@/lib/auth";
 import {
   PART6_GATES, GATE_STATE_LABEL, rolloutStages, runningConfig, oversightStatus,
@@ -19,9 +20,9 @@ export const dynamic = "force-dynamic";
 // environment configuration, which is where they have been reviewed.
 
 const GATE_STYLE: Record<GateState, string> = {
-  met: "border-safe/40 bg-safe/10",
-  open: "border-pause/60 bg-pause-soft",
-  blocked: "border-support/50 bg-support/10",
+  met: "border-state-safe/40 bg-state-safe-bg/60",
+  open: "border-state-caution/40 bg-state-caution-bg",
+  blocked: "border-state-support/40 bg-state-support-bg/60",
 };
 
 function Flag({ on, label, onText, offText }: {
@@ -30,7 +31,7 @@ function Flag({ on, label, onText, offText }: {
   return (
     <div
       data-testid="bls-flag"
-      className={`rounded-2xl border px-4 py-3 ${on ? "border-pause/60 bg-pause-soft" : "border-ground/15 bg-linen/40"}`}
+      className={`rounded-2xl border px-4 py-3 ${on ? "border-state-caution/40 bg-state-caution-bg" : "border-ground/15 bg-linen/40"}`}
     >
       <p className="text-xs uppercase tracking-wide text-olive">{label}</p>
       <p className="mt-0.5 text-sm font-medium text-ground">{on ? onText : offText}</p>
@@ -46,17 +47,16 @@ export default async function BlsOversightPage() {
   const stages = rolloutStages();
 
   return (
-    <main className="mx-auto max-w-4xl px-6 py-10">
+    <ReviewPage title="BLS Part 6 oversight" lede="The live configuration and the gates that hold it — not the protocol's claims about itself." wide={false}>
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="type-display text-3xl font-medium">BLS Part 6 oversight</h1>
           <p className="text-sm text-olive">
             Bilateral-stimulation validation workstream · protocol signed, not approved for use
           </p>
         </div>
       </div>
 
-      <p className="mt-4 rounded-2xl border border-pause/50 bg-pause-soft px-4 py-3 text-sm text-ground">
+      <p className="mt-4 rounded-2xl border border-state-caution/40 bg-state-caution-bg px-4 py-3 text-sm text-ground">
         <strong>Not approved for real-person use.</strong> {REAL_USE_NOTE}
       </p>
 
@@ -73,8 +73,8 @@ export default async function BlsOversightPage() {
           data-testid="bls-headline"
           className={`mt-4 rounded-2xl border px-4 py-3 text-sm ${
             status.anyBlsPossible
-              ? "border-pause/60 bg-pause-soft text-ground"
-              : "border-safe/40 bg-safe/10 text-ground"
+              ? "border-state-caution/40 bg-state-caution-bg text-ground"
+              : "border-state-safe/40 bg-state-safe-bg/60 text-ground"
           }`}
         >
           {status.headline}
@@ -179,7 +179,7 @@ export default async function BlsOversightPage() {
               key={s.id}
               data-testid="bls-stage"
               className={`rounded-2xl border px-4 py-3 ${
-                s.enabled ? "border-pause/60 bg-pause-soft" : "border-ground/15 bg-linen/40"
+                s.enabled ? "border-state-caution/40 bg-state-caution-bg" : "border-ground/15 bg-linen/40"
               }`}
             >
               <div className="flex flex-wrap items-center gap-2">
@@ -235,9 +235,9 @@ export default async function BlsOversightPage() {
               <li
                 key={s}
                 data-testid="hard-stop"
-                className="rounded-2xl border border-support/30 bg-support/5 px-4 py-3 text-sm text-ground/80"
+                className="rounded-2xl border border-state-support/40 bg-state-support-bg/40 px-4 py-3 text-sm text-ground/80"
               >
-                <span className="font-medium text-support-deep">{i + 1}.</span> {s}
+                <span className="font-medium text-state-support">{i + 1}.</span> {s}
               </li>
             ))}
           </ol>
@@ -245,6 +245,6 @@ export default async function BlsOversightPage() {
       </section>
 
       <NoteForm surface="BLS Part 6 oversight" returnTo="/review/bls" defaultCategory="Clinical safety" />
-    </main>
+    </ReviewPage>
   );
 }

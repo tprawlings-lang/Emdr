@@ -52,7 +52,7 @@ export default async function CompanionPage({
         </div>
       </div>
 
-      <details className="mt-4 rounded-3xl border border-pause/40 bg-pause-soft px-5 py-3 text-sm text-ground" open>
+      <details className="mt-4 rounded-3xl border border-state-caution/40 bg-state-caution-bg px-5 py-3 text-sm text-ground" open>
         <summary className="cursor-pointer font-semibold">
           Not for emergencies — your companion is not monitored in real time
         </summary>

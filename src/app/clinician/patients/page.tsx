@@ -101,7 +101,7 @@ export default async function PatientsPage({
                       {r.needsAttention && (
                         <span
                           data-testid="attention"
-                          className="rounded-full border border-pause/60 bg-pause-soft px-2 py-0.5 text-xs text-ground"
+                          className="rounded-full border border-state-caution/40 bg-state-caution-bg px-2 py-0.5 text-xs text-ground"
                         >
                           {r.openAlerts > 0
                             ? `${r.openAlerts} open alert${r.openAlerts === 1 ? "" : "s"}`

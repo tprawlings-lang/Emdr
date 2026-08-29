@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ReviewPage } from "@/components/clinical/ReviewPage";
 import { requireClinician } from "@/lib/auth";
 import { recentAuditEvents } from "@/lib/audit";
 import {
@@ -38,11 +39,11 @@ const num = (v: string | undefined, d: number) => {
 const on = (v: string | undefined) => v === "on";
 
 const TIER_STYLE: Record<number, string> = {
-  [AccessTier.CRISIS]: "bg-support/15 text-support-deep border-support/50",
-  [AccessTier.GROUNDING_ONLY]: "bg-pause-soft text-ground border-pause/60",
-  [AccessTier.STABILIZATION]: "bg-mist/25 text-ground border-mist/60",
+  [AccessTier.CRISIS]: "bg-state-support-bg/60 text-state-support border-state-support/40",
+  [AccessTier.GROUNDING_ONLY]: "bg-state-caution-bg text-ground border-state-caution/40",
+  [AccessTier.STABILIZATION]: "bg-state-info-bg/60 text-ground border-state-info/40",
   [AccessTier.CAUTIOUS]: "bg-linen text-ground border-ground/20",
-  [AccessTier.STEADY]: "bg-safe/15 text-ground border-safe/50",
+  [AccessTier.STEADY]: "bg-state-safe-bg/60 text-ground border-state-safe/40",
 };
 
 function buildInputs(sp: SP): SafetyInputs {
@@ -126,8 +127,8 @@ export default async function AutonomousReview({ searchParams }: { searchParams:
   const progress = signoffProgress(allRules.map((r) => r.id), signoffs);
   const verdictBadge = (ruleId: string) => {
     const v = signoffs.get(ruleId)?.verdict;
-    if (v === "agree") return <span className="ml-2 rounded bg-safe/20 px-1.5 py-0.5 text-[10px] text-ground">agreed</span>;
-    if (v === "needs_change") return <span className="ml-2 rounded bg-support/15 px-1.5 py-0.5 text-[10px] text-support-deep">needs change</span>;
+    if (v === "agree") return <span className="ml-2 rounded bg-state-safe-bg/60 px-1.5 py-0.5 text-[10px] text-ground">agreed</span>;
+    if (v === "needs_change") return <span className="ml-2 rounded bg-state-support-bg/60 px-1.5 py-0.5 text-[10px] text-state-support">needs change</span>;
     return <span className="ml-2 rounded bg-linen px-1.5 py-0.5 text-[10px] text-olive">unreviewed</span>;
   };
   const registerRow = (r: { id: string; category: string; reason: string }) => {
@@ -148,10 +149,10 @@ export default async function AutonomousReview({ searchParams }: { searchParams:
             placeholder="optional note"
             className="min-w-40 flex-1 rounded border border-ground/15 bg-ivory px-2 py-1 text-xs"
           />
-          <button name="verdict" value="agree" className="rounded-full bg-safe/25 px-3 py-1 text-xs font-medium text-ground hover:bg-safe/40">
+          <button name="verdict" value="agree" className="rounded-full bg-state-safe-bg/60 px-3 py-1 text-xs font-medium text-ground hover:bg-state-safe-bg/60">
             Agree
           </button>
-          <button name="verdict" value="needs_change" className="rounded-full bg-support/15 px-3 py-1 text-xs font-medium text-support-deep hover:bg-support/25">
+          <button name="verdict" value="needs_change" className="rounded-full bg-state-support-bg/60 px-3 py-1 text-xs font-medium text-state-support hover:bg-state-support/25">
             Needs change
           </button>
         </form>
@@ -163,10 +164,9 @@ export default async function AutonomousReview({ searchParams }: { searchParams:
   const chk = "flex items-center gap-2 text-sm text-ground/90";
 
   return (
-    <main className="mx-auto max-w-5xl px-6 py-10">
+    <ReviewPage title="Autonomous review" lede="The engine's parallel decision, beside the one that governed. Neither is a model's opinion.">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="type-display text-3xl font-medium">Autonomous review console</h1>
           <p className="mt-1 text-sm text-olive">Beta sign-off workbench — simulate decisions and review shadow-mode activity.</p>
         </div>
         <Link href="/clinician" className="text-sm text-olive underline">← Clinician dashboard</Link>
@@ -174,15 +174,15 @@ export default async function AutonomousReview({ searchParams }: { searchParams:
 
       <div className="mt-4 flex flex-wrap gap-2 text-xs">
         <span className="rounded-full border border-ground/15 bg-linen px-3 py-1">config {status.configVersion}</span>
-        <span className="rounded-full border border-pause/50 bg-pause-soft px-3 py-1">mode: {status.mode}</span>
+        <span className="rounded-full border border-state-caution/40 bg-state-caution-bg px-3 py-1">mode: {status.mode}</span>
         <span className="rounded-full border border-ground/15 bg-linen px-3 py-1">governance: {status.governanceEnabled ? "ON" : "off"}</span>
-        <span className="rounded-full border border-support/40 bg-support/10 px-3 py-1 text-support-deep">provisional — sign-off required</span>
+        <span className="rounded-full border border-state-support/40 bg-state-support-bg/60 px-3 py-1 text-state-support">provisional — sign-off required</span>
       </div>
 
       <div className="mt-3 flex flex-wrap items-center gap-3 text-xs">
         <span className="font-medium text-olive">Rule sign-off:</span>
-        <span className="rounded bg-safe/20 px-2 py-0.5">{progress.agreed} agreed</span>
-        <span className="rounded bg-support/15 px-2 py-0.5 text-support-deep">{progress.needsChange} needs change</span>
+        <span className="rounded bg-state-safe-bg/60 px-2 py-0.5">{progress.agreed} agreed</span>
+        <span className="rounded bg-state-support-bg/60 px-2 py-0.5 text-state-support">{progress.needsChange} needs change</span>
         <span className="rounded bg-linen px-2 py-0.5 text-olive">{progress.unreviewed} unreviewed</span>
         <span className="text-olive">of {progress.total} rules</span>
         <a href="#register" className="underline text-olive">go to register ↓</a>
@@ -286,8 +286,8 @@ export default async function AutonomousReview({ searchParams }: { searchParams:
             <div className="mt-4">
               <p className="text-xs font-medium text-olive">Dispositions</p>
               <ul className="mt-1 flex flex-wrap gap-1.5 text-xs">
-                {decision.dispositions.crisis && <li className="rounded bg-support/10 px-2 py-0.5 text-support-deep">crisis pathway</li>}
-                {decision.dispositions.presentSafetyClarificationRequired && <li className="rounded bg-support/10 px-2 py-0.5 text-support-deep">present-safety clarification</li>}
+                {decision.dispositions.crisis && <li className="rounded bg-state-support-bg/60 px-2 py-0.5 text-state-support">crisis pathway</li>}
+                {decision.dispositions.presentSafetyClarificationRequired && <li className="rounded bg-state-support-bg/60 px-2 py-0.5 text-state-support">present-safety clarification</li>}
                 {decision.dispositions.jurisdictionAwareResources && <li className="rounded bg-linen px-2 py-0.5">jurisdiction-aware resources</li>}
                 {decision.dispositions.humanReviewPending && <li className="rounded bg-linen px-2 py-0.5">human review pending</li>}
                 {decision.dispositions.reviewTriggered && <li className="rounded bg-linen px-2 py-0.5">review trigger</li>}
@@ -336,9 +336,9 @@ export default async function AutonomousReview({ searchParams }: { searchParams:
         {guard && (
           <div className="mt-3 text-sm">
             {guard.ok ? (
-              <p className="rounded-lg bg-safe/15 px-3 py-2">✓ Passes the output guard.</p>
+              <p className="rounded-lg bg-state-safe-bg/60 px-3 py-2">✓ Passes the output guard.</p>
             ) : (
-              <div className="rounded-lg bg-support/10 px-3 py-2 text-support-deep">
+              <div className="rounded-lg bg-state-support-bg/60 px-3 py-2 text-state-support">
                 ✗ Blocked — {guard.violations.map((v) => v.kind).join(", ")}
               </div>
             )}
@@ -412,10 +412,10 @@ export default async function AutonomousReview({ searchParams }: { searchParams:
             <>
               <div className={`mt-3 inline-flex rounded-full border px-4 py-1.5 text-sm font-medium ${
                 sessionResult.action === "containment" || sessionResult.action === "deny_stimulation"
-                  ? "bg-support/15 text-support-deep border-support/50"
+                  ? "bg-state-support-bg/60 text-state-support border-state-support/40"
                   : sessionResult.action === "pause" || sessionResult.action === "closure"
-                    ? "bg-pause-soft text-ground border-pause/60"
-                    : "bg-safe/15 text-ground border-safe/50"
+                    ? "bg-state-caution-bg text-ground border-state-caution/40"
+                    : "bg-state-safe-bg/60 text-ground border-state-safe/40"
               }`}>
                 {sessionResult.action}
               </div>
@@ -436,7 +436,7 @@ export default async function AutonomousReview({ searchParams }: { searchParams:
       <section id="voice" className="mt-8 rounded-2xl border border-ground/15 bg-white p-5">
         <div className="flex items-center justify-between gap-3">
           <h2 className="type-display text-xl">Voice responses — hear the member</h2>
-          <span className={`rounded-full px-3 py-1 text-xs ${voiceInputEnabled() ? "bg-safe/20 text-ground" : "bg-linen text-olive"}`}>
+          <span className={`rounded-full px-3 py-1 text-xs ${voiceInputEnabled() ? "bg-state-safe-bg/60 text-ground" : "bg-linen text-olive"}`}>
             {voiceInputEnabled() ? "on in this demo" : "off"}
           </span>
         </div>
@@ -468,7 +468,7 @@ export default async function AutonomousReview({ searchParams }: { searchParams:
       <section id="register" className="mt-8 rounded-2xl border border-ground/15 bg-white p-5">
         <div className="flex items-center justify-between gap-3">
           <h2 className="type-display text-xl">Rule sign-off register</h2>
-          <a href="/review/autonomous/export" className="rounded-full border border-ground/20 bg-linen px-3 py-1 text-xs font-medium text-ground hover:bg-mist/30">
+          <a href="/review/autonomous/export" className="rounded-full border border-ground/20 bg-linen px-3 py-1 text-xs font-medium text-ground hover:bg-state-info-bg/60">
             Export CSV ↓
           </a>
         </div>
@@ -525,13 +525,13 @@ export default async function AutonomousReview({ searchParams }: { searchParams:
                       <div className="flex flex-wrap items-center gap-2">
                         <code className="font-medium">{t.id}</code>
                         <span className="rounded bg-linen px-1.5 py-0.5 text-[10px] text-olive">{t.category}</span>
-                        <span className="rounded bg-pause-soft px-1.5 py-0.5 text-[10px]">min tier: {TIER_LABEL[t.minTier]}</span>
-                        <span className="rounded bg-pause-soft px-1.5 py-0.5 text-[10px]">max activation: {t.maxActivation}/10</span>
+                        <span className="rounded bg-state-caution-bg px-1.5 py-0.5 text-[10px]">min tier: {TIER_LABEL[t.minTier]}</span>
+                        <span className="rounded bg-state-caution-bg px-1.5 py-0.5 text-[10px]">max activation: {t.maxActivation}/10</span>
                       </div>
                       <p className="mt-1 text-ground/80"><span className="font-medium">{t.name}</span> — {t.purpose}</p>
                       <p className="mt-1 text-ground/70">{t.guidance}</p>
                       {t.avoidWhen.length > 0 && (
-                        <p className="mt-1 text-support-deep">Avoid when: {t.avoidWhen.join("; ")}</p>
+                        <p className="mt-1 text-state-support">Avoid when: {t.avoidWhen.join("; ")}</p>
                       )}
                     </div>
                   ))}
@@ -548,6 +548,6 @@ export default async function AutonomousReview({ searchParams }: { searchParams:
         </p>
         <div className="mt-3 space-y-2">{THERAPY_KB_RULES.map(registerRow)}</div>
       </section>
-    </main>
+    </ReviewPage>
   );
 }

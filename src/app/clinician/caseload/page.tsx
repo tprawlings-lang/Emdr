@@ -2,21 +2,14 @@ import Link from "next/link";
 import { requireClinician } from "@/lib/auth";
 import { data } from "@/lib/data";
 import { PLATFORM_TENANT_ID } from "@/lib/db";
-import { buildCaseload, isCoverageAction, type PriorityBand } from "@/lib/clinical/caseload";
-import { alertQueue, overdueAlerts, type AlertBand } from "@/lib/clinical/alerts";
+import { buildCaseload, isCoverageAction } from "@/lib/clinical/caseload";
+import { alertQueue, overdueAlerts } from "@/lib/clinical/alerts";
 import { activePolicy, policyBanner } from "@/lib/clinical-policy";
 import { closeAlertAction } from "@/lib/clinical/actions";
 import { NoteForm } from "@/components/clinical/NoteForm";
+import { PriorityBadge, OwnerChip, FreshnessLabel } from "@/components/clinical/primitives";
 
 export const dynamic = "force-dynamic";
-
-const BAND_STYLE: Record<PriorityBand | AlertBand, string> = {
-  immediate: "bg-support/15 text-support-deep border-support/50",
-  high: "bg-pause-soft text-ground border-pause/60",
-  standard: "bg-moss/40 text-ground border-sage/60",
-  watch: "bg-linen text-ground/80 border-ground/15",
-  none: "bg-linen text-olive border-ground/10",
-};
 
 export default async function ClinicalConsole({
   searchParams,
@@ -33,6 +26,22 @@ export default async function ClinicalConsole({
   const tenantId = me?.tenant_id ?? PLATFORM_TENANT_ID;
 
   const caseload = await buildCaseload({ clinicianId: clinician.id, tenantId, policy });
+
+  // Owner names, resolved once. The row showed a raw clinician id or nothing at
+  // all; §23.2 wants a clear owner, and an id is not an owner to a person
+  // reading it.
+  const ownerIds = [...new Set(caseload.rows.map((r) => r.primaryClinicianId).filter((x): x is string => !!x))];
+  const ownerNames = new Map<string, string>();
+  if (ownerIds.length) {
+    const rows = (await c.all(
+      `SELECT id, name FROM users WHERE id IN (${ownerIds.map(() => "?").join(",")})`,
+      ownerIds
+    )) as Array<{ id: string; name: string }>;
+    for (const r of rows) ownerNames.set(r.id, r.name);
+  }
+
+  // Freshness renders against a server time, never the browser clock.
+  const now = new Date().toISOString().replace("T", " ").slice(0, 19);
   const alerts = await alertQueue({ tenantId, policy });
   const overdue = overdueAlerts(alerts);
 
@@ -40,22 +49,23 @@ export default async function ClinicalConsole({
     <main className="mx-auto max-w-5xl px-6 py-10">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="type-display text-3xl font-medium">Steady Clinical</h1>
+          <h1 className="type-display text-3xl font-medium text-ground">Caseload</h1>
           <p className="text-sm text-olive">
-            Caseload for {clinician.name} · ordered by clinical need
+            Everyone assigned to {clinician.name}, ordered by clinical need. The work queue is
+            what needs doing; this is who you have.
           </p>
         </div>
       </div>
 
       {/* Handoff §2: a screen resembling a live service must never imply approval. */}
-      <p className="mt-4 rounded-2xl border border-pause/50 bg-pause-soft px-4 py-3 text-xs text-ground">
+      <p className="mt-4 rounded-2xl border border-state-caution/40 bg-state-caution-bg px-4 py-3 text-xs text-ground">
         <strong>Provisional configuration.</strong> {policyBanner(policy)}. These are
         demonstration assumptions, not clinical approval — the packet seeking ratification is{" "}
         <code className="text-[11px]">clinical-pilot-2026-09</code>, which is unsubmitted.
       </p>
 
       {error && (
-        <p className="mt-4 rounded-2xl border border-support/40 bg-support/10 px-4 py-3 text-sm text-support-deep">
+        <p className="mt-4 rounded-2xl border border-state-support/40 bg-state-support-bg/60 px-4 py-3 text-sm text-state-support">
           {error}
         </p>
       )}
@@ -68,7 +78,7 @@ export default async function ClinicalConsole({
             {alerts.length}
           </span>
           {overdue.length > 0 && (
-            <span className="ml-2 rounded-full bg-support px-2.5 py-0.5 text-sm text-ivory">
+            <span className="ml-2 rounded-full bg-state-support px-2.5 py-0.5 text-sm text-ivory">
               {overdue.length} overdue
             </span>
           )}
@@ -86,20 +96,18 @@ export default async function ClinicalConsole({
               <li
                 key={a.id}
                 data-testid="alert-row"
-                className={`rounded-2xl border px-4 py-3 ${BAND_STYLE[a.band]} ${
-                  a.overdue ? "ring-2 ring-support/60" : ""
+                className={`rounded-2xl border border-ground/10 bg-linen px-4 py-3 ${
+                  a.overdue ? "ring-2 ring-state-support/50" : ""
                 }`}
               >
                 <div className="flex flex-wrap items-center gap-2 text-sm">
-                  <span className="rounded-full bg-ground/10 px-2 py-0.5 text-xs font-medium uppercase tracking-wide">
-                    {a.band}
-                  </span>
+                  <PriorityBadge band={a.band} />
                   <Link href={`/clinician/member/${a.personId}/record`} className="font-medium underline">
                     {a.personName}
                   </Link>
                   <span className="text-xs opacity-80">{a.type.replace(/_/g, " ")}</span>
                   {a.overdue && (
-                    <span className="rounded bg-support px-1.5 py-0.5 text-[10px] font-medium text-ivory">
+                    <span className="rounded bg-state-support px-1.5 py-0.5 text-[10px] font-medium text-ivory">
                       OVERDUE
                     </span>
                   )}
@@ -137,7 +145,10 @@ export default async function ClinicalConsole({
 
       {/* ---------------- Caseload ---------------- */}
       <section className="mt-10">
-        <h2 className="type-display text-2xl font-medium">Caseload</h2>
+        {/* Named for what it lists. The page is already "Caseload"; a section
+            inside it with the same name says nothing and, as it turned out,
+            makes the page heading ambiguous to anything looking for it. */}
+        <h2 className="type-display text-2xl font-medium text-ground">People</h2>
         <p className="mt-1 text-sm text-olive">
           {(["immediate", "high", "standard", "watch"] as const)
             .map((b) => `${caseload.bandCounts[b]} ${b}`)
@@ -149,11 +160,14 @@ export default async function ClinicalConsole({
           {caseload.rows.map((r) => {
             const coverage = isCoverageAction(caseload.model, clinician.id, r.primaryClinicianId);
             return (
-              <li key={r.personId} data-testid="caseload-row" className={`rounded-2xl border px-4 py-3 ${BAND_STYLE[r.band]}`}>
+              // Neutral card, state in the badge. The row used to be tinted by
+              // band, so a caseload read as four blocks of colour and the
+              // person's name competed with the tint for attention. The badge
+              // carries the state — glyph, label and colour — and the card
+              // stays out of the way.
+              <li key={r.personId} data-testid="caseload-row" className="rounded-2xl border border-ground/10 bg-linen px-4 py-3">
                 <div className="flex flex-wrap items-center gap-2">
-                  <span data-testid="band" className="rounded-full bg-ground/10 px-2 py-0.5 text-xs font-medium uppercase tracking-wide">
-                    {r.band}
-                  </span>
+                  <span data-testid="band"><PriorityBadge band={r.band} /></span>
                   <Link
                     href={`/clinician/member/${r.personId}/record`}
                     className="font-medium underline"
@@ -184,11 +198,13 @@ export default async function ClinicalConsole({
                   <p className="mt-1 text-sm opacity-75">No flags.</p>
                 )}
 
-                <p className="mt-1 text-xs opacity-75">
-                  {r.lastCheckinDate ? `Last check-in ${r.lastCheckinDate}` : "No check-in recorded"}
-                  {r.daysSinceContact !== null ? ` · ${r.daysSinceContact} day(s) since activity` : ""}
-                  {r.openAlerts > 0 ? ` · ${r.openAlerts} open alert(s)` : ""}
-                </p>
+                <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1">
+                  <FreshnessLabel evidenceAt={r.lastCheckinDate} now={now} prefix="Last check-in" />
+                  <OwnerChip name={r.primaryClinicianId ? ownerNames.get(r.primaryClinicianId) ?? null : null} />
+                  {r.openAlerts > 0 && (
+                    <span className="text-xs text-state-support">{r.openAlerts} open alert(s)</span>
+                  )}
+                </div>
               </li>
             );
           })}

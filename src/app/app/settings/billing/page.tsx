@@ -42,7 +42,7 @@ export default async function BillingPage() {
             <h2 className="type-display text-2xl font-medium">{plan!.label}</h2>
             <span
               className={`rounded-full px-3 py-1 text-sm font-medium ${
-                sub.status === "canceled" ? "bg-sand/60 text-olive" : "bg-safe/20 text-ground"
+                sub.status === "canceled" ? "bg-sand/60 text-olive" : "bg-state-safe-bg/60 text-ground"
               }`}
             >
               {STATUS_COPY[sub.status] ?? sub.status}

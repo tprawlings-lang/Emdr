@@ -21,10 +21,10 @@ import { recommendTracks } from "@/lib/track-recommender";
 import { removeCareTrack, saveTrackIntakeAction, selectCareTrack } from "@/lib/actions";
 
 const GRADE_TONE: Record<EvidenceGrade, string> = {
-  high: "bg-safe/20 text-state-safe border-safe/40",
-  moderate: "bg-mist/30 text-ground border-mist/50",
+  high: "bg-state-safe-bg/60 text-state-safe border-state-safe/40",
+  moderate: "bg-state-info-bg/60 text-ground border-state-info/40",
   emerging: "bg-clay/25 text-ground border-clay/50",
-  specialist: "bg-pause-soft text-ground border-pause/50",
+  specialist: "bg-state-caution-bg text-ground border-state-caution/40",
 };
 
 function EvidenceBadge({ grade }: { grade: EvidenceGrade }) {
@@ -117,7 +117,7 @@ export default async function PathsPage() {
         <p className="mt-1 text-sm text-olive">{rec.memberMessage}</p>
 
         {rec.safety.level !== "ok" && rec.safety.action && (
-          <div className="mt-3 rounded-3xl border border-pause/40 bg-pause-soft p-5">
+          <div className="mt-3 rounded-3xl border border-state-caution/40 bg-state-caution-bg p-5">
             <p className="text-sm text-ground/90">{rec.safety.reason}</p>
             <Link
               href={rec.safety.action === "crisis" ? "/crisis" : rec.safety.action === "checkin" ? "/app/check-in" : "/app/screening"}
@@ -139,7 +139,7 @@ export default async function PathsPage() {
                     <h3 className="font-semibold">{track.name}</h3>
                     <EvidenceBadge grade={track.evidenceGrade} />
                     {c.referralOnly && (
-                      <span className="rounded-full border border-pause/50 bg-pause-soft px-2.5 py-0.5 text-xs font-medium text-ground">
+                      <span className="rounded-full border border-state-caution/40 bg-state-caution-bg px-2.5 py-0.5 text-xs font-medium text-ground">
                         Specialist referral
                       </span>
                     )}
@@ -231,7 +231,7 @@ export default async function PathsPage() {
                   {track.name}
                   <EvidenceBadge grade={track.evidenceGrade} />
                   {isReferralOnly(track) && (
-                    <span className="rounded-full border border-pause/50 bg-pause-soft px-2.5 py-0.5 text-xs font-medium text-ground">
+                    <span className="rounded-full border border-state-caution/40 bg-state-caution-bg px-2.5 py-0.5 text-xs font-medium text-ground">
                       Specialist referral
                     </span>
                   )}
@@ -244,7 +244,7 @@ export default async function PathsPage() {
                   {track.moduleIds.map(moduleName).join(" → ")}
                 </p>
                 {track.referralNote && (
-                  <p className="mt-3 rounded-2xl bg-pause-soft px-4 py-2 text-sm text-ground/90">
+                  <p className="mt-3 rounded-2xl bg-state-caution-bg px-4 py-2 text-sm text-ground/90">
                     {track.referralNote}
                   </p>
                 )}

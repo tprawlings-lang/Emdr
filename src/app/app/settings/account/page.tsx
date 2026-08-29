@@ -42,7 +42,7 @@ export default async function AccountSettingsPage({
           encrypted backups age out within 30 days.
         </p>
         {error === "confirm" && (
-          <p className="mt-4 rounded-2xl border border-pause/50 bg-ground/10 px-4 py-3 text-sm text-ground">
+          <p className="mt-4 rounded-2xl border border-state-caution/40 bg-ground/10 px-4 py-3 text-sm text-ground">
             Type DELETE in the box to confirm — it protects against accidental taps.
           </p>
         )}

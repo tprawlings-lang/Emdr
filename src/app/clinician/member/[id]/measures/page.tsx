@@ -194,7 +194,7 @@ export default async function MemberDetailPage({
                         ? `PTSD ${itq.ptsdSum}/24 · DSO ${itq.dsoSum}/24 — ${itq.label}`
                         : s.total_score}
                     </td>
-                    <td className="px-4 py-2 text-support-deep">{flags.join(", ") || "—"}</td>
+                    <td className="px-4 py-2 text-state-support">{flags.join(", ") || "—"}</td>
                     <td className="px-4 py-2">{s.created_at}</td>
                   </tr>
                 );
@@ -255,7 +255,7 @@ export default async function MemberDetailPage({
                     <span
                       className={
                         s.status === "hard_stop"
-                          ? "font-semibold text-support-deep"
+                          ? "font-semibold text-state-support"
                           : s.status === "completed"
                             ? "text-state-safe"
                             : "text-olive"
@@ -308,7 +308,7 @@ export default async function MemberDetailPage({
                   </div>
                   <span
                     className={`rounded-full px-3 py-1 text-xs font-medium ${
-                      open ? "bg-safe/20 text-state-safe" : "bg-sand/50 text-olive"
+                      open ? "bg-state-safe-bg/60 text-state-safe" : "bg-sand/50 text-olive"
                     }`}
                   >
                     {open ? "Open" : "Closed"}
@@ -325,7 +325,7 @@ export default async function MemberDetailPage({
                       placeholder="Reason for closing (recorded)"
                       className="min-w-64 flex-1 rounded-2xl border border-ground/15 bg-ivory px-4 py-2 text-sm focus:border-sage focus:outline-none"
                     />
-                    <button className="rounded-full border border-support px-5 py-2 text-sm font-medium text-support-deep transition-colors hover:bg-support hover:text-white">
+                    <button className="rounded-full border border-state-support/40 px-5 py-2 text-sm font-medium text-state-support transition-colors hover:bg-state-support hover:text-white">
                       Close module
                     </button>
                   </form>

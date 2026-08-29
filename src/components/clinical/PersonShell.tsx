@@ -30,6 +30,11 @@ const TABS: Array<{ slug: string; label: string }> = [
   { slug: "/sessions", label: "Sessions" },
   { slug: "/plan", label: "Plan" },
   { slug: "/audit", label: "Audit" },
+  // The full clinical record — timeline, cited summary, review actions. §26's
+  // real split is /measures, /sessions, /plan, /safety and /audit; this is the
+  // holding address for what has not been split out yet, and it is listed
+  // rather than hidden because it is where approve and correct still live.
+  { slug: "/record", label: "Full record" },
 ];
 
 export function PersonShell({
