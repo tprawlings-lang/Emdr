@@ -127,14 +127,18 @@ export function AppShell({
               })}
             </ul>
             {railFooter && (
-              <div className="mt-6 hidden border-t border-ground/10 px-4 pt-4 text-xs text-olive sm:block">
+              <div className="mt-4 border-t border-ground/10 px-4 pt-3 text-xs text-olive sm:mt-6 sm:pt-4">
                 {railFooter}
               </div>
             )}
           </nav>
 
-          {/* The content column. */}
-          <div className="min-w-0 flex-1 px-5 py-6 sm:px-8 sm:py-8">
+          {/* The content column. A <main> landmark: the frame moved the page's
+              chrome out of every screen, and the landmark has to move with it
+              or the product loses the one element a screen-reader user jumps
+              to. It is here rather than around the whole frame because the bar
+              and the rail are not the main content. */}
+          <main className="min-w-0 flex-1 px-5 py-6 sm:px-8 sm:py-8">
             <h1 className="type-identity text-2xl font-medium text-app-ink sm:text-3xl">{title}</h1>
             {/* The standing line. It appears under the title on all twenty
                 examples, so it belongs to the shell rather than to any page. */}
@@ -146,7 +150,7 @@ export function AppShell({
               <div className="min-w-0">{children}</div>
               {aside && <aside className="min-w-0">{aside}</aside>}
             </div>
-          </div>
+          </main>
         </div>
       </div>
     </div>

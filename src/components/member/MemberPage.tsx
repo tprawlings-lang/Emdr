@@ -1,5 +1,6 @@
 import { AppShell, type RailSlug } from "@/components/app/AppShell";
 import { MEMBER_RAIL } from "@/lib/app/rails";
+import { logout } from "@/lib/actions";
 
 // The member page shell (Web GUI handoff §26, §12.3, and the twenty page
 // examples in §28).
@@ -39,6 +40,14 @@ export function MemberPage({
       active={layer}
       railHref={MEMBER_RAIL}
       accountHref="/app/settings"
+      railFooter={
+        // Sign out was in the old member header. The frame does not draw one,
+        // and a member who cannot leave an account on a shared computer is a
+        // privacy problem, not a layout one.
+        <form action={logout}>
+          <button className="hover:underline">Sign out</button>
+        </form>
+      }
       aside={aside}
     >
       {lede && <p className="measure -mt-1 mb-6 text-olive">{lede}</p>}

@@ -72,14 +72,17 @@ test("a member outside the clinician's tenant is not found rather than forbidden
   await expect(page.getByRole("heading", { name: "Not found" })).toBeVisible();
 });
 
-test("the clinical console is reachable from the persistent nav", async ({ page }) => {
+test("the clinical console is reachable from the persistent rail", async ({ page }) => {
+  // The nav bar is gone; navigation is the app shell's five-item rail, which is
+  // §25's information layers rather than a menu. The property is unchanged: a
+  // console page is one click from the console, and the navigation says where
+  // you are rather than only where you can go.
   await signInAsClinician(page);
   await page.goto("/clinician");
-  const nav = page.getByRole("navigation", { name: "Clinician" });
-  await nav.getByRole("link", { name: "Caseload" }).click();
+  const rail = page.getByRole("navigation", { name: "Information layers" });
+  await rail.getByRole("link", { name: "Progress" }).click();
   await expect(page).toHaveURL(/\/clinician\/caseload$/);
-  // The nav says where you are, not just where you can go.
-  await expect(nav.getByRole("link", { name: "Caseload" })).toHaveAttribute("aria-current", "page");
+  await expect(rail.getByRole("link", { name: "Progress" })).toHaveAttribute("aria-current", "page");
 });
 
 // ---------------------------------------------------------------------------
@@ -103,7 +106,7 @@ test("the audit console is tenant-scoped and never prints raw detail", async ({ 
   await signInAsClinician(page);
   await page.goto("/review/audit");
 
-  await expect(page.getByRole("heading", { name: "Audit console" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Audit and lineage" })).toBeVisible();
   await expect(page.getByTestId("chain-banner")).toBeVisible();
   await expect(page.getByText(/view filter/)).toBeVisible();
 
@@ -171,30 +174,33 @@ test("every console is reachable from the nav, from anywhere", async ({ page }) 
   await signInAsClinician(page);
 
   await page.goto("/review/audit");
-  const reviewNav = page.getByRole("navigation", { name: "Review" });
-  for (const [label, url] of [
-    ["BLS oversight", /\/review\/bls$/],
-    ["Testing console", /\/review\/testing$/],
-    ["Autonomous flow", /\/review\/autonomous$/],
-  ] as const) {
-    await reviewNav.getByRole("link", { name: label }).click();
-    await expect(page).toHaveURL(url);
-  }
+  const rail = page.getByRole("navigation", { name: "Information layers" });
+  // Evidence holds two review screens, so it lists them under the title; the
+  // rail reaches the layer and the sibling row reaches the screen.
+  await rail.getByRole("link", { name: "Evidence" }).click();
+  await expect(page).toHaveURL(/\/review\/bls$/);
+  const layerNav = page.getByRole("navigation", { name: "Screens in this layer" });
+  await layerNav.getByRole("link", { name: "Autonomous flow" }).click();
+  await expect(page).toHaveURL(/\/review\/autonomous$/);
+  await rail.getByRole("link", { name: "Actions" }).click();
+  await expect(page).toHaveURL(/\/review\/testing$/);
 
   // And back across the boundary, in both directions.
   await page.getByRole("link", { name: "Clinical console" }).click();
   await expect(page).toHaveURL(/\/clinician\/today$/);
 
-  const clinNav = page.getByRole("navigation", { name: "Clinician" });
-  for (const [label, url] of [
-    ["Caseload", /\/clinician\/caseload$/],
-    ["Patients", /\/clinician\/patients$/],
-    ["Today", /\/clinician\/today$/],
-  ] as const) {
-    await clinNav.getByRole("link", { name: label }).click();
-    await expect(page).toHaveURL(url);
-  }
-  await clinNav.getByRole("link", { name: "Review console" }).click();
+  const clinRail = page.getByRole("navigation", { name: "Information layers" });
+  await clinRail.getByRole("link", { name: "Progress" }).click();
+  await expect(page).toHaveURL(/\/clinician\/caseload$/);
+  await page
+    .getByRole("navigation", { name: "Screens in this layer" })
+    .getByRole("link", { name: "Patients" })
+    .click();
+  await expect(page).toHaveURL(/\/clinician\/patients$/);
+  await clinRail.getByRole("link", { name: "Overview" }).click();
+  await expect(page).toHaveURL(/\/clinician\/today$/);
+
+  await clinRail.getByRole("link", { name: "Review console" }).click();
   await expect(page).toHaveURL(/\/review\/audit$/);
 });
 
@@ -289,8 +295,11 @@ test("the trajectory does not push the page sideways on a phone", async ({ page 
 
 test("patients can be found by name, not by scanning a triage queue", async ({ page }) => {
   await signInAsClinician(page);
-  const nav = page.getByRole("navigation", { name: "Clinician" });
-  await nav.getByRole("link", { name: "Patients" }).click();
+  await page.goto("/clinician/caseload");
+  await page
+    .getByRole("navigation", { name: "Screens in this layer" })
+    .getByRole("link", { name: "Patients" })
+    .click();
   await expect(page).toHaveURL(/\/clinician\/patients$/);
   await expect(page.getByRole("heading", { name: "Patients" })).toBeVisible();
 
