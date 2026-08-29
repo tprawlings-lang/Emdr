@@ -55,8 +55,9 @@ const nextConfig: NextConfig = {
       { source: "/screening", destination: "/app/screening", permanent: true },
       { source: "/onboarding/:path*", destination: "/app/onboarding/:path*", permanent: true },
       { source: "/onboarding", destination: "/app/onboarding", permanent: true },
-      // §26 gives review its own home; /review/audit is the only one built.
-      { source: "/review", destination: "/review/audit", permanent: false },
+      // /review used to redirect to /review/audit, because the review role had
+      // four screens and no front door. It has one now, so the redirect is
+      // gone — leaving it would make the home page unreachable at its own URL.
     ];
   },
 

@@ -69,7 +69,85 @@ below refer to it) drove the last several commits, in its own §9 order:
 | — | **Patient directory**, separate from the caseload | `709b582` |
 | §5 | **The gate as a paced sequence** — one question per screen, resumable | `1ea82c0` |
 
-## ▶ NOW: handoff 05, the GUI and decision-surface work
+## ▶ NOW: handoff 06 — the frame, and the atlas it comes from
+
+[`docs/handoffs/06-web-gui-analytics-and-clinical-presentation.pdf`](docs/handoffs/06-web-gui-analytics-and-clinical-presentation.pdf)
+is the live specification: 101 pages, of which **pages 54–73 are drawn page examples**.
+Part I reprints handoff 05; Part II (§25–§31) is the coding annex.
+
+> **Open the mockups before writing a screen.** The first pass at this handoff was built
+> from its text alone, and the result did not resemble it. Two things in particular get
+> rebuilt wrong from memory: the left rail is §25's four **information layers**, not a
+> feature menu, and the top bar is **light** — it reads as dark because the wordmark and
+> the avatar sit on it in deep green.
+
+**What every one of the twenty examples draws.** `src/components/app/AppShell.tsx`:
+
+- an ivory page, with the app in a rounded near-white panel;
+- a bar with the wordmark, the role, a FABRICATED pill and an avatar;
+- a pale rail: **Overview · Progress · Actions · Evidence · Audit** — the same five for
+  every role, because roles differ in what each layer *contains*, not in which layers
+  exist. `src/lib/app/rails.ts` says where each one goes per role, and a layer with no
+  destination renders as plain text rather than a dead link;
+- the title, then the standing line "Action first. Meaning second. Evidence third.".
+
+Under it, four repeated pieces in `src/components/app/surfaces.tsx`: a tinted `Callout`,
+`SummaryCards` (capped at three — a fourth means the screen has not decided what matters),
+a white `Panel` with a required footnote, and a `Note` beside it with a **required
+`boundary`** — the sentence saying what the panel does not prove. Optional, it would be
+the first thing dropped.
+
+**Where the shell is.** All 36 member routes, all 18 clinician routes, all 5 review
+routes. `MemberPage`, `ClinicianPage`, `PersonShell` and `ReviewPage` all render it;
+`MemberNav`, `ClinicianNav` and `ReviewNav` are deleted. Running activities and sessions
+stay deliberately chrome-free. The rail is five items everywhere, so screens *within* a
+layer are a small sibling row under the title — five links cannot reach fourteen
+destinations without stranding nine.
+
+### The atlas, screen by screen — what exists and what does not
+
+§26 specifies 80 screens across six roles. Counts are routes on disk, not judgements
+about how finished each is.
+
+| Role | Spec | Built | Gap |
+|---|---|---|---|
+| Patient and member | 15 | 15 (36 routes incl. sub-screens) | — |
+| Clinician | 14 | 14 (18 routes) | — |
+| Organization | 9 | **0** | every screen; `/organization/*` does not exist |
+| Payer | 10 | **0** | every screen; `/payer/*` does not exist |
+| Review and administration | 13 | 5 | `/review/access`, `/clinical`, `/safety`, `/lineage`, `/research`, `/release`, `/demo-data`, `/status` |
+| Public institutional site | 11 | 9 | `/personal`, `/intelligence`. Nothing links to them — the home page routes the three products to `/platform`, `/clinical`, `/organizations` and `/payers` instead — so this is a naming gap, not a broken link |
+| Shared access states | 8 | 1 | only `/login`. Missing `/verify`, `/reset`, `/invite/[token]`, `/403`, `/404`, `/session-expired`, `/status/degraded` |
+
+**Also specified and not built:** §29's chart contracts — 22 chart screens (clinician 7,
+organization 7, payer 8), of which the eight worked examples are pages 76–83. §29.1's
+rules for every chart (denominator with its numerator, the window and refresh time always
+shown, no mixed clinical scales on one surface, no predictive risk score) apply to the
+charts that do exist and are not yet encoded as a guard.
+
+**Deliberately not built, and why it is not a gap:**
+
+- `/review` shows no review queue. §26 asks for one; scoped access requests, release
+  sign-offs and clinical language approvals are not records anywhere in this deployment.
+  An empty queue would claim a channel that is quiet. The screen names the eight missing
+  screens instead.
+- Organization and payer screens are aggregate-only by §30.6 — aggregate access must not
+  create person-level care access. That is a data-model requirement, not a page.
+
+### Waves, per §31.2
+
+| Wave | | Status |
+|---|---|---|
+| 0 | Baseline | done |
+| 1 | Presentation spine | done |
+| 2 | Member | done |
+| 3 | Clinician | done |
+| — | **The frame** (this work) | done — member, clinician and review |
+| 4 | Aggregate — organization and payer | **not started, 19 screens** |
+| 5 | Review and public | 5 of 13 review screens |
+| 6 | Hardening — performance, accessibility, security, telemetry | not started |
+
+## ✔ DONE: handoff 05, the GUI and decision-surface work
 
 [`docs/handoffs/05-gui-and-decision-surface.pdf`](docs/handoffs/05-gui-and-decision-surface.pdf)
 is the live specification. **Read [`docs/site/gui-decisions.md`](docs/site/gui-decisions.md)
