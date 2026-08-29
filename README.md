@@ -66,8 +66,8 @@ curl -s -o /dev/null -w "%{http_code}\n" https://steady-emdr-demo.onrender.com/a
 ```
 
 ```bash
-npm run test:safety   # 605 pass
-npm run test:e2e      # 112 pass   (PLAYWRIGHT_CHROMIUM_PATH=/opt/pw-browsers/chromium)
+npm run test:safety   # 613 pass
+npm run test:e2e      # 119 pass   (PLAYWRIGHT_CHROMIUM_PATH=/opt/pw-browsers/chromium)
 npm run test:rls      # 12 cross-tenant attack cases against a real Postgres cluster
 npm run build         # clean
 npm run demo -- reset # seed AND rebuild the event log — see the warning below
@@ -140,7 +140,7 @@ about how finished each is.
 | Payer | 10 | **0** | every screen; `/payer/*` does not exist. There is no claims feed, no eligibility file, no contract record and no cost model anywhere in this deployment, so all ten would be reporting on nothing |
 | Review and administration | 13 | 5 | `/review/access`, `/clinical`, `/safety`, `/lineage`, `/research`, `/release`, `/demo-data`, `/status` |
 | Public institutional site | 11 | 9 | `/personal`, `/intelligence`. Nothing links to them — the home page routes the three products to `/platform`, `/clinical`, `/organizations` and `/payers` instead — so this is a naming gap, not a broken link |
-| Shared access states | 8 | 1 | only `/login`. Missing `/verify`, `/reset`, `/invite/[token]`, `/403`, `/404`, `/session-expired`, `/status/degraded` |
+| Shared access states | 8 | 8 | — |
 
 **Also specified and not built:** §29's chart contracts — 22 chart screens (clinician 7,
 organization 7, payer 8), of which the eight worked examples are pages 76–83. §29.1's
@@ -182,6 +182,33 @@ Three screens are deliberately not charts:
 | Capacity | `partial` | Demand is countable; open first-visit slots are not — no calendar, no slot record. Half a ratio is not a ratio, so the missing source is named above the chart. |
 | Teams | empty | There is no team record in the tenancy model at all. A workload ranking of teams that do not exist, shown to the people who set their budgets, is worse than a blank. |
 | Reports | empty | A governed export needs filter parity, cohort version, suppression, a stated purpose, an audit event and a signature. Until it has all six, the honest control is the absence of a button. |
+
+### The shared access states
+
+The screens nobody looks at until they are the only screen a person can see.
+All eight now exist; `/404` is Next's `not-found.tsx` convention rather than a
+route, which is why a page at `src/app/404` would never be reached.
+
+Three of them are honestly unbuilt flows — `/verify`, `/reset`,
+`/invite/[token]` — and none renders a control. A six-digit box that accepts
+any six digits, or a "check your inbox" for an email channel that does not
+exist, would demonstrate a control that is not there; a reviewer could not tell
+by looking, and someone locked out would wait for a link nobody sent. The guard
+`tests/access-states.test.ts` fails the build on an `<input>`, `<form>` or
+`<button>` in any of the three.
+
+Two behaviours are worth knowing:
+
+- **`/session-expired` is reached when a session cookie exists but no longer
+  resolves**, and `/login` when there is no cookie at all. Telling those apart
+  is what lets the screen say that saved work is safe and that part-typed text
+  was deliberately not kept. A forged cookie and an expired one are told the
+  same thing.
+- **`/status/degraded` measures rather than asserts.** It probes the database
+  and reads the live safety configuration. Grounding and crisis are marked
+  always-available and a guard fails the build if either can ever report
+  otherwise — §1 requires both to survive a write, subscription, sync or
+  service failure.
 
 ### Waves, per §31.2
 
