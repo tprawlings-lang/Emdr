@@ -197,3 +197,26 @@ test("the repair writes nothing on a database that already has its population", 
     assert.equal(one(`SELECT COUNT(*) AS n FROM ${t}`), n, `the repair rewrote ${t}`);
   }
 });
+
+test("a failed repair is written down, not only logged", () => {
+  // THE FAILURE MODE THIS EXISTS FOR. The reconciliation is best-effort by
+  // design — a bad dataset must never become no demonstration at all — so it
+  // catches its own exception. It then said nothing, and on the deployed
+  // instance that is precisely what happened: six manifest checks failing, the
+  // repair having run and thrown, and no surface anywhere connecting the two.
+  // Container logs are not a surface a presenter has.
+  const now = new Date().toISOString().slice(0, 19).replace("T", " ");
+  db.prepare(
+    `INSERT INTO demo_repair (id, attempted_at, status, detail) VALUES (1, ?, 'failed', 'boom')
+     ON CONFLICT(id) DO UPDATE SET status = 'failed', detail = 'boom', attempted_at = excluded.attempted_at`,
+  ).run(now);
+
+  const row = runQualityChecks(db).find((r) => r.check === "Dataset repair");
+  assert.ok(row, "the manifest does not report whether the repair worked");
+  assert.equal(row!.pass, false, "a failed repair passes the manifest silently");
+  assert.match(row!.actual, /failed/);
+  assert.match(row!.actual, /boom/, "the reason the repair failed is not shown");
+
+  db.prepare("UPDATE demo_repair SET status = 'ok', detail = NULL WHERE id = 1").run();
+  assert.equal(runQualityChecks(db).find((r) => r.check === "Dataset repair")!.pass, true);
+});
