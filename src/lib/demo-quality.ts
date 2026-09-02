@@ -188,7 +188,9 @@ export function runQualityChecks(db: Database.Database): CheckResult[] {
     actual: repair === null
       ? "no attempt recorded — this database predates the repair, or it is not a demo environment"
       : `${repair.status} at ${repair.attempted_at}${repair.detail ? ` — ${repair.detail}` : ""}`,
-    pass: repair === null || repair.status === "ok",
+    // "running" means the boot recorded its intent and then never came back —
+    // a crash inside the chain, which is a finding in its own right.
+    pass: repair === null || repair.status === "ok" || repair.status === "skipped_not_demo",
   });
 
   // ── Missingness carries a reason ───────────────────────────────────────
