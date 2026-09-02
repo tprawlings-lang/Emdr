@@ -52,9 +52,20 @@ test("the planning list shows what fired and every rule that did not", async ({ 
   ]) {
     await expect(main).toContainText(id);
   }
-  // And the rules with no input in this deployment say which input they lack.
-  await expect(main).toContainText(/open-slot feed/);
-  await expect(main).toContainText(/coverage schedule/);
+  // Four of the seven produce output on this deployment, and each names its
+  // recommended action rather than an instruction.
+  await expect(main).toContainText(/Operational capacity review/);
+  await expect(main).toContainText(/Coverage and workflow review/);
+  await expect(main).toContainText(/Human fairness review/);
+
+  // And every rule that produced nothing says p34's reason. REGION_CAPACITY
+  // both FIRES and withholds — on a strained region and on one whose slot feed
+  // froze — and the screen has to show both halves. It showed only the firing
+  // once, and the stale-feed finding was invisible on the screen built to
+  // surface it.
+  await expect(main).toContainText(/days old, past the/);
+  await expect(main).toContainText(/confidence interval crosses zero/);
+  await expect(main).toContainText(/below the minimum analysis size/);
 });
 
 test("the detail screen carries p44's sections, and the blocked actions", async ({ page }) => {

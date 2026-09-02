@@ -277,7 +277,15 @@ const CONFOUND_COHORTS: CohortDefinition[] = [
 COHORTS.push(...CONFOUND_COHORTS);
 
 export function cohort(id: string): CohortDefinition {
-  const c = COHORTS.find((x) => x.id === id);
+  const c = COHORTS.find((x) => x.id === id)
+    // The region cohorts are GENERATED from one template rather than listed,
+    // so they were resolvable by iterating `regionCohorts()` and not by id.
+    // Anything holding a stored `cohort_ref` — a planning signal, a lineage
+    // response, an export — could not look one up, and the fail-safe for "this
+    // cohort has left the registry" fired for cohorts that are very much in
+    // it: a signal about the West lost its own definition, its eligibility and
+    // its filters, and its detail screen had nothing to show under Population.
+    ?? regionCohorts().find((x) => x.id === id);
   if (!c) throw new Error(`unknown cohort "${id}" — every cohort must be declared in the registry`);
   return assertNoActivityInEligibility(c);
 }

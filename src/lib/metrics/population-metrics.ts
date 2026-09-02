@@ -267,3 +267,167 @@ export function metricContext(runId: string, window?: Window): ComputeContext {
     responderThreshold: RESPONDER_THRESHOLD,
   };
 }
+
+// ---------------------------------------------------------------------------
+// The operational feeds
+// ---------------------------------------------------------------------------
+
+/** Demand and supply for a first visit, by region, over a window. */
+export interface CapacityReading {
+  region: string;
+  /** REFERRALS RECEIVED in the window — everybody who needs a first visit,
+   *  not the residue who never got one.
+   *
+   *  The backlog is the more intuitive number and it is the wrong one: slots
+   *  are consumed by everyone who is seen, so comparing a period's supply
+   *  against only the people it failed reports a service at capacity as one
+   *  with nothing to do. Measured on the first version: demand of 0 to 2
+   *  against a supply of 141 to 219. */
+  demand: number;
+  /** Open first-visit slots across the window, or null when no feed exists. */
+  openFirstVisitSlots: number | null;
+  slotDataAsOf: string | null;
+  /** How old the newest reading is, in days, at the window's close. p34
+   *  refuses to evaluate a stale feed and this is the number it refuses on. */
+  asOfAgeDays: number | null;
+}
+
+export interface ReviewLoadReading {
+  region: string;
+  fixedReviewEvents: number;
+  staffedCapacity: number | null;
+  coverageScheduleKnown: boolean;
+  /** Whether every review event in the window carries a classification. p34
+   *  produces nothing when the classification is missing, because then the
+   *  count is of something undefined. */
+  classificationComplete: boolean;
+}
+
+/**
+ * These live here rather than in the planning engine, and the reason is a
+ * guard rather than a preference: `tests/planning.test.ts` fails the build on
+ * a person identifier anywhere under `src/lib/planning`, and counting people
+ * who are waiting for a visit names one. The planning rules take the readings
+ * and compare them; they do not go and get them.
+ */
+export async function loadCapacity(tenantIds: string[], window: Window): Promise<CapacityReading[]> {
+  if (tenantIds.length === 0) return [];
+  const c = await data();
+  const marks = tenantIds.map(() => "?").join(",");
+  const w = { start: assertDate(window.start), end: assertDate(window.end) };
+
+  const demand = (await c.all(
+    `SELECT a.census_region AS region, COUNT(*) AS n
+       FROM longitudinal_events e
+       JOIN persons p ON p.id = e.person_id
+       JOIN person_attributes a ON a.person_id = p.id
+      WHERE p.tenant_id IN (${marks})
+        AND e.event_type = 'referral.received'
+        AND substr(e.occurred_at, 1, 10) BETWEEN '${w.start}' AND '${w.end}'
+      GROUP BY 1`,
+    tenantIds,
+  )) as { region: string; n: number }[];
+
+  const slots = (await c.all(
+    // HOW STALE IS THE STALEST SITE, which is neither MAX nor MIN of the raw
+    // rows.
+    //
+    // MAX across the region hides a site whose feed froze months ago behind
+    // one that is still reporting, and a total assembled from a frozen
+    // component is wrong in a way p34's staleness condition exists to catch.
+    // MIN across the region is worse in the other direction: the oldest row in
+    // a ninety-day window is ninety days old by construction, so every feed
+    // reads as stale however well it is working.
+    //
+    // What matters is whether each site is STILL reporting: take each one's
+    // latest reading, then the oldest of those.
+    `SELECT census_region AS region, SUM(n) AS n, MIN(latest) AS as_of FROM (
+       SELECT tenant_id, census_region,
+              SUM(open_first_visit_slots) AS n, MAX(as_of) AS latest
+         FROM capacity_slots
+        WHERE tenant_id IN (${marks}) AND period_start BETWEEN '${w.start}' AND '${w.end}'
+        GROUP BY tenant_id, census_region
+     ) GROUP BY census_region`,
+    tenantIds,
+  )) as { region: string; n: number; as_of: string }[];
+
+  const byRegion = new Map<string, CapacityReading>();
+  for (const s of slots) {
+    const asOf = String(s.as_of);
+    byRegion.set(s.region, {
+      region: s.region,
+      demand: 0,
+      openFirstVisitSlots: Number(s.n),
+      slotDataAsOf: asOf,
+      // `as_of` is a calendar date, so it is parsed as one. Appending a time
+      // would be inventing precision the feed never reported.
+      asOfAgeDays: Math.round(
+        (new Date(`${w.end}T23:59:59Z`).getTime() - new Date(`${asOf.slice(0, 10)}T00:00:00Z`).getTime())
+        / 86400000),
+    });
+  }
+  for (const d of demand) {
+    const existing = byRegion.get(d.region);
+    if (existing) existing.demand = Number(d.n);
+    // A region with demand and no feed at all. Reported with a null supply
+    // rather than dropped, because "we have not counted the slots" and "there
+    // are no slots" are different answers and only one of them is a capacity
+    // finding.
+    else byRegion.set(d.region, {
+      region: d.region, demand: Number(d.n),
+      openFirstVisitSlots: null, slotDataAsOf: null, asOfAgeDays: null,
+    });
+  }
+  return [...byRegion.values()];
+}
+
+export async function loadReviewLoad(tenantIds: string[], window: Window): Promise<ReviewLoadReading[]> {
+  if (tenantIds.length === 0) return [];
+  const c = await data();
+  const marks = tenantIds.map(() => "?").join(",");
+  const w = { start: assertDate(window.start), end: assertDate(window.end) };
+
+  const events = (await c.all(
+    `SELECT a.census_region AS region,
+            COUNT(*) AS n,
+            SUM(CASE WHEN json_extract(e.payload, '$.reason') IS NULL THEN 1 ELSE 0 END) AS unclassified
+       FROM longitudinal_events e
+       JOIN persons p ON p.id = e.person_id
+       JOIN person_attributes a ON a.person_id = p.id
+      WHERE p.tenant_id IN (${marks})
+        AND e.event_type = 'safety_state.changed'
+        AND json_extract(e.payload, '$.state') = 'paused'
+        AND substr(e.occurred_at, 1, 10) BETWEEN '${w.start}' AND '${w.end}'
+      GROUP BY 1`,
+    tenantIds,
+  )) as { region: string; n: number; unclassified: number }[];
+
+  const cover = (await c.all(
+    `SELECT census_region AS region, SUM(staffed_review_capacity) AS n,
+            MAX(coverage_schedule) AS schedule
+       FROM review_coverage
+      WHERE tenant_id IN (${marks}) AND period_start BETWEEN '${w.start}' AND '${w.end}'
+      GROUP BY 1`,
+    tenantIds,
+  )) as { region: string; n: number; schedule: string }[];
+
+  const byRegion = new Map<string, ReviewLoadReading>();
+  for (const r of cover) {
+    byRegion.set(r.region, {
+      region: r.region, fixedReviewEvents: 0,
+      staffedCapacity: Number(r.n),
+      coverageScheduleKnown: Boolean(r.schedule),
+      classificationComplete: true,
+    });
+  }
+  for (const e of events) {
+    const existing = byRegion.get(e.region) ?? {
+      region: e.region, fixedReviewEvents: 0, staffedCapacity: null,
+      coverageScheduleKnown: false, classificationComplete: true,
+    };
+    existing.fixedReviewEvents = Number(e.n);
+    existing.classificationComplete = Number(e.unclassified) === 0;
+    byRegion.set(e.region, existing);
+  }
+  return [...byRegion.values()];
+}

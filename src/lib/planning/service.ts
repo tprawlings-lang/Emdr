@@ -11,7 +11,10 @@ import {
   computeActivation, computeFollowupCompletion, computeObservedChange,
   resolve, type MetricResult, type Observation,
 } from "@/lib/metrics/compute";
-import { loadObservations, metricContext, type Window } from "@/lib/metrics/population-metrics";
+import {
+  loadCapacity, loadObservations, loadReviewLoad, metricContext,
+  type CapacityReading, type ReviewLoadReading, type Window,
+} from "@/lib/metrics/population-metrics";
 import type { Role } from "@/lib/roles";
 import {
   actionPermitted, isBlockedAction, transition,
@@ -206,9 +209,32 @@ async function dataQualityReading(tenantIds: string[]) {
  * withhold rather than fail. Three silent rules with a stated reason is a
  * truer demonstration of the engine than seven firing on invented inputs.
  */
+/** The single region a cohort is defined by, or null when it spans several.
+ *  A regional rule about a cross-regional cohort is a category error. */
+function soleRegion(c: CohortDefinition): string | null {
+  const r = c.filters.region;
+  return r && r.length === 1 ? r[0] : null;
+}
+
+function capacityFor(c: CohortDefinition, readings: CapacityReading[]): CapacityReading | null {
+  const region = soleRegion(c);
+  return region === null ? null : readings.find((x) => x.region === region) ?? null;
+}
+
+function reviewLoadFor(c: CohortDefinition, readings: ReviewLoadReading[]): ReviewLoadReading | null {
+  const region = soleRegion(c);
+  return region === null ? null : readings.find((x) => x.region === region) ?? null;
+}
+
+interface OperationalReadings {
+  capacity: CapacityReading[];
+  reviewLoad: ReviewLoadReading[];
+}
+
 async function contextFor(
   c: CohortDefinition, readings: Reading[], runId: string,
   quality: Awaited<ReturnType<typeof dataQualityReading>>,
+  ops: OperationalReadings,
 ): Promise<RuleContext> {
   const ref = ALL_ELIGIBLE;
   const access = readings.map((r) => readingFor(c, ref, r, runId, computeActivation));
@@ -254,17 +280,21 @@ async function contextFor(
       completeness: group.length === 0 ? 0 : recorded / group.length,
       groupSize: group.length,
     },
-    capacity: { demand: 0, openFirstVisitSlots: null, slotDataAsOf: null, asOfAgeDays: null },
-    reviewLoad: {
-      fixedReviewEvents: last.rows.reduce((s, r) => s + r.reviewLatencyHours.length, 0),
-      staffedCapacity: null,
-      classificationComplete: true,
-      coverageScheduleKnown: false,
-    },
+    // The operational feeds, matched to this cohort's region. A cohort that is
+    // not defined by a region has no regional capacity to speak of, and the
+    // rules withhold on the null rather than being handed the network total —
+    // which would report the whole network's backlog as a finding about forty
+    // Spanish-speaking members.
+    capacity: capacityFor(c, ops.capacity),
+    reviewLoad: reviewLoadFor(c, ops.reviewLoad),
     dataQuality: quality,
     followupDueLogicDiffers: false,
     exposureDefinitionChanged: false,
-    changeIntervalIsConfidence: false,
+    // `computeObservedChange` now reports a 95% interval on the mean paired
+    // difference alongside the observed range, so p34's condition is
+    // evaluable. Below thirty pairs it reports none, and MODULE_SIGNAL says so
+    // rather than guessing.
+    changeIntervalIsConfidence: true,
   };
 }
 
@@ -299,6 +329,11 @@ export async function detectSignals(
   const readings: Reading[] = [];
   for (const w of wins) readings.push({ window: w, rows: await loadObservations(tenantIds, w) });
   const quality = await dataQualityReading(tenantIds);
+  const recent = wins[wins.length - 1];
+  const ops: OperationalReadings = {
+    capacity: await loadCapacity(tenantIds, recent),
+    reviewLoad: await loadReviewLoad(tenantIds, recent),
+  };
 
   const detectedAt = new Date().toISOString().slice(0, 19) + "Z";
   const signals: PlanningSignal[] = [];
@@ -306,7 +341,7 @@ export async function detectSignals(
   let releaseBlocked = false;
 
   for (const c of plannedCohorts()) {
-    const ctx = await contextFor(c, readings, `${c.id}`, quality);
+    const ctx = await contextFor(c, readings, `${c.id}`, quality, ops);
     const outcomes = evaluateAll(ctx, t);
     for (const o of outcomes) {
       if (o.withheld) {

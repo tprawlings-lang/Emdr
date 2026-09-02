@@ -108,10 +108,15 @@ export interface RuleContext {
   /** p34: MODULE_SIGNAL produces no output when the exposure definition
    *  changed during the period. Also declared. */
   exposureDefinitionChanged: boolean;
-  /** Whether the interval on observed change is a CONFIDENCE interval. It is
-   *  not: `computeObservedChange` reports the observed range and says so, and
-   *  p36 puts an interval estimate above level 1. p34's condition cannot be
-   *  evaluated without one. */
+  /** Whether the observed-change reading carries a confidence interval.
+   *
+   *  It now does — `computeObservedChange` reports one alongside the observed
+   *  range, which are answers to different questions: how varied were these
+   *  people, and how precisely do we know their average. The flag stays
+   *  because a reading assembled from a source that does not compute one must
+   *  still be able to say so, and because MODULE_SIGNAL withholding for a
+   *  missing input is a different fact from it withholding because the
+   *  interval spans zero. */
   changeIntervalIsConfidence: boolean;
 }
 
@@ -372,8 +377,8 @@ const MODULE_SIGNAL: RuleDefinition = {
     // answer as REGION_CAPACITY's, arrived at for the same reason.
     if (!ctx.changeIntervalIsConfidence) {
       return nothing(this.id, this.output,
-        "no confidence interval is computed — observed change reports the observed range, and " +
-        "p34's condition cannot be evaluated without an interval estimate (p36 puts one above level 1)",
+        "the observed-change reading does not carry a confidence interval, so p34's condition " +
+        "cannot be evaluated",
         { interval_available: false }, threshold);
     }
     if (ctx.change.length < needed) {
@@ -385,11 +390,23 @@ const MODULE_SIGNAL: RuleDefinition = {
     const recent = ctx.change.slice(-needed);
     const diffs = recent.map((w) =>
       Number(w.cohort.detail.mean_change ?? 0) - Number(w.reference.detail.mean_change ?? 0));
-    const low = Number(recent[recent.length - 1].cohort.detail.range_low ?? 0);
-    const high = Number(recent[recent.length - 1].cohort.detail.range_high ?? 0);
-    if (low <= 0 && high >= 0) {
-      return nothing(this.id, this.output, "the interval crosses zero",
-        { interval_low: low, interval_high: high }, threshold);
+    // The CONFIDENCE interval, not the observed range. p34's condition is
+    // about whether the estimate is distinguishable from no difference, which
+    // a range of observed values cannot answer — in any real cohort somebody
+    // got worse and somebody got better, so the range always spans zero and
+    // the rule could never fire.
+    const last = recent[recent.length - 1].cohort;
+    const low = last.detail.ci_low;
+    const high = last.detail.ci_high;
+    if (low === null || low === undefined || high === null || high === undefined) {
+      return nothing(this.id, this.output,
+        `no confidence interval could be computed for ${last.cohort_id} — fewer than 30 paired ` +
+        "observations, or no variation among them",
+        { paired_n: last.detail.paired_n ?? null }, threshold);
+    }
+    if (Number(low) <= 0 && Number(high) >= 0) {
+      return nothing(this.id, this.output, "the confidence interval crosses zero",
+        { ci_low: Number(low), ci_high: Number(high) }, threshold);
     }
     const sameSign = diffs.every((d) => d < 0) || diffs.every((d) => d > 0);
     const fired = sameSign && diffs.every((d) => Math.abs(d) >= margin);

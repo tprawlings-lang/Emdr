@@ -469,25 +469,45 @@ no policy row, and no policy row may sit there unread. A rule that reached for a
 reads no key, so it shows up as an unread threshold rather than as a diff somebody had to
 notice.
 
-**Three of the seven rules produce nothing in this deployment, and each names the input it
-does not have.** That is p34's "no output when" column working, not a shortfall:
+### Making the rules fire — what each one was missing
 
-- **REGION_CAPACITY** — there is no open-slot feed. The organization capacity screen already
-  renders in the partial state for this reason and names the missing source above the chart;
-  a planning rule that fired anyway would have to invent the denominator.
-- **SAFETY_REVIEW_LOAD** — the review events are counted and the staffed coverage schedule
-  they would be measured against does not exist as data.
-- **MODULE_SIGNAL** — p34's condition is that a confidence interval must not cross zero, and
-  `computeObservedChange` reports the observed *range* and says in its own comment that
-  calling it an interval estimate would promote the finding a rung on p36's ladder.
+At the end of the first pass four of p34's seven rules produced nothing, and every one of
+them was blocked on a missing INPUT rather than on logic. All four are now resolved or
+resolved as far as the fixture allows.
 
-**ACCESS_GAP is withheld too, and now for two reasons, both worth recording.** The 240 all
-enrolled in a single month, so the second window contains one entrant — and activation is a
-cohort-entry metric, so p34's "denominator below threshold" is the correct answer to a
-window with nobody in it. Since the access model landed, the *first* condition it trips is
-missingness: at 30.5% against a 30% limit, an access comparison genuinely is unreliable
-before the denominator question is even reached. Both are true and the more fundamental one
-is masked by the earlier check, which is a limitation of reporting one reason per rule.
+| Rule | Was blocked on | Now |
+|---|---|---|
+| **REGION_CAPACITY** | No open-slot feed anywhere in the schema | `capacity_slots`, seeded as a fabricated stand-in for a scheduling integration. **Fires** on the West, withholds for the Midwest on a deliberately frozen feed |
+| **SAFETY_REVIEW_LOAD** | No staffed coverage schedule | `review_coverage`. **Fires** on the West |
+| **MODULE_SIGNAL** | No confidence interval on paired change | `computeObservedChange` now reports one. **Evaluates**, and withholds because the interval crosses zero — the rule working, not a blocker |
+| **ACCESS_GAP** | Gated on the wrong missingness, and underneath it a single enrolment cohort | Missingness is now per metric and intake is rolling. Still withheld: **the fixture is too small**, see below |
+
+**MODULE_SIGNAL's interval was a decision worth revisiting.** `computeObservedChange`
+reported the observed *range* and said in its own comment that calling it a confidence
+interval would promote the finding a rung on p36's ladder. That was right about a range and
+wrong about an interval, and it left p32's required display for this metric — which lists
+"interval" — unmet. A confidence interval on a descriptive mean quantifies sampling
+uncertainty; it adjusts for nothing and assumes no design, so it is still level 1. What
+would promote a finding is an *adjusted* estimate, and nothing here adjusts. Both numbers
+are now reported, because they answer different questions: how varied were these people, and
+how precisely do we know their average.
+
+**ACCESS_GAP is the one the fixture cannot support, and the arithmetic is worth stating.**
+A region holds 60 of the 240, so it caps at 30 entrants per 90-day window even if every one
+of them enrolled inside it — exactly p37's minimum analysis size, with no margin. Measured
+after rolling intake landed: 39–49 entrants per window across the whole population, 5–14 in
+any subgroup. Firing it needs a larger population or dropping below the minimum, and the
+second is not acceptable. The rule now reports that as its reason instead of a missingness
+figure from a metric it does not read.
+
+**The two feeds are fabricated stand-ins and are sized to the fixture, not to an ambition.**
+Numbers borrowed from a real network made every ratio 0.01 and the rule unfirable in the
+other direction — 240 profiles across a year generate about three first-visit referrals per
+region per four weeks, so the period is four weeks and a site meeting its share offers two
+or three slots. One region (West) is authored as genuinely strained on both feeds; one
+(South) is close on slots and adequately staffed, because a console whose only two states
+are "fine" and "alarm" gets read as an alarm system. One site's feed is deliberately frozen,
+because a staleness condition that has never met a stale input has not been tested.
 
 **The population had to be given something to find.** The manifest is balanced on every
 dimension p29 checks — 60 per region, 40 per band, 40 per race, 30 per archetype, 10 of each
@@ -499,6 +519,30 @@ been tested.
 
 That is what `src/lib/demo-population-disparity.ts` is for, and it is described in its own
 section below.
+
+**What making them fire found.**
+
+- **A units error in the capacity comparison.** Demand was counted as the residue who never
+  got seen rather than as referrals received. Slots are consumed by everyone who is seen, so
+  comparing a period's supply against only the people it failed reports a service at
+  capacity as one with nothing to do: demand of 0–2 against a supply of 141–219.
+- **A stale site hiding behind a working one.** A regional total took `MAX(as_of)` across
+  its sites, so a feed frozen for four months reported itself as current. `MIN(as_of)` was
+  worse in the other direction — the oldest row in a 90-day window is 90 days old by
+  construction, so every feed read as stale however well it was working. What matters is
+  whether each site is still reporting: each one's latest, then the oldest of those.
+- **A feed that dated itself at the wrong end.** `as_of` was the period's start, so every
+  reading looked four weeks old the moment it was written and the newest row in a window was
+  24 days stale. p34's staleness condition refused a feed that was working perfectly.
+- **Generated cohorts were not resolvable by id.** The region cohorts are generated from one
+  template rather than listed, so `cohort("region_west.v1")` threw — and anything holding a
+  stored `cohort_ref` fell through to the fail-safe for "this cohort has left the registry".
+  A signal about the West lost its own definition, its eligibility and its filters, and its
+  detail screen had nothing to show under Population.
+- **`/organization/capacity` was honest and is now complete.** It spent its whole life in
+  §30.8's `partial` state naming the scheduling feed it did not have. That feed exists, so
+  the screen renders the ratio it was always titled for — carrying the feed's age beside it,
+  because a total assembled from a frozen site is wrong in a way nobody can see.
 
 **What Wave 6 found.**
 

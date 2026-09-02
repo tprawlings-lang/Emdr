@@ -71,6 +71,9 @@ export const DEMO_DATA_TABLES = [
   // would attach a human's decision to evidence they never saw.
   "planning_signal_reviews",
   "planning_signals",
+  // Operational feeds, rebuilt with the population they describe.
+  "capacity_slots",
+  "review_coverage",
   // Payer domain next: claims reference persons, and contract measures
   // reference their contract. Ordered for, not disabled — a mistake in this
   // list fails loudly instead of leaving orphans.

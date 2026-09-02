@@ -225,10 +225,29 @@ wave surfaced.
 | 8 | The demo control centre, nightly reset, scenario scripts | handoff pp9, 29, 56 |
 
 **Where the planning engine is.** `/review/planning` lists every one of p34's seven rules
-with what it produced — and, for the three that produce nothing in this deployment, which
-input they lack. `/review/planning/[id]` is p44's nine-section detail screen. Three of
-p47's twelve API routes are built. Thresholds live in `policy_thresholds` with a named
-owner and an approval date, in a table that refuses an in-place edit.
+with what it produced, and for anything that produced nothing, p34's own reason.
+`/review/planning/[id]` is p44's nine-section detail screen. Three of p47's twelve API
+routes are built. Thresholds live in `policy_thresholds` with a named owner and an approval
+date, in a table that refuses an in-place edit.
+
+**Four of the seven rules fire on the fabricated deployment**, two evaluate and correctly
+decline, and one is limited by the size of the fixture:
+
+| Rule | On this deployment |
+|---|---|
+| REGION_CAPACITY | **Fires** — the West is at 1.38× its open first-visit slots. Withholds for the Midwest, whose slot feed is deliberately frozen |
+| SAFETY_REVIEW_LOAD | **Fires** — the West runs 1.17× its staffed review capacity |
+| FOLLOWUP_GAP | **Fires** — 23 points below the eligible population for one language cohort |
+| FAIRNESS_ALERT | **Fires** — the same disparity, routed through fairness review |
+| MODULE_SIGNAL | Evaluates; the confidence interval crosses zero, so no signal |
+| DATA_QUALITY | Evaluates; the environment meets its own limits, so nothing is blocked |
+| ACCESS_GAP | Withheld. A region holds 60 of the 240, so it caps at 30 entrants per window — exactly p37's minimum analysis size. The fixture is too small, and dropping below the minimum is not the answer |
+
+Getting there needed three things the deployment did not have: a **scheduling feed** and a
+**staffed rota** (`capacity_slots`, `review_coverage` — fabricated stand-ins, sized to the
+fixture rather than to a real network), a **confidence interval** on paired change, which
+p32 already required and the metric layer had declined to compute, and **rolling intake**,
+because a population that all enrolled in one fortnight has no stage conversion to compare.
 
 **The 240 now carry realistic disparity, with the ambiguity that comes with it.** The
 manifest is balanced on every dimension p29 checks, so the population it describes had no

@@ -6,7 +6,7 @@ import { seedDemoData, reconcileDemoAccounts, demoId, demoPassword } from "./dem
 import { seedPolicyThresholds } from "./planning/policy";
 import { seedOrgData, ORG_TENANT_ID } from "./demo-org-seed";
 import { seedPayerData, PAYER_TENANT_ID } from "./demo-payer-seed";
-import { seedPopulationData, orgTenantId } from "./demo-population-seed";
+import { seedPopulationData, seedOperationalFeeds, orgTenantId } from "./demo-population-seed";
 import { generatePopulationHistory } from "./demo-population-generator";
 import { ulid, NIL_ULID, ulidFrom } from "./ids";
 
@@ -792,6 +792,75 @@ function migrate(db: Database.Database) {
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
   );
 
+  -- ── Operational capacity (handoff 07 §3.4 p34; handoff 06 §26's capacity
+  --    screen) ───────────────────────────────────────────────────────────────
+  --
+  -- Open first-visit slots, by site and week. p34's REGION_CAPACITY rule
+  -- compares demand against this and produces nothing when it is stale or
+  -- absent — which it was, in every deployment, because no scheduling feed
+  -- existed anywhere in the schema. The organization capacity screen rendered
+  -- half a ratio and said so above the chart.
+  --
+  -- This is a FABRICATED STAND-IN for a scheduling integration. It carries an
+  -- as_of for exactly that reason: a capacity number with no age is a
+  -- capacity number somebody will act on next quarter, and p34's staleness
+  -- condition is the guard that stops them.
+  CREATE TABLE IF NOT EXISTS capacity_slots (
+    id TEXT PRIMARY KEY,
+    tenant_id TEXT NOT NULL REFERENCES tenants(id),
+    -- The reporting region, so a rule about regional capacity can group
+    -- without joining through persons.
+    census_region TEXT NOT NULL,
+    -- A FOUR-WEEK period, not a week. The grain has to match the population it
+    -- describes: 240 people over a year generate about three first-visit
+    -- referrals per region per four weeks, and a weekly row for that is a
+    -- column of noughts and ones that rounds away the thing being measured.
+    period_start TEXT NOT NULL,
+    period_days INTEGER NOT NULL DEFAULT 28,
+    open_first_visit_slots INTEGER NOT NULL,
+    -- When the scheduling system last told us. NOT when we wrote the row.
+    --
+    -- A CALENDAR DATE, with no time of day. A feed reports on a day; the hour
+    -- is invented precision, and the seed guard is right to reject a
+    -- fabricated timestamp that does not pin its own clock.
+    as_of TEXT NOT NULL,
+    source_system TEXT NOT NULL DEFAULT 'demo-scheduling',
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    UNIQUE (tenant_id, period_start)
+  );
+  CREATE INDEX IF NOT EXISTS idx_capacity_slots_region
+    ON capacity_slots(census_region, period_start);
+
+  -- ── Staffed review coverage (handoff 07 §3.4, p34) ───────────────────────
+  --
+  -- How many fixed review events the staffed rota can absorb in a week, and
+  -- whether a coverage schedule exists at all. p34's SAFETY_REVIEW_LOAD
+  -- produces nothing without both — "event classification or coverage schedule
+  -- missing" — and until now the second was always missing.
+  --
+  -- Capacity is stated in EVENTS rather than in hours. Hours would need a
+  -- minutes-per-review assumption to be useful, and an assumption buried in a
+  -- unit conversion is an assumption nobody reviews. Same four-week period as
+  -- the slot feed, so the two can be read side by side.
+  CREATE TABLE IF NOT EXISTS review_coverage (
+    id TEXT PRIMARY KEY,
+    tenant_id TEXT NOT NULL REFERENCES tenants(id),
+    census_region TEXT NOT NULL,
+    period_start TEXT NOT NULL,
+    period_days INTEGER NOT NULL DEFAULT 28,
+    staffed_review_capacity INTEGER NOT NULL,
+    -- The rota this capacity assumes. p32 requires the coverage schedule
+    -- displayed beside time-to-review, and this is where that string comes
+    -- from rather than from a constant in the metric.
+    coverage_schedule TEXT NOT NULL DEFAULT 'business hours, weekdays',
+    as_of TEXT NOT NULL,
+    source_system TEXT NOT NULL DEFAULT 'demo-rota',
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    UNIQUE (tenant_id, period_start)
+  );
+  CREATE INDEX IF NOT EXISTS idx_review_coverage_region
+    ON review_coverage(census_region, period_start);
+
   -- ── Planning policy thresholds (handoff 07 §3.4, p34) ────────────────────
   --
   -- p34 prints seven rules with numbers beside them, and then prints the
@@ -994,6 +1063,11 @@ export const TENANT_SCOPED_TABLES = [
   // person-scoped by the schema guard's rule (it references users) even though
   // its subject is not.
   "planning_signal_reviews",
+  // Operational feeds. Not person-scoped — a slot is not anybody's — but
+  // scoped to one organization, and reading another's would show their
+  // staffing and their backlog.
+  "capacity_slots",
+  "review_coverage",
 ] as const;
 
 /** Create the platform tenant and mirror `users` onto the identity spine
@@ -1200,6 +1274,7 @@ export function seedDemo(db: Database.Database) {
     seedOrgData(db);
     seedPayerData(db);
     seedPopulationData(db);
+    seedOperationalFeeds(db);
     generatePopulationHistory(db);
     bindAggregateAccounts(db);
   })();
@@ -1261,6 +1336,8 @@ function seed(db: Database.Database) {
       seedOrgData(db);
       seedPayerData(db);
       seedPopulationData(db);
+      seedOperationalFeeds(db);
+    seedOperationalFeeds(db);
       generatePopulationHistory(db);
       bindAggregateAccounts(db);
       return;
