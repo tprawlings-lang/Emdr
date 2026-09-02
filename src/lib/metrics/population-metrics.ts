@@ -98,6 +98,7 @@ export async function loadObservations(tenantIds: string[], window?: Window): Pr
     `SELECT
         u.id                                        AS person_id,
         u.tenant_id                                 AS tenant_id,
+        p.provenance                                AS provenance,
         a.census_region                             AS region,
         a.state                                     AS state,
         a.age_band                                  AS age_band,
@@ -121,6 +122,7 @@ export async function loadObservations(tenantIds: string[], window?: Window): Pr
           WHERE e.person_id = u.id AND e.event_type = 'safety_state.changed'
             AND json_extract(e.payload, '$.state') = 'paused'${eWin})           AS pauses
        FROM users u
+       JOIN persons p ON p.id = u.id
        LEFT JOIN person_attributes a ON a.person_id = u.id
       WHERE u.tenant_id IN (${marks}) AND u.role = 'member'${enrolWin}`,
     tenantIds,
@@ -229,6 +231,9 @@ export async function loadObservations(tenantIds: string[], window?: Window): Pr
       interpreterNeeded: Number(r.interpreter_needed ?? 0) === 1,
       state: r.state ? String(r.state) : null,
       hasAccount: true,
+      // An INNER join above, so a user with no person row does not silently
+      // arrive with an undefined provenance and get counted as real.
+      provenance: String(r.provenance) === "fabricated" ? "fabricated" : "real",
       daysEnrolled,
       daysToFirstAction: days(enrolled, r.first_action),
       activeWeeks: Number(r.active_weeks ?? 0),

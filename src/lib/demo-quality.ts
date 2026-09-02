@@ -151,6 +151,41 @@ export function runQualityChecks(db: Database.Database): CheckResult[] {
     actual: String(danglingCorrections), pass: danglingCorrections === 0,
   });
 
+  // ── The fabricated/real boundary ───────────────────────────────────────
+  //
+  // Not one of p29's checks, and it belongs beside them: p29 asks for a
+  // fabricated flag on "root data, events, projections and exports" at 100%,
+  // and this is the question underneath it — is the boundary intact at all?
+  //
+  // Three things are counted rather than one, because they fail differently.
+  // A person with no provenance is a writer that did not state it. A real
+  // person in a demonstration environment is either a human who signed up
+  // (fine, and the reason the column exists) or a seed that mislabelled its
+  // rows. A fabricated event in a real person's ledger is contamination, and
+  // there is no benign reading of it.
+  const unstated = one("SELECT COUNT(*) AS n FROM persons WHERE provenance IS NULL");
+  out.push({
+    check: "Provenance stated", expected: "0 persons without one",
+    actual: String(unstated), pass: unstated === 0,
+  });
+
+  const contaminated = one(
+    `SELECT COUNT(*) AS n FROM longitudinal_events e
+       JOIN persons p ON p.id = e.person_id
+      WHERE p.provenance = 'real'
+        AND json_extract(e.provenance, '$.fabricated') = 1`);
+  out.push({
+    check: "Fabricated events in a real ledger", expected: "0",
+    actual: String(contaminated), pass: contaminated === 0,
+  });
+
+  const realPeople = one("SELECT COUNT(*) AS n FROM persons WHERE provenance = 'real'");
+  out.push({
+    check: "Real people in this environment",
+    expected: "reported, not asserted — a human signup is legitimate here",
+    actual: String(realPeople), pass: true,
+  });
+
   // ── The population is present at all ───────────────────────────────────
   const accounts = one(`SELECT COUNT(*) AS n FROM users WHERE email LIKE '${MANIFEST_EMAIL_LIKE}'`);
   out.push({

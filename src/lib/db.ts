@@ -505,6 +505,24 @@ function migrate(db: Database.Database) {
   -- A human Steady holds data about. MAY EXIST WITHOUT AN ACCOUNT: Handoff C3
   -- ingests covered populations whose members have never logged in. This is the
   -- subject of every clinical record and every longitudinal event.
+  -- A person. FABRICATED OR REAL, and the column has no default on purpose.
+  --
+  -- Until now the separation between the two was three conventions — the
+  -- EMDR_DEMO environment flag, a "fabricated" key inside an event's
+  -- provenance JSON, and a manifest check counting unmarked rows. None of them
+  -- stops a cohort query spanning both, and the Observation type carried no
+  -- provenance at all, so a follow-up completion rate computed over a mixed
+  -- population returned one number with no way to tell.
+  --
+  -- That was survivable while every environment was entirely fabricated. It
+  -- stops being survivable the moment synthetic agents run alongside a study
+  -- with real participants, which is the stated intent.
+  --
+  -- NO DEFAULT, because neither default is safe. Default to 'real' and a seed
+  -- that forgets to mark its rows contaminates a real metric; default to
+  -- 'fabricated' and a signup that forgets marks a real person's data as
+  -- invented. NOT NULL with no default forces every writer to say which it is
+  -- at the point where somebody knows the answer.
   CREATE TABLE IF NOT EXISTS persons (
     id TEXT PRIMARY KEY,
     tenant_id TEXT NOT NULL REFERENCES tenants(id),
@@ -1054,6 +1072,16 @@ function migrate(db: Database.Database) {
   // user ("sign out everywhere" / password change). See auth.ts.
   ensureColumn(db, "users", "token_epoch", "INTEGER NOT NULL DEFAULT 0");
 
+  // ── The fabricated/real boundary ─────────────────────────────────────────
+  //
+  // ALTER TABLE cannot add a NOT NULL column without a default, and neither
+  // default is safe here (see the persons table above), so the column is added
+  // nullable and the requirement is enforced by trigger instead. That is not a
+  // compromise: a trigger can say WHY it refused, and a CHECK cannot.
+  ensureColumn(db, "persons", "provenance", "TEXT");
+  backfillProvenance(db);
+  installProvenanceGuards(db);
+
   // ── The six demo roles (handoff 07 §1.2, p6) ─────────────────────────────
   //
   // `admin` is retired. In this codebase it meant the AGGREGATE reporting role
@@ -1076,6 +1104,75 @@ function migrate(db: Database.Database) {
     ensureColumn(db, table, "tenant_id", `TEXT NOT NULL DEFAULT '${PLATFORM_TENANT_ID}'`);
   }
   backfillIdentitySpine(db);
+}
+
+/**
+ * Give every existing person a provenance, ONCE.
+ *
+ * A one-time inference for rows written before the column existed, and the
+ * reasoning is stated here rather than left to be reconstructed: every
+ * environment this code has ever run in is a demonstration environment, in
+ * which every person is fabricated. Outside one, nothing was seeded and the
+ * only persons present came through signup, so they are real.
+ *
+ * This is the only place the environment is allowed to decide a person's
+ * provenance. Every row written after this states it at the insert, because by
+ * then somebody knows the answer and the environment is a poor proxy for it —
+ * the whole point of the column is that a demonstration environment is about
+ * to contain both.
+ */
+function backfillProvenance(db: Database.Database) {
+  const pending = db.prepare(
+    "SELECT COUNT(*) AS n FROM persons WHERE provenance IS NULL").get() as { n: number };
+  if (pending.n === 0) return;
+  const inferred = process.env.EMDR_DEMO === "1" ? "fabricated" : "real";
+  db.prepare("UPDATE persons SET provenance = ? WHERE provenance IS NULL").run(inferred);
+}
+
+/**
+ * Make contamination impossible at the write, rather than detectable at the
+ * read.
+ *
+ * Three triggers, each refusing one way the boundary can be crossed:
+ *
+ *   A PERSON MUST STATE WHICH THEY ARE. No default, so a writer that has not
+ *   thought about it fails loudly at the insert instead of quietly at the
+ *   first metric.
+ *
+ *   A PERSON DOES NOT BECOME REAL. Provenance is immutable. Allowing an update
+ *   would mean a fabricated cohort could be relabelled after the fact and its
+ *   history would join a real denominator — which is precisely the thing this
+ *   exists to prevent, done deliberately.
+ *
+ *   A REAL PERSON CANNOT RECEIVE A FABRICATED EVENT. The direction that
+ *   matters: a synthetic agent writing into a real participant's ledger. The
+ *   reverse — a fabricated person with an unmarked event — is a labelling gap
+ *   rather than contamination, and p29's manifest already counts it.
+ */
+function installProvenanceGuards(db: Database.Database) {
+  db.exec(`
+    CREATE TRIGGER IF NOT EXISTS persons_provenance_required
+      BEFORE INSERT ON persons
+      WHEN NEW.provenance IS NULL OR NEW.provenance NOT IN ('fabricated', 'real')
+    BEGIN
+      SELECT RAISE(ABORT, 'persons.provenance must be stated as fabricated or real at the insert');
+    END;
+
+    CREATE TRIGGER IF NOT EXISTS persons_provenance_immutable
+      BEFORE UPDATE OF provenance ON persons
+      WHEN OLD.provenance IS NOT NULL AND NEW.provenance IS NOT OLD.provenance
+    BEGIN
+      SELECT RAISE(ABORT, 'a person does not become real: provenance is immutable once stated');
+    END;
+
+    CREATE TRIGGER IF NOT EXISTS events_no_fabricated_into_real
+      BEFORE INSERT ON longitudinal_events
+      WHEN json_extract(NEW.provenance, '$.fabricated') = 1
+       AND (SELECT provenance FROM persons WHERE id = NEW.person_id) = 'real'
+    BEGIN
+      SELECT RAISE(ABORT, 'a fabricated event cannot be written into a real person''s ledger');
+    END;
+  `);
 }
 
 /** The reserved platform tenant. Direct-to-consumer records live here so the
@@ -1154,7 +1251,13 @@ function backfillIdentitySpine(db: Database.Database) {
   if (users.length === 0) return;
 
   const insPerson = db.prepare(
-    `INSERT INTO persons (id, tenant_id, display_name) VALUES (?, ?, ?)
+    // Reconstructing rows whose provenance nobody recorded, so the same
+    // one-time inference `backfillProvenance` uses applies: this path exists
+    // to mirror pre-existing `users` onto the spine, and every user that
+    // predates the column came from a seed in a demonstration environment or
+    // from a signup outside one. New persons do not come through here — the
+    // signup path calls `provisionPerson`, which states 'real' at the insert.
+    `INSERT INTO persons (id, tenant_id, display_name, provenance) VALUES (?, ?, ?, ?)
      ON CONFLICT(id) DO NOTHING`
   );
   const insAccount = db.prepare(
@@ -1168,7 +1271,8 @@ function backfillIdentitySpine(db: Database.Database) {
 
   db.transaction(() => {
     for (const u of users) {
-      insPerson.run(u.id, PLATFORM_TENANT_ID, u.name);
+      insPerson.run(u.id, PLATFORM_TENANT_ID, u.name,
+        process.env.EMDR_DEMO === "1" ? "fabricated" : "real");
       // Derived, not random: the account and role rows for a given user are
       // reconstructions of facts that already exist, so re-running the backfill
       // — or resetting a demo environment — must produce the same ids. A random

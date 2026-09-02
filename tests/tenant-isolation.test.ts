@@ -39,7 +39,7 @@ test("setup: two tenants, each with a person and a check-in", async () => {
     const uid = person;
     await c.run("INSERT INTO users (id, email, name, role, password_hash, tenant_id) VALUES (?, ?, ?, ?, ?, ?)",
       [uid, `iso-${label}@test.local`, `Iso ${label}`, "member", "x", tenant]);
-    await createPerson({ tenantId: tenant, displayName: `${label} Patient`, id: uid });
+    await createPerson({ tenantId: tenant, displayName: `${label} Patient`, id: uid, provenance: "fabricated" });
     const id = newId();
     await c.run(
       `INSERT INTO checkins (id, user_id, checkin_date, activation, shutdown, harm_urge,

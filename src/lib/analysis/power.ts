@@ -107,7 +107,7 @@ function blank(personId: string, region: string): Observation {
   return {
     personId, region, ageBand: "35-44", language: "English", race: [],
     ethnicity: null, tenantId: "t", accessNeeds: [], interpreterNeeded: false,
-    state: null, hasAccount: true,
+    state: null, hasAccount: true, provenance: "fabricated",
     daysEnrolled: 180, daysToFirstAction: null, enrolledInWindow: true,
     activeWeeks: 0, observedWeeks: 26, daysToLastAction: null,
     modulesStarted: 0, modulesCompleted: 0,

@@ -151,7 +151,7 @@ function seedPopulationInner(db: Database.Database) {
   }
 
   const insertPerson = db.prepare(
-    "INSERT INTO persons (id, tenant_id, display_name, created_at) VALUES (?, ?, ?, ?)",
+    "INSERT INTO persons (id, tenant_id, display_name, provenance, created_at) VALUES (?, ?, ?, 'fabricated', ?)",
   );
   const insertRole = db.prepare(
     "INSERT INTO role_assignments (id, person_id, tenant_id, role, created_at) VALUES (?, ?, ?, ?, ?)",
@@ -271,8 +271,8 @@ function bindNarrativePersonas(db: Database.Database) {
   // yet, and defers to the backfill if it has. Same pattern and same reason as
   // the platform tenant above.
   const ensurePerson = db.prepare(
-    `INSERT INTO persons (id, tenant_id, display_name)
-       SELECT id, ?, name FROM users WHERE id = ?
+    `INSERT INTO persons (id, tenant_id, display_name, provenance)
+       SELECT id, ?, name, 'fabricated' FROM users WHERE id = ?
      ON CONFLICT(id) DO NOTHING`);
   const movePerson = db.prepare("UPDATE persons SET tenant_id = ? WHERE id = ?");
   const attrs = db.prepare(

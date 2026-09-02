@@ -131,7 +131,7 @@ function seedOrgDataInner(db: Database.Database) {
   }
 
   const insertPerson = db.prepare(
-    "INSERT INTO persons (id, tenant_id, display_name, created_at) VALUES (?, ?, NULL, ?)"
+    "INSERT INTO persons (id, tenant_id, display_name, provenance, created_at) VALUES (?, ?, NULL, 'fabricated', ?)"
   );
   const insertEnrollment = db.prepare(
     `INSERT INTO enrollments (id, person_id, tenant_id, program_id, eligibility, effective_from, created_at)

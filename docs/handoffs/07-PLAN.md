@@ -788,19 +788,45 @@ fairness evaluation, monitoring plan, named owner, retirement criteria. And p13'
 does not relax because training data is synthetic: protected attributes audit access and drive
 nothing.
 
-### Running agents alongside a real study — the prerequisite
+### Running agents alongside a real study — the prerequisite, built
 
 The author's stated intent is synthetic agents driving the 240 accounts **in parallel with a
 study that has real participants**. All 240 accounts exist and work
 (`st-<region>-<nnn>@steady.local`, verified 240/240). Before that runs, one thing has to exist
 that does not:
 
-**A schema-level guarantee that fabricated and real events cannot reach the same metric.**
-Today the separation is `EMDR_DEMO`, a `provenance.fabricated` flag on events, and a manifest
-check that counts unmarked rows — three conventions, none of which stops a cohort query from
-spanning both. `Observation` carries no provenance at all, so `computeFollowupCompletion` over
-a mixed set would return one number with no way to tell. That guard is the next thing to build,
-and it belongs before the agent behaviour layer rather than after it.
+**Built.** `persons.provenance`, `assertSingleProvenance`, three triggers and three manifest
+checks.
+
+The separation used to be `EMDR_DEMO`, a `provenance.fabricated` key inside an event's JSON,
+and a manifest check counting unmarked rows — three conventions, none of which stops a cohort
+query spanning both. `Observation` carried no provenance at all, so a follow-up completion rate
+over a mixed set returned one number with no way to tell.
+
+**The line is generated-by-the-system versus originated-by-a-person**, not demo versus
+production. Somebody exploring a demonstration is still a person, and their data must never be
+poolable with a synthetic agent's — so the signup path writes `real` even under `EMDR_DEMO=1`,
+and every seed writes `fabricated`.
+
+**No default on the column, and that is deliberate.** Default to `real` and a seed that forgets
+to mark its rows contaminates a real metric; default to `fabricated` and a signup that forgets
+marks a real person's data as invented. Neither is safe, so the requirement is enforced by
+trigger — which can also say *why* it refused, where a CHECK cannot.
+
+| Half | Mechanism |
+|---|---|
+| **Write** | A person must state which they are. A person **does not become real** — provenance is immutable, because relabelling a fabricated cohort would join its whole history to a real denominator. **A real person cannot receive a fabricated event** — the direction that matters, a synthetic agent writing into a participant's ledger |
+| **Read** | `assertSingleProvenance` in `resolve()` **throws rather than filters**. A filtered metric is a metric with an undisclosed denominator: the number comes back looking ordinary and nothing says half the cohort was dropped |
+| **Manifest** | Persons without a provenance; fabricated events in a real ledger; and a **count of real people, reported rather than asserted** — a human signup here is legitimate, and a check that failed on it would teach people to disable it |
+
+**The refusal is on the eligible population, not the resolved group.** A group filter that
+happened to land on one population would pass a check on the group and still be computing
+against a *reference* that spans both — the failure wearing a disguise. Mutation-tested: moving
+the assertion to the resolved group fails the build.
+
+One-time backfill for rows that predate the column infers from the environment, and that is the
+**only** place the environment is allowed to decide: every row written since states it at the
+insert, where somebody knows the answer.
 
 **Still unbuilt in Wave 8:** the control centre's remaining four controls (reset with a typed
 reason, scenario injection, projection validation, QA export), the nightly reset, and p56's
