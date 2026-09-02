@@ -1020,14 +1020,33 @@ data. Every attempt is audited, refusals included, and the record carries the ro
 the **baseline hash** — what makes two resets comparable, and what a reviewer checks when told
 the environment was rebuilt between sessions. Three of p9's six controls now exist.
 
-**The per-boot repair did not fire on the deployed instance, and the reason is still open.** It
-records its own verdict now — before the attempt, on skip, on success and on failure — and the
-deployed console reports *no attempt recorded*, which after that change can only mean
-`reconcilePopulation` is not reached in the process serving the page. The likeliest remaining
-explanation is that `EMDR_DEMO` is set at build time (so the layout's banner, inlined by Next,
-renders) but not at runtime, where `db.ts` reads it. The reset control does not depend on that
-diagnosis: driven from the console, it rebuilt the deployed dataset to **23 of 23 checks
-passing**, with all 240 accounts, their onboarding and their history.
+**Why the per-boot repair never fired — and why the planning console answered 500.** One
+assignment, two mysteries.
+
+`getDb()` published the module-level handle on the line that OPENS the file, before any of the
+boot path had run. So a failure in any later step became permanent and silent: the request that
+hit it returned a 500, and every request after it took `if (db) return db` and got a database
+that worked. Nothing looked broken — while every step *after* the failing one never ran again
+for the life of the process.
+
+On the deployed instance that masked both open items at once. `seedPolicyThresholds` never ran,
+so `policy_thresholds` stayed empty and `loadThresholds()` refused exactly as p34 requires —
+`/review/planning` answering 500 for the right reason, arrived at by the wrong route. And
+`reconcilePopulation` never ran, so a dataset stale for several waves stayed stale and its
+repair log stayed empty, reporting "no attempt recorded" because no attempt was ever made.
+
+My working theory before this was that `EMDR_DEMO` was set at build time but not at runtime.
+That was wrong, and the reset disproved it: `resetDemoData` refuses unless `EMDR_DEMO` is `1`
+at runtime, and it ran.
+
+The handle is now built into a local and published only once the whole boot path succeeds, with
+the file closed on failure so a retry does not inherit a half-open one. A failed boot is
+retried by the next caller instead of cached. Guarded in `tests/db-boot.test.ts` against a real
+failure — a file that is not a database, which throws *after* the line that used to publish the
+handle — and mutation-tested: restoring the early assignment fails both cases.
+
+Meanwhile the reset control, driven from the console, had already rebuilt the deployed dataset
+to **23 of 23 checks passing**, with all 240 accounts, their onboarding and their history.
 
 **And one screen was telling half the population the wrong thing.** A member with months of
 check-ins whose observation window closed read "There is nothing to show yet. A pattern needs a
