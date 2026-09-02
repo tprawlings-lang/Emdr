@@ -19,7 +19,7 @@ async function main() {
   ];
   for (const w of windows()) {
     const rows = await loadObservations(t, w);
-    const ctx = metricContext("e", w);
+    const ctx = await metricContext("e", w);
     console.log(`\n== window ${w.start}..${w.end}`);
     for (const c of cohorts) {
       const entered = resolve(rows, c).filter((r) => r.enrolledInWindow).length;

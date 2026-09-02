@@ -249,7 +249,7 @@ function emptyOverview(): PopulationOverview {
 export async function buildMetricPanel(tenantIds: string[]): Promise<MetricResult[]> {
   if (tenantIds.length === 0) return [];
   const rows = await loadObservations(tenantIds);
-  const ctx = metricContext(new Date().toISOString().slice(0, 10).replace(/-/g, ""));
+  const ctx = await metricContext(new Date().toISOString().slice(0, 10).replace(/-/g, ""));
   return [
     computeActivation(rows, ALL_ELIGIBLE, ctx),
     computeWeeklyEngagement(rows, ALL_ELIGIBLE, ctx),

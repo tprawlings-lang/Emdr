@@ -69,6 +69,10 @@ export const DEMO_DATA_TABLES = [
   // request about the product; a signal review is their judgement about a
   // specific set of numbers. Rebuilding the numbers and keeping the judgement
   // would attach a human's decision to evidence they never saw.
+  // The clock goes back to live. p9 makes reset the control that returns the
+  // environment to a known state, and a presenter who resets and then wonders
+  // why every screen still reads as March has been left a trap.
+  "demo_clock",
   "planning_signal_reviews",
   "planning_signals",
   // Operational feeds, rebuilt with the population they describe.

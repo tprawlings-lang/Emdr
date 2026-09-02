@@ -52,6 +52,9 @@ export interface PlanningSignal {
   required_phrase: string;
   data_version: string;
   detected_at: string;
+  /** The demo clock's milestone this was read at, or null when live. Carried
+   *  on the object so a signal pasted anywhere says which moment it describes. */
+  reading_point: string | null;
 }
 
 export interface ReviewRecord {
@@ -119,9 +122,17 @@ export function routingFor(ruleId: RuleId, c: CohortDefinition): SignalRouting {
  * requirement underneath is that ids are stable within a dataset version, and
  * a written-down formula satisfies it.
  */
-export function signalId(ruleId: RuleId, cohortId: string, dataVersion: string, tenantId: string): string {
+export function signalId(
+  ruleId: RuleId, cohortId: string, dataVersion: string, tenantId: string,
+  readingPoint: string | null = null,
+): string {
   const h = crypto.createHash("sha256")
-    .update([ruleId, cohortId, dataVersion, tenantId].join(":"))
+    // The reading point is part of the identity, not a label on it. A signal
+    // raised while the demo clock sat at the half year describes a different
+    // moment from one raised today, and giving them the same id makes the
+    // conflict-do-nothing insert silently keep whichever ran first — with its
+    // evidence frozen and nothing on the screen saying it is six months old.
+    .update([ruleId, cohortId, dataVersion, tenantId, readingPoint ?? "live"].join(":"))
     .digest("hex").slice(0, 12);
   return `sig-${h}`;
 }
@@ -137,6 +148,8 @@ export interface BuildArgs {
   state?: SignalState;
   clinicalReview?: ReviewRecord | null;
   fairnessReview?: ReviewRecord | null;
+  /** The demo clock's milestone when the signal was raised, or null for live. */
+  readingPoint?: string | null;
   /** Whose action set to compute. p49: the server supplies it, after policy
    *  evaluation, for the caller who is actually asking. */
   role: Role;
@@ -171,7 +184,7 @@ export function buildSignal(a: BuildArgs): PlanningSignal {
       `Level ${level} is "${ladder(level).name}" and permits only "${ladder(level).permittedWording}".`,
     );
   }
-  const id = signalId(a.outcome.ruleId, a.cohort.id, a.dataVersion, a.tenantId);
+  const id = signalId(a.outcome.ruleId, a.cohort.id, a.dataVersion, a.tenantId, a.readingPoint ?? null);
   const state = a.state ?? "draft";
   const routing = a.routing ?? routingFor(a.outcome.ruleId, a.cohort);
   return {
@@ -196,5 +209,6 @@ export function buildSignal(a: BuildArgs): PlanningSignal {
     required_phrase: REQUIRED_PHRASE,
     data_version: a.dataVersion,
     detected_at: a.detectedAt,
+    reading_point: a.readingPoint ?? null,
   };
 }

@@ -115,7 +115,14 @@ export default async function PlanningSignalsPage() {
                       </Link>
                       <p className="measure mt-1 text-sm text-ground">{s.statement}</p>
                       <p className="mt-1 text-xs text-olive">
-                        State: {s.state.replace(/_/g, " ")} · rule {s.rule_version} · detected {s.detected_at}
+                        State: {s.state.replace(/_/g, " ")} · rule {s.rule_version} · detected{" "}
+                        {s.detected_at}
+                        {/* Which reading point produced it. A milestone walk
+                            leaves its findings behind, and without this they
+                            sit in the list looking like today's. */}
+                        {s.reading_point && (
+                          <> · <span className="font-medium">read at the {s.reading_point.replace(/-/g, " ")}</span></>
+                        )}
                       </p>
                     </li>
                   ))}

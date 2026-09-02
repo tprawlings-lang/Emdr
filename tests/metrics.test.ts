@@ -456,7 +456,7 @@ test("POPULATION: every missingness breakdown sums to its denominator", async ()
   // The property that makes a chart's slices trustworthy: if they do not sum,
   // somebody is being dropped and no total will say so.
   const rows = await population();
-  const ctx = metricContext("test");
+  const ctx = await metricContext("test");
   const f = computeFollowupCompletion(rows, ALL_ELIGIBLE, ctx);
   const due = f.numerator + f.missing.partial + f.missing.declined +
     f.missing.unavailable + f.missing.skipped + f.missing.interrupted;
@@ -473,7 +473,7 @@ test("POPULATION: a subgroup's denominator never exceeds the whole cohort's", as
   // subgroup that reports MORE people than the population it is drawn from
   // means the group filter is running before eligibility, or not at all.
   const rows = await population();
-  const ctx = metricContext("test");
+  const ctx = await metricContext("test");
   const all = computeFollowupCompletion(rows, ALL_ELIGIBLE, ctx);
   for (const c of regionCohorts()) {
     const r = computeFollowupCompletion(rows, c, ctx);
@@ -493,7 +493,7 @@ test("POPULATION: engagement counts weeks nobody was active in", async () => {
   // p33's rule against the real data. If the denominator were people-who-acted
   // rather than observed person-weeks, the rate would be near 100%.
   const rows = await population();
-  const r = computeWeeklyEngagement(rows, ALL_ELIGIBLE, metricContext("test"));
+  const r = computeWeeklyEngagement(rows, ALL_ELIGIBLE, await metricContext("test"));
   assert.ok(r.denominator > rows.length,
     "the denominator is smaller than one week per person, so weeks are not being counted");
   assert.ok(r.value !== null && r.value < 0.98,
@@ -503,7 +503,7 @@ test("POPULATION: engagement counts weeks nobody was active in", async () => {
 
 test("POPULATION: the responder rate is a subset of the paired population", async () => {
   const rows = await population();
-  const ctx = metricContext("test");
+  const ctx = await metricContext("test");
   const change = computeObservedChange(rows, ALL_ELIGIBLE, ctx);
   const responders = computeResponderRate(rows, ALL_ELIGIBLE, ctx);
   assert.equal(responders.denominator, change.detail.paired_n,
@@ -528,7 +528,7 @@ test("POPULATION: retention censors the people whose window has not run", async 
   // censoring is doing the work instead — which is what censoring is for, and
   // what a single-cohort fixture could never exercise.
   const rows = await population();
-  const ctx = metricContext("test");
+  const ctx = await metricContext("test");
 
   const late = computeRetention(rows, ALL_ELIGIBLE, ctx, 180);
   assert.ok(late.denominator > 30,
@@ -554,7 +554,7 @@ test("POPULATION: time to review measures a response to the gate, not the next a
   // kind, and the median read 593 hours — the average distance between two
   // unrelated things rather than a latency.
   const rows = await population();
-  const r = computeTimeToReview(rows, ALL_ELIGIBLE, metricContext("test"));
+  const r = computeTimeToReview(rows, ALL_ELIGIBLE, await metricContext("test"));
   assert.ok(r.numerator > 20, `only ${r.numerator} review episodes — the join matches nothing`);
   const median = Number(r.detail.median_hours);
   assert.ok(median > 0 && median < 72,

@@ -674,7 +674,64 @@ also get answered. Nine of p47's twelve routes remain unbuilt (G16).
 - Model registry shell (G13), shadow-mode only.
 - p36's prohibition on race correction factors.
 
-### Wave 8 — Demo hardening
+### Wave 8 — Demo hardening — **the clock is built**
+**Spec: pp9, 29, 56. Exit evidence: cold-start rehearsal passes twice.**
+
+**p9's Advance clock control (G18, in part).** `src/lib/demo-clock.ts`,
+`/admin/demo`, and a badge in the app shell.
+
+The fabricated population spans a fixed year of operation ending at the real today. The
+clock picks a **viewing point** inside that span, so the same console can be opened at two
+moments in the programme's life — time travel over a fixed dataset, not a simulation that
+runs forward. Five scripted milestones, derived from `CALENDAR_DAYS` rather than typed as
+dates so they cannot drift from the calendar they describe.
+
+Measured across the milestones, on the real seeded data:
+
+| Reading point | People visible | Rules firing |
+|---|---|---|
+| Opening month | 21 | REGION_CAPACITY ×2 |
+| First quarter | 71 | REGION_CAPACITY ×4 |
+| Half year | 155 | + FOLLOWUP_GAP |
+| Three quarters | 204 | + FAIRNESS_ALERT |
+| Today / live | 242 | + SAFETY_REVIEW_LOAD |
+
+That progression is the demonstration: the access barrier becomes visible as a follow-up gap
+at the half year, the fairness alert follows it, and the review-load signal only appears once
+a year of safety events has accumulated.
+
+**The safety argument is one sentence, and most of the guards enforce it:**
+
+> **It moves the reading frame, never the record.**
+
+Audit entries, session issue and expiry, rate limits and the seeded timestamps stay on the
+real clock. A demo clock that could backdate an audit row would turn a tamper-evident chain
+into a chain of whatever somebody set the date to; one that could move a session's expiry
+would be a privilege escalation with a friendly name. The guard is on what
+`audit.ts`, `auth.ts`, `rate-limit.ts` and `crypto.ts` may **import** — a rule about what a
+timestamp means cannot be enforced by reading timestamps, because they are written in a
+dozen places and the wrong clock in any one is invisible until somebody is looking at a
+forged chain. Backed by a behavioural check: with the clock nearly a year behind, an audit
+row still lands within a minute of real time.
+
+**It is a row, not module state.** Next instantiates a module more than once per process, so
+a clock in memory reads differently depending on which bundle served the request — and a
+presenter watches two screens disagree about what day it is. It also **fails open to live**:
+every error path returns the real clock rather than throwing, because a demo control that can
+take the product down when its table is missing is worse than no demo control.
+
+**What building it found.** A signal's id derives from rule, cohort, dataset and tenant, the
+insert is conflict-do-nothing, and the evidence is frozen at detection. So walking the clock
+to the half year, detecting, and coming back to live meant whichever ran first won — March's
+numbers sitting in the list looking like today's, with nothing saying otherwise. The reading
+point is now **part of a signal's identity** and is printed on both screens: "what the console
+said at the half year" is a different artefact from "what it says now".
+
+**Still unbuilt in Wave 8:** the control centre's remaining four controls (reset with a typed
+reason, scenario injection, projection validation, QA export), the nightly reset, and p56's
+presenter scripts.
+
+### Wave 8 — the rest
 **Spec: pp9, 29, 56. Exit evidence: cold-start rehearsal passes twice.**
 
 - The control centre (G14), nightly reset and clock advance (G18), scenario scripts (G19).
