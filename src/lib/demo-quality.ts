@@ -7,6 +7,7 @@ import { TARGETS, OUTCOME_INSTRUMENT, INTAKE_INSTRUMENTS } from "./demo-populati
 const REQUIRED_INSTRUMENTS = INTAKE_INSTRUMENTS.length + 1;
 import { MIN_MEASURES, exposureDaysFor, scaledRange } from "./demo-population-calendar";
 import { popPersonId } from "./demo-population-seed";
+import { lastPopulationRepair } from "./db";
 
 // The data-quality manifest (handoff 07 §2.8, p29).
 //
@@ -173,6 +174,22 @@ export function runQualityChecks(db: Database.Database): CheckResult[] {
       pass: n === MANIFEST.length,
     });
   }
+
+  // ── The last dataset repair, reported ─────────────────────────────────
+  // The per-boot reconciliation is best-effort by design, so that a bad
+  // dataset can never become no demonstration at all. It caught its own
+  // failure and said nothing, and on the deployed instance that is exactly
+  // what happened: six checks failing, and no surface anywhere saying the
+  // repair had run and thrown. A failed repair is itself a finding.
+  const repair = lastPopulationRepair(db);
+  out.push({
+    check: "Dataset repair",
+    expected: "the last per-boot reconciliation completed",
+    actual: repair === null
+      ? "no attempt recorded — this database predates the repair, or it is not a demo environment"
+      : `${repair.status} at ${repair.attempted_at}${repair.detail ? ` — ${repair.detail}` : ""}`,
+    pass: repair === null || repair.status === "ok",
+  });
 
   // ── Missingness carries a reason ───────────────────────────────────────
   // p28: "record why the value is absent." A missing value with no reason is

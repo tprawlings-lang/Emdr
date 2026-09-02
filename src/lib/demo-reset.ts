@@ -61,6 +61,13 @@ export const PRESERVED_TABLES = [
 ] as const;
 
 export const DEMO_DATA_TABLES = [
+  // CLEARED, not preserved. `demo_repair` records the verdict of the last
+  // per-boot reconciliation, and a reset rebuilds the dataset through the
+  // normal seeding path — so any previous verdict is about a database that no
+  // longer exists. A stale "failed" row surviving a successful reset would
+  // fail the manifest for a fault that had just been fixed. The manifest reads
+  // an absent row as "no attempt recorded", which is both true and passing.
+  "demo_repair",
   // Planning first: a signal review points at its signal, and a signal is
   // derived entirely from the fabricated population it is about.
   //

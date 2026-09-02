@@ -837,6 +837,20 @@ function migrate(db: Database.Database) {
   -- would make the tamper-evident chain a chain of whatever somebody set the
   -- date to, and one that could advance a session's expiry would be a
   -- privilege escalation with a friendly name.
+  -- The outcome of the last per-boot population reconciliation.
+  --
+  -- The repair is best-effort and catches its own failure so a bad dataset
+  -- cannot become no demonstration at all. It then said nothing, which is how
+  -- it failed SILENTLY on the deployed instance: the manifest reported the
+  -- dataset was unfit, and nothing anywhere said the repair had been tried and
+  -- had thrown. A best-effort operation has to report its effort.
+  CREATE TABLE IF NOT EXISTS demo_repair (
+    id INTEGER PRIMARY KEY CHECK (id = 1),
+    attempted_at TEXT NOT NULL,
+    status TEXT NOT NULL,
+    detail TEXT
+  );
+
   CREATE TABLE IF NOT EXISTS demo_clock (
     id INTEGER PRIMARY KEY CHECK (id = 1),
     -- The instant the environment should be READ AS. Null means live: the
@@ -1503,15 +1517,36 @@ export function populationChain(db: Database.Database) {
  */
 function reconcilePopulation(db: Database.Database) {
   if (process.env.EMDR_DEMO !== "1") return;
+  const record = (status: string, detail: string | null) => {
+    try {
+      db.prepare(
+        `INSERT INTO demo_repair (id, attempted_at, status, detail) VALUES (1, ?, ?, ?)
+         ON CONFLICT(id) DO UPDATE SET attempted_at = excluded.attempted_at,
+           status = excluded.status, detail = excluded.detail`,
+      ).run(new Date().toISOString().slice(0, 19).replace("T", " "), status, detail);
+    } catch { /* the log must never be the thing that breaks the boot */ }
+  };
   try {
     populationChain(db);
+    record("ok", null);
   } catch (err) {
-    console.error(
-      "[demo] population reconcile failed; the data-quality manifest on " +
-      "/admin/demo is the authority on whether this dataset can be shown:",
-      err instanceof Error ? err.message : err,
-    );
+    // WRITTEN DOWN, not only logged. This caught its own failure and said
+    // nothing, so on the deployed instance the manifest reported an unfit
+    // dataset and no surface anywhere said a repair had been attempted and had
+    // thrown. Container logs are not a surface a presenter has.
+    const detail = err instanceof Error ? `${err.message}` : String(err);
+    record("failed", detail.slice(0, 500));
+    console.error("[demo] population reconcile failed:", detail);
   }
+}
+
+/** The last repair attempt, for the admin console. */
+export function lastPopulationRepair(db: Database.Database):
+  { attempted_at: string; status: string; detail: string | null } | null {
+  try {
+    return (db.prepare("SELECT attempted_at, status, detail FROM demo_repair WHERE id = 1")
+      .get() ?? null) as { attempted_at: string; status: string; detail: string | null } | null;
+  } catch { return null; }
 }
 
 /**
