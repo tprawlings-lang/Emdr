@@ -10,6 +10,7 @@ import { getDb } from "@/lib/db";
 import { runQualityChecks, qualitySummary } from "@/lib/demo-quality";
 import { MILESTONES, readClock } from "@/lib/demo-clock";
 import { advanceDemoClock } from "@/lib/demo-clock-actions";
+import { resetDemoEnvironment } from "@/lib/demo-reset-actions";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Demo administration — Steady" };
@@ -226,8 +227,47 @@ export default async function AdminDemoPage() {
         </WithNote>
 
         <Panel
+          title="Reset dataset"
+          footnote="p9's first control. Removes every row of synthetic activity and rebuilds the versioned baseline through the same path a fresh environment uses, so a reset and a first boot can never produce subtly different datasets."
+        >
+          <p className="measure text-sm text-ground">
+            Use this when the data-quality manifest above fails. p29 is explicit that a
+            presenter <strong>must never repair the demo by editing database rows</strong>, and
+            until this control existed the page could tell you the environment was unfit and
+            offer you nothing to do about it — which left a shell on the instance as the only
+            remedy, and that is exactly the access p29 is trying not to hand out.
+          </p>
+          <p className="measure mt-2 text-sm text-olive">
+            Everything fabricated goes: accounts, history, projections and signals. Reviewer
+            change requests and the approved planning thresholds survive, because neither is
+            fabricated member data. Anything a person originated here is not rebuilt by this and
+            is not fabricated data — the manifest reports how many such people exist above.
+          </p>
+          <form action={resetDemoEnvironment} className="mt-4 space-y-4">
+            <label className="block text-sm">
+              <span className="font-medium text-app-ink">Reason</span>
+              <input
+                name="reason"
+                required
+                minLength={4}
+                placeholder="Manifest failing after deploy — rebuild from the current seed"
+                className="mt-1 w-full rounded-xl border border-ground/20 bg-app-surface px-3 py-2 text-sm"
+              />
+              <span className="mt-1 block text-xs text-olive">
+                p9&rsquo;s own guard. Recorded with the reset, along with the rows removed and the
+                baseline hash — which is what makes two resets comparable, and what a reviewer
+                checks when told the environment was rebuilt between two sessions.
+              </span>
+            </label>
+            <button className="rounded-full bg-app-ink px-4 py-2 text-sm font-medium text-app-surface hover:opacity-90">
+              Reset the dataset
+            </button>
+          </form>
+        </Panel>
+
+        <Panel
           title="Controls that are not built"
-          footnote="Handoff 07 p9 specifies six; two are built. None of the remaining four is rendered as a disabled button — a control a presenter might click mid-demonstration is worse than a sentence saying it does not exist."
+          footnote="Handoff 07 p9 specifies six; three are built. None of the remaining four is rendered as a disabled button — a control a presenter might click mid-demonstration is worse than a sentence saying it does not exist."
         >
           <dl className="divide-y divide-ground/5">
             {PENDING.map((p) => (
@@ -291,11 +331,6 @@ function Row({
  *  trusts to be current. Each says what it needs, so
  *  the gap is a piece of work rather than a mystery. */
 const PENDING: Array<{ control: string; behavior: string; needs: string }> = [
-  {
-    control: "Reset dataset",
-    behavior: "Recreate all seed records and projections, with a typed confirmation and a reason.",
-    needs: "A recorded reset reason and an audit event — p9's guard, and the reason is the part that is missing.",
-  },
   {
     control: "Inject scenario",
     behavior: "Apply an approved, versioned event bundle such as a safety pause; reversible by reset.",
