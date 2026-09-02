@@ -5,6 +5,7 @@ import {
   MANIFEST, DATASET_VERSION, seedFor, type ManifestRow, type Archetype,
 } from "./demo-population-manifest";
 import { tenantForRow, clinicianPersonId } from "./demo-population-seed";
+import { accessProfileFor, type AccessProfile } from "./demo-population-disparity";
 import {
   MEMBER_NOTES, OPERATIONAL_NOTES, CLINICIAN_COMMENTS, pick,
 } from "./demo-population-dictionaries";
@@ -307,6 +308,13 @@ function generateInner(db: Database.Database): GeneratedCounts {
     const personId = popId("person", row.id);
     const tenant = tenantForRow(row);
     const path = PATHS[row.archetype];
+    // The authored access model (see demo-population-disparity.ts). It never
+    // changes the archetype's SHAPE — the curve between the manifest's
+    // baseline and follow-up is p28's authored truth and stays exactly as
+    // written. What it changes is how reliably the service reached this
+    // person: how quickly a first appointment was arranged, how many measures
+    // were delivered, how often they showed up.
+    const access = accessProfileFor(row);
     const startDay = seed % 14;
 
     // ── Enrolment: one account, one consent set (p14) ────────────────────
@@ -335,16 +343,29 @@ function generateInner(db: Database.Database): GeneratedCounts {
     // suite caught exactly that — a header reading 0% over a population that
     // is fully active.
     //
-    // Dated BEFORE enrolment, in the order they happened, because a funnel
-    // whose stages are simultaneous is four numbers rather than a pathway. The
+    // In the order they happened, because a funnel whose stages are
+    // simultaneous is four numbers rather than a pathway. Referral and contact
+    // sit before enrolment; the visit and the care start move with the access
+    // model's drag, so for somebody it took three extra weeks to schedule they
+    // land after it — which is what a delayed start actually looks like. The
     // Access-barrier archetype stalls between contact and visit, which is what
     // "missed activity linked to authored access events" means (p12).
     const stalls = row.archetype === "Access barrier" && rng.chance(0.45);
+    // The drag lands between CONTACT and VISIT, which is where an access delay
+    // actually sits: the referral arrives on time and the appointment is the
+    // thing that cannot be arranged. Putting it on the referral instead would
+    // have made it look like a demand problem.
+    // Drawn around the mean, with a spread wide enough that every band holds
+    // both a person who started the next day and a person who took a month.
+    // Two draws rather than one, so the shape is triangular rather than flat —
+    // most people near the mean, a thinner tail either side, which is what a
+    // wait for an appointment actually looks like.
+    const drag = Math.max(0, access.startDragMean + rng.int(-4, 4) + rng.int(-3, 3));
     const pathway: Array<[string, number]> = [
       ["referral.received", -12],
       ["contact.attempted", -9],
       ["contact.made", -6],
-      ...(stalls ? [] : [["visit.scheduled", -3] as [string, number], ["care.started", 0] as [string, number]]),
+      ...(stalls ? [] : [["visit.scheduled", -3 + drag] as [string, number], ["care.started", drag] as [string, number]]),
     ];
     for (const [type, offset] of pathway) {
       const day = Math.max(0, startDay + offset);
@@ -361,9 +382,25 @@ function generateInner(db: Database.Database): GeneratedCounts {
     // per-day coin flip. p14 specifies 18–90 per person and a rate cannot
     // promise that: the first version produced 1 for one person and 134 for
     // another.
-    const wantCheckIns = rng.int(path.checkIns[0], path.checkIns[1]);
+    // Scaled by the access model, then clamped to p14's GLOBAL per-person
+    // bound rather than to the archetype's own band. The distinction matters:
+    // p14 states 18–90 check-ins for a person and the quality manifest
+    // enforces that number, while the per-archetype band is this generator's
+    // own subdivision of it. Clamping to the narrower one would let the floor
+    // absorb the whole effect for anyone already near it — the multiplier
+    // would apply to the people it least needed to and not to the people it
+    // did.
+    const wantCheckIns = Math.max(
+      TARGETS.checkins[0],
+      Math.min(TARGETS.checkins[1], Math.round(rng.int(path.checkIns[0], path.checkIns[1]) * access.engagementFactor)),
+    );
+    // The first check-in cannot precede the first appointment, so the access
+    // model's start drag moves this window too. Without it the drag would move
+    // only the pathway events and activation — "acted within seven days of
+    // enrolling" — would be identical for everybody, which is the half of the
+    // age reversal that makes the other half interesting.
     const openDays: number[] = [];
-    for (let day = startDay + 1; day < DEMO_DAYS; day++) {
+    for (let day = startDay + 1 + drag; day < DEMO_DAYS; day++) {
       if (!inGap(row, day)) openDays.push(day);
     }
     // Fisher-Yates on the seeded generator, then take the first N and re-sort.
@@ -409,8 +446,25 @@ function generateInner(db: Database.Database): GeneratedCounts {
     // with a high miss rate falls below the specified minimum, which is
     // exactly what happened first time.
     const wantMeasures = rng.int(4, 8);
-    const missCount = Math.min(3, Math.round(wantMeasures * path.missRate * 2));
-    const dueCount = wantMeasures + missCount;
+    // TWO KINDS OF MISS, kept apart all the way down to the reason on the
+    // event, because they are two different problems with two different fixes.
+    //
+    //   A SKIP is the person's side: the measure arrived and was not
+    //   completed. It follows the archetype, scaled by the access model's
+    //   adherence factor.
+    //
+    //   A DELIVERY FAILURE is the service's side: the measure never went out.
+    //   It follows the access model alone — an interpreter who could not be
+    //   booked, an instrument that has not been translated, a person the
+    //   product does not accommodate.
+    //
+    // Both raise the denominator of follow-up completion and only one of them
+    // is about the person. A console that reports the rate without the reasons
+    // cannot tell them apart, which is precisely why p32 puts the five states
+    // in that metric's required display.
+    const missCount = Math.min(3, Math.round(wantMeasures * path.missRate * 1.4 * access.adherenceFactor));
+    const deliveryMisses = Math.min(5, Math.round(wantMeasures * access.deliveryFailure * 4));
+    const dueCount = wantMeasures + missCount + deliveryMisses;
     // Which of the due slots are missed. Never the first or last: those two
     // carry the manifest's authored baseline and follow-up.
     //
@@ -425,10 +479,34 @@ function generateInner(db: Database.Database): GeneratedCounts {
       [eligible[i], eligible[j]] = [eligible[j], eligible[i]];
     }
     const missedSlots = new Set(eligible.slice(0, Math.min(missCount, eligible.length)));
+    // Drawn from what the skips did not take, so the two never land on the
+    // same slot and the counts stay exactly what was computed above.
+    const undeliveredSlots = new Set(
+      eligible.slice(missedSlots.size, missedSlots.size + Math.max(0, deliveryMisses)),
+    );
 
     let completed = 0;
     for (let i = 0; i < dueCount; i++) {
       const day = Math.round(startDay + ((DEMO_DAYS - startDay - 1) * i) / Math.max(1, dueCount - 1));
+      if (undeliveredSlots.has(i)) {
+        // The service's side. p28's "unavailable", and the mechanisms that
+        // produced it are named ON THE EVENT — so a reviewer who opens a
+        // single missing measure sees why it is missing, rather than having to
+        // infer it from a rate three screens away.
+        insEvent.run(
+          popId("undelivered", `${row.id}:${i}`), tenant, personId, "measure.not_completed",
+          JSON.stringify({
+            instrument: "phq-9", dueOn: dayDate(epoch, day),
+            reason: "unavailable",
+            cause: "service",
+            mechanisms: access.mechanisms,
+            fabricated: true,
+          }),
+          null, "system", dayStamp(epoch, day, 12), dayStamp(epoch, day, 12), PROV, null, null,
+        );
+        counts.measuresMissing++;
+        continue;
+      }
       if (missedSlots.has(i)) {
         // Missingness is RECORDED, with the reason. An absent row and a
         // declined one look identical in a table, and only one of them is a
@@ -437,7 +515,7 @@ function generateInner(db: Database.Database): GeneratedCounts {
           popId("missing", `${row.id}:${i}`), tenant, personId, "measure.not_completed",
           JSON.stringify({
             instrument: "phq-9", dueOn: dayDate(epoch, day),
-            reason: missingReason(row, day, rng), fabricated: true,
+            reason: missingReason(row, day, rng), cause: "person", fabricated: true,
           }),
           null, "system", dayStamp(epoch, day, 12), dayStamp(epoch, day, 12), PROV, null, null,
         );
@@ -456,52 +534,6 @@ function generateInner(db: Database.Database): GeneratedCounts {
       completed++;
     }
     counts.measures += completed;
-
-    // ── An authored access barrier (p14's "authored gaps", p31's worked
-    //    signal, p43's fairness audit) ──────────────────────────────────────
-    //
-    // WHY THIS EXISTS. The manifest is balanced on every dimension p29 checks
-    // — 60 per region, 40 per band, 30 per archetype — so the population it
-    // describes contains no disparity at all. That is correct for a fixture
-    // and useless for a planning engine: every one of p34's rules evaluates to
-    // "no gap", and a screen that has never had anything to show has not been
-    // tested. Measured before this was added, the largest follow-up difference
-    // between any declared cohort and the eligible population was 3.4
-    // percentage points, against a threshold of 12.
-    //
-    // WHAT IT IS. Follow-up measures that were NOT DELIVERED, in the second
-    // half of the window, to people whose preferred language is Spanish. The
-    // reason is "unavailable" — p28's word for the system's own failure — and
-    // that framing is the point: this is an operational access barrier, which
-    // is the thing p43's audit exists to make discoverable. It is not a
-    // statement about the people in the cohort, and nothing here may be read
-    // as one.
-    //
-    // WHY THE SECOND HALF ONLY. So the gap is absent in the first window and
-    // present in the second, which is a barrier that appeared rather than a
-    // property of the population — the shape a planning signal is supposed to
-    // catch.
-    if (row.language === "Spanish") {
-      const extra = MANIFEST.indexOf(row) % 2 === 0 ? 2 : 1;
-      for (let k = 0; k < extra; k++) {
-        const day = Math.round(DEMO_DAYS * 0.55 + k * 30);
-        insEvent.run(
-          popId("access-barrier", `${row.id}:${k}`), tenant, personId, "measure.not_completed",
-          JSON.stringify({
-            instrument: "phq-9", dueOn: dayDate(epoch, day),
-            reason: "unavailable",
-            // Named in the row, so a reader who reaches the event knows this
-            // is an authored scenario and not an emergent property of the
-            // generator.
-            scenario: "language-access-barrier",
-            detail: "follow-up measure not delivered in the person's preferred language",
-            fabricated: true,
-          }),
-          null, "system", dayStamp(epoch, day, 12), dayStamp(epoch, day, 12), PROV, null, null,
-        );
-        counts.measuresMissing++;
-      }
-    }
 
     // ── Modules (p14: 8–55) ──────────────────────────────────────────────
     const moduleCount = rng.int(path.modules[0], path.modules[1]);

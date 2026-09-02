@@ -88,11 +88,13 @@ export async function loadObservations(tenantIds: string[], window?: Window): Pr
         u.id                                        AS person_id,
         u.tenant_id                                 AS tenant_id,
         a.census_region                             AS region,
+        a.state                                     AS state,
         a.age_band                                  AS age_band,
         a.preferred_language                        AS language,
         a.race_json                                 AS race_json,
         a.ethnicity                                 AS ethnicity,
         a.access_needs_json                         AS access_needs_json,
+        a.interpreter_needed                        AS interpreter_needed,
         u.created_at                                AS enrolled_at,
         (SELECT MIN(k.checkin_date) FROM checkins k WHERE k.user_id = u.id)      AS first_action,
         (SELECT MAX(k.checkin_date) FROM checkins k WHERE k.user_id = u.id${kWin})      AS last_action,
@@ -120,19 +122,28 @@ export async function loadObservations(tenantIds: string[], window?: Window): Pr
     `SELECT e.person_id AS person_id,
             COALESCE(json_extract(e.payload, '$.reason'), 'unrecorded') AS reason,
             COALESCE(json_extract(e.payload, '$.partial'), 0)           AS partial,
+            COALESCE(json_extract(e.payload, '$.cause'), 'person')      AS cause,
             COUNT(*) AS n
        FROM longitudinal_events e JOIN persons p ON p.id = e.person_id
       WHERE p.tenant_id IN (${marks}) AND e.event_type = 'measure.not_completed'${eWin}
-      GROUP BY 1, 2, 3`,
+      GROUP BY 1, 2, 3, 4`,
     tenantIds,
-  )) as { person_id: string; reason: string; partial: number; n: number }[];
+  )) as { person_id: string; reason: string; partial: number; cause: string; n: number }[];
 
-  type Miss = { partial: number; declined: number; unavailable: number; skipped: number; interrupted: number; notDue: number };
+  type Miss = {
+    partial: number; declined: number; unavailable: number; skipped: number;
+    interrupted: number; notDue: number; undelivered: number;
+  };
   const byPerson = new Map<string, Miss>();
   for (const m of missing) {
     const acc: Miss = byPerson.get(m.person_id)
-      ?? { partial: 0, declined: 0, unavailable: 0, skipped: 0, interrupted: 0, notDue: 0 };
+      ?? { partial: 0, declined: 0, unavailable: 0, skipped: 0, interrupted: 0, notDue: 0, undelivered: 0 };
     const n = Number(m.n);
+    // Counted ALONGSIDE the reason, not instead of it. Reason and cause are
+    // two different questions about the same event — what happened, and whose
+    // failure it was — and a fairness review needs the second while p28's
+    // taxonomy answers the first.
+    if (m.cause === "service") acc.undelivered += n;
     // ONE TO ONE with p28's six reasons. The first version folded skipped,
     // failed and interrupted into "unavailable" so that five buckets would
     // hold six reasons — which relabelled a person's omission as a system
@@ -192,7 +203,7 @@ export async function loadObservations(tenantIds: string[], window?: Window): Pr
     const observedFrom = windowOpened === null ? enrolledAt : Math.max(windowOpened, enrolledAt);
     const observedDays = Math.max(0, Math.round((asOf - observedFrom) / 86400000));
     const miss = byPerson.get(String(r.person_id))
-      ?? { partial: 0, declined: 0, unavailable: 0, skipped: 0, interrupted: 0, notDue: 0 };
+      ?? { partial: 0, declined: 0, unavailable: 0, skipped: 0, interrupted: 0, notDue: 0, undelivered: 0 };
     return {
       personId: String(r.person_id),
       region: r.region ? String(r.region) : null,
@@ -202,6 +213,8 @@ export async function loadObservations(tenantIds: string[], window?: Window): Pr
       ethnicity: r.ethnicity ? String(r.ethnicity) : null,
       tenantId: String(r.tenant_id),
       accessNeeds: r.access_needs_json ? (JSON.parse(String(r.access_needs_json)) as string[]) : [],
+      interpreterNeeded: Number(r.interpreter_needed ?? 0) === 1,
+      state: r.state ? String(r.state) : null,
       hasAccount: true,
       daysEnrolled,
       daysToFirstAction: days(enrolled, r.first_action),
@@ -227,6 +240,7 @@ export async function loadObservations(tenantIds: string[], window?: Window): Pr
       measuresSkipped: miss.skipped,
       measuresInterrupted: miss.interrupted,
       measuresNotDue: miss.notDue,
+      measuresUndelivered: miss.undelivered,
       baseline: r.baseline === null || r.baseline === undefined ? null : Number(r.baseline),
       followUp: r.follow_up === null || r.follow_up === undefined ? null : Number(r.follow_up),
       hadFixedPause: Number(r.pauses ?? 0) > 0,

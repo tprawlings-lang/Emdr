@@ -19,6 +19,7 @@ import {
 } from "./lifecycle";
 import { loadThresholds, type RuleId } from "./policy";
 import { evaluateAll, type RuleContext, type WindowReading } from "./rules";
+import { explain, type Explanation } from "./explanations";
 import {
   buildSignal, cohortIsProtected, routingFor, signalId,
   type PlanningSignal, type ReviewRecord,
@@ -369,9 +370,12 @@ function hydrate(row: SignalRow, role: Role): PlanningSignal {
     role,
     // Passed explicitly rather than left to be re-derived. When the cohort has
     // left the registry the stub above has no filters, so a derived routing
-    // would report no protected-group impact — and the signal would be offered
-    // an advance straight past fairness review because its definition was
-    // deleted.
+    // would report no protected-group impact — and the object a screen reads
+    // would offer an advance straight past fairness review because the
+    // definition was deleted. The transition itself is guarded separately, in
+    // `recordReview`, which resolves the cohort again and defaults the same
+    // way; this keeps the two consistent.
+    routing,
   });
   // The stored id wins. `buildSignal` derives one from the rule, cohort and
   // dataset, and a signal whose cohort has since been re-versioned would
@@ -542,6 +546,34 @@ export async function recordReview(args: {
 
 function cohort_or_null(id: string): CohortDefinition | null {
   try { return cohort(id); } catch { return null; }
+}
+
+/**
+ * p44's "Alternative explanations", computed against the live population.
+ *
+ * Recomputed at read time rather than frozen with the signal, and that is the
+ * one place this subsystem deliberately does not freeze. The signal's own
+ * numbers are its evidence and must not move under a reviewer; the alternatives
+ * are the reviewer's own analysis, and running it against a stale snapshot
+ * would answer a question about last month.
+ */
+export async function signalExplanations(
+  signal: PlanningSignal, dataTenantIds: string[],
+): Promise<Explanation[]> {
+  const c = cohort_or_null(signal.cohort_ref);
+  if (!c) return [];
+  const t = await loadThresholds();
+  const w = windows()[1];
+  const rows = await loadObservations(dataTenantIds, w);
+  const ctx = metricContext(`explain-${signal.signal_id}`, w);
+  return explain({
+    cohort: c,
+    reference: ALL_ELIGIBLE,
+    rows,
+    ctx,
+    minDenominator: t.get("analysis.min_denominator"),
+    minGroup: t.get("analysis.min_group_size"),
+  });
 }
 
 /** p47's GET /api/planning/signals/:id/lineage — "return definitions and

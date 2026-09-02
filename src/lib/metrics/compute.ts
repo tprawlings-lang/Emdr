@@ -33,6 +33,10 @@ export interface Observation {
   ethnicity: string | null;
   tenantId: string;
   accessNeeds: string[];
+  /** Whether this person needs an interpreter. Authored independently of
+   *  language (p11), so it is its own dimension and not a proxy for one. */
+  interpreterNeeded: boolean;
+  state: string | null;
   hasAccount: boolean;
 
   daysEnrolled: number;
@@ -76,6 +80,16 @@ export interface Observation {
   /** Started and cut short — p28's "interrupted". */
   measuresInterrupted: number;
   measuresNotDue: number;
+  /** Measures that were never DELIVERED — the service's failure rather than
+   *  the person's.
+   *
+   *  Overlaps `measuresUnavailable` and is not the same field. That one is
+   *  p28's REASON taxonomy, which answers "what happened"; this is the CAUSE,
+   *  which answers "whose failure was it". A measure recorded as unavailable
+   *  because an interpreter could not be booked and one recorded as unavailable
+   *  because a device failed are the same reason and different causes, and a
+   *  fairness review needs the second. */
+  measuresUndelivered: number;
 
   /** Paired baseline and follow-up on the same instrument, or null when the
    *  person is not paired. p32: observed change is over PAIRED observations. */
@@ -155,6 +169,8 @@ export function inGroup(rows: Observation[], c: CohortDefinition): Observation[]
     any(f.language, r.language) &&
     any(f.ethnicity, r.ethnicity) &&
     any(f.tenantId, r.tenantId) &&
+    any(f.state, r.state) &&
+    (f.interpreterNeeded === undefined || f.interpreterNeeded === r.interpreterNeeded) &&
     (f.race === undefined || r.race.some((x) => f.race!.includes(x))) &&
     (f.accessNeed === undefined || r.accessNeeds.some((x) => f.accessNeed!.includes(x))),
   );

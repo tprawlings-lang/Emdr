@@ -490,9 +490,14 @@ const FAIRNESS_ALERT: RuleDefinition = {
   evaluate(ctx, t) {
     const margin = t.get("fairness_alert.disparity_pp");
     const minComplete = t.get("fairness_alert.min_group_completeness");
-    const minN = t.get("analysis.min_denominator");
+    // The HEADCOUNT key, not the denominator one. A fairness alert is a
+    // statement about how a group of people is treated, so the group is what
+    // has to be big enough — a rate resting on plenty of observations from
+    // very few people is estimable and still not something to raise a fairness
+    // finding about.
+    const minN = t.get("analysis.min_group_size");
     const threshold = {
-      disparity_pp: margin, min_group_completeness: minComplete, min_denominator: minN,
+      disparity_pp: margin, min_group_completeness: minComplete, min_group_size: minN,
     };
     const f = ctx.fairness;
     if (!f) {

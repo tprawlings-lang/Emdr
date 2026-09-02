@@ -3,8 +3,8 @@ import { notFound } from "next/navigation";
 import { ReviewPage } from "@/components/clinical/ReviewPage";
 import { Panel, Note, WithNote, RecordRows } from "@/components/app/surfaces";
 import { requireReviewAccess } from "@/lib/auth";
-import { getSignal, signalHistory, signalLineage } from "@/lib/planning/service";
-import { readableSignalTenants } from "@/lib/planning/scope";
+import { getSignal, signalExplanations, signalHistory, signalLineage } from "@/lib/planning/service";
+import { populationTenantIds, readableSignalTenants } from "@/lib/planning/scope";
 import { submitSignalReview } from "@/lib/planning/actions";
 import { ACTION_LABELS, BLOCKED_ACTIONS, BLOCKED_ACTION_REASONS, stateDef } from "@/lib/planning/lifecycle";
 import { ladder } from "@/lib/planning/ladder";
@@ -42,6 +42,7 @@ export default async function PlanningSignalPage({
 
   const lineage = await signalLineage(id, tenants, user.role);
   const history = await signalHistory(id, tenants);
+  const explanations = await signalExplanations(signal, populationTenantIds());
   const def = rule(signal.signal_type);
   const state = stateDef(signal.state);
   const level = ladder(signal.evidence_level);
@@ -156,14 +157,44 @@ export default async function PlanningSignalPage({
           </p>
         </Panel>
 
-        {/* p44 §5 — Alternative explanations */}
+        {/* p44 §5 — Alternative explanations.
+            COMPUTED, not listed. The first version of this section rendered
+            the rule's static limitation strings, which are true, generic and
+            useless: a reader who has decided what a signal means is not talked
+            out of it by a disclaimer, only by a number. Each row below either
+            found something or says it looked and did not. */}
         <Panel
           title="Alternative explanations"
-          footnote="p36: a difference may exist because more engaged people chose differently, because assignment differs, because missing follow-up differs, or because the thing being measured changed. Raw averages cannot tell these apart."
+          footnote="Stratified comparisons are level 2 on p36's ladder — observed within these strata. A difference that shrinks inside a stratum is an observation about that stratum, not a demonstration that it is the cause."
         >
-          <ul className="measure list-disc space-y-1 pl-5 text-sm text-ground">
-            {signal.limitations.map((l) => <li key={l}>{l}</li>)}
-          </ul>
+          {explanations.length === 0 ? (
+            <p className="measure text-sm text-ground/90">
+              This signal&rsquo;s cohort is no longer in the registry, so the alternatives cannot be
+              recomputed against it.
+            </p>
+          ) : (
+            <ul className="divide-y divide-ground/10">
+              {explanations.map((e) => (
+                <li key={e.question} className="py-3">
+                  <p className="text-sm font-medium text-app-ink">
+                    <span
+                      className={`mr-2 rounded-full px-2 py-0.5 text-xs ${
+                        e.found ? "bg-state-caution-bg text-ground" : "bg-app-accent/50 text-olive"
+                      }`}
+                    >
+                      {e.found ? "worth weighing" : "checked"}
+                    </span>
+                    {e.question}
+                  </p>
+                  <p className="measure mt-1 text-sm text-ground">{e.detail}</p>
+                </li>
+              ))}
+            </ul>
+          )}
+          <p className="measure mt-4 text-xs text-olive">
+            The rule also records what it cannot rule out at all:{" "}
+            {signal.limitations.join("; ")}.
+          </p>
         </Panel>
 
         {/* p44 §6 — Fairness */}

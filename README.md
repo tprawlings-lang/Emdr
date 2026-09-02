@@ -220,7 +220,7 @@ wave surfaced.
 | 3 ✅ | The deterministic generator — six months of history, byte-identical replay | "Wave 3" |
 | 4 ✅ | Role projections — the clinician's panel and the aggregate overview, from one ledger | "Wave 4" |
 | 5 ✅ | The ten-metric dictionary, the cohort registry, and pure arithmetic over typed observations | "Wave 5" |
-| 6 ✅ | **The planning engine** — seven rules, owned thresholds, the eight-state machine, `/review/planning` | "Wave 6" |
+| 6 ✅ | **The planning engine** — seven rules, owned thresholds, the eight-state machine, `/review/planning`, and an authored access model that gives it something real to find | "Wave 6" |
 | 7 | Fairness controls, the audit screen, the model registry shell | handoff pp37–38, 43 |
 | 8 | The demo control centre, nightly reset, scenario scripts | handoff pp9, 29, 56 |
 
@@ -229,6 +229,23 @@ with what it produced — and, for the three that produce nothing in this deploy
 input they lack. `/review/planning/[id]` is p44's nine-section detail screen. Three of
 p47's twelve API routes are built. Thresholds live in `policy_thresholds` with a named
 owner and an approval date, in a table that refuses an in-place edit.
+
+**The 240 now carry realistic disparity, with the ambiguity that comes with it.** The
+manifest is balanced on every dimension p29 checks, so the population it describes had no
+disparity at all and every rule correctly found nothing.
+`src/lib/demo-population-disparity.ts` adds six named real-world mechanisms — interpreter
+capacity, instrument translation coverage, an age gradient that **reverses** between
+activation and follow-up completion, distance, unaccommodated access needs, coverage
+instability. Every one is something the *service* did or a property of a life stage; none
+keys on an identity, and a permutation test over all six races and both ethnicities fails
+the build if one ever does.
+
+The confounds are deliberate. Two language cohorts look like the same finding and are not:
+Spanish's follow-up gap all but vanishes when interpreter need is held out, and Mandarin's
+survives it, because the instrument was never translated. So p44&rsquo;s "Alternative
+explanations" section is **computed** — composition, a stratified recomputation, whether the
+missing measures were the service&rsquo;s or the person&rsquo;s, differential missingness,
+and group size — rather than a list of generic caveats.
 
 **Two of the eighteen rows above closed as a side effect.** Row 1 (`/review/access`) is the
 same binding as Wave 1's session claims, and row 5's cohort registry is the same gap

@@ -481,26 +481,33 @@ does not have.** That is p34's "no output when" column working, not a shortfall:
   `computeObservedChange` reports the observed *range* and says in its own comment that
   calling it an interval estimate would promote the finding a rung on p36's ladder.
 
-**ACCESS_GAP is withheld too, and for a reason worth recording:** the 240 all enrolled in a
-single month, so the second window contains one entrant. Activation is a cohort-entry
-metric, and p34's "denominator below threshold" is the correct answer to a window with
-nobody in it.
+**ACCESS_GAP is withheld too, and now for two reasons, both worth recording.** The 240 all
+enrolled in a single month, so the second window contains one entrant — and activation is a
+cohort-entry metric, so p34's "denominator below threshold" is the correct answer to a
+window with nobody in it. Since the access model landed, the *first* condition it trips is
+missingness: at 30.5% against a 30% limit, an access comparison genuinely is unreliable
+before the denominator question is even reached. Both are true and the more fundamental one
+is masked by the earlier check, which is a limitation of reporting one reason per rule.
 
 **The population had to be given something to find.** The manifest is balanced on every
-dimension p29 checks — 60 per region, 40 per band, 30 per archetype — so the population it
-describes contains no disparity at all. Measured before anything was added, the largest
-follow-up difference between any declared cohort and the eligible population was **3.4
-percentage points against a threshold of 12**: every rule evaluated to "no gap", and a
-screen that has never had anything to show has not been tested. The generator now writes an
-**authored access barrier** (p14 already calls for authored gaps): follow-up measures *not
-delivered* to people whose preferred language is Spanish, in the second half of the window,
-with p28's reason `unavailable` and a `scenario` field naming it in the event. It is an
-operational failure, which is what p43's audit exists to surface — not a statement about the
-people in the cohort. It produces an 18-point gap, and FOLLOWUP\_GAP and FAIRNESS\_ALERT both
-fire on it.
+dimension p29 checks — 60 per region, 40 per band, 40 per race, 30 per archetype, 10 of each
+language in each region — so the population it describes contains no disparity at all.
+Measured before anything was added, the largest follow-up difference between any declared
+cohort and the eligible population was **3.4 percentage points against a threshold of 12**:
+every rule evaluated to "no gap", and a screen that has never had anything to show has not
+been tested.
+
+That is what `src/lib/demo-population-disparity.ts` is for, and it is described in its own
+section below.
 
 **What Wave 6 found.**
 
+0. **A perfectly balanced population, which is a defect.** Everything above under "the
+   authored access model" — the manifest describes a population with no disparity in it, so
+   every planning rule correctly reported nothing, and neither the engine nor the screens
+   had ever been exercised. Found by running the engine against the real data rather than
+   against fixtures, which is what `scripts/testing/planning-probe.ts` and
+   `scripts/testing/disparity-report.ts` exist for.
 1. **Windowing a cohort-entry metric.** The first windowed loader clipped a person's *first
    action* to the window, so everybody who enrolled before it read as a failure to activate.
    It announced itself as **86.7 percentage points of drift on a population that had not
@@ -530,6 +537,80 @@ fire on it.
 FOLLOWUP\_GAP's missingness exclusion, hard-coding a threshold instead of reading policy,
 letting a blocked action into the allowed set, and silencing DATA\_QUALITY when its reading
 is missing. All four failed the build.
+
+### The authored access model
+
+`src/lib/demo-population-disparity.ts`. Six named real-world mechanisms with stated
+magnitudes, applied by the generator on top of each archetype's own path. Three rules govern
+what may go in.
+
+**A mechanism is operational, not dispositional.** Every entry is something the *service*
+did — a measure that was never delivered, an appointment that took longer to arrange — or a
+documented property of a life stage. Nothing says a group tries less hard. A fabricated
+population that encodes a stereotype teaches it to everyone who reads the console, under the
+authority of a screen built to prevent exactly that. **The guard is a permutation test**:
+every profile's access model is recomputed under all six races and both ethnicities and must
+return the identical answer. It cannot be satisfied by a comment.
+
+**Every mechanism is confounded on purpose.** p36 opens by listing the reasons a difference
+may not be what it appears to be. If the fabricated gaps are clean, the release ladder is
+decoration — a reviewer follows the obvious explanation and is right every time.
+
+**Not every gap crosses the line.** Real operational data has differences of every size and
+most are not actionable. The magnitudes are tuned so some cohorts trip p34's thresholds and
+some visibly do not.
+
+| # | Mechanism | What it does | The ambiguity it creates |
+|---|---|---|---|
+| M1 | Interpreter-dependent delivery | Measures go undelivered when an interpreter cannot be booked, three times more often in the site arm with no contracted line | p11 authors interpreter need **independently of language**, so a language cohort's gap is carried by the third of it that needs one — and the answer is interpreter capacity, not the language |
+| M6 | Instrument translation coverage | The follow-up instrument is deployed in Spanish and not in Mandarin | Applies to the *whole* language cohort, unlike M1. This is why the two languages behave differently, and why stratifying resolves one and not the other |
+| M2 | Age gradient | Older members start slower and then complete follow-up **more** reliably; younger members are the reverse | A genuine **reversal**. Whichever metric is picked, a different band looks worst — "which group is doing worse" is unanswerable until somebody names the metric |
+| M3 | Distance to a first appointment | Seven predominantly rural states, spread across **all four regions** | A regional difference is partly a composition difference, and only a cohort defined by *state* can tell them apart |
+| M4 | Unaccommodated functional access need | Screen-reader and captions users lose a little engagement and delivery | Small, and real: a screen-reader user meeting an unlabelled control does not complain, they stop |
+| M5 | Coverage and scheduling instability | Engagement drops while completion-when-due does not | The two metrics disagree about the same person — the reason p32 refuses to let one be read off the other |
+
+**What it produces, measured.** Network follow-up completion 67%; per-person bounds still
+inside p14's 18–90 check-ins and 4–8 measures; all sixteen of p29's checks pass; replay
+byte-identical.
+
+| Cohort | Follow-up completion | Fires at 12pp? |
+|---|---|---|
+| Mandarin preferred | **−15.4pp** | **yes** |
+| Needs an interpreter | −16.7pp | (the operational driver) |
+| Spanish preferred | −7.2pp | no — visible and sub-threshold |
+| Rural states | −2.4pp, but **activation 41% against 61%** | no — it is a speed problem, not a completion one |
+| Any region | ±1pp | no |
+| 65+ | **+5.7pp**, activation **28%** | — the reversal |
+| 18–24 | −2.5pp, activation **80%** | — the other end of it |
+
+**The stratification is the point.** Both language cohorts look like the same finding and
+are not:
+
+| | Overall | Interpreter need held out |
+|---|---|---|
+| Spanish | −7.2pp | **−2.7pp** — the gap was the interpreter |
+| Mandarin | −15.4pp | **−14.4pp** — it survives; the instrument is not translated |
+
+**So p44's "Alternative explanations" is now computed rather than listed.** The first version
+of that section rendered the rule's static limitation strings — "observational", "no
+adjustment for confounders" — which are true, generic and useless: a reader who has decided
+what a signal means is not talked out of it by a disclaimer, only by a number.
+`src/lib/planning/explanations.ts` runs five checks against the same observations the signal
+was computed from, and each one either finds something or says it looked and did not:
+composition, a stratified recomputation, the **cause mix** (were the missing measures the
+service's or the person's?), differential missingness, and group size. It is **pure over
+observations**, so it is checked against arithmetic worked out in the test comments.
+
+Stratifying is level 2 on p36's ladder, so those sentences open with *"Observed within these
+strata"* and may not say the stratum caused anything. Both branches of that wording are
+guarded, and both were mutation-tested.
+
+**One threshold key was doing two jobs.** `analysis.min_denominator` was applied to a metric
+denominator by the rules and to a headcount by FAIRNESS\_ALERT and the explanation layer. The
+consequence was concrete: the stratified check that separates the two language stories was
+refused because holding out interpreter need left 26 *people* — on a rate resting on nearly
+two hundred observations. It is now two keys with the same value and different meanings,
+`analysis.min_denominator` and `analysis.min_group_size`.
 
 **What Wave 6 deliberately does not build.** p50 gives the organization and payer roles a
 "subset" grant on `planning_review`, and they get none. The reason is a gap in the cohort
