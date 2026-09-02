@@ -8,7 +8,7 @@ import { tenantForRow, clinicianPersonId } from "./demo-population-seed";
 import { accessProfileFor, type AccessProfile } from "./demo-population-disparity";
 import {
   CALENDAR_DAYS, MIN_MEASURES, PERSON_DAYS, demoEpoch, enrolmentDayFor, exposureDaysFor,
-  scaledRange,
+  generatedDaysFor, scaledRange,
 } from "./demo-population-calendar";
 import {
   MEMBER_NOTES, OPERATIONAL_NOTES, CLINICIAN_COMMENTS, pick,
@@ -145,7 +145,10 @@ interface Path {
   gap?: [number, number];
 }
 
-const PATHS: Record<Archetype, Path> = {
+/** Exported so the agent behaviour layer reads the SAME archetype definitions.
+ *  Two behaviour models for one population would show up as a discontinuity
+ *  two weeks wide on every trend on the console. */
+export const PATHS: Record<Archetype, Path> = {
   "Early response":  { checkIns: [62, 88], modules: [30, 55], sessions: [3, 8], changeMidpoint: 0.22, changeSteepness: 9,  missRate: 0.08 },
   "Steady response": { checkIns: [48, 72], modules: [22, 40], sessions: [2, 6], changeMidpoint: 0.50, changeSteepness: 4,  missRate: 0.10 },
   "Late response":   { checkIns: [38, 60], modules: [18, 34], sessions: [1, 5], changeMidpoint: 0.72, changeSteepness: 8,  missRate: 0.14 },
@@ -168,7 +171,7 @@ const PATHS: Record<Archetype, Path> = {
  *  baseline and follow-up along the archetype's curve. A logistic rather than
  *  a straight line, because "early response" and "late response" differ in
  *  WHEN the change happens, and a linear path cannot express that. */
-function measureOn(row: ManifestRow, dayFraction: number): number {
+export function measureOn(row: ManifestRow, dayFraction: number): number {
   const path = PATHS[row.archetype];
   const t = (dayFraction - path.changeMidpoint) * path.changeSteepness;
   const progress = 1 / (1 + Math.exp(-t));
@@ -358,7 +361,16 @@ function generateInner(db: Database.Database): GeneratedCounts {
     // person's own journey, and before the calendar split they were offsets
     // from the day the fabricated service opened — which was only ever right
     // because everybody opened with it.
-    const lastDay = startDay + exposure;
+    // The generator stops short of the calendar's end. The reserved tail
+    // belongs to the agent behaviour layer, which lives those days through the
+    // product rather than writing them into the tables — so the window every
+    // metric and every planning rule reads is one the gate engine actually saw.
+    const exposureGenerated = generatedDaysFor(row);
+    const lastDay = startDay + exposureGenerated;
+    // Over the person's FULL exposure, not the generated part: the archetype's
+    // curve describes their whole journey, and normalising it to the shortened
+    // window would compress the trajectory and land the follow-up value two
+    // weeks early.
     const since = (day: number) => (day - startDay) / Math.max(1, exposure);
 
     // ── Enrolment: one account, one consent set (p14) ────────────────────
@@ -444,7 +456,8 @@ function generateInner(db: Database.Database): GeneratedCounts {
     const wantCheckIns = Math.max(
       checkInBound[0],
       Math.min(checkInBound[1], Math.round(
-        rng.int(path.checkIns[0], path.checkIns[1]) * access.engagementFactor * (exposure / PERSON_DAYS),
+        rng.int(path.checkIns[0], path.checkIns[1]) * access.engagementFactor
+        * (exposureGenerated / PERSON_DAYS),
       )),
     );
     // The first check-in cannot precede the first appointment, so the access
@@ -502,6 +515,12 @@ function generateInner(db: Database.Database): GeneratedCounts {
     // exactly what happened first time.
     const measureBound = scaledRange(TARGETS.measures, exposure, MIN_MEASURES);
     const wantMeasures = Math.max(
+      // FULL exposure, not the generated portion. The measure schedule is a
+      // property of a person's whole journey and the generator owns all of it:
+      // the agent layer deliberately writes no measures, because a
+      // three-weekly cadence split across two writers double-counts at the
+      // seam and pushes people past p14's ceiling of eight. Measures also
+      // touch no gate, so they are not what the agent layer is for.
       measureBound[0], Math.min(measureBound[1], Math.round(rng.int(4, 8) * (exposure / PERSON_DAYS))),
     );
     // TWO KINDS OF MISS, kept apart all the way down to the reason on the
@@ -597,10 +616,10 @@ function generateInner(db: Database.Database): GeneratedCounts {
     const moduleBound = scaledRange(TARGETS.modules, exposure);
     const moduleCount = Math.max(
       moduleBound[0],
-      Math.min(moduleBound[1], Math.round(rng.int(path.modules[0], path.modules[1]) * (exposure / PERSON_DAYS))),
+      Math.min(moduleBound[1], Math.round(rng.int(path.modules[0], path.modules[1]) * (exposureGenerated / PERSON_DAYS))),
     );
     for (let i = 0; i < moduleCount; i++) {
-      let day = startDay + 1 + Math.floor(rng.next() * Math.max(1, exposure - 2));
+      let day = startDay + 1 + Math.floor(rng.next() * Math.max(1, exposureGenerated - 2));
       if (inGap(row, day - startDay, exposure)) {
         day = Math.min(lastDay - 1, day + (gapFor(row, exposure)?.[1] ?? 0));
       }
@@ -615,7 +634,7 @@ function generateInner(db: Database.Database): GeneratedCounts {
     // ── Support sessions (p14: 0–8, never trauma-processing proof) ───────
     const sessionCount = rng.int(path.sessions[0], path.sessions[1]);
     for (let i = 0; i < sessionCount; i++) {
-      const day = startDay + 5 + Math.floor(rng.next() * Math.max(1, exposure - 6));
+      const day = startDay + 5 + Math.floor(rng.next() * Math.max(1, exposureGenerated - 6));
       if (inGap(row, day - startDay, exposure)) continue;
       // A SUPPORT session. p14 is explicit that these are "never treated as
       // trauma-processing proof", so the module is resourcing and the SUDS
@@ -699,7 +718,7 @@ function generateInner(db: Database.Database): GeneratedCounts {
     // ── Clinician actions: 1–12 (p14) ────────────────────────────────────
     const actionCount = rng.int(1, 8);
     for (let i = 0; i < actionCount; i++) {
-      const day = startDay + 3 + Math.floor(rng.next() * Math.max(1, exposure - 4));
+      const day = startDay + 3 + Math.floor(rng.next() * Math.max(1, exposureGenerated - 4));
       insEvent.run(
         popId("action", `${row.id}:${i}`), tenant, personId, "clinician.reviewed",
         JSON.stringify({

@@ -828,6 +828,105 @@ One-time backfill for rows that predate the column infers from the environment, 
 **only** place the environment is allowed to decide: every row written since states it at the
 insert, where somebody knows the answer.
 
+### The agent behaviour layer — built
+
+The prerequisite above says what an agent may not touch. This is the agent.
+
+The generator **writes rows**. This layer **lives days**. `AGENT_HORIZON = 14` reserves the last
+fortnight of the 360-day calendar: the generator writes through day 346 and stops, and for days
+346–360 `runAgents()` asks each fabricated person what they want to do — check in, open a
+module, request a session — and puts that intent through **the product's own machinery**:
+`evaluateCheckin` for the routing, `evaluateAccess` for the gate. What comes back is what gets
+written, including the refusals.
+
+**Why it matters.** Until now the strongest claim the demonstration could make about safety was
+that ten fixed scenarios replay correctly — a claim about ten inputs. The gate engine had never
+been run at population scale, because nothing in the seeded history had touched it: the
+generator wrote a check-in row and a safety event side by side and nobody ever asked whether the
+second followed from the first. Now the most recent fortnight of every person's history is a
+fortnight the engine actually saw.
+
+**What it is not.** It is not evidence about care. Every intent comes from rules in
+`agents/policy.ts` that we wrote, so watching these agents teaches us our own rules. What it
+tests is the **machinery**: whether a person reporting a harm urge is actually stopped, whether
+the refusal reaches the queue, whether the metrics downstream count it.
+
+One run over the 240:
+
+| | |
+|---|---|
+| Check-ins lived | 318 across 3,360 person-days — **959 quiet days**, because a population that shows up daily is a cron job |
+| Gate decisions | 318, one per check-in: steady 293, stabilization 13, crisis 9, grounding-only 3 |
+| Access restricted | **25 person-days**, each written to the ledger with its tier, its rules and its member-facing reason |
+| Sessions refused by a rule | 3 |
+| Sessions blocked by the beta configuration | 17, counted separately and **not** written to the ledger |
+| Modules opened | 95 |
+| Measures | 0 — the generator owns the whole schedule |
+| Second run | 0.0s, nothing written |
+
+**Three things this found.**
+
+*A headline that was not true.* The first version counted 20 refusals. Seventeen of them had an
+empty rule list and no member-facing reason: they were the beta configuration having autonomous
+stimulation switched off, not the gate deciding anything about that person. Folding them into
+the safety count put a number on the console that read as safety and was not — and, because
+`panel.ts` shows a person's *latest* safety state, a per-person event for a global product
+setting would have landed on their chart. They are now counted as `sessionsUnavailable` and
+written nowhere. The guard is "no rule fired **and** stimulation is off", not "stimulation is
+off", so a future engine that refuses somebody for a new reason still writes it down.
+
+*Twenty-five restrictions recorded as three.* The gate runs on every check-in, and on 25 days it
+lowered somebody's ceiling — but only the 3 days where the person also happened to request a
+session left any trace. A clinician could not see that the engine had sent somebody to crisis
+resources yesterday. Every restricted day is now a `safety_state.changed / access_restricted`
+event carrying the tier the person experienced and the rules behind it. Consequently
+`/clinician/population` no longer filters its attention list on `paused` alone: that filter
+would have *dropped a paused person off the list* the moment a later restriction became their
+latest state.
+
+*A floor that measured the wrong thing.* p14's per-person check-in range scales with exposure
+and bottoms out at one, because a person enrolled three weeks with nothing recorded is a defect
+rather than a rounding result. ST-MW-043 enrols on day 343: three generated days, and the
+generator's age-based start drag consumes all three, so its placement window is empty and it
+wrote nothing. The first floor fired only when the generated window was **zero days long** — the
+length of the window and the number of rows in it are not the same number, and the difference
+between them was the entire case. The floor now counts what is in the table, before the agent
+window opens so the decision does not depend on whether the agents have already run, and fills
+quiet days latest-first. It fills **one person, one day**. That number is reported rather than
+silent, because a floor is also the shape a masked defect takes: if the generator regresses,
+this rises instead of the manifest staying green.
+
+**And two screens that were passing their own tests for the wrong reason.** Before the tail was
+lived, the seeded history ended fourteen days before "today", so *every member on the caseload*
+carried the band "Watch — no check-in for N days". The console's guard — every banded row shows
+a written reason — skipped rows whose band was `none`, comparing the enum against a page that
+renders that band as **"Clear"**: the skip was dead code, and nothing noticed because no row was
+ever clear. The first genuinely clear member walked straight into the assertion. The guard now
+compares the rendered label and requires both branches to be taken.
+
+The population panel's guard required *at least one group to be empty*, so the empty-state
+rendering was exercised — and the empty group was "Fixed safety state (0)", an attention list
+with nobody on it. A guard resting on an absence fails the moment the absence ends. It now
+checks that every group's stated count matches what it lists, in both branches, and reads the
+groups from the DOM rather than slicing page text between headings — the old version's last
+group ran to the end of the page, so anything counted in it was counting the footer.
+
+Widening that filter also made two labels untrue: a card reading "Paused" and a group headed
+"Fixed safety state" now hold people who are restricted rather than paused. Both were renamed.
+A label naming one member of a set it no longer describes is a number that reads as smaller
+than it is.
+
+**The leash.** `runAgents` refuses to act for anybody whose `provenance` is not `fabricated`,
+checked before the day loop rather than after — a guard that runs after the inserts is a report,
+not a guard. The database triggers stop it too; a locked door is not a reason to leave the gate
+open.
+
+**Guards:** `tests/agents.test.ts`, 17 cases, mutation-tested — removing the leash, hard-coding
+the routing, deleting the restriction write, logging configuration blocks as refusals, disabling
+the floor, dropping `ON CONFLICT DO NOTHING`, or letting agents write measures each fails the
+build. The floor guard is behavioural rather than a source match, after a source-formatting
+assertion earlier in this build failed on a no-op refactor.
+
 **Still unbuilt in Wave 8:** the control centre's remaining four controls (reset with a typed
 reason, scenario injection, projection validation, QA export), the nightly reset, and p56's
 presenter scripts.
