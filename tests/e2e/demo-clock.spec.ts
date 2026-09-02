@@ -34,7 +34,14 @@ async function signIn(page: Page, who: keyof typeof ACCOUNTS) {
 async function setClock(page: Page, milestone: string, reason: string) {
   await page.goto("/admin/demo");
   await page.locator(`input[name="milestone"][value="${milestone}"]`).check();
-  await page.locator('input[name="reason"]').fill(reason);
+  // SCOPED TO THE CLOCK'S OWN FORM. The admin page carries two controls that
+  // each take a typed reason — p9 guards the clock and the reset the same way
+  // — so a bare name selector matches both and fails on strict mode. Named by
+  // the button it belongs to rather than by position, because "the first
+  // reason field on the page" is a fact about layout, not about this control.
+  await page
+    .locator('form:has(button:text("Set the clock")) input[name="reason"]')
+    .fill(reason);
   await page.getByRole("button", { name: "Set the clock" }).click();
   await page.waitForLoadState("networkidle");
 }
@@ -99,7 +106,9 @@ test("the clock refuses to move without a reason", async ({ page }) => {
   // The field is required, so the browser refuses before the server has to.
   // Both halves matter: the server check is the one that holds, and this is
   // the one that stops a presenter losing their place mid-demonstration.
-  const reason = page.locator('input[name="reason"]');
+  // Scoped to this control's own form: the reset control beside it is guarded
+  // the same way, so a bare name selector matches both.
+  const reason = page.locator('form:has(button:text("Set the clock")) input[name="reason"]');
   await expect(reason).toHaveAttribute("required", "");
   await page.getByRole("button", { name: "Set the clock" }).click();
   await expect(page.locator("header")).not.toContainText("Clock:");

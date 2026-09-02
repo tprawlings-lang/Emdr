@@ -222,3 +222,20 @@ test("reset refuses to run outside a demo environment", () => {
     process.env.EMDR_DEMO = saved;
   }
 });
+
+test("a reset leaves an environment that passes its own manifest", async () => {
+  // THE PROPERTY THE CONTROL EXISTS FOR. The admin console blocks external
+  // demonstrations when the manifest fails, and p9's reset is the remedy it
+  // offers — so a reset that rebuilt an environment still failing its own
+  // checks would be a button that moved the problem rather than fixing it.
+  // Checked here rather than in the browser: the reset empties every table,
+  // and the e2e suite runs parallel against one server, so firing it there
+  // would race whatever else is mid-assertion.
+  const db = getDb();
+  resetDemoData(db);
+
+  const { runQualityChecks } = await import("../src/lib/demo-quality");
+  const failed = runQualityChecks(db).filter((r) => !r.pass);
+  assert.deepEqual(failed.map((f) => `${f.check}: ${f.actual}`), [],
+    "the environment a reset produces does not pass the checks that gate demonstrating it");
+});

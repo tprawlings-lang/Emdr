@@ -9,9 +9,11 @@ import { test, expect } from "@playwright/test";
 // instance was found in that state: 240 profiles, no history, and no way to
 // repair it from the page that refused to demonstrate.
 //
-// This runs LAST-ish by name and is deliberately destructive: it rebuilds the
-// dataset the rest of the suite reads. The rebuild is deterministic and lands
-// on the same baseline, which is the property being checked.
+// NOTHING HERE FIRES THE RESET. It empties every table, and this suite runs
+// fully parallel against a single server, so a reset fired mid-run would pull
+// the dataset out from under whatever else is mid-assertion. The rebuild is
+// checked where it is deterministic — `tests/demo-reset.test.ts`, against its
+// own database.
 
 test.skip(
   Boolean(process.env.E2E_BASE_URL),
@@ -63,28 +65,19 @@ test("a reviewer cannot reach the reset control", async ({ page }) => {
   ).toBe(true);
 });
 
-test("the reset refuses without a typed reason, and rebuilds with one", async ({ page }) => {
+test("the reset control states p9's guard, and does not fire without one", async ({ page }) => {
   await signIn(page, "admin.demo@steady.local", "demoadmin1234");
   await page.goto("/admin/demo");
 
-  // p9's guard is a TYPED REASON. The field is required and bounded, so the
-  // browser refuses before the server is asked — and the server checks it
-  // again, because a form is not a permission.
+  // p9's guard is a TYPED REASON, refused in the browser before the server is
+  // asked — and again on the server, because a form is not a permission.
   const reason = page.locator('form input[name="reason"]').last();
   await expect(reason).toHaveAttribute("required", "");
   await expect(reason).toHaveAttribute("minlength", "4");
 
-  await reason.fill("e2e guard — rebuild from the current seed");
-  await Promise.all([
-    page.waitForLoadState("networkidle"),
-    page.getByRole("button", { name: "Reset the dataset" }).click(),
-  ]);
-
-  // THE POINT OF THE CONTROL: afterwards the environment passes its own
-  // manifest. A reset that left the dataset unfit would be a button that
-  // moved the problem rather than fixing it.
-  await page.goto("/admin/demo");
-  const main = page.locator("main");
-  await expect(main).toContainText(/Profile count/);
-  await expect(main).not.toContainText(/This dataset is not fit to demonstrate/);
+  // DELIBERATELY NOT CLICKED HERE. The reset empties every table and the suite
+  // runs fully parallel against one server, so firing it would race whatever
+  // else is mid-assertion. That the reset actually rebuilds a passing
+  // environment is checked in `tests/demo-reset.test.ts`, against its own
+  // database, where it is deterministic.
 });

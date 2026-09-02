@@ -1005,6 +1005,38 @@ Missingness for this metric is now the share of people with **no measure record 
 Four rules fire again, for the right reason. The guard that used to assert the old behaviour
 now pins both directions, so a function returning a constant zero fails it.
 
+### p9's reset control, and what the deployed instance needed it for
+
+The admin console blocked external demonstrations when the manifest failed — correctly — and
+offered nothing to do about it. The only remedy was a shell on the instance, which is exactly
+the direct row access p29 exists to avoid handing out. The deployed demonstration was found in
+that state: a page saying the dataset was unfit, and no button on it.
+
+**Three guards in three places, on purpose.** The environment check stays in `resetDemoData`,
+because that function deletes every row and must refuse outside a demonstration however it is
+reached. The role check is in the action, where a session exists. The typed reason is p9's own
+condition and is checked there too, because it is a property of the request rather than of the
+data. Every attempt is audited, refusals included, and the record carries the rows removed and
+the **baseline hash** — what makes two resets comparable, and what a reviewer checks when told
+the environment was rebuilt between sessions. Three of p9's six controls now exist.
+
+**The per-boot repair did not fire on the deployed instance, and the reason is still open.** It
+records its own verdict now — before the attempt, on skip, on success and on failure — and the
+deployed console reports *no attempt recorded*, which after that change can only mean
+`reconcilePopulation` is not reached in the process serving the page. The likeliest remaining
+explanation is that `EMDR_DEMO` is set at build time (so the layout's banner, inlined by Next,
+renders) but not at runtime, where `db.ts` reads it. The reset control does not depend on that
+diagnosis: driven from the console, it rebuilt the deployed dataset to **23 of 23 checks
+passing**, with all 240 accounts, their onboarding and their history.
+
+**And one screen was telling half the population the wrong thing.** A member with months of
+check-ins whose observation window closed read "There is nothing to show yet. A pattern needs a
+few weeks of check-ins" — the sentence written for somebody who has just arrived. Rolling intake
+means 119 of the 240 are currently active and the rest have finished an episode of care, so this
+was the majority case, and §30.8 requires an absence to say whether it is *expected*. It now
+names the real reason: no check-ins in this period, how many are on record, and when the most
+recent was.
+
 ### Wave 8 — the rest
 **Spec: pp9, 29, 56. Exit evidence: cold-start rehearsal passes twice.**
 

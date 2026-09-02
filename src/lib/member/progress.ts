@@ -226,9 +226,23 @@ export async function buildMemberProgress(args: {
   assertPatternOnly(progress);
 
   if (series.length === 0 && progress.activity.checkins === 0) {
+    // §30.8: an absence has to say whether it is EXPECTED, and the two
+    // absences here have different reasons. "Nothing to show yet" is true for
+    // somebody who has just arrived and false for somebody with months of
+    // check-ins that all fall outside the period being looked at — and the
+    // second was being told the first's sentence, which reads as though their
+    // history had been lost.
+    const ever = (await c.get(
+      `SELECT COUNT(*) AS n, MAX(checkin_date) AS last FROM checkins WHERE user_id = ?`,
+      [args.userId],
+    )) as { n: number; last: string | null } | undefined;
+    const total = Number(ever?.n ?? 0);
     return empty<MemberProgress>(
       meta,
-      "There is nothing to show yet. A pattern needs a few weeks of check-ins before it means anything."
+      total === 0
+        ? "There is nothing to show yet. A pattern needs a few weeks of check-ins before it means anything."
+        : `No check-ins in this period. There ${total === 1 ? "is" : "are"} ${total} on ` +
+          `record, the most recent on ${ever?.last}. Try a longer period.`,
     );
   }
 
