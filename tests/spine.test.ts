@@ -121,7 +121,7 @@ test("existing users are mirrored onto the identity spine, person id == user id"
 
 test("role is a relationship: one person can be both clinician and member", async () => {
   const ctx = platformContext();
-  await createPerson({ tenantId: PLATFORM_TENANT_ID, displayName: "Dual Role", id: "spine-dual" });
+  await createPerson({ tenantId: PLATFORM_TENANT_ID, displayName: "Dual Role", id: "spine-dual", provenance: "fabricated" });
   await assignRole("spine-dual", "member", ctx);
   await assignRole("spine-dual", "clinician", ctx);
   const roles = await rolesFor("spine-dual", ctx);
@@ -134,7 +134,7 @@ test("role is a relationship: one person can be both clinician and member", asyn
 
 test("a person can exist with no account — the Handoff C3 population case", async () => {
   const orgId = await createTenant({ kind: "organization", name: "Test Health System" });
-  const personId = await createPerson({ tenantId: orgId, displayName: "Ingested Member" });
+  const personId = await createPerson({ tenantId: orgId, displayName: "Ingested Member", provenance: "fabricated" });
   const p = await getPerson(personId, { tenantId: orgId });
   assert.ok(p, "person exists");
   const c = await data();
@@ -147,7 +147,7 @@ test("a person can exist with no account — the Handoff C3 population case", as
 test("tenant isolation: a foreign-tenant read returns nothing", async () => {
   const orgA = await createTenant({ kind: "organization", name: "Org A" });
   const orgB = await createTenant({ kind: "organization", name: "Org B" });
-  const personA = await createPerson({ tenantId: orgA, displayName: "A Person" });
+  const personA = await createPerson({ tenantId: orgA, displayName: "A Person", provenance: "fabricated" });
 
   assert.ok(await getPerson(personA, { tenantId: orgA }), "own tenant sees it");
   assert.equal(await getPerson(personA, { tenantId: orgB }), null, "foreign tenant does not");
@@ -172,7 +172,7 @@ test("enterprise enrollment does not duplicate identity", async () => {
 
 test("external identifiers map to canonical persons and are never keys", async () => {
   const org = await createTenant({ kind: "organization", name: "Payer Co" });
-  const personId = await createPerson({ tenantId: org, displayName: "Claims Member" });
+  const personId = await createPerson({ tenantId: org, displayName: "Claims Member", provenance: "fabricated" });
   await linkExternalId({
     personId, tenantId: org, sourceSystem: "payer-x", externalId: "MEM-12345", idType: "member_id",
   });
@@ -270,7 +270,7 @@ test("corrections append and supersede; the original is never mutated", async ()
 test("as-of read reconstructs what was known at a point in time (no future leakage)", async () => {
   const c = await data();
   const personId = "spine-asof";
-  await createPerson({ tenantId: PLATFORM_TENANT_ID, displayName: "As Of", id: personId });
+  await createPerson({ tenantId: PLATFORM_TENANT_ID, displayName: "As Of", id: personId, provenance: "fabricated" });
 
   const e1 = await appendEvent({ personId, type: "daily_checkin.completed", payload: { day: 1 } });
   // Backdate the first event's recorded_at so there is a clear cut point.
@@ -287,7 +287,7 @@ test("as-of read reconstructs what was known at a point in time (no future leaka
 
 test("events are tenant-scoped and filterable by type", async () => {
   const org = await createTenant({ kind: "organization", name: "Event Org" });
-  const orgPerson = await createPerson({ tenantId: org, displayName: "Org Person" });
+  const orgPerson = await createPerson({ tenantId: org, displayName: "Org Person", provenance: "fabricated" });
   await appendEvent({ personId: orgPerson, tenantId: org, type: "session.started", payload: {} });
 
   const orgEvents = await readEvents({ tenantId: org });

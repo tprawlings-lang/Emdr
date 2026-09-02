@@ -45,7 +45,12 @@ export async function provisionPerson(args: {
   try {
     const c = await data();
     await c.run(
-      `INSERT INTO persons (id, tenant_id, display_name) VALUES (?, ?, ?)
+      // REAL. This is the signup path: a human filled in a form. The
+      // distinction the provenance column draws is generated-by-the-system
+      // versus originated-by-a-person, not demo versus production — somebody
+      // exploring a demonstration is still a person, and their data must never
+      // be poolable with a synthetic agent's.
+      `INSERT INTO persons (id, tenant_id, display_name, provenance) VALUES (?, ?, ?, 'real')
        ON CONFLICT(id) DO NOTHING`,
       [args.userId, tenantId, args.name]
     );

@@ -193,6 +193,7 @@ function p(over: Partial<Observation> = {}): Observation {
     personId: `p${Math.random()}`, region: "South", ageBand: "35-44", language: "English",
     race: ["White"], ethnicity: "Not Hispanic/Latino", tenantId: "t",
     accessNeeds: [], interpreterNeeded: false, state: "TX", hasAccount: true,
+    provenance: "fabricated",
     daysEnrolled: 180, daysToFirstAction: 2, enrolledInWindow: true,
     activeWeeks: 10, observedWeeks: 26, daysToLastAction: 170,
     modulesStarted: 10, modulesCompleted: 10,

@@ -97,13 +97,23 @@ export async function createPerson(args: {
   timezone?: string | null;
   locale?: string | null;
   id?: string;
+  /** Fabricated or real. NOT optional and with no default: the distinction is
+   *  generated-by-the-system versus originated-by-a-person, and a caller that
+   *  has not decided which it is creating has not finished thinking. */
+  provenance: "fabricated" | "real";
 }): Promise<string> {
   const id = args.id ?? ulid();
   const c = await data();
   await c.run(
-    `INSERT INTO persons (id, tenant_id, display_name, timezone, locale)
-     VALUES (?, ?, ?, ?, ?)`,
-    [id, args.tenantId, args.displayName ?? null, args.timezone ?? null, args.locale ?? null]
+    `INSERT INTO persons (id, tenant_id, display_name, timezone, locale, provenance)
+     VALUES (?, ?, ?, ?, ?, ?)`,
+    [
+      id, args.tenantId, args.displayName ?? null, args.timezone ?? null, args.locale ?? null,
+      // REQUIRED, with no default. A caller that has not decided whether it is
+      // creating a fabricated person or a real one has not finished thinking,
+      // and the database refuses the row rather than guessing.
+      args.provenance,
+    ]
   );
   return id;
 }
