@@ -243,6 +243,16 @@ decline, and one is limited by the size of the fixture:
 | DATA_QUALITY | Evaluates; the environment meets its own limits, so nothing is blocked |
 | ACCESS_GAP | Withheld. A region holds 60 of the 240, so it caps at 30 entrants per window — exactly p37's minimum analysis size. The fixture is too small, and dropping below the minimum is not the answer |
 
+**All 240 profiles have working logins** — `st-<region>-<nnn>@steady.local`, verified 240 of
+240 — and `src/lib/analysis/power.ts` uses them as the basis for a **detector power analysis**:
+inject an effect of known size, run the real rules against the real thresholds, and measure how
+often each one finds it. Two headline numbers. The false-positive rate is **0% over 1,000 null
+trials** per rule. And a cohort is compared against a population that contains it, so a true gap
+reads as `E × (1 − share)` — meaning **p34's 12-point threshold needs a true gap of about 14.4
+points** to trip reliably at a realistic cohort size. That analysis found a bug in the
+production path: `metricMissingness` was returning activation's *failure* rate as its *missing*
+rate, so ACCESS_GAP withheld exactly when it had something to report.
+
 **The demo clock moves the reading point.** `/admin/demo` sets it to one of five scripted
 milestones and the shell shows it on every console. The population and the signals move with
 it — 21 people and two signals at the opening month, 242 and four today — so the same console

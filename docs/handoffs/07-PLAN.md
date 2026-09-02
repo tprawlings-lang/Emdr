@@ -727,6 +727,81 @@ numbers sitting in the list looking like today's, with nothing saying otherwise.
 point is now **part of a signal's identity** and is printed on both screens: "what the console
 said at the half year" is a different artefact from "what it says now".
 
+### Detector power analysis
+
+`src/lib/analysis/power.ts`, `scripts/testing/power-analysis.ts`.
+
+**The question it answers is about the DETECTOR, not about anybody's health:** given a real
+difference of size E in a cohort of size N, how often does this rule find it — and when there
+is no difference at all, how often does it fire anyway? Those two numbers decide whether a
+signal on the console means anything, and nobody knew either.
+
+**Why this is sound where training a care model on the same data would not be.** The 240
+behave as they do because of magnitudes chosen in `demo-population-disparity.ts`. A model
+trained on their output learns those magnitudes; it cannot recover parameters nobody put in.
+This does the opposite: it puts an effect in *deliberately*, at a size it states, and measures
+whether the detector finds it. **The generator being ours is the experimental control rather
+than the confound** — ground truth has to be known for a sensitivity number to mean anything.
+
+It runs the **real rules** through `evaluateRule` against the **real thresholds**; a
+reimplementation would measure a reimplementation, and a guard moves a threshold and requires
+the reported power to move with it.
+
+**FOLLOWUP_GAP — share of runnable trials that fired, cohort held at 1 in 6 of the population:**
+
+| cohort | −5pp | −10pp | −12pp | −15pp | −20pp | −25pp |
+|---|---|---|---|---|---|---|
+| 20 | 6% | 22% | 34% | 54% | 79% | 94% |
+| 60 | 1% | 13% | 31% | 60% | 94% | 100% |
+| 200 | 0% | 1% | 14% | 64% | 100% | 100% |
+| 400 | 0% | 0% | 5% | 69% | 100% | 100% |
+
+**The −12pp column falls as the cohort grows, and that is the most useful finding here.** A
+cohort is compared against a population that *contains it*, so a true gap of E reads as
+E × (1 − share). At 1 in 6, a true 12-point gap reads as 10 observed and never crosses a
+12-point threshold; at small n, noise pushes some trials past it, and as n grows the estimate
+converges on 10 and detection goes to zero. **p34's threshold applies to the observed gap, so
+the true gap needed to trip it is threshold ÷ (1 − share)** — about 14.4pp here, not 12.
+Attenuation by cohort share: 1 in 12 → 92% of the true gap survives; 1 in 6 → 83%;
+1 in 3 → 67%; half the population → 50%.
+
+**False-positive rate: 0% at every cohort size tested**, for both FOLLOWUP_GAP and ACCESS_GAP,
+over 1,000 null trials each. p34's thresholds are conservative enough that noise alone does not
+trip them — which is the right trade for a console whose signals route to human review.
+
+**Below p37's minimum the answer is "withheld", not a low rate.** A 20-person cohort is refused
+in over 90% of trials. Averaging those in with the trials that ran would report a rule as
+insensitive when it was never asked.
+
+**What the power analysis found — in the production path, not the harness.**
+`metricMissingness` inferred its formula from whether any exclusion key was non-zero, so when
+nothing was excluded it fell through to "what did not complete" — which for **activation is
+the non-activation rate**. A cohort with genuinely poor activation therefore read as a cohort
+with missing data, and ACCESS_GAP withheld exactly when it had something to say. Invisible in
+a code review; a row of zeros in a power table. It is now explicit per metric, and ACCESS_GAP's
+curve behaves properly (26% at −12pp and n=30, rising to 76% at −15pp and n=400).
+
+**What this does NOT license.** Nothing here trains or validates a care model. Predicting care
+trajectories needs real consented longitudinal data and p38's model registry (G13, unbuilt) —
+eleven fields, shadow mode only, with p36's five requirements: source-attribute record,
+fairness evaluation, monitoring plan, named owner, retirement criteria. And p13's constraint
+does not relax because training data is synthetic: protected attributes audit access and drive
+nothing.
+
+### Running agents alongside a real study — the prerequisite
+
+The author's stated intent is synthetic agents driving the 240 accounts **in parallel with a
+study that has real participants**. All 240 accounts exist and work
+(`st-<region>-<nnn>@steady.local`, verified 240/240). Before that runs, one thing has to exist
+that does not:
+
+**A schema-level guarantee that fabricated and real events cannot reach the same metric.**
+Today the separation is `EMDR_DEMO`, a `provenance.fabricated` flag on events, and a manifest
+check that counts unmarked rows — three conventions, none of which stops a cohort query from
+spanning both. `Observation` carries no provenance at all, so `computeFollowupCompletion` over
+a mixed set would return one number with no way to tell. That guard is the next thing to build,
+and it belongs before the agent behaviour layer rather than after it.
+
 **Still unbuilt in Wave 8:** the control centre's remaining four controls (reset with a typed
 reason, scenario injection, projection validation, QA export), the nightly reset, and p56's
 presenter scripts.
