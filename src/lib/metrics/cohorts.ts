@@ -40,6 +40,17 @@ export interface CohortFilters {
   tenantId?: string[];
   /** An access need, from p13's functional-access field. */
   accessNeed?: string[];
+  /** Whether the person needs an interpreter. A FUNCTIONAL need, authored
+   *  independently of language (p11) — which is the point of having it here as
+   *  its own dimension. A cohort that can only be defined by language cannot
+   *  ask whether a language gap is really an interpreter-capacity gap, and
+   *  that is the question worth asking. */
+  interpreterNeeded?: boolean;
+  /** State of residence. A reporting dimension like region, at finer grain, so
+   *  a cohort can be defined by something that cuts ACROSS regions — an effect
+   *  confined to one region and an effect that merely concentrates there look
+   *  identical until somebody can group the other way. */
+  state?: string[];
 }
 
 /**
@@ -185,6 +196,85 @@ export const COHORTS: CohortDefinition[] = [
     filters: {},
   },
 ];
+
+/**
+ * Cohorts that exist to make a confound checkable.
+ *
+ * p36's whole argument is that a difference between two groups may be there
+ * for a reason that is not the difference between the groups. Checking that
+ * requires being able to define the group the OTHER way — by the operational
+ * need rather than by the identity, by the state rather than by the region —
+ * and a registry that only holds identity cohorts can produce the finding and
+ * never the explanation.
+ *
+ * Each carries the question it exists to answer, as p33 requires. None of them
+ * is a group to report on; they are the second half of a comparison.
+ */
+const CONFOUND_COHORTS: CohortDefinition[] = [
+  {
+    id: "interpreter_needed.v1",
+    version: "1.0.0",
+    label: "Needs an interpreter",
+    question:
+      "Is a language-cohort difference in follow-up completion carried by the people who need " +
+      "an interpreter, rather than by the language?",
+    eligibility: { requiresAccount: true },
+    filters: { interpreterNeeded: true },
+  },
+  {
+    id: "interpreter_not_needed.v1",
+    version: "1.0.0",
+    label: "Does not need an interpreter",
+    question: "What does the same comparison look like with interpreter need held out?",
+    eligibility: { requiresAccount: true },
+    filters: { interpreterNeeded: false },
+  },
+  {
+    id: "age_18_24.v1",
+    version: "1.0.0",
+    label: "18–24",
+    question: "Do the youngest members start faster and sustain less?",
+    eligibility: { requiresAccount: true },
+    filters: { ageBand: ["18-24"] },
+  },
+  {
+    id: "age_65_plus.v1",
+    version: "1.0.0",
+    label: "65 and over",
+    // The reversal, as a question. Whichever metric is chosen, a different
+    // group looks worse — which is why p32 puts the required display on every
+    // metric and why a console must never say "doing worse" unqualified.
+    question:
+      "Do the oldest members take longer to start and then complete follow-up more reliably — " +
+      "so that which group is 'doing worse' depends entirely on the metric?",
+    eligibility: { requiresAccount: true },
+    filters: { ageBand: ["65+"] },
+  },
+  {
+    id: "rural_states.v1",
+    version: "1.0.0",
+    label: "Predominantly rural states",
+    // Deliberately cuts across all four regions. A regional difference that is
+    // really a rural one is indistinguishable from a regional one until the
+    // population can be grouped this way.
+    question:
+      "Is a regional difference in time-to-first-visit really a difference in how far people " +
+      "live from one?",
+    eligibility: { requiresAccount: true },
+    filters: { state: ["ME", "MO", "WI", "TN", "NC", "NV", "OR"] },
+  },
+  {
+    id: "functional_access_need.v1",
+    version: "1.0.0",
+    label: "Has a functional access need",
+    question:
+      "Do members who need a screen reader or captions reach the same points in the programme?",
+    eligibility: { requiresAccount: true },
+    filters: { accessNeed: ["screen-reader", "captions"] },
+  },
+];
+
+COHORTS.push(...CONFOUND_COHORTS);
 
 export function cohort(id: string): CohortDefinition {
   const c = COHORTS.find((x) => x.id === id);

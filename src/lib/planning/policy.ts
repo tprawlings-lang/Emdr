@@ -153,11 +153,23 @@ export const THRESHOLD_DEFAULTS: ThresholdDefault[] = [
   },
   {
     key: "analysis.min_denominator", ruleId: "ACCESS_GAP", value: 30,
-    unit: "people",
+    unit: "observations in the metric's denominator",
     basis:
       "p37's internal minimum analysis size, not a p34 default. It is a different control " +
       "from p29's small-cell suppression (11) and has a different job: suppression decides " +
-      "what may be shown outside, this decides what may be compared at all.",
+      "what may be shown outside, this decides what may be compared at all. Applied to the " +
+      "DENOMINATOR of the rate, which is what determines whether the rate is estimable.",
+  },
+  {
+    key: "analysis.min_group_size", ruleId: "FAIRNESS_ALERT", value: 30,
+    unit: "people",
+    basis:
+      "p37's minimum analysis size again, applied to a HEADCOUNT rather than to a denominator. " +
+      "The same number and a different question: a follow-up completion rate over 26 people can " +
+      "rest on 180 due measures and be perfectly estimable, while a statement about how those 26 " +
+      "people are treated is a statement about 26 people. Splitting the two keys is what stopped " +
+      "one of them silently governing the other — a stratified check that could have separated " +
+      "two causes was refused for a headcount the rate did not depend on.",
   },
   {
     key: "analysis.max_missingness", ruleId: "ACCESS_GAP", value: 0.3,
