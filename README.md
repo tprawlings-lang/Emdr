@@ -222,7 +222,7 @@ wave surfaced.
 | 5 ✅ | The ten-metric dictionary, the cohort registry, and pure arithmetic over typed observations | "Wave 5" |
 | 6 ✅ | **The planning engine** — seven rules, owned thresholds, the eight-state machine, `/review/planning`, and an authored access model that gives it something real to find | "Wave 6" |
 | 7 | Fairness controls, the audit screen, the model registry shell | handoff pp37–38, 43 |
-| 8 ◑ | **The demo clock and the agent behaviour layer are built** — five scripted milestones shown in the shell, and the calendar's last fortnight lived through the real routing rule and gate engine. The rest of the control centre, the nightly reset and the presenter scripts remain | handoff pp9, 29, 56 |
+| 8 ◑ | **The demo clock, the agent behaviour layer and p9's reset control are built** — five scripted milestones shown in the shell, the calendar's last fortnight lived through the real routing rule and gate engine, and a reset with a typed reason on the page that refuses to demonstrate. Three of p9's six controls; the other three, the nightly reset and the presenter scripts remain | handoff pp9, 29, 56 |
 
 **Where the planning engine is.** `/review/planning` lists every one of p34's seven rules
 with what it produced, and for anything that produced nothing, p34's own reason.

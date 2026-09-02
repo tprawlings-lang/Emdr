@@ -220,3 +220,29 @@ test("a failed repair is written down, not only logged", () => {
   db.prepare("UPDATE demo_repair SET status = 'ok', detail = NULL WHERE id = 1").run();
   assert.equal(runQualityChecks(db).find((r) => r.check === "Dataset repair")!.pass, true);
 });
+
+test("a member with history outside the window is told that, not that they are new", async () => {
+  // §30.8: an absence has to say whether it is expected. A profile whose
+  // observation window closed months ago was shown "There is nothing to show
+  // yet. A pattern needs a few weeks of check-ins" — the sentence written for
+  // somebody who has just arrived, given to somebody with months of check-ins.
+  // On the deployed demonstration that is what a presenter saw when they
+  // opened the first profile in the manifest.
+  const { buildMemberProgress } = await import("../src/lib/member/progress");
+
+  const withHistory = POP.find((id) =>
+    one("SELECT COUNT(*) AS n FROM checkins WHERE user_id = ?", [id]) > 5 &&
+    one(`SELECT COUNT(*) AS n FROM checkins WHERE user_id = ?
+          AND checkin_date >= date((SELECT MAX(checkin_date) FROM checkins), '-30 days')`, [id]) === 0);
+  assert.ok(withHistory, "no profile has history that falls outside a 30-day window");
+
+  const tenantId = (db.prepare("SELECT tenant_id AS t FROM users WHERE id = ?")
+    .get(withHistory!) as { t: string }).t;
+  const env = await buildMemberProgress({ userId: withHistory!, tenantId, days: 30 }) as unknown as
+    { status?: string; note?: string; message?: string; data?: unknown };
+  const text = JSON.stringify(env);
+  assert.match(text, /No check-ins in this period/,
+    "a member with months of history is told there is nothing to show yet");
+  assert.doesNotMatch(text, /nothing to show yet/,
+    "the new-arrival sentence is still being shown to somebody who is not one");
+});
