@@ -9,7 +9,8 @@ import {
 } from "@/lib/metrics/cohorts";
 import {
   computeActivation, computeFollowupCompletion, computeObservedChange,
-  resolve, type ComputeContext, type MetricResult, type Observation,
+  metricMissingness, resolve,
+  type ComputeContext, type MetricResult, type Observation,
 } from "@/lib/metrics/compute";
 import {
   loadCapacity, loadObservations, loadReviewLoad, metricContext,
@@ -77,13 +78,6 @@ export async function planningWindows(): Promise<Window[]> {
   return windows(await demoNow());
 }
 
-/** Proportion of due follow-up measures that were not completed, for a cohort
- *  in a window. p34's "missingness high" condition, as a number. */
-function missingnessOf(r: MetricResult): number {
-  if (r.denominator === 0) return 1;
-  return (r.denominator - r.numerator) / r.denominator;
-}
-
 /** The cohorts a signal may be raised about. Region cohorts plus the three the
  *  registry declares for language and age — every one of them carries a stated
  *  question, because p33 requires the reason for comparing groups to exist
@@ -102,38 +96,12 @@ interface Reading {
   rows: Observation[];
 }
 
-/**
- * Missingness OF THE METRIC BEING READ, not of follow-up completion.
- *
- * Every reading used to report follow-up missingness whatever metric it
- * carried, which meant ACCESS_GAP — a comparison of stage conversion — was
- * gated on how many follow-up measures were outstanding. Those are different
- * questions, and the wrong one was binding: at 30.5% against a 30% limit the
- * access comparison was refused for incompleteness in a metric it does not
- * read.
- *
- * What "missing" means depends on the metric, so it is computed per metric:
- *
- *   ACTIVATION is a cohort-entry metric derived from events the ledger either
- *   holds or does not. Nobody's activation is unknown. What IS unobservable is
- *   somebody whose seven days have not elapsed, so that exclusion — which the
- *   metric already reports — is its missingness.
- *
- *   FOLLOW-UP COMPLETION is a missingness measure in its own right: the share
- *   of due measures not completed.
- *
- *   PAIRED CHANGE is unobservable for anybody without both measures.
- */
-function missingnessFor(r: MetricResult): number {
-  const excluded = Object.entries(r.missing)
-    .filter(([k]) => k.startsWith("excluded_") || k === "unpaired")
-    .reduce((s, [, v]) => s + Number(v), 0);
-  if (excluded > 0) {
-    const total = r.denominator + excluded;
-    return total === 0 ? 1 : excluded / total;
-  }
-  return missingnessOf(r);
-}
+// `metricMissingness` lives beside the metrics rather than here, because what
+// "missing" means is a property of the metric being read and the same question
+// is asked by the power-analysis harness. It used to be a local helper, and
+// while it was, a second copy in the harness got activation wrong in exactly
+// the way the original had — returning the non-activation rate, so a cohort
+// with poor activation read as a cohort with missing data.
 
 async function readingFor(
   c: CohortDefinition, ref: CohortDefinition, r: Reading, runId: string,
@@ -146,7 +114,7 @@ async function readingFor(
     label: label(r.window),
     cohort: cohortResult,
     reference: referenceResult,
-    missingness: missingnessFor(cohortResult),
+    missingness: metricMissingness(cohortResult),
   };
 }
 
@@ -188,7 +156,7 @@ async function dataQualityReading(tenantIds: string[]) {
   const followup = computeFollowupCompletion(all, ALL_ELIGIBLE, await metricContext("quality"));
 
   return {
-    missingness: missingnessOf(followup),
+    missingness: metricMissingness(followup),
     // p29 expects zero for both, and both mean the same thing: a row does not
     // rebuild into the place its own events say it belongs.
     projectionMismatches:

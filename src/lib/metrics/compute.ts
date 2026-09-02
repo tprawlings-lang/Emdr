@@ -456,6 +456,61 @@ export function computeRetention(
  * different control with a different threshold, and it belongs to the fairness
  * layer rather than here.
  */
+/**
+ * How much of this metric could not be observed, as a proportion.
+ *
+ * A PROPERTY OF THE METRIC, not a single formula, which is why it lives beside
+ * the metrics rather than in whichever caller needed it first. What "missing"
+ * means depends on what is being counted:
+ *
+ *   ACTIVATION is derived from events the ledger either holds or does not, so
+ *   nobody's activation is unknown. What is unobservable is somebody whose
+ *   seven days have not elapsed, and the metric already reports that exclusion.
+ *
+ *   FOLLOW-UP COMPLETION is a missingness measure in its own right — the share
+ *   of due measures not completed.
+ *
+ *   PAIRED CHANGE is unobservable for anybody without both measures.
+ *
+ * Getting this wrong is not academic. Applied to activation, the second
+ * formula returns the NON-ACTIVATION RATE — so a cohort with genuinely poor
+ * activation reads as a cohort with missing data, and the rule that exists to
+ * report it withholds instead. That is exactly what happened, in two places.
+ */
+export function metricMissingness(r: MetricResult): number {
+  const excluded = (...keys: string[]) =>
+    keys.reduce((s, k) => s + Number(r.missing[k] ?? 0), 0);
+
+  switch (r.metric_id) {
+    case "activation.v1": {
+      // Nobody's activation is UNKNOWN — it is derived from events the ledger
+      // either holds or does not. What is unobservable is somebody the window
+      // has not run for yet, and that is the whole of it.
+      //
+      // Inferring this from "are any exclusion keys non-zero" is what the
+      // first version did, and it is wrong in the case that matters: when
+      // nothing is excluded it fell through to the shared formula and returned
+      // the NON-ACTIVATION RATE. A cohort with genuinely poor activation then
+      // read as a cohort with missing data, and ACCESS_GAP — the rule that
+      // exists to report exactly that — withheld instead of firing. The
+      // detector power analysis found it, because a rule that never fires at
+      // any effect size is visible in a table and invisible in a code review.
+      const out = excluded("excluded_window_not_elapsed", "excluded_entered_earlier");
+      const total = r.denominator + out;
+      return total === 0 ? 1 : out / total;
+    }
+    case "observed_change.v1": {
+      // Unobservable for anybody without both measures.
+      const total = r.denominator;
+      return total === 0 ? 1 : excluded("unpaired") / total;
+    }
+    default:
+      // Follow-up completion and the rest: the metric IS a completion rate, so
+      // what did not complete is what is missing.
+      return r.denominator === 0 ? 1 : (r.denominator - r.numerator) / r.denominator;
+  }
+}
+
 export function suppressExternal(r: MetricResult): MetricResult {
   const hide = r.numerator > 0 && r.numerator < SMALL_CELL;
   if (!hide) return r;
