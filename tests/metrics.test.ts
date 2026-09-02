@@ -54,7 +54,7 @@ function person(over: Partial<Observation> = {}): Observation {
     personId: "p", region: "South", ageBand: "55-64", language: "English",
     race: ["White"], ethnicity: "Not Hispanic/Latino", tenantId: "t",
     accessNeeds: [], hasAccount: true,
-    daysEnrolled: 180, daysToFirstAction: null,
+    daysEnrolled: 180, daysToFirstAction: null, enrolledInWindow: true,
     activeWeeks: 0, observedWeeks: 26, daysToLastAction: null,
     modulesStarted: 0, modulesCompleted: 0,
     measuresComplete: 0, measuresPartial: 0, measuresDeclined: 0,

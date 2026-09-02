@@ -3,6 +3,7 @@ import path from "path";
 import fs from "fs";
 import crypto from "crypto";
 import { seedDemoData, reconcileDemoAccounts, demoId, demoPassword } from "./demo-seed";
+import { seedPolicyThresholds } from "./planning/policy";
 import { seedOrgData, ORG_TENANT_ID } from "./demo-org-seed";
 import { seedPayerData, PAYER_TENANT_ID } from "./demo-payer-seed";
 import { seedPopulationData, orgTenantId } from "./demo-population-seed";
@@ -47,6 +48,11 @@ export function getDb(): Database.Database {
   // and never reached the data. That is precisely what happened: the login
   // screen offered six roles and none of the addresses it named existed.
   reconcileDemoAccounts(db);
+  // Planning thresholds are seeded on every boot for the same reason, and with
+  // the same insert-if-absent behaviour: a row that already exists is left
+  // alone, because it may carry an owner and an approval date that a redeploy
+  // has no business overwriting (p34, plan decision D5).
+  seedPolicyThresholds(db);
   refreshDemoDaily(db);
   return db;
 }
@@ -785,6 +791,127 @@ function migrate(db: Database.Database) {
     approved_at TEXT,
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
   );
+
+  -- ── Planning policy thresholds (handoff 07 §3.4, p34) ────────────────────
+  --
+  -- p34 prints seven rules with numbers beside them, and then prints the
+  -- sentence that decides where those numbers are allowed to live:
+  --
+  --   THRESHOLDS SHOWN HERE ARE PRODUCT DEFAULTS FOR TESTING, NOT VALIDATED
+  --   CLINICAL CUTOFFS. STORE EVERY THRESHOLD IN POLICY CONFIGURATION, ATTACH
+  --   ITS OWNER AND APPROVAL DATE, AND PREVENT QUIET EDITS.
+  --
+  -- A constant in a rules file satisfies none of that. It has no owner, no
+  -- approval date, and moving 10 to 8 is a one-character diff that reads like
+  -- a tuning adjustment — which is precisely the edit this table exists to
+  -- make impossible to make quietly.
+  --
+  -- APPEND-ONLY, enforced by triggers rather than by convention. A changed
+  -- threshold is a new version row; the old row stays readable, so a signal
+  -- raised last month can still be read against the number that was actually
+  -- in force when it fired. The only column an UPDATE may touch is
+  -- superseded_at, and a DELETE is refused outright.
+  CREATE TABLE IF NOT EXISTS policy_thresholds (
+    key TEXT NOT NULL,
+    version TEXT NOT NULL,
+    rule_id TEXT NOT NULL,
+    value REAL NOT NULL,
+    unit TEXT NOT NULL,
+    -- A person, by name. p34 says "attach its owner"; a foreign key to users
+    -- would tie the record to an account that can be deactivated or renamed,
+    -- and the durability of the accountability is the whole point.
+    owner TEXT NOT NULL,
+    approved_at TEXT NOT NULL,
+    -- What the number is and is not, stored beside it, so a reader who never
+    -- opens p34 still gets p34's caveat.
+    basis TEXT NOT NULL,
+    superseded_at TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    PRIMARY KEY (key, version)
+  );
+  CREATE TRIGGER IF NOT EXISTS policy_thresholds_no_quiet_edit
+    BEFORE UPDATE OF key, version, rule_id, value, unit, owner, approved_at, basis
+    ON policy_thresholds
+  BEGIN
+    SELECT RAISE(ABORT, 'policy_thresholds is append-only: supersede the row and insert a new version');
+  END;
+  CREATE TRIGGER IF NOT EXISTS policy_thresholds_no_delete
+    BEFORE DELETE ON policy_thresholds
+  BEGIN
+    SELECT RAISE(ABORT, 'policy_thresholds is append-only: a threshold is superseded, never deleted');
+  END;
+
+  -- ── Planning signals (handoff 07 §3.5 p35, §5.4 p49) ─────────────────────
+  --
+  -- An aggregate hypothesis about a COHORT. There is no person_id column here
+  -- and there is not going to be one: p46 gives the planning rule engine
+  -- "versioned aggregate triggers and signal lifecycle" and explicitly denies
+  -- it "safety gates or person routing", and p35 closes with the rule that
+  -- makes the lifecycle safe to build at all — no state transition changes a
+  -- patient's permitted activity.
+  --
+  -- The evidence is FROZEN at detection. Re-running detection does not
+  -- overwrite a row: a reviewer who advanced a signal did so against numbers
+  -- they read, and silently refreshing those numbers underneath them attaches
+  -- a human judgement to evidence nobody saw. A later reading that disagrees
+  -- is a new signal, which is also why the id is derived from the rule, the
+  -- cohort and the dataset version rather than from the clock.
+  CREATE TABLE IF NOT EXISTS planning_signals (
+    id TEXT PRIMARY KEY,
+    tenant_id TEXT NOT NULL REFERENCES tenants(id),
+    signal_type TEXT NOT NULL,
+    state TEXT NOT NULL DEFAULT 'draft'
+      CHECK (state IN ('draft','analysis_requested','clinical_review','fairness_review',
+                       'pilot_proposed','pilot_active','decision_recorded','retired')),
+    rule_version TEXT NOT NULL,
+    -- p36's release ladder level. 1 is descriptive, and every rule in this
+    -- build produces level 1 — the permitted wording follows from it.
+    evidence_level INTEGER NOT NULL DEFAULT 1,
+    statement TEXT NOT NULL,
+    cohort_ref TEXT NOT NULL,
+    cohort_hash TEXT NOT NULL,
+    reference_ref TEXT NOT NULL,
+    threshold_json TEXT NOT NULL DEFAULT '{}',
+    observed_json TEXT NOT NULL DEFAULT '{}',
+    metric_refs_json TEXT NOT NULL DEFAULT '[]',
+    limitations_json TEXT NOT NULL DEFAULT '[]',
+    -- Set when a state that p35 gives an entry condition is reached, so the
+    -- signal object can report a review as done rather than merely passed.
+    clinical_review_json TEXT,
+    fairness_review_json TEXT,
+    detected_at TEXT NOT NULL,
+    data_version TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+  CREATE INDEX IF NOT EXISTS idx_planning_signals_tenant
+    ON planning_signals(tenant_id, state);
+
+  -- Every state change, with who made it and what they said. p44's audit row
+  -- is "every view, comment, state change and export" — the hash-chained
+  -- audit_log holds all four, and this table holds the state changes a second
+  -- time as queryable history, because a signal's own screen has to show its
+  -- trail without granting a reader the audit log.
+  CREATE TABLE IF NOT EXISTS planning_signal_reviews (
+    id TEXT PRIMARY KEY,
+    signal_id TEXT NOT NULL REFERENCES planning_signals(id),
+    tenant_id TEXT NOT NULL REFERENCES tenants(id),
+    from_state TEXT NOT NULL,
+    to_state TEXT NOT NULL,
+    action TEXT NOT NULL,
+    -- The reviewer. NOT the subject: a planning signal has no subject, it has
+    -- a cohort. This column is the accountability record for the transition.
+    actor_id TEXT NOT NULL REFERENCES users(id),
+    actor_role TEXT NOT NULL,
+    comment TEXT,
+    -- p35: a clinical reviewer "comments and sets limits". The limits are a
+    -- separate field because they outlive the comment thread and constrain
+    -- what a later pilot may do.
+    limits TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+  CREATE INDEX IF NOT EXISTS idx_planning_signal_reviews_signal
+    ON planning_signal_reviews(signal_id, created_at);
+
   CREATE INDEX IF NOT EXISTS idx_levents_type ON longitudinal_events(event_type, id);
   CREATE INDEX IF NOT EXISTS idx_levents_correlation ON longitudinal_events(correlation_id);
   `);
@@ -858,6 +985,15 @@ export const TENANT_SCOPED_TABLES = [
   // from creation rather than by backfill, but it belongs on this list so the
   // repository's scoping applies and the schema guard keeps counting it.
   "claims",
+  // A planning signal is about a cohort, not a person — but the cohort belongs
+  // to one tenant, and reading another's would show which groups they are
+  // comparing and what they suspect. Scoped for that reason rather than for
+  // the usual one.
+  "planning_signals",
+  // The reviewer named on a state change is a person, so this table is
+  // person-scoped by the schema guard's rule (it references users) even though
+  // its subject is not.
+  "planning_signal_reviews",
 ] as const;
 
 /** Create the platform tenant and mirror `users` onto the identity spine

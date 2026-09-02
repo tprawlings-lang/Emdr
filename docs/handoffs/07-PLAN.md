@@ -147,10 +147,10 @@ the next person to read this plan will otherwise re-open all three.
 | A2 | The 240 were made sign-in-able (`st-<region>-<nnn>@steady.local`, patient password) so a presenter can open a specific archetype from the inside. | **Kept.** p14 lists "1 account" per profile, the environment holds no PHI, and the password is already documented. The address pattern is now named in the logins document rather than left to be discovered. |
 | A3 | p15 prints `"seed": 100217` for `ST-WE-017` and no rule in the handoff derives it. | **No rule existed** — it was an illustrative value in a sample JSON blob. The formula in `demo-population-manifest.ts` stands: region offset (NE 100 000, MW 200 000, SO 300 000, WE 400 000) plus the row number, documented in place. |
 
+| A4 | Who owns the planning thresholds (D5), what the numbers should be, and who signs a clinical review. | **Answered 2026-09-02.** Owner: **Founder, MSc Mathematics**, approved that date, recorded on every row of `policy_thresholds`. Thresholds: **p34's defaults as written** — 10 percentage points for the access gap, 12 for the follow-up gap, two windows for both repeat conditions — stored with p34's own caveat that they are product defaults for testing rather than validated clinical cutoffs. Clinical review: **the same signature covers it**, so a signal may advance out of `clinical_review` on the owner's authority. That last one is a real concentration of authority and is recorded as such in `PLANNING_OWNER.note`: p35 gives clinical review its own state precisely so the person who chose a threshold is not the person who judges whether a signal crossing it may affect programme content. Defensible over fabricated data; a deployment with patients in it needs two people. |
+
 **Still needed from a human, and not yet:**
 
-- **Who owns the planning thresholds** (D5). p34 requires a named owner and an approval date
-  before any rule may fire, so this is needed *before* Wave 6, not during it.
 - **Whether the 240 get a nightly reset in the deployed demo, and on whose clock** (Wave 8).
   A reset currently takes about 12 seconds against p29's 120-second target, so the constraint
   is scheduling rather than duration.
@@ -429,16 +429,115 @@ structurally unobservable, and reported 0 of 18 with 224 censored — arithmetic
 reads as a finding. Results now carry `mostly_censored`, and the panel draws it as *not
 observable yet* instead of as zero per cent.
 
-### Wave 6 — Planning rules
+### Wave 6 — Planning rules ✅ **DONE**
 **Spec: pp34–36, 44, 49. Exit evidence: no person-level actions; full audit.**
 
-- Seven rules (G10), thresholds in policy configuration (D5).
-- The eight-state machine (G11).
-- The planning-signal object (p49) — `allowed_actions` supplied by the **server** after
-  policy evaluation; *the client never invents or widens the action set*.
-- p36's five-level release ladder, which fixes the permitted wording per level.
-- p44's required phrase on every candidate signal, and its blocked actions: no direct
-  patient assignment, no gate change, no payer restriction.
+| Built | Where |
+|---|---|
+| p34's seven rules, **pure** over readings, withheld-then-triggered | `src/lib/planning/rules.ts` |
+| Thresholds as policy configuration with an owner, an approval date and an append-only table | `src/lib/planning/policy.ts`, `policy_thresholds` |
+| p36's five-level release ladder, and the wording check that enforces it | `src/lib/planning/ladder.ts` |
+| p35's eight-state machine, and p49's server-supplied action set | `src/lib/planning/lifecycle.ts` |
+| p49's signal object, with p44's required phrase on the object rather than on a screen | `src/lib/planning/signal.ts` |
+| Detection, persistence, review and lineage | `src/lib/planning/service.ts`, `src/lib/planning/scope.ts` |
+| p44's nine-section detail screen and the rule list beside it | `/review/planning`, `/review/planning/[id]` |
+| Three of p47's twelve routes | `/api/planning/signals`, `…/:id/review`, `…/:id/lineage` |
+| Windowed metrics, so "repeats in two windows" is evaluable at all | `loadObservations(tenantIds, window)` |
+| 50 unit guards, 5 e2e | `tests/planning.test.ts`, `tests/e2e/planning.spec.ts` |
+
+**The exit evidence, as structure rather than assertion.** *No person-level actions* is
+enforced by what `src/lib/planning` may contain and import: the build fails on a
+`person_id`, a `user_id` or a `display_name` anywhere in the directory, and on an import of
+the safety engine, the gating chain, the member modules or the clinical modules. A
+transition writes one row saying a signal moved; there is no code path from that row to a
+gate, because the gate is not reachable from here. *Full audit* is checked by driving a
+signal through the machine and reading the hash-chained log back — state changes, refused
+actions, blocked actions and lineage views all land in it.
+
+**Thresholds are configuration, and the table enforces it.** `policy_thresholds` refuses an
+`UPDATE` of a value, an owner or an approval date, and refuses a `DELETE`, by trigger. A
+change is a new version row; the old one stays readable, so a signal raised last month can
+still be read against the number that was actually in force. The seed is insert-if-absent,
+so a redeploy cannot overwrite an owner. And `loadThresholds()` **refuses** rather than
+falling back to the constants in the source — a fallback would make the owner record
+optional in practice while appearing mandatory in the schema.
+
+The guard that makes D5 real is not a source review. Every rule is evaluated against a
+**recording** threshold accessor, the keys it actually read are collected, and each is
+checked against the table in both directions: no rule may compare against a number that has
+no policy row, and no policy row may sit there unread. A rule that reached for a literal
+reads no key, so it shows up as an unread threshold rather than as a diff somebody had to
+notice.
+
+**Three of the seven rules produce nothing in this deployment, and each names the input it
+does not have.** That is p34's "no output when" column working, not a shortfall:
+
+- **REGION_CAPACITY** — there is no open-slot feed. The organization capacity screen already
+  renders in the partial state for this reason and names the missing source above the chart;
+  a planning rule that fired anyway would have to invent the denominator.
+- **SAFETY_REVIEW_LOAD** — the review events are counted and the staffed coverage schedule
+  they would be measured against does not exist as data.
+- **MODULE_SIGNAL** — p34's condition is that a confidence interval must not cross zero, and
+  `computeObservedChange` reports the observed *range* and says in its own comment that
+  calling it an interval estimate would promote the finding a rung on p36's ladder.
+
+**ACCESS_GAP is withheld too, and for a reason worth recording:** the 240 all enrolled in a
+single month, so the second window contains one entrant. Activation is a cohort-entry
+metric, and p34's "denominator below threshold" is the correct answer to a window with
+nobody in it.
+
+**The population had to be given something to find.** The manifest is balanced on every
+dimension p29 checks — 60 per region, 40 per band, 30 per archetype — so the population it
+describes contains no disparity at all. Measured before anything was added, the largest
+follow-up difference between any declared cohort and the eligible population was **3.4
+percentage points against a threshold of 12**: every rule evaluated to "no gap", and a
+screen that has never had anything to show has not been tested. The generator now writes an
+**authored access barrier** (p14 already calls for authored gaps): follow-up measures *not
+delivered* to people whose preferred language is Spanish, in the second half of the window,
+with p28's reason `unavailable` and a `scenario` field naming it in the event. It is an
+operational failure, which is what p43's audit exists to surface — not a statement about the
+people in the cohort. It produces an 18-point gap, and FOLLOWUP\_GAP and FAIRNESS\_ALERT both
+fire on it.
+
+**What Wave 6 found.**
+
+1. **Windowing a cohort-entry metric.** The first windowed loader clipped a person's *first
+   action* to the window, so everybody who enrolled before it read as a failure to activate.
+   It announced itself as **86.7 percentage points of drift on a population that had not
+   moved**, which tripped DATA_QUALITY and blocked the whole release — the rule doing exactly
+   its job on a number that was wrong. A window now selects the *enrolment cohort* for
+   activation and the *activity* for everything else, and `enrolledInWindow` carries the
+   distinction into `compute.ts`.
+2. **A guard that could never pass.** p34 lists "missingness high" under ACCESS\_GAP, and it
+   was applied to FOLLOWUP\_GAP as well, which looked like prudence. Follow-up completion
+   *is* a missingness measure: the authored barrier produced an 18-point gap and 41%
+   missingness, and the rule that exists to report the first was silenced by the second.
+   Every cohort with a real follow-up gap was withheld for having one. This project has
+   spent a lot of this handoff on guards that could not fail; a guard that cannot pass is
+   the same mistake wearing the other coat.
+3. **A fairness alert on a region.** The disparity reading was built for every cohort, so
+   FAIRNESS\_ALERT would have fired on "the Midwest" — a category error in both directions,
+   diluting the alert and implying a reporting dimension is a protected class. It now
+   withholds on any cohort not defined by a protected attribute, with that as the stated
+   reason.
+4. **A person id inside the planning engine.** The data-quality reading queried orphan and
+   cross-tenant events directly, which names `person_id` in SQL. The choice was to carve an
+   exception into the boundary guard or move the query; the query moved to
+   `demo-quality.ts`, which already owns those checks — and the planning screen and the
+   admin page can no longer disagree about whether the environment is releasable.
+
+**Four of these guards were mutation-tested by deliberately breaking the code**: removing
+FOLLOWUP\_GAP's missingness exclusion, hard-coding a threshold instead of reading policy,
+letting a blocked action into the allowed set, and silencing DATA\_QUALITY when its reading
+is missing. All four failed the build.
+
+**What Wave 6 deliberately does not build.** p50 gives the organization and payer roles a
+"subset" grant on `planning_review`, and they get none. The reason is a gap in the cohort
+registry rather than in the authorization: every cohort declared so far is defined by
+region, age or language and spans several organizations, so there is nothing for a
+single-tenant subset to be a subset *of*. Those cohorts arrive with Wave 7, where the
+small-cell and minimum-analysis-size questions a per-organization cohort immediately raises
+also get answered. Nine of p47's twelve routes remain unbuilt (G16).
 
 ### Wave 7 — Governance
 **Spec: pp37–38, 43. Exit evidence: reviewers can block or retire output.**

@@ -143,7 +143,7 @@ examples; open them before writing a screen, because the text alone rebuilds wro
 | Organization | 9 | **9** | 42 |
 | Payer | 10 | **10** | 43 |
 | Shared access states | 8 | **8** | 46 |
-| Review and administration | 13 | 5 | 44 |
+| Review and administration | 13 | 6 | 44 |
 | Public institutional site | 11 | 9 | 45 |
 
 **Charts — 15 of §29's 22 contracts** (inventory on p75).
@@ -168,7 +168,6 @@ Ten screens and seven charts. Each row names the page in the handoff that specif
 |---|---|---|---|
 | 1 | `/review/access` — approve scoped access (role, purpose, expiry) | §26 **p44** | Nothing. This is the binding `src/lib/intelligence/scope.ts` currently fakes by resolving the single organization tenant |
 | 2 | `/review/clinical` — review language and flow; record a decision against a version | §26 **p44** | No approval record. The decision and its evidence have nowhere to be written |
-| 3 | `/review/safety` — replay fixed safety scenarios; expected versus actual, with resources | §26 **p44** | Nothing. `src/lib/safety/rule-catalog.ts` holds the rules and eight test files already replay them — this is a screen over `tests/safety-redteam.test.ts`'s ground |
 | 4 | `/review/lineage` — trace a screen statement to its source event | §26 **p44**, worked example **p71**; pipeline §30.1 **p85** | Nothing. The event ledger and projections both exist; this is the read path over them |
 | 5 | `/review/research` — approved de-identified data, consent and cohort guard | §26 **p44** | Cohort registry |
 | 6 | `/review/release` — record required sign-offs with owner, evidence and state | §26 **p44**; release gates §31.6 **p99** | A sign-off record. `autonomous_signoffs` is the nearest existing shape |
@@ -185,10 +184,13 @@ Ten screens and seven charts. Each row names the page in the handoff that specif
 | 17 | Payer **data quality** chart | §29 **p75**; §26 **p43** | Nothing. `/payer/data-quality` has the data, drawn as a table |
 | 18 | **Wave 6 — hardening**: performance, accessibility, security, telemetry, export parity, disaster recovery | Waves §31.2 **p95**; acceptance §31.5 **p98**; release gates §31.6 **p99**; telemetry §31.7 **p100** | Not started |
 
+Row 3 (`/review/safety`) closed during handoff 07's Wave 1 and has been removed from the
+list; the numbering below still refers to the original rows.
+
 **Four need a record that does not exist yet** — rows 2, 6, 12 and 13 (a review decision,
 a sign-off, a goal, a plan version). **Everything else is presentation work over data that
 is already there**: rows 11, 14, 15, 16 and 17 render the right numbers in the wrong form,
-and rows 3, 4, 7, 8, 9 and 10 are screens over paths that already exist. Row 5 needs the
+and rows 4, 7, 8, 9 and 10 are screens over paths that already exist. Row 5 needs the
 cohort registry; row 18 is its own wave.
 
 **The cheapest real progress** is rows 14–17 — four charts over projections that already
@@ -198,24 +200,39 @@ are a rename.
 **Nothing here is a broken link.** `/review` names the eight missing screens on itself
 rather than showing an empty queue, and the two public pages have reachable equivalents.
 
-### What comes after GUI launch
+### What comes after GUI launch — handoff 07, in progress
 
 **Handoff 07** — [`docs/handoffs/07-demo-login-synthetic-population-and-planning-engine.pdf`](docs/handoffs/07-demo-login-synthetic-population-and-planning-engine.pdf),
-planned in [`docs/handoffs/07-PLAN.md`](docs/handoffs/07-PLAN.md). It gives these screens a
-population worth looking at (240 fabricated patients with six months of history each, 60
-per Census region), a login that reaches all six roles, and a deterministic planning layer
-above them that produces inspectable hypotheses rather than care orders.
+planned and tracked in [`docs/handoffs/07-PLAN.md`](docs/handoffs/07-PLAN.md). It gives
+these screens a population worth looking at (240 fabricated patients with six months of
+history each, 60 per Census region), a login that reaches all six roles, and a
+deterministic planning layer above them that produces inspectable hypotheses rather than
+care orders.
 
-It is not a separate product from GUI launch — it overlaps in three places, and the plan
-resolves each rather than leaving it to be discovered mid-build. **Two of the eighteen rows
-above close as a side effect of its first wave**: row 1 (`/review/access`) is the same
-binding, and the scope resolution that currently fakes it. **Row 5's cohort registry is the
-same gap** handoff 07 specifies on its p33 — build it once.
+**Waves 1–6 of 8 are done.** The plan document is the record: each wave lists what was
+built, where it lives, the exit evidence measured rather than asserted, and the defects the
+wave surfaced.
 
-One thing in the plan is worth knowing before touching either job: handoff 07 needs six
-distinct roles, and this codebase has three, with `admin` serving both the organization and
-payer consoles. That rename is the largest structural change either handoff asks for, and
-it is the decision recorded as **D1**.
+| Wave | What it added | Read |
+|---|---|---|
+| 1 ✅ | Six roles, six accounts, six landing pages, session claims, the aggregate boundary | 07-PLAN "Wave 1" |
+| 2 ✅ | The 240-profile manifest, eight demo organizations, `person_attributes` | "Wave 2" |
+| 3 ✅ | The deterministic generator — six months of history, byte-identical replay | "Wave 3" |
+| 4 ✅ | Role projections — the clinician's panel and the aggregate overview, from one ledger | "Wave 4" |
+| 5 ✅ | The ten-metric dictionary, the cohort registry, and pure arithmetic over typed observations | "Wave 5" |
+| 6 ✅ | **The planning engine** — seven rules, owned thresholds, the eight-state machine, `/review/planning` | "Wave 6" |
+| 7 | Fairness controls, the audit screen, the model registry shell | handoff pp37–38, 43 |
+| 8 | The demo control centre, nightly reset, scenario scripts | handoff pp9, 29, 56 |
+
+**Where the planning engine is.** `/review/planning` lists every one of p34's seven rules
+with what it produced — and, for the three that produce nothing in this deployment, which
+input they lack. `/review/planning/[id]` is p44's nine-section detail screen. Three of
+p47's twelve API routes are built. Thresholds live in `policy_thresholds` with a named
+owner and an approval date, in a table that refuses an in-place edit.
+
+**Two of the eighteen rows above closed as a side effect.** Row 1 (`/review/access`) is the
+same binding as Wave 1's session claims, and row 5's cohort registry is the same gap
+handoff 07 specifies on its p33 — built in Wave 5 as `src/lib/metrics/cohorts.ts`.
 
 ## ▶ NOW: handoff 06 — the frame, and the atlas it comes from
 
