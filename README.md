@@ -222,7 +222,7 @@ wave surfaced.
 | 5 ✅ | The ten-metric dictionary, the cohort registry, and pure arithmetic over typed observations | "Wave 5" |
 | 6 ✅ | **The planning engine** — seven rules, owned thresholds, the eight-state machine, `/review/planning`, and an authored access model that gives it something real to find | "Wave 6" |
 | 7 | Fairness controls, the audit screen, the model registry shell | handoff pp37–38, 43 |
-| 8 | The demo control centre, nightly reset, scenario scripts | handoff pp9, 29, 56 |
+| 8 ◑ | **The demo clock is built** — five scripted milestones, shown in the shell. The rest of the control centre, the nightly reset and the presenter scripts remain | handoff pp9, 29, 56 |
 
 **Where the planning engine is.** `/review/planning` lists every one of p34's seven rules
 with what it produced, and for anything that produced nothing, p34's own reason.
@@ -243,7 +243,14 @@ decline, and one is limited by the size of the fixture:
 | DATA_QUALITY | Evaluates; the environment meets its own limits, so nothing is blocked |
 | ACCESS_GAP | Withheld. A region holds 60 of the 240, so it caps at 30 entrants per window — exactly p37's minimum analysis size. The fixture is too small, and dropping below the minimum is not the answer |
 
-Getting there needed three things the deployment did not have: a **scheduling feed** and a
+**The demo clock moves the reading point.** `/admin/demo` sets it to one of five scripted
+milestones and the shell shows it on every console. The population and the signals move with
+it — 21 people and two signals at the opening month, 242 and four today — so the same console
+can be walked through the programme's life. It **moves the reading frame, never the record**:
+audit entries, sessions and rate limits stay on the real clock, guarded by what those modules
+may import.
+
+Getting the rules to fire needed three things the deployment did not have: a **scheduling feed** and a
 **staffed rota** (`capacity_slots`, `review_coverage` — fabricated stand-ins, sized to the
 fixture rather than to a real network), a **confidence interval** on paired change, which
 p32 already required and the metric layer had declined to compute, and **rolling intake**,

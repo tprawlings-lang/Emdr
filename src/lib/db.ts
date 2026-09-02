@@ -792,6 +792,47 @@ function migrate(db: Database.Database) {
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
   );
 
+  -- ── The demo clock (handoff 07 §1.5, p9) ────────────────────────────────
+  --
+  -- p9's second control: "Advance clock — move demo date to a scripted
+  -- milestone. Guard: demo only; clock shown in shell."
+  --
+  -- A ROW, not module state. Next.js instantiates a module more than once per
+  -- process — route bundles carry their own copies — so a clock held in memory
+  -- would read differently depending on which bundle served the request, and a
+  -- presenter would watch two screens disagree about what day it is.
+  --
+  -- ONE ROW, enforced by the primary key. A clock with two values is not a
+  -- clock, and a table that permits one invites a migration that leaves a
+  -- stale row behind for something to read.
+  --
+  -- WHAT THIS MOVES, AND WHAT IT MUST NEVER MOVE. The clock changes the
+  -- READING FRAME: what "the last ninety days" means, which window a metric
+  -- reports, where a retention milestone falls. It does not change the RECORD.
+  -- Audit entries, session issue and expiry, and rate limits stay on the real
+  -- clock, and they have to: a demo clock that could backdate an audit row
+  -- would make the tamper-evident chain a chain of whatever somebody set the
+  -- date to, and one that could advance a session's expiry would be a
+  -- privilege escalation with a friendly name.
+  CREATE TABLE IF NOT EXISTS demo_clock (
+    id INTEGER PRIMARY KEY CHECK (id = 1),
+    -- The instant the environment should be READ AS. Null means live: the
+    -- clock is the real one and nothing is overridden.
+    viewing_at TEXT,
+    -- Which scripted milestone this is, when it is one. p9 says "a scripted
+    -- milestone" rather than an arbitrary date, and the name is what a
+    -- presenter says out loud.
+    milestone TEXT,
+    -- p9's guard on the reset control is a typed reason, and the same applies
+    -- here: a clock somebody moved for no recorded purpose is a clock nobody
+    -- can explain afterwards.
+    reason TEXT,
+    set_by TEXT,
+    -- REAL time, always. When somebody moved the clock is a fact about the
+    -- world, and recording it on the clock being moved is circular.
+    set_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+
   -- ── Operational capacity (handoff 07 §3.4 p34; handoff 06 §26's capacity
   --    screen) ───────────────────────────────────────────────────────────────
   --
@@ -950,6 +991,18 @@ function migrate(db: Database.Database) {
     fairness_review_json TEXT,
     detected_at TEXT NOT NULL,
     data_version TEXT NOT NULL,
+    -- WHICH READING POINT PRODUCED THIS. Null when the demo clock was live.
+    --
+    -- Without it, a detection run at the half-year milestone and one run today
+    -- collide: the id derives from rule, cohort, dataset and tenant, the
+    -- insert is conflict-do-nothing, and the evidence is frozen — so whichever
+    -- ran first wins and its numbers sit on the list looking current forever.
+    -- A presenter who walked the clock forward and came back would be shown
+    -- March's findings labelled as today's.
+    --
+    -- "What the console said at the half year" is a different artefact from
+    -- "what it says now", so it gets a different id and says which it is.
+    reading_point TEXT,
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
   );
   CREATE INDEX IF NOT EXISTS idx_planning_signals_tenant

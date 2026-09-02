@@ -79,7 +79,15 @@ export default async function PlanningSignalPage({
             </Note>
           }
         >
-          <Panel title="Statement" footnote={`Rule ${signal.rule_version} · dataset ${signal.data_version} · detected ${signal.detected_at}`}>
+          <Panel
+            title="Statement"
+            footnote={
+              `Rule ${signal.rule_version} · dataset ${signal.data_version} · detected ${signal.detected_at}` +
+              (signal.reading_point
+                ? ` · read with the demo clock at the ${signal.reading_point.replace(/-/g, " ")}, not today`
+                : "")
+            }
+          >
             <p className="measure text-ground">{signal.statement}</p>
             <p className="mt-3 text-xs text-olive">
               Current state: <span className="font-medium">{signal.state.replace(/_/g, " ")}</span> — {state.allowedActivity}.

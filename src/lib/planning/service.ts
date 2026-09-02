@@ -9,7 +9,7 @@ import {
 } from "@/lib/metrics/cohorts";
 import {
   computeActivation, computeFollowupCompletion, computeObservedChange,
-  resolve, type MetricResult, type Observation,
+  resolve, type ComputeContext, type MetricResult, type Observation,
 } from "@/lib/metrics/compute";
 import {
   loadCapacity, loadObservations, loadReviewLoad, metricContext,
@@ -20,6 +20,7 @@ import {
   actionPermitted, isBlockedAction, transition,
   type ReviewAction, type SignalState,
 } from "./lifecycle";
+import { demoNow, readClock } from "@/lib/demo-clock";
 import { loadThresholds, type RuleId } from "./policy";
 import { evaluateAll, type RuleContext, type WindowReading } from "./rules";
 import { explain, type Explanation } from "./explanations";
@@ -48,7 +49,14 @@ export const WINDOW_DAYS = 90;
 
 const iso = (d: Date) => d.toISOString().slice(0, 10);
 
-/** The two windows, oldest first, ending today. */
+/**
+ * The two windows, oldest first, ending at the DEMO clock's today.
+ *
+ * `now` is a parameter with a default rather than a read, so the pure callers
+ * — the tests, and anything reasoning about a hypothetical date — stay
+ * synchronous. `planningWindows()` below is what the service uses, and it is
+ * the one that reads the clock.
+ */
 export function windows(now = new Date()): Window[] {
   const day = 86400000;
   const end2 = now;
@@ -61,6 +69,13 @@ export function windows(now = new Date()): Window[] {
 }
 
 const label = (w: Window) => `${w.start}..${w.end}`;
+
+/** The windows the engine actually reports on, against the demo clock. When a
+ *  presenter moves the clock to a milestone, every window boundary, every
+ *  metric refresh time and every signal moves with it. */
+export async function planningWindows(): Promise<Window[]> {
+  return windows(await demoNow());
+}
 
 /** Proportion of due follow-up measures that were not completed, for a cohort
  *  in a window. p34's "missingness high" condition, as a number. */
@@ -120,11 +135,11 @@ function missingnessFor(r: MetricResult): number {
   return missingnessOf(r);
 }
 
-function readingFor(
+async function readingFor(
   c: CohortDefinition, ref: CohortDefinition, r: Reading, runId: string,
-  compute: (rows: Observation[], c: CohortDefinition, ctx: ReturnType<typeof metricContext>) => MetricResult,
-): WindowReading {
-  const ctx = metricContext(runId, r.window);
+  compute: (rows: Observation[], c: CohortDefinition, ctx: ComputeContext) => MetricResult,
+): Promise<WindowReading> {
+  const ctx = await metricContext(runId, r.window);
   const cohortResult = compute(r.rows, c, ctx);
   const referenceResult = compute(r.rows, ref, ctx);
   return {
@@ -164,13 +179,13 @@ async function dataQualityReading(tenantIds: string[]) {
   // the second window has no entrants and no rate — a difference of "a number"
   // from "no number" is not drift, and the first version of this reported 86.7
   // points of it on a population that had not moved at all.
-  const [w1, w2] = windows();
-  const f1 = computeFollowupCompletion(await loadObservations(tenantIds, w1), ALL_ELIGIBLE, metricContext("q1", w1));
-  const f2 = computeFollowupCompletion(await loadObservations(tenantIds, w2), ALL_ELIGIBLE, metricContext("q2", w2));
+  const [w1, w2] = await planningWindows();
+  const f1 = computeFollowupCompletion(await loadObservations(tenantIds, w1), ALL_ELIGIBLE, await metricContext("q1", w1));
+  const f2 = computeFollowupCompletion(await loadObservations(tenantIds, w2), ALL_ELIGIBLE, await metricContext("q2", w2));
   const drift = f1.value === null || f2.value === null ? 0 : (f2.value - f1.value) * 100;
 
   const all = await loadObservations(tenantIds);
-  const followup = computeFollowupCompletion(all, ALL_ELIGIBLE, metricContext("quality"));
+  const followup = computeFollowupCompletion(all, ALL_ELIGIBLE, await metricContext("quality"));
 
   return {
     missingness: missingnessOf(followup),
@@ -237,15 +252,15 @@ async function contextFor(
   ops: OperationalReadings,
 ): Promise<RuleContext> {
   const ref = ALL_ELIGIBLE;
-  const access = readings.map((r) => readingFor(c, ref, r, runId, computeActivation));
-  const followup = readings.map((r) => readingFor(c, ref, r, runId, computeFollowupCompletion));
-  const change = readings.map((r) => readingFor(c, ref, r, runId, computeObservedChange));
+  const access = await Promise.all(readings.map((r) => readingFor(c, ref, r, runId, computeActivation)));
+  const followup = await Promise.all(readings.map((r) => readingFor(c, ref, r, runId, computeFollowupCompletion)));
+  const change = await Promise.all(readings.map((r) => readingFor(c, ref, r, runId, computeObservedChange)));
 
   // The fairness reading uses the most recent window's follow-up completion —
   // p34 permits outcome, access or error-rate disparity, and follow-up
   // completion is the access measure this population actually varies on.
   const last = readings[readings.length - 1];
-  const lastCtx = metricContext(runId, last.window);
+  const lastCtx = await metricContext(runId, last.window);
   const group = resolve(last.rows, c);
   const groupFollowup = computeFollowupCompletion(last.rows, c, lastCtx);
   const refFollowup = computeFollowupCompletion(last.rows, ref, lastCtx);
@@ -325,7 +340,7 @@ export async function detectSignals(
   const tenantIds = dataTenantIds;
   if (tenantIds.length === 0) return { signals: [], withheld: [], releaseBlocked: false };
   const t = await loadThresholds();
-  const wins = windows();
+  const wins = await planningWindows();
   const readings: Reading[] = [];
   for (const w of wins) readings.push({ window: w, rows: await loadObservations(tenantIds, w) });
   const quality = await dataQualityReading(tenantIds);
@@ -335,7 +350,17 @@ export async function detectSignals(
     reviewLoad: await loadReviewLoad(tenantIds, recent),
   };
 
-  const detectedAt = new Date().toISOString().slice(0, 19) + "Z";
+  // THE CLOCK's now, not the real one. `detected_at` sits beside the window on
+  // every signal, and a signal whose window ends in March and whose detection
+  // is stamped September reads as a stale finding nobody refreshed. It is part
+  // of the reading, not part of the record: the audit entry saying a human ran
+  // detection is written by `audit()` and stays on real time.
+  const clock = await readClock();
+  const detectedAt = clock.now.toISOString().slice(0, 19) + "Z";
+  // Null when the clock is live. It becomes part of every signal's id, so a
+  // milestone walk produces its own set rather than colliding with the live
+  // one and freezing whichever ran first.
+  const readingPoint = clock.live ? null : clock.milestone?.id ?? clock.now.toISOString().slice(0, 10);
   const signals: PlanningSignal[] = [];
   const withheld: DetectionResult["withheld"] = [];
   let releaseBlocked = false;
@@ -358,6 +383,7 @@ export async function detectSignals(
         tenantId: storeTenantId,
         dataVersion: DATASET_VERSION,
         detectedAt,
+        readingPoint,
         role,
       }));
     }
@@ -378,15 +404,15 @@ async function persistSignals(tenantId: string, signals: PlanningSignal[]): Prom
       `INSERT INTO planning_signals
          (id, tenant_id, signal_type, state, rule_version, evidence_level, statement,
           cohort_ref, cohort_hash, reference_ref, threshold_json, observed_json,
-          metric_refs_json, limitations_json, detected_at, data_version)
-       VALUES (?, ?, ?, 'draft', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          metric_refs_json, limitations_json, detected_at, data_version, reading_point)
+       VALUES (?, ?, ?, 'draft', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
        ON CONFLICT(id) DO NOTHING`,
       [
         s.signal_id, tenantId, s.signal_type, s.rule_version, s.evidence_level, s.statement,
         s.cohort_ref, s.cohort_hash, s.reference_ref,
         JSON.stringify(s.threshold), JSON.stringify(s.observed),
         JSON.stringify(s.metric_refs), JSON.stringify(s.limitations),
-        s.detected_at, s.data_version,
+        s.detected_at, s.data_version, s.reading_point,
       ],
     );
   }
@@ -402,6 +428,7 @@ interface SignalRow {
   reference_ref: string; threshold_json: string; observed_json: string;
   metric_refs_json: string; limitations_json: string; clinical_review_json: string | null;
   fairness_review_json: string | null; detected_at: string; data_version: string;
+  reading_point: string | null;
 }
 
 function hydrate(row: SignalRow, role: Role): PlanningSignal {
@@ -432,6 +459,7 @@ function hydrate(row: SignalRow, role: Role): PlanningSignal {
     tenantId: "",
     dataVersion: row.data_version,
     detectedAt: row.detected_at,
+    readingPoint: row.reading_point,
     state,
     clinicalReview: row.clinical_review_json ? (JSON.parse(row.clinical_review_json) as ReviewRecord) : null,
     fairnessReview: row.fairness_review_json ? (JSON.parse(row.fairness_review_json) as ReviewRecord) : null,
@@ -588,6 +616,9 @@ export async function recordReview(args: {
   // The review record on the signal, so p49's `clinical_review` and
   // `fairness_review` fields say who signed rather than staying null forever.
   const record: ReviewRecord = {
+    // REAL time. When a named person signed a review is a fact about the
+    // world, and the demo clock does not get to move it — a review dated to
+    // whenever somebody set the clock is not a review anybody can rely on.
     by: args.actorId, role: args.role, at: new Date().toISOString(),
     comment: args.comment ?? null, limits: args.limits ?? null,
   };
@@ -631,9 +662,9 @@ export async function signalExplanations(
   const c = cohort_or_null(signal.cohort_ref);
   if (!c) return [];
   const t = await loadThresholds();
-  const w = windows()[1];
+  const w = (await planningWindows())[1];
   const rows = await loadObservations(dataTenantIds, w);
-  const ctx = metricContext(`explain-${signal.signal_id}`, w);
+  const ctx = await metricContext(`explain-${signal.signal_id}`, w);
   return explain({
     cohort: c,
     reference: ALL_ELIGIBLE,

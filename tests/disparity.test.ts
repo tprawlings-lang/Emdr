@@ -349,7 +349,7 @@ import { populationTenantIds } from "../src/lib/planning/scope";
 test("the generated population carries the reversal, and it points both ways", async () => {
   getDb();
   const rows = await loadObservations(populationTenantIds());
-  const ctx = metricContext("reversal");
+  const ctx = await metricContext("reversal");
   const young = cohort("age_18_24.v1");
   const old = cohort("age_65_plus.v1");
 
@@ -382,7 +382,7 @@ test("the interpreter cohort's missing measures are mostly the service's", async
 test("no region carries a larger gap than the language cohorts", async () => {
   getDb();
   const rows = await loadObservations(populationTenantIds());
-  const ctx = metricContext("confound");
+  const ctx = await metricContext("confound");
   const ref = computeFollowupCompletion(rows, ALL_ELIGIBLE, ctx).value!;
   const gapOf = (c: CohortDefinition) =>
     Math.abs(computeFollowupCompletion(rows, c, ctx).value! - ref);

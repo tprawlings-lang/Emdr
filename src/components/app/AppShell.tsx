@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { DemoClockBadge } from "@/components/app/DemoClockBadge";
 
 // The application shell (Web GUI handoff, the 20 page examples).
 //
@@ -91,6 +92,11 @@ export function AppShell({
             <span className="rounded-full bg-app-flag px-3 py-1 text-xs font-semibold uppercase tracking-wide text-app-ink">
               Fabricated
             </span>
+            {/* p9: "clock shown in shell". In the FRAME, beside the fabricated
+                flag, for the same reason that one is there: a reader who does
+                not know the console is showing them March will read every
+                number on it as today's. */}
+            <DemoClockBadge />
             {accountHref ? (
               <Link
                 href={accountHref}

@@ -1,5 +1,6 @@
 import { data } from "@/lib/data";
 import { DATASET_VERSION } from "@/lib/demo-population-manifest";
+import { demoNow, demoToday } from "@/lib/demo-clock";
 import type { Observation, ComputeContext } from "./compute";
 
 // Turning rows into observations (handoff 07 §5.3, p48).
@@ -59,12 +60,22 @@ export async function loadObservations(tenantIds: string[], window?: Window): Pr
   if (tenantIds.length === 0) return [];
   const c = await data();
   const marks = tenantIds.map(() => "?").join(",");
-  const w = window ? { start: assertDate(window.start), end: assertDate(window.end) } : null;
+  // WITH NO WINDOW, the window is everything up to the demo clock.
+  //
+  // Not "everything". The clock lets a presenter read the environment as it
+  // stood at a milestone, and a loader that quietly included every row would
+  // show them the future — a population still checking in three months after
+  // the date on the screen. Expressing it as a window rather than as a special
+  // case means the clock gets the same enrolment cut-off, the same as-of and
+  // the same observed-weeks arithmetic as any other window, instead of a
+  // second code path that has to be kept in step.
+  const bound = window ?? { start: "1970-01-01", end: await demoToday() };
+  const w = { start: assertDate(bound.start), end: assertDate(bound.end) };
   // `checkin_date` is already a calendar date; the rest are ISO timestamps, so
   // they are truncated before comparison rather than compared as strings —
   // "2026-05-31T22:00:00Z" is not BETWEEN "2026-03-01" AND "2026-05-31".
-  const inWin = (col: string) => (w ? ` AND substr(${col}, 1, 10) BETWEEN '${w.start}' AND '${w.end}'` : "");
-  const kWin = w ? ` AND k.checkin_date BETWEEN '${w.start}' AND '${w.end}'` : "";
+  const inWin = (col: string) => ` AND substr(${col}, 1, 10) BETWEEN '${w.start}' AND '${w.end}'`;
+  const kWin = ` AND k.checkin_date BETWEEN '${w.start}' AND '${w.end}'`;
   // NOT applied to `first_action`, and the exception is the whole of what a
   // window means for a COHORT-ENTRY metric. Activation asks whether a person
   // acted within seven days OF ENROLLING; clipping their first action to a
@@ -81,7 +92,7 @@ export async function loadObservations(tenantIds: string[], window?: Window): Pr
   // Somebody who enrolled after the window closed was not observed in it, and
   // counting them as a person who failed to activate is the same censoring
   // error retention has.
-  const enrolWin = w ? ` AND substr(u.created_at, 1, 10) <= '${w.end}'` : "";
+  const enrolWin = ` AND substr(u.created_at, 1, 10) <= '${w.end}'`;
 
   const rows = (await c.all(
     `SELECT
@@ -185,8 +196,10 @@ export async function loadObservations(tenantIds: string[], window?: Window): Pr
 
   // The window's end, not the clock. A metric over a window that closed in
   // May must not have its denominators grow every day afterwards.
-  const asOf = w ? new Date(`${w.end}T23:59:59Z`).getTime() : Date.now();
-  const windowOpened = w ? new Date(`${w.start}T00:00:00Z`).getTime() : null;
+  const asOf = new Date(`${w.end}T23:59:59Z`).getTime();
+  // Null when the bound is the open-ended one, so "weeks observed" still runs
+  // from a person's enrolment rather than from 1970.
+  const windowOpened = window ? new Date(`${w.start}T00:00:00Z`).getTime() : null;
   const days = (from: unknown, to: unknown): number | null => {
     if (!from || !to) return null;
     return Math.round(
@@ -252,8 +265,11 @@ export async function loadObservations(tenantIds: string[], window?: Window): Pr
 /** The context every metric result carries (p48). Built once per run so every
  *  metric in a view shares one refresh time and one lineage reference — two
  *  numbers refreshed a second apart are not comparable and must not look it. */
-export function metricContext(runId: string, window?: Window): ComputeContext {
-  const now = new Date();
+export async function metricContext(runId: string, window?: Window): Promise<ComputeContext> {
+  // The DEMO clock. A context built from the real one while the reader is
+  // looking at a milestone would stamp every result with a refresh time
+  // months after the data it describes.
+  const now = await demoNow();
   const start = new Date(now.getTime() - 180 * 86400000);
   return {
     // The window travels in the result (p48). A context built for one window

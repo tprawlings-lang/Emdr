@@ -8,6 +8,8 @@ import { replayScenarios } from "@/lib/safety/scenarios";
 import { ADMIN_RAIL } from "@/lib/app/rails";
 import { getDb } from "@/lib/db";
 import { runQualityChecks, qualitySummary } from "@/lib/demo-quality";
+import { MILESTONES, readClock } from "@/lib/demo-clock";
+import { advanceDemoClock } from "@/lib/demo-clock-actions";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Demo administration — Steady" };
@@ -31,6 +33,7 @@ export const metadata = { title: "Demo administration — Steady" };
 
 export default async function AdminDemoPage() {
   const user = await requireDemoAdmin();
+  const clock = await readClock();
   const c = await data();
 
   const counts = (await c.get(
@@ -159,9 +162,72 @@ export default async function AdminDemoPage() {
           </ul>
         </Panel>
 
+        {/* p9's second control, built. Advance clock. */}
+        <WithNote
+          note={
+            <Note
+              tone={clock.live ? "info" : "caution"}
+              title={clock.live ? "The clock is live" : "The clock is moved"}
+              owner="Demo admin"
+              boundary="The clock moves the READING, never the record. Audit entries, session issue and expiry, and rate limits stay on the real clock — a demo control that could backdate an audit row or extend a session would be a governance hole with a friendly name."
+            >
+              <p>
+                {clock.live
+                  ? "Every console reads today. Moving the clock re-reads the same fixed dataset from an earlier point in the fabricated year."
+                  : `Every console is reading ${clock.now.toISOString().slice(0, 10)}` +
+                    (clock.reason ? `. Reason given: “${clock.reason}”.` : ".")}
+              </p>
+            </Note>
+          }
+        >
+          <Panel
+            title="Advance clock"
+            footnote="A milestone, not an arbitrary date (p9). The dataset does not move; the point you are reading it from does. A reset returns the clock to live."
+          >
+            <form action={advanceDemoClock} className="space-y-4">
+              <fieldset className="space-y-2">
+                <legend className="text-sm font-medium text-app-ink">Milestone</legend>
+                {[{ id: "live", label: "Live — read today", shows: "The clock is the real one." },
+                  ...MILESTONES].map((m) => (
+                  <label key={m.id} className="flex items-start gap-3 text-sm">
+                    <input
+                      type="radio"
+                      name="milestone"
+                      value={m.id}
+                      defaultChecked={clock.live ? m.id === "live" : clock.milestone?.id === m.id}
+                      className="mt-1"
+                    />
+                    <span>
+                      <span className="font-medium text-app-ink">{m.label}</span>
+                      <span className="measure block text-xs text-olive">{m.shows}</span>
+                    </span>
+                  </label>
+                ))}
+              </fieldset>
+              <label className="block text-sm">
+                <span className="font-medium text-app-ink">Reason</span>
+                <input
+                  name="reason"
+                  required
+                  minLength={4}
+                  placeholder="Investor walkthrough — show the half-year view"
+                  className="mt-1 w-full rounded-xl border border-ground/20 bg-app-surface px-3 py-2 text-sm"
+                />
+                <span className="mt-1 block text-xs text-olive">
+                  Recorded with the change. A clock moved for no stated purpose is a clock nobody
+                  can explain when a screen looks wrong an hour later.
+                </span>
+              </label>
+              <button className="rounded-full bg-app-accent px-4 py-2 text-sm font-medium text-app-ink hover:opacity-90">
+                Set the clock
+              </button>
+            </form>
+          </Panel>
+        </WithNote>
+
         <Panel
           title="Controls that are not built"
-          footnote="Handoff 07 p9 specifies six. None of the remaining five is rendered as a disabled button — a control a presenter might click mid-demonstration is worse than a sentence saying it does not exist."
+          footnote="Handoff 07 p9 specifies six; two are built. None of the remaining four is rendered as a disabled button — a control a presenter might click mid-demonstration is worse than a sentence saying it does not exist."
         >
           <dl className="divide-y divide-ground/5">
             {PENDING.map((p) => (
@@ -219,18 +285,16 @@ function Row({
   );
 }
 
-/** p9's six controls, minus the ones that exist. Each says what it needs, so
+/** p9's six controls, minus the ones that exist. Advance clock left this list
+ *  when it was built; the row is removed rather than struck through, because a
+ *  screen that keeps a record of what it used to lack is a screen nobody
+ *  trusts to be current. Each says what it needs, so
  *  the gap is a piece of work rather than a mystery. */
 const PENDING: Array<{ control: string; behavior: string; needs: string }> = [
   {
     control: "Reset dataset",
     behavior: "Recreate all seed records and projections, with a typed confirmation and a reason.",
     needs: "A recorded reset reason and an audit event — p9's guard, and the reason is the part that is missing.",
-  },
-  {
-    control: "Advance clock",
-    behavior: "Move the demo date to a scripted milestone, with the clock shown in the shell.",
-    needs: "A demo clock. Every timestamp today derives from the real one.",
   },
   {
     control: "Inject scenario",
