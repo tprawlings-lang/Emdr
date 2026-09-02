@@ -123,8 +123,15 @@ function refreshDemoDaily(db: Database.Database) {
   }
 }
 
-function migrate(db: Database.Database) {
-  db.exec(`
+/**
+ * THE SCHEMA, as one named string rather than an anonymous argument.
+ *
+ * Named so it can be READ BACK: `reconcileSchemaColumns` compares what this
+ * declares against what a live database actually has, which is the only way a
+ * column added here after a table shipped ever reaches a deployed disk.
+ * `CREATE TABLE IF NOT EXISTS` does nothing to a table that already exists.
+ */
+export const SCHEMA_SQL = `
   CREATE TABLE IF NOT EXISTS users (
     id TEXT PRIMARY KEY,
     email TEXT UNIQUE NOT NULL,
@@ -1103,7 +1110,10 @@ function migrate(db: Database.Database) {
 
   CREATE INDEX IF NOT EXISTS idx_levents_type ON longitudinal_events(event_type, id);
   CREATE INDEX IF NOT EXISTS idx_levents_correlation ON longitudinal_events(correlation_id);
-  `);
+`;
+
+function migrate(db: Database.Database) {
+  db.exec(SCHEMA_SQL);
 
   // Columns added after initial release; SQLite has no ADD COLUMN IF NOT EXISTS.
   ensureColumn(db, "checkins", "triggers_json", "TEXT NOT NULL DEFAULT '[]'");
@@ -1152,7 +1162,93 @@ function migrate(db: Database.Database) {
   for (const table of TENANT_SCOPED_TABLES) {
     ensureColumn(db, table, "tenant_id", `TEXT NOT NULL DEFAULT '${PLATFORM_TENANT_ID}'`);
   }
+
+  // ── The columns nobody remembered to migrate ─────────────────────────────
+  //
+  // `CREATE TABLE IF NOT EXISTS` does nothing to a table that already exists,
+  // so a column added to a schema block after that table shipped reaches every
+  // FRESH database and no DEPLOYED one. Eight columns above are migrated by
+  // hand for exactly this reason; the ninth was not, and could not be caught
+  // locally, because a fresh database always has it. It surfaced as a planning
+  // console answering 500 on a deployment — "table planning_signals has no
+  // column named reading_point" — four deploy cycles after the column landed.
+  //
+  // So the whole class is closed rather than the one instance. Every column
+  // the schema declares is reconciled against the live table, and one that is
+  // missing is added. The hand-written calls above stay: they carry backfills
+  // and triggers this cannot infer.
+  reconcileSchemaColumns(db, SCHEMA_SQL);
+
   backfillIdentitySpine(db);
+}
+
+/**
+ * Add any column the schema declares and the database does not have.
+ *
+ * DELIBERATELY CONSERVATIVE. It only adds columns SQLite can add to a
+ * populated table — nullable, or carrying a default — and it reports the rest
+ * rather than guessing at a value, because inventing one for an existing row
+ * is how a migration silently changes what the data means. A column it cannot
+ * add is named in the boot log, which is the signal to write the hand-migration
+ * with the backfill it needs.
+ */
+export function reconcileSchemaColumns(
+  db: Database.Database, schema: string,
+): { added: string[]; refused: string[] } {
+  const added: string[] = [];
+  const refused: string[] = [];
+
+  // Constraint lines, not columns. A table-level PRIMARY KEY or FOREIGN KEY
+  // sits in the same list and starts with a word, so it has to be excluded by
+  // name rather than by shape.
+  const NOT_A_COLUMN = /^(primary|foreign|unique|check|constraint)\b/i;
+
+  for (const m of schema.matchAll(
+    /CREATE TABLE IF NOT EXISTS\s+([A-Za-z_][A-Za-z0-9_]*)\s*\(([\s\S]*?)\n\s*\);/g,
+  )) {
+    const table = m[1];
+    const exists = db.prepare(
+      "SELECT 1 AS n FROM sqlite_master WHERE type = 'table' AND name = ?").get(table);
+    if (!exists) continue; // the CREATE just made it, or it is not ours
+
+    const live = new Set((db.prepare(`PRAGMA table_info(${table})`).all() as { name: string }[])
+      .map((c) => c.name));
+
+    // One definition per line is this schema's own convention, which keeps the
+    // parser honest: anything cleverer would be guessing at SQL it did not
+    // write.
+    for (const raw of m[2].split("\n")) {
+      const line = raw.replace(/--.*$/, "").trim().replace(/,$/, "");
+      if (!line || NOT_A_COLUMN.test(line)) continue;
+      const name = /^([A-Za-z_][A-Za-z0-9_]*)\s+(.+)$/.exec(line);
+      if (!name || live.has(name[1])) continue;
+
+      const ddl = name[2];
+      // SQLite refuses a NOT NULL column with no default on a populated table,
+      // and it is right to: there is no correct value for the rows already
+      // there. Reported, not forced.
+      if (/\bNOT\s+NULL\b/i.test(ddl) && !/\bDEFAULT\b/i.test(ddl)) {
+        refused.push(`${table}.${name[1]}`);
+        continue;
+      }
+      try {
+        db.exec(`ALTER TABLE ${table} ADD COLUMN ${name[1]} ${ddl}`);
+        added.push(`${table}.${name[1]}`);
+      } catch {
+        refused.push(`${table}.${name[1]}`);
+      }
+    }
+  }
+
+  if (added.length > 0) console.warn("[schema] added missing column(s):", added.join(", "));
+  if (refused.length > 0) {
+    console.warn(
+      "[schema] column(s) the schema declares that this database cannot gain " +
+      "automatically — each needs a hand-written migration with its backfill:",
+      refused.join(", "),
+    );
+  }
+  return { added, refused };
 }
 
 /**
