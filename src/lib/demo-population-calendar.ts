@@ -26,6 +26,33 @@ import { seedFor } from "./demo-population-manifest";
 /** How long the fabricated service has been running. */
 export const CALENDAR_DAYS = 360;
 
+/**
+ * The tail of the calendar the GENERATOR does not write.
+ *
+ * Those days are lived instead, by the agent behaviour layer, through the
+ * product's own machinery — the check-in routing rule, the safety gate engine,
+ * the spine recorders — rather than written straight into the tables.
+ *
+ * WHY RESERVE A TAIL AT ALL. The generator is fast and deterministic and it
+ * bypasses the product entirely: it has never called the gate engine, so the
+ * strongest claim the demonstration could make about safety was that ten fixed
+ * scenarios replay correctly. Reserving the most recent weeks means the window
+ * every metric and every planning rule actually reads is the window that went
+ * through the machinery.
+ *
+ * FOURTEEN DAYS, not the whole calendar. Living a year through the product
+ * would take minutes where a reset takes seconds, and p29 puts a 120-second
+ * ceiling on a reset. Fourteen days is enough for the gate engine to refuse
+ * things, for a safety event to be raised and answered, and for the most
+ * recent window to be genuinely lived — and cheap enough to stay inside the
+ * budget.
+ */
+export const AGENT_HORIZON = 14;
+
+/** The last day the generator writes. Everything after it belongs to the
+ *  agents. */
+export const GENERATED_DAYS = CALENDAR_DAYS - AGENT_HORIZON;
+
 /** The longest window any single profile is observed across — p14's six
  *  months. A profile that enrolled two months ago is observed for two months,
  *  not for six. */
@@ -89,6 +116,23 @@ function mix(n: number): number {
  *  since. */
 export function exposureDaysFor(row: ManifestRow): number {
   return Math.min(PERSON_DAYS, CALENDAR_DAYS - enrolmentDayFor(row));
+}
+
+/** How much of a person's exposure the GENERATOR is responsible for. The rest
+ *  is the agents', and the two together are the person's whole history. */
+export function generatedDaysFor(row: ManifestRow): number {
+  return Math.max(0, Math.min(exposureDaysFor(row), GENERATED_DAYS - enrolmentDayFor(row)));
+}
+
+/** The window the agents live, for one person, as day offsets from their own
+ *  enrolment. Empty for somebody who enrolled inside the agent horizon and has
+ *  no generated history at all — they are lived from their first day. */
+export function agentWindowFor(row: ManifestRow): { from: number; to: number } {
+  const start = enrolmentDayFor(row);
+  return {
+    from: Math.max(0, GENERATED_DAYS - start),
+    to: Math.min(PERSON_DAYS, CALENDAR_DAYS - start),
+  };
 }
 
 /**

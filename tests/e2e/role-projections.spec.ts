@@ -57,7 +57,7 @@ test("the clinician's panel shows real people, by name", async ({ page }) => {
 
   // Groups are fixed states with a count, and the screen says they overlap —
   // so it reads as work to do rather than as a ranking.
-  await expect(main).toContainText(/Fixed safety state/);
+  await expect(main).toContainText(/Under an active safety gate/);
   await expect(main).toContainText(/may appear in more than one group/);
 });
 
@@ -66,36 +66,47 @@ test("an empty group says it is empty rather than rendering blank", async ({ pag
   // explain whether it is expected.
   await signIn(page, "clinician");
   await page.goto("/clinician/population");
-  const text = await page.locator("main").innerText();
 
-  // Every group, not only the ones that happen to be empty. The first version
-  // looped over zero-count groups and asserted nothing at all when none was
-  // empty — which was most runs.
-  const groups = [...text.matchAll(/^(.+?) \((\d+)\)$/gm)];
-  expect(groups.length, "no groups rendered on the panel").toBeGreaterThanOrEqual(3);
+  // Read the GROUPS, not the page text. The first version matched headings out
+  // of innerText and sliced the body between one heading and the next — which
+  // meant the LAST group's "body" was the whole rest of the page, and anything
+  // counted inside it was counting the page footer.
+  const groups = page.getByTestId("panel-group");
+  const count = await groups.count();
+  expect(count, "no groups rendered on the panel").toBeGreaterThanOrEqual(3);
 
-  for (let i = 0; i < groups.length; i++) {
-    const here = text.indexOf(groups[i][0]) + groups[i][0].length;
-    // Bounded at the NEXT heading, not at a fixed character count. A 140-
-    // character window ran past a blank group straight into the following
-    // heading, so the check passed on a group that rendered nothing at all —
-    // it was measuring its neighbour.
-    const next = i + 1 < groups.length ? text.indexOf(groups[i + 1][0]) : text.length;
-    const body = text.slice(here, next).trim();
+  let empties = 0;
+  let listedGroups = 0;
+  for (let i = 0; i < count; i++) {
+    const group = groups.nth(i);
+    const heading = (await group.getByTestId("group-heading").textContent())?.trim() ?? "";
+    const claimed = Number(/\((\d+)\)\s*$/.exec(heading)?.[1] ?? "-1");
+    expect(claimed, `the group "${heading}" does not state a count`).toBeGreaterThanOrEqual(0);
 
-    if (groups[i][2] === "0") {
+    const listed = await group.getByTestId("group-member").count();
+    // A count that disagrees with what is listed is worse than a blank group:
+    // it reads as authoritative.
+    expect(listed, `the group "${heading}" claims ${claimed} and lists ${listed}`).toBe(claimed);
+
+    if (claimed === 0) {
       // A blank space reads as a failure to load, so an empty group has to say
       // in words that it is empty and that this is expected.
-      expect(body, `the empty group "${groups[i][1]}" renders blank`).toMatch(/[a-z]{4,}\s+[a-z]{2,}/i);
+      const body = (await group.innerText()).replace(heading, "").trim();
+      expect(body, `the empty group "${heading}" renders blank`).toMatch(/[a-z]{4,}\s+[a-z]{2,}/i);
+      empties += 1;
     } else {
-      expect(body.length, `the group "${groups[i][1]}" claims ${groups[i][2]} and lists nothing`)
-        .toBeGreaterThan(3);
+      listedGroups += 1;
     }
   }
-  // At least one group IS empty on this dataset, so the branch above is
-  // exercised rather than merely present.
-  expect(groups.some((g) => g[2] === "0"), "no group is empty, so the empty rendering is untested")
-    .toBe(true);
+  // The previous version required at least one group to be EMPTY, so that the
+  // empty rendering was exercised. That held only because the attention list
+  // had nobody on it — a guard resting on an absence, which failed the moment
+  // the panel had somebody to show. The empty rendering is covered by the
+  // no-population test below; what is guarded here is that every group's count
+  // matches what it lists, in both branches.
+  expect(listedGroups + empties).toBe(count);
+  expect(listedGroups, "no group lists anybody — the panel is not being tested")
+    .toBeGreaterThan(0);
 });
 
 test("an organization with no demo population says so instead of showing zeros", async ({ page }) => {

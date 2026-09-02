@@ -8,6 +8,7 @@ import { seedOrgData, ORG_TENANT_ID } from "./demo-org-seed";
 import { seedPayerData, PAYER_TENANT_ID } from "./demo-payer-seed";
 import { seedPopulationData, seedOperationalFeeds, orgTenantId } from "./demo-population-seed";
 import { generatePopulationHistory } from "./demo-population-generator";
+import { runAgents } from "./agents/runner";
 import { ulid, NIL_ULID, ulidFrom } from "./ids";
 
 // Resolved lazily inside getDb() (not at module load) so EMDR_DATA_DIR is
@@ -1433,6 +1434,11 @@ export function seedDemo(db: Database.Database) {
     seedPopulationData(db);
     seedOperationalFeeds(db);
     generatePopulationHistory(db);
+    // The reserved tail, LIVED rather than written: the last fortnight of
+    // every person's history goes through the check-in routing rule and the
+    // safety gate engine, so the window every metric and every planning rule
+    // reads is one the engine actually saw.
+    runAgents(db);
     bindAggregateAccounts(db);
   })();
   refreshDemoDaily(db);
@@ -1494,8 +1500,9 @@ function seed(db: Database.Database) {
       seedPayerData(db);
       seedPopulationData(db);
       seedOperationalFeeds(db);
-    seedOperationalFeeds(db);
       generatePopulationHistory(db);
+      // The reserved tail, LIVED rather than written.
+      runAgents(db);
       bindAggregateAccounts(db);
       return;
     }

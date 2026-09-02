@@ -222,7 +222,7 @@ wave surfaced.
 | 5 ✅ | The ten-metric dictionary, the cohort registry, and pure arithmetic over typed observations | "Wave 5" |
 | 6 ✅ | **The planning engine** — seven rules, owned thresholds, the eight-state machine, `/review/planning`, and an authored access model that gives it something real to find | "Wave 6" |
 | 7 | Fairness controls, the audit screen, the model registry shell | handoff pp37–38, 43 |
-| 8 ◑ | **The demo clock is built** — five scripted milestones, shown in the shell. The rest of the control centre, the nightly reset and the presenter scripts remain | handoff pp9, 29, 56 |
+| 8 ◑ | **The demo clock and the agent behaviour layer are built** — five scripted milestones shown in the shell, and the calendar's last fortnight lived through the real routing rule and gate engine. The rest of the control centre, the nightly reset and the presenter scripts remain | handoff pp9, 29, 56 |
 
 **Where the planning engine is.** `/review/planning` lists every one of p34's seven rules
 with what it produced, and for anything that produced nothing, p34's own reason.
@@ -251,6 +251,35 @@ a real person cannot receive a fabricated event) and `assertSingleProvenance` ho
 side by **throwing rather than filtering** — a filtered metric is a metric with an undisclosed
 denominator. This is the prerequisite for running synthetic agents alongside a study with real
 participants.
+
+**The last fortnight of the population is lived, not written.** The generator writes rows; the
+agent layer (`src/lib/agents/`) lives days. Fourteen days of the 360-day calendar are reserved,
+and across them each of the 240 fabricated people is asked what they want to do — check in, open
+a module, request a session — and the intent goes through **the product's own machinery**:
+`evaluateCheckin` for routing, `evaluateAccess` for the gate. Until this existed, the strongest
+safety claim the demonstration could make was that ten fixed scenarios replay correctly; the
+gate engine had never been run at population scale, because the generator wrote a check-in and a
+safety event side by side and nobody asked whether the second followed from the first. One run:
+318 check-ins over 3,360 person-days (959 quiet — a population that shows up daily is a cron
+job), 318 gate decisions, **25 person-days of restricted access**, 3 rule-driven refusals, and
+17 requests that stopped at the beta configuration. It is not evidence about care: every intent
+comes from rules we wrote, so it tests the *machinery*, not the medicine. An agent acts only for
+a person whose provenance is `fabricated`, checked before anything is written.
+
+Several things it found. The refusal headline said 20 where 3 were real — the other 17 had no rule
+and no member-facing reason, because autonomous stimulation is simply switched off in beta, and
+logging a global product setting as a per-person safety event would have landed on that person's
+chart as their latest safety state. The gate restricted 25 days and only 3 left a trace, so
+`/clinician/population` could not show that somebody had been routed to crisis resources
+yesterday — and its attention filter, which matched `paused` alone, would have *dropped* a
+paused person off the list the moment a later restriction became their latest state. And a
+per-person check-in floor fired on the length of a person's generated window rather than on what
+was actually in the table for them, which are not the same number for somebody whose enrolment
+drag consumed their whole window. And two console guards had been passing for the wrong reason:
+with the seeded history ending a fortnight before "today", *every* member on the caseload read
+as overdue for contact, so a check that skipped rows banded `none` never skipped anything — it
+compared the enum against a page that renders that band as "Clear" — and the population panel's
+requirement that one group be empty was resting on an attention list with nobody on it.
 
 **All 240 profiles have working logins** — `st-<region>-<nnn>@steady.local`, verified 240 of
 240 — and `src/lib/analysis/power.ts` uses them as the basis for a **detector power analysis**:

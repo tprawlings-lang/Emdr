@@ -30,12 +30,26 @@ test("the caseload orders by clinical need and always shows its reason", async (
   const rows = page.getByTestId("caseload-row");
   const count = await rows.count();
   expect(count).toBeGreaterThan(0);
+
+  // The skip is on the RENDERED label. The band enum's "none" reaches the page
+  // as "Clear", so comparing against the enum skipped nothing — and that went
+  // unnoticed because every member's last check-in predated the seeded
+  // history's end by a fortnight, so every row carried "Watch". The moment the
+  // population had recent activity, the first clear row walked into the
+  // assertion.
+  let skipped = 0;
+  let checked = 0;
   for (let i = 0; i < count; i++) {
     const row = rows.nth(i);
     const band = (await row.getByTestId("band").textContent())?.trim().toLowerCase() ?? "";
-    if (band === "none") continue;
+    if (band.includes("clear")) { skipped += 1; continue; }
     await expect(row.getByTestId("reasons")).toBeVisible();
+    checked += 1;
   }
+  // Both branches were taken, so neither is dead code the next time the
+  // dataset shifts under it.
+  expect(checked, "no banded row on the caseload — the rule went untested").toBeGreaterThan(0);
+  expect(skipped, "no clear row on the caseload — the skip went untested").toBeGreaterThan(0);
 });
 
 test("a member record shows cited claims, marked provenance, and separated AI output", async ({ page }) => {

@@ -46,7 +46,14 @@ export default async function ClinicianPopulationPage() {
   // p40's first row: immediate fixed-state work. Sorted by state rather than
   // by a score — §29.1 forbids a predictive risk score, and a queue ordered by
   // one would be that score wearing a different name.
-  const needsAttention = panel.rows.filter((r) => r.safetyState === "paused");
+  // "Paused" is not the only state that means an active gate. The engine can
+  // also lower somebody's ceiling on the day, or decline a session they asked
+  // for, and both leave the person restricted right now. Filtering on "paused"
+  // alone did not merely miss those people — it dropped a paused person off
+  // this list the moment a later restriction became their latest state, which
+  // is the opposite of what the list is for.
+  const ACTIVE_GATE = new Set(["paused", "access_restricted", "session_refused"]);
+  const needsAttention = panel.rows.filter((r) => r.safetyState && ACTIVE_GATE.has(r.safetyState));
   const stale = panel.rows.filter((r) => r.daysSinceCheckIn !== null && r.daysSinceCheckIn > 14);
   const missingMeasures = panel.rows.filter((r) => r.missing > 0);
 
@@ -62,9 +69,12 @@ export default async function ClinicianPopulationPage() {
           cards={[
             { label: "On your panel", value: String(panel.population), detail: panel.window },
             {
-              label: "Paused",
+              // NOT "Paused" any more, because the list is not only paused
+              // people. A label that names one member of a set it no longer
+              // describes is a number that reads as smaller than it is.
+              label: "Under a safety gate",
               value: String(needsAttention.length),
-              detail: "A fixed safety state, awaiting review",
+              detail: "Paused, or access lowered by the engine",
             },
             {
               label: "Quiet 14+ days",
@@ -78,7 +88,7 @@ export default async function ClinicianPopulationPage() {
           note={
             <Note
               title="What ordering this list does not do"
-              boundary="Nobody here is ranked. The groups below are fixed states — paused, quiet, measure outstanding — and a person can be in more than one or none. There is no score, no priority number, and no ordering that implies who is most at risk."
+              boundary="Nobody here is ranked. The groups below are fixed states — gated, quiet, measure outstanding — and a person can be in more than one or none. There is no score, no priority number, and no ordering that implies who is most at risk."
               owner={clinician.name}
             >
               <p>
@@ -95,8 +105,8 @@ export default async function ClinicianPopulationPage() {
             footnote={`${panel.window}. Refreshed ${panel.refreshedAt}. A person may appear in more than one group.`}
           >
             <Group
-              title="Fixed safety state"
-              empty="Nobody on your panel is currently paused."
+              title="Under an active safety gate"
+              empty="Nobody on your panel is paused or currently restricted."
               rows={needsAttention}
             />
             <Group
@@ -177,8 +187,8 @@ function Group({
   empty: string;
 }) {
   return (
-    <div className="border-b border-ground/5 py-3 last:border-0">
-      <p className="text-sm font-medium text-app-ink">
+    <div data-testid="panel-group" className="border-b border-ground/5 py-3 last:border-0">
+      <p data-testid="group-heading" className="text-sm font-medium text-app-ink">
         {title} <span className="font-normal text-olive">({rows.length})</span>
       </p>
       {rows.length === 0 ? (
@@ -188,7 +198,7 @@ function Group({
       ) : (
         <ul className="mt-1 flex flex-wrap gap-x-3 gap-y-1">
           {rows.map((r) => (
-            <li key={r.personId}>
+            <li key={r.personId} data-testid="group-member">
               <Link href={`/clinician/member/${r.personId}`} className="text-sm text-state-info underline">
                 {r.name}
               </Link>
