@@ -7,6 +7,10 @@ import {
 import { tenantForRow, clinicianPersonId } from "./demo-population-seed";
 import { accessProfileFor, type AccessProfile } from "./demo-population-disparity";
 import {
+  CALENDAR_DAYS, MIN_MEASURES, PERSON_DAYS, demoEpoch, enrolmentDayFor, exposureDaysFor,
+  scaledRange,
+} from "./demo-population-calendar";
+import {
   MEMBER_NOTES, OPERATIONAL_NOTES, CLINICIAN_COMMENTS, pick,
 } from "./demo-population-dictionaries";
 
@@ -81,16 +85,13 @@ export class StableRandom {
 // The calendar
 // ---------------------------------------------------------------------------
 
-/** p14: six months. Every timestamp in this module is `demo_epoch + offset`,
- *  never a wall clock read mid-generation — two rows written a millisecond
- *  apart would otherwise land on different days near midnight. */
-export const DEMO_DAYS = 180;
-
-export function demoEpoch(now = Date.now()): Date {
-  const d = new Date(now - DEMO_DAYS * 86400000);
-  d.setUTCHours(0, 0, 0, 0);
-  return d;
-}
+// The calendar lives in `demo-population-calendar.ts` and is re-exported here
+// because callers have imported `DEMO_DAYS` and `demoEpoch` from this module
+// since Wave 3. `DEMO_DAYS` now means what it always said it meant — how long
+// one person is observed for — and no longer doubles as the length of the
+// generated calendar, which is what made a rolling intake impossible.
+export { demoEpoch, CALENDAR_DAYS, PERSON_DAYS, enrolmentDayFor, exposureDaysFor, scaledRange };
+export const DEMO_DAYS = PERSON_DAYS;
 
 function dayStamp(epoch: Date, day: number, hour: number): string {
   const t = new Date(epoch.getTime() + day * 86400000);
@@ -180,10 +181,41 @@ function measureOn(row: ManifestRow, dayFraction: number): number {
   return Math.round(row.baseline + (row.followUp - row.baseline) * Math.max(0, Math.min(1, norm)));
 }
 
-/** Whether a day falls inside this archetype's authored inactive stretch. */
-function inGap(row: ManifestRow, day: number): boolean {
+/** Whether a day falls inside this archetype's authored inactive stretch.
+ *
+ *  `day` is PERSON-RELATIVE — days since this profile enrolled, not days since
+ *  the fabricated service opened. The gap offsets in `PATHS` were always
+ *  person-relative ("a 45-day stretch starting on day 40 of their journey");
+ *  they were compared against an absolute day and matched only because every
+ *  profile enrolled within a fortnight of the epoch. Under a rolling intake
+ *  that comparison would put a person's authored gap before they existed. */
+function inGap(row: ManifestRow, dayFromEnrolment: number, exposure = PERSON_DAYS): boolean {
+  const g = gapFor(row, exposure);
+  return g !== null && dayFromEnrolment >= g[0] && dayFromEnrolment < g[0] + g[1];
+}
+
+/**
+ * The authored gap, placed proportionally inside the person's own window.
+ *
+ * The offsets in `PATHS` are written against a full six months — "a 45-day
+ * stretch starting on day 40". Somebody observed for six weeks has not had a
+ * day 40, and a gap placed there falls outside their window entirely. The
+ * first version of the rolling intake did exactly that and put safety events
+ * up to eleven weeks in the FUTURE, which the seeded-timestamp guard caught.
+ *
+ * So the gap keeps its POSITION and its SHARE of the journey rather than its
+ * day count: a pause that happens 53% of the way through and lasts a quarter
+ * of the window is the same story at any exposure, and it is always inside it.
+ */
+function gapFor(row: ManifestRow, exposure: number): [number, number] | null {
   const g = PATHS[row.archetype].gap;
-  return g !== undefined && day >= g[0] && day < g[0] + g[1];
+  if (g === undefined) return null;
+  const share = Math.min(1, exposure / PERSON_DAYS);
+  const start = Math.max(1, Math.round(g[0] * share));
+  const length = Math.max(1, Math.round(g[1] * share));
+  // Never runs past the person's last day: a gap that swallows the end of the
+  // window would leave them with no final measure to pin the follow-up to.
+  return [Math.min(start, Math.max(1, exposure - 2)), Math.min(length, Math.max(1, exposure - start - 1))];
 }
 
 // ---------------------------------------------------------------------------
@@ -315,7 +347,19 @@ function generateInner(db: Database.Database): GeneratedCounts {
     // person: how quickly a first appointment was arranged, how many measures
     // were delivered, how often they showed up.
     const access = accessProfileFor(row);
-    const startDay = seed % 14;
+    // WHEN THIS PERSON JOINED, and how long they have been here. Both come
+    // from the calendar module so the seed and the generator cannot disagree
+    // about an enrolment date — they did once, and the result was a person
+    // whose first check-in preceded their own account.
+    const startDay = enrolmentDayFor(row);
+    const exposure = exposureDaysFor(row);
+    // Every offset below is measured from `startDay`. A curve, an authored
+    // gap, a measure schedule and a safety event are all facts about a
+    // person's own journey, and before the calendar split they were offsets
+    // from the day the fabricated service opened — which was only ever right
+    // because everybody opened with it.
+    const lastDay = startDay + exposure;
+    const since = (day: number) => (day - startDay) / Math.max(1, exposure);
 
     // ── Enrolment: one account, one consent set (p14) ────────────────────
     insUser.run(
@@ -390,9 +434,18 @@ function generateInner(db: Database.Database): GeneratedCounts {
     // absorb the whole effect for anyone already near it — the multiplier
     // would apply to the people it least needed to and not to the people it
     // did.
+    // SCALED TO EXPOSURE. p14's 18–90 describes a person observed for six
+    // months; somebody who joined three weeks ago cannot have eighteen
+    // check-ins, and requiring it is what forced the whole population into a
+    // single fortnight of intake. The rate is held constant instead, and the
+    // quality manifest checks against the scaled bound so a shortchanged
+    // recent arrival still fails.
+    const checkInBound = scaledRange(TARGETS.checkins, exposure);
     const wantCheckIns = Math.max(
-      TARGETS.checkins[0],
-      Math.min(TARGETS.checkins[1], Math.round(rng.int(path.checkIns[0], path.checkIns[1]) * access.engagementFactor)),
+      checkInBound[0],
+      Math.min(checkInBound[1], Math.round(
+        rng.int(path.checkIns[0], path.checkIns[1]) * access.engagementFactor * (exposure / PERSON_DAYS),
+      )),
     );
     // The first check-in cannot precede the first appointment, so the access
     // model's start drag moves this window too. Without it the drag would move
@@ -400,8 +453,8 @@ function generateInner(db: Database.Database): GeneratedCounts {
     // enrolling" — would be identical for everybody, which is the half of the
     // age reversal that makes the other half interesting.
     const openDays: number[] = [];
-    for (let day = startDay + 1 + drag; day < DEMO_DAYS; day++) {
-      if (!inGap(row, day)) openDays.push(day);
+    for (let day = startDay + 1 + drag; day < lastDay; day++) {
+      if (!inGap(row, day - startDay, exposure)) openDays.push(day);
     }
     // Fisher-Yates on the seeded generator, then take the first N and re-sort.
     // Sampling with rejection would draw a different number of times depending
@@ -415,13 +468,15 @@ function generateInner(db: Database.Database): GeneratedCounts {
 
     let checkins = 0;
     for (const day of checkInDays) {
-      const frac = day / DEMO_DAYS;
+      const frac = since(day);
       const measure = measureOn(row, frac);
       // Daily state tracks the measure trajectory rather than being drawn
       // separately — p28: outcomes are not sampled independently of the
       // history that produced them.
       const severity = Math.max(0, Math.min(10, Math.round(measure / 3)));
-      const paused = row.safety === "Fixed pause" && day > (path.gap?.[0] ?? 1e9) - 3 && day < (path.gap?.[0] ?? 0) + 1;
+      const rel = day - startDay;
+      const gap = gapFor(row, exposure);
+      const paused = row.safety === "Fixed pause" && gap !== null && rel > gap[0] - 3 && rel < gap[0] + 1;
 
       insCheckin.run(
         popId("checkin", `${row.id}:${day}`), personId, tenant, dayDate(epoch, day),
@@ -445,7 +500,10 @@ function generateInner(db: Database.Database): GeneratedCounts {
     // on top, rather than subtracted from a due count — otherwise a person
     // with a high miss rate falls below the specified minimum, which is
     // exactly what happened first time.
-    const wantMeasures = rng.int(4, 8);
+    const measureBound = scaledRange(TARGETS.measures, exposure, MIN_MEASURES);
+    const wantMeasures = Math.max(
+      measureBound[0], Math.min(measureBound[1], Math.round(rng.int(4, 8) * (exposure / PERSON_DAYS))),
+    );
     // TWO KINDS OF MISS, kept apart all the way down to the reason on the
     // event, because they are two different problems with two different fixes.
     //
@@ -487,7 +545,7 @@ function generateInner(db: Database.Database): GeneratedCounts {
 
     let completed = 0;
     for (let i = 0; i < dueCount; i++) {
-      const day = Math.round(startDay + ((DEMO_DAYS - startDay - 1) * i) / Math.max(1, dueCount - 1));
+      const day = Math.round(startDay + ((exposure - 1) * i) / Math.max(1, dueCount - 1));
       if (undeliveredSlots.has(i)) {
         // The service's side. p28's "unavailable", and the mechanisms that
         // produced it are named ON THE EVENT — so a reviewer who opens a
@@ -528,7 +586,7 @@ function generateInner(db: Database.Database): GeneratedCounts {
         // numbers are the authored truth, and a curve that only approaches
         // them would make the follow-up on every chart disagree with the row
         // it came from.
-        i === 0 ? row.baseline : i === dueCount - 1 ? row.followUp : measureOn(row, day / DEMO_DAYS),
+        i === 0 ? row.baseline : i === dueCount - 1 ? row.followUp : measureOn(row, since(day)),
         "[]", dayStamp(epoch, day, 12),
       );
       completed++;
@@ -536,10 +594,16 @@ function generateInner(db: Database.Database): GeneratedCounts {
     counts.measures += completed;
 
     // ── Modules (p14: 8–55) ──────────────────────────────────────────────
-    const moduleCount = rng.int(path.modules[0], path.modules[1]);
+    const moduleBound = scaledRange(TARGETS.modules, exposure);
+    const moduleCount = Math.max(
+      moduleBound[0],
+      Math.min(moduleBound[1], Math.round(rng.int(path.modules[0], path.modules[1]) * (exposure / PERSON_DAYS))),
+    );
     for (let i = 0; i < moduleCount; i++) {
-      let day = startDay + 1 + Math.floor(rng.next() * (DEMO_DAYS - startDay - 2));
-      if (inGap(row, day)) day = Math.min(DEMO_DAYS - 1, day + (path.gap?.[1] ?? 0));
+      let day = startDay + 1 + Math.floor(rng.next() * Math.max(1, exposure - 2));
+      if (inGap(row, day - startDay, exposure)) {
+        day = Math.min(lastDay - 1, day + (gapFor(row, exposure)?.[1] ?? 0));
+      }
       const [id, type] = MODULES[rng.int(0, MODULES.length - 1)];
       insPractice.run(
         popId("practice", `${row.id}:${i}`), personId, tenant, id, type,
@@ -551,12 +615,12 @@ function generateInner(db: Database.Database): GeneratedCounts {
     // ── Support sessions (p14: 0–8, never trauma-processing proof) ───────
     const sessionCount = rng.int(path.sessions[0], path.sessions[1]);
     for (let i = 0; i < sessionCount; i++) {
-      const day = startDay + 5 + Math.floor(rng.next() * (DEMO_DAYS - startDay - 6));
-      if (inGap(row, day)) continue;
+      const day = startDay + 5 + Math.floor(rng.next() * Math.max(1, exposure - 6));
+      if (inGap(row, day - startDay, exposure)) continue;
       // A SUPPORT session. p14 is explicit that these are "never treated as
       // trauma-processing proof", so the module is resourcing and the SUDS
       // pair records a settling rather than a desensitisation.
-      const pre = Math.max(1, Math.min(10, Math.round(measureOn(row, day / DEMO_DAYS) / 3)));
+      const pre = Math.max(1, Math.min(10, Math.round(measureOn(row, since(day)) / 3)));
       insSession.run(
         popId("session", `${row.id}:${i}`), personId, tenant, "resourcing",
         pre, Math.max(0, pre - rng.int(0, 2)),
@@ -570,7 +634,12 @@ function generateInner(db: Database.Database): GeneratedCounts {
     // safety column is the authored expectation; these events are what a
     // reviewer replays against it.
     if (row.safety !== "No active gate") {
-      const gateDay = path.gap?.[0] ?? Math.floor(DEMO_DAYS * 0.6);
+      const gap = gapFor(row, exposure);
+      // Every one of these three days is clamped inside the person's own
+      // window. A gate, its response and its re-entry are a sequence, and the
+      // last of them has to land before the window closes or the seeded
+      // timestamp is in the future — which is how this was found.
+      const gateDay = Math.min(lastDay - 2, startDay + (gap?.[0] ?? Math.floor(exposure * 0.6)));
       const kind = row.safety === "Fixed pause" ? "safety_state.changed" : "clinician.reviewed";
       insEvent.run(
         popId("gate", `${row.id}:open`), tenant, personId, kind,
@@ -593,6 +662,8 @@ function generateInner(db: Database.Database): GeneratedCounts {
       // the median read 593 hours. That is not a latency, it is the average
       // distance between two unrelated things.
       const responseHours = 6 + (seed % 42);
+      const responseDay = Math.min(lastDay - 1, gateDay + Math.floor(responseHours / 24));
+      const resolveDay = Math.min(lastDay - 1, gateDay + (gap?.[1] ?? 21));
       insEvent.run(
         popId("gate", `${row.id}:response`), tenant, personId, "clinician.reviewed",
         JSON.stringify({
@@ -602,8 +673,8 @@ function generateInner(db: Database.Database): GeneratedCounts {
           fabricated: true,
         }),
         clinicianPersonId(row.clinician), "clinician",
-        dayStamp(epoch, gateDay + Math.floor(responseHours / 24), 9 + (responseHours % 12)),
-        dayStamp(epoch, gateDay + Math.floor(responseHours / 24), 9 + (responseHours % 12)),
+        dayStamp(epoch, responseDay, 9 + (responseHours % 12)),
+        dayStamp(epoch, responseDay, 9 + (responseHours % 12)),
         PROV, popId("corr", row.id), null,
       );
       counts.clinicianActions++;
@@ -615,8 +686,11 @@ function generateInner(db: Database.Database): GeneratedCounts {
           popId("gate", `${row.id}:reentry`), tenant, personId, "safety_state.changed",
           JSON.stringify({ state: "re_entered", reason: "reviewed_and_agreed", fabricated: true }),
           null, "clinician",
-          dayStamp(epoch, gateDay + (path.gap?.[1] ?? 21), 9),
-          dayStamp(epoch, gateDay + (path.gap?.[1] ?? 21), 9), PROV, popId("corr", row.id), null,
+          // Clamped to the person's last day. The resolution of a pause that
+          // began near the end of a short window would otherwise be dated
+          // after the window closed — which is to say, in the future.
+          dayStamp(epoch, resolveDay, 9),
+          dayStamp(epoch, resolveDay, 9), PROV, popId("corr", row.id), null,
         );
         counts.safetyEvents++;
       }
@@ -625,7 +699,7 @@ function generateInner(db: Database.Database): GeneratedCounts {
     // ── Clinician actions: 1–12 (p14) ────────────────────────────────────
     const actionCount = rng.int(1, 8);
     for (let i = 0; i < actionCount; i++) {
-      const day = startDay + 3 + Math.floor(rng.next() * (DEMO_DAYS - startDay - 4));
+      const day = startDay + 3 + Math.floor(rng.next() * Math.max(1, exposure - 4));
       insEvent.run(
         popId("action", `${row.id}:${i}`), tenant, personId, "clinician.reviewed",
         JSON.stringify({
@@ -649,7 +723,7 @@ function generateInner(db: Database.Database): GeneratedCounts {
     for (let i = 0; i < correctionCount; i++) {
       const originalId = popId("action", `${row.id}:${i}`);
       if (i >= actionCount) break;
-      const day = DEMO_DAYS - 5 - i;
+      const day = lastDay - 5 - i;
       insEvent.run(
         popId("correction", `${row.id}:${i}`), tenant, personId, "memory.patient_corrected",
         JSON.stringify({

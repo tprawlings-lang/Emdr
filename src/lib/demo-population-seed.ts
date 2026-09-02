@@ -5,6 +5,7 @@ import {
   MANIFEST, DATASET_VERSION, REGION_SEED_OFFSET, seedFor,
   type ManifestRow, type Region,
 } from "./demo-population-manifest";
+import { CALENDAR_DAYS, enrolmentDayFor } from "./demo-population-calendar";
 import { displayName, pick, MEMBER_NOTES } from "./demo-population-dictionaries";
 import { ALEX_ID, SAM_ID, DEMO_CLINICIAN_ID } from "./demo-seed";
 
@@ -88,6 +89,12 @@ export function tenantForRow(row: ManifestRow): string {
  */
 export const DEMO_CLINICIAN_CODE = "NE-C1";
 
+/** The person id behind a manifest row. Exported so the quality manifest can
+ *  check a per-person bound without re-deriving the hash and drifting from it. */
+export function popPersonId(row: ManifestRow): string {
+  return popId("person", row.id);
+}
+
 export function clinicianPersonId(code: string): string {
   return code === DEMO_CLINICIAN_CODE ? DEMO_CLINICIAN_ID : popId("clinician", code);
 }
@@ -122,9 +129,14 @@ function seedPopulationInner(db: Database.Database) {
     return t;
   };
   const sql = (d: Date) => d.toISOString().slice(0, 19).replace("T", " ");
-  // p14: "All timestamps derive from demo_epoch plus seeded offsets." Six
-  // months of history means enrolment starts 180 days back.
-  const EPOCH_DAYS = 180;
+  // p14: "All timestamps derive from demo_epoch plus seeded offsets."
+  //
+  // EPOCH_DAYS is the age of the fabricated SERVICE, not of any one person.
+  // The two were the same number until intake became rolling, which is exactly
+  // the confusion the calendar module exists to end. A person's own enrolment
+  // date comes from `enrolmentDayFor`, and it has to be the same function the
+  // generator uses or a profile's first check-in can precede their account.
+  const EPOCH_DAYS = CALENDAR_DAYS;
 
   const insertTenant = db.prepare(
     "INSERT INTO tenants (id, kind, name, parent_tenant_id, created_at) VALUES (?, ?, ?, ?, ?)",
@@ -189,10 +201,12 @@ function seedPopulationInner(db: Database.Database) {
     const seed = seedFor(row);
     const id = popId("person", row.id);
     const tenant = tenantForRow(row);
-    // Enrolment is spread across the first fortnight of the window by seed, so
-    // the cohort does not all start on one day — a population whose members
-    // every enrolled on the same date makes retention meaningless.
-    const enrolledDaysAgo = EPOCH_DAYS - (seed % 14);
+    // Enrolment is spread across the whole calendar: a founding cohort in the
+    // first half and continuing intake since. A population that all enrolled
+    // inside one fortnight makes retention meaningless AND makes every
+    // cohort-entry comparison unfirable, because the recent windows contain
+    // nobody to convert.
+    const enrolledDaysAgo = EPOCH_DAYS - enrolmentDayFor(row);
 
     insertPerson.run(id, tenant, displayName(seed), sql(at(enrolledDaysAgo)));
     insertAttributes.run(

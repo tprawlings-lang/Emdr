@@ -84,6 +84,39 @@ interface Reading {
   rows: Observation[];
 }
 
+/**
+ * Missingness OF THE METRIC BEING READ, not of follow-up completion.
+ *
+ * Every reading used to report follow-up missingness whatever metric it
+ * carried, which meant ACCESS_GAP — a comparison of stage conversion — was
+ * gated on how many follow-up measures were outstanding. Those are different
+ * questions, and the wrong one was binding: at 30.5% against a 30% limit the
+ * access comparison was refused for incompleteness in a metric it does not
+ * read.
+ *
+ * What "missing" means depends on the metric, so it is computed per metric:
+ *
+ *   ACTIVATION is a cohort-entry metric derived from events the ledger either
+ *   holds or does not. Nobody's activation is unknown. What IS unobservable is
+ *   somebody whose seven days have not elapsed, so that exclusion — which the
+ *   metric already reports — is its missingness.
+ *
+ *   FOLLOW-UP COMPLETION is a missingness measure in its own right: the share
+ *   of due measures not completed.
+ *
+ *   PAIRED CHANGE is unobservable for anybody without both measures.
+ */
+function missingnessFor(r: MetricResult): number {
+  const excluded = Object.entries(r.missing)
+    .filter(([k]) => k.startsWith("excluded_") || k === "unpaired")
+    .reduce((s, [, v]) => s + Number(v), 0);
+  if (excluded > 0) {
+    const total = r.denominator + excluded;
+    return total === 0 ? 1 : excluded / total;
+  }
+  return missingnessOf(r);
+}
+
 function readingFor(
   c: CohortDefinition, ref: CohortDefinition, r: Reading, runId: string,
   compute: (rows: Observation[], c: CohortDefinition, ctx: ReturnType<typeof metricContext>) => MetricResult,
@@ -95,7 +128,7 @@ function readingFor(
     label: label(r.window),
     cohort: cohortResult,
     reference: referenceResult,
-    missingness: missingnessOf(computeFollowupCompletion(r.rows, c, ctx)),
+    missingness: missingnessFor(cohortResult),
   };
 }
 
