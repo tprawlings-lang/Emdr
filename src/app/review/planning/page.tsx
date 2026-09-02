@@ -32,9 +32,22 @@ export default async function PlanningSignalsPage() {
   // the dataset version — so running it on a page load re-raises nothing and
   // adds nothing. A signal a reviewer has already moved keeps its state and
   // its frozen evidence.
-  const detection = tenants.length > 0
-    ? await detectSignals(populationTenantIds(), PLANNING_TENANT_ID, user.role)
-    : null;
+  //
+  // A FAILURE HERE IS NAMED, NOT RETURNED AS A BLANK 500 — and never as an
+  // empty console. Detection reads the whole population through the metric
+  // layer, so it has more ways to fail than the rest of this page, and on the
+  // deployed instance it did: the console answered 500 and told nobody why,
+  // including me. Rendering zero signals instead would be worse than the 500,
+  // because "no signals" is a claim about the population and a failure is not.
+  let detection: Awaited<ReturnType<typeof detectSignals>> | null = null;
+  let detectionError: string | null = null;
+  if (tenants.length > 0) {
+    try {
+      detection = await detectSignals(populationTenantIds(), PLANNING_TENANT_ID, user.role);
+    } catch (err) {
+      detectionError = err instanceof Error ? `${err.message}` : String(err);
+    }
+  }
   const signals = tenants.length > 0 ? await listSignals(tenants, user.role) : [];
 
   const withheldByRule = new Map<string, { reason: string; count: number }>();
@@ -52,6 +65,16 @@ export default async function PlanningSignalsPage() {
       here="/review/planning"
     >
       <div className="space-y-6">
+        {detectionError && (
+          <Callout tone="support" label="The rules could not be evaluated">
+            <p className="measure">
+              Nothing below describes this population: detection failed, and an empty list
+              would be a claim rather than an absence. The signals already stored are still
+              shown, because those were computed when detection last succeeded.
+            </p>
+            <p className="measure mt-2 font-mono text-xs">{detectionError}</p>
+          </Callout>
+        )}
         <Callout tone="review" label="What a planning signal is">
           <p className="measure">{REQUIRED_PHRASE}</p>
         </Callout>
