@@ -142,6 +142,13 @@ export default async function PlanningSignalsPage() {
                     </div>
                     <div>
                       <p className="measure text-sm text-ground">{r.trigger}</p>
+                      {/* BOTH HALVES, when there are both. A rule can fire on
+                          one cohort and be withheld on another — REGION_CAPACITY
+                          fires on a strained region and withholds on one whose
+                          slot feed froze — and showing only the firing hides the
+                          more interesting half. The first version did exactly
+                          that and the stale-feed finding was invisible on the
+                          screen built to surface it. */}
                       <p className="mt-1 text-xs text-olive">
                         {fired > 0
                           ? `${fired} signal${fired === 1 ? "" : "s"} — output: ${r.output}`
@@ -149,6 +156,11 @@ export default async function PlanningSignalsPage() {
                             ? `No output in ${w.count} cohort${w.count === 1 ? "" : "s"}: ${w.reason}`
                             : "Evaluated; the trigger did not hold."}
                       </p>
+                      {fired > 0 && w && (
+                        <p className="measure mt-1 text-xs text-olive">
+                          No output in {w.count} other cohort{w.count === 1 ? "" : "s"}: {w.reason}
+                        </p>
+                      )}
                     </div>
                   </li>
                 );

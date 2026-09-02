@@ -24,7 +24,7 @@ import type { MetricResult } from "../src/lib/metrics/compute";
 import { ROLES, type Role } from "../src/lib/roles";
 import {
   PLANNING_OWNER, RULE_IDS, RULE_VERSION, THRESHOLD_DEFAULTS, THRESHOLD_VERSION,
-  defaultThresholds, thresholdsFrom, type ThresholdSource,
+  defaultThresholds, thresholdsFrom, type RuleId, type ThresholdSource,
 } from "../src/lib/planning/policy";
 import {
   LADDER, CURRENT_LEVEL, ladder, wordingViolation, NO_RACE_CORRECTION,
@@ -239,22 +239,26 @@ test("MODULE_SIGNAL will not fire without an interval estimate", () => {
 });
 
 test("MODULE_SIGNAL is withheld when the interval crosses zero", () => {
+  // The CONFIDENCE interval, not the observed range. The rule reads ci_low and
+  // ci_high; an earlier fixture set only range_low and range_high and the test
+  // passed for the wrong reason — the rule withheld because no interval was
+  // supplied at all, which is a different branch from the one under test.
   const spanning = ctx({
     change: [
-      window_("w1", 70, 85, { cohort: result({ detail: { mean_change: -6, range_low: -12, range_high: 3 } }), reference: result({ detail: { mean_change: -1 } }) }),
-      window_("w2", 70, 85, { cohort: result({ detail: { mean_change: -6, range_low: -12, range_high: 3 } }), reference: result({ detail: { mean_change: -1 } }) }),
+      window_("w1", 70, 85, { cohort: result({ detail: { mean_change: -6, ci_low: -12, ci_high: 3 } }), reference: result({ detail: { mean_change: -1 } }) }),
+      window_("w2", 70, 85, { cohort: result({ detail: { mean_change: -6, ci_low: -12, ci_high: 3 } }), reference: result({ detail: { mean_change: -1 } }) }),
     ],
   });
   const out = evaluateRule("MODULE_SIGNAL", spanning, T);
-  assert.match(String(out.withheld), /crosses zero/);
+  assert.match(String(out.withheld), /confidence interval crosses zero/);
 
   // The same difference with an interval entirely below zero fires: mean −6
   // against −1 is a 5-point difference, past the 2-point default, in both
   // windows.
   const clear = ctx({
     change: [
-      window_("w1", 70, 85, { cohort: result({ detail: { mean_change: -6, range_low: -12, range_high: -2 } }), reference: result({ detail: { mean_change: -1 } }) }),
-      window_("w2", 70, 85, { cohort: result({ detail: { mean_change: -6, range_low: -12, range_high: -2 } }), reference: result({ detail: { mean_change: -1 } }) }),
+      window_("w1", 70, 85, { cohort: result({ detail: { mean_change: -6, ci_low: -12, ci_high: -2 } }), reference: result({ detail: { mean_change: -1 } }) }),
+      window_("w2", 70, 85, { cohort: result({ detail: { mean_change: -6, ci_low: -12, ci_high: -2 } }), reference: result({ detail: { mean_change: -1 } }) }),
     ],
   });
   const fired = evaluateRule("MODULE_SIGNAL", clear, T);
@@ -950,10 +954,25 @@ test("detection over the fabricated population raises signals, and repeats produ
 
   // p34's no-output column, evaluated rather than described. Three rules have
   // no input in this deployment and each names the one it does not have.
-  const reasons = Object.fromEntries(first.withheld.map((w) => [w.ruleId, w.reason]));
-  assert.match(String(reasons.REGION_CAPACITY), /open-slot feed/);
-  assert.match(String(reasons.SAFETY_REVIEW_LOAD), /coverage schedule/);
-  assert.match(String(reasons.MODULE_SIGNAL), /confidence interval/);
+  // p34's no-output column, evaluated rather than described. The reasons have
+  // changed as the deployment gained the inputs it lacked, and that is the
+  // record of what was built: REGION_CAPACITY and SAFETY_REVIEW_LOAD used to
+  // withhold because no scheduling feed and no rota existed anywhere in the
+  // schema. Both exist now, so the only reasons left are real conditions on
+  // real data — a cohort that is not regional, or a site whose feed froze.
+  const byRule = new Map<string, string[]>();
+  for (const w of first.withheld) byRule.set(w.ruleId, [...(byRule.get(w.ruleId) ?? []), w.reason]);
+  const matches = (rule: string, re: RegExp) =>
+    (byRule.get(rule) ?? []).some((r) => re.test(r));
+
+  assert.ok(matches("REGION_CAPACITY", /no capacity reading was supplied/),
+    "a cohort with no region got a regional capacity reading, which is a category error");
+  assert.ok(matches("REGION_CAPACITY", /days old, past the/),
+    "no site's slot feed is stale, so p34's staleness condition is never exercised on real data");
+  assert.ok(matches("MODULE_SIGNAL", /confidence interval|paired observations/),
+    "MODULE_SIGNAL is not being evaluated against an interval");
+  assert.ok(matches("FAIRNESS_ALERT", /not defined by a protected attribute/),
+    "a fairness alert was assessed for a cohort that is not a protected group");
 
   // Ids derive from the rule, the cohort and the dataset version, so a second
   // pass re-raises nothing.
@@ -1108,5 +1127,99 @@ test("lineage returns definitions and evidence, and no person", async () => {
   const json = JSON.stringify(l);
   for (const banned of ["person_id", "personId", "display_name", "email"]) {
     assert.doesNotMatch(json, new RegExp(banned), `the lineage response carries ${banned}`);
+  }
+});
+
+// ---------------------------------------------------------------------------
+// The operational feeds (handoff 07 §3.4, p34)
+// ---------------------------------------------------------------------------
+
+import { loadCapacity, loadReviewLoad } from "../src/lib/metrics/population-metrics";
+import { windows } from "../src/lib/planning/service";
+
+test("a regional total is only as fresh as its slowest site", async () => {
+  // THE SUBTLE ONE. Two sites make up a region: one reports weekly, one froze
+  // months ago. Taking the newest reading across the region says the feed is
+  // current, and the total is assembled from a stale component — which is the
+  // exact failure p34 spends a column on, reporting itself as healthy.
+  //
+  // Taking the OLDEST raw row is wrong in the other direction: the oldest row
+  // in a ninety-day window is ninety days old by construction, so every feed
+  // reads as stale however well it is working. Both mistakes were made here in
+  // turn.
+  //
+  // What matters is whether each site is still reporting: each one's latest,
+  // then the oldest of those.
+  getDb();
+  const w = windows()[1];
+  const readings = await loadCapacity(populationTenantIds(), w);
+  assert.ok(readings.length > 0, "no capacity readings at all — the feed is not seeded");
+
+  const fresh = readings.filter((r) => (r.asOfAgeDays ?? 999) <= 7);
+  const stale = readings.filter((r) => (r.asOfAgeDays ?? 0) > 7);
+  assert.ok(fresh.length > 0, "every region's feed is stale, so the age is measuring the window");
+  assert.ok(stale.length > 0,
+    "no region's feed is stale, so a frozen site is hiding behind a working one");
+});
+
+test("the capacity feed carries both halves of a ratio, and the review feed a rota", async () => {
+  getDb();
+  const w = windows()[1];
+  for (const r of await loadCapacity(populationTenantIds(), w)) {
+    assert.ok(r.demand >= 0);
+    assert.ok(r.openFirstVisitSlots === null || r.openFirstVisitSlots > 0,
+      `${r.region} reports zero open slots, which is a ratio nobody can compute`);
+  }
+  const load = await loadReviewLoad(populationTenantIds(), w);
+  assert.ok(load.length > 0);
+  for (const r of load) {
+    assert.equal(r.coverageScheduleKnown, true, `${r.region} has no coverage schedule`);
+    assert.equal(r.classificationComplete, true,
+      `${r.region} has review events with no classification, so the count is of something undefined`);
+  }
+});
+
+test("demand is referrals, not the residue who never got seen", async () => {
+  // A units error that made REGION_CAPACITY unfirable in the other direction.
+  // Slots are consumed by everyone who is seen, so comparing a period's supply
+  // against only the people it FAILED reports a service at capacity as one
+  // with nothing to do. Measured on the first version: demand of 0 to 2
+  // against a supply of 141 to 219.
+  getDb();
+  const w = windows()[1];
+  const readings = await loadCapacity(populationTenantIds(), w);
+  const totalDemand = readings.reduce((s, r) => s + r.demand, 0);
+  const totalSlots = readings.reduce((s, r) => s + (r.openFirstVisitSlots ?? 0), 0);
+  assert.ok(totalDemand > 0, "no demand at all");
+  // Within an order of magnitude of each other. A fabricated feed sized like a
+  // real network against a 240-person fixture makes every ratio 0.01, which is
+  // not a capacity model, it is two unrelated numbers on one screen.
+  assert.ok(totalDemand > totalSlots / 10 && totalDemand < totalSlots * 10,
+    `demand ${totalDemand} and supply ${totalSlots} are not on the same scale, so no ratio ` +
+    "between them means anything");
+});
+
+test("the rules fire on the fabricated deployment, and each withholding is a real condition", async () => {
+  // The exit evidence for the whole engine, on real data rather than fixtures.
+  getDb();
+  const r = await detectSignals(populationTenantIds(), PLANNING_TENANT_ID, "reviewer");
+  const fired = new Set(r.signals.map((s) => s.signal_type));
+
+  // Four of p34's seven produce output on this deployment.
+  for (const id of ["REGION_CAPACITY", "SAFETY_REVIEW_LOAD", "FOLLOWUP_GAP", "FAIRNESS_ALERT"]) {
+    assert.ok(fired.has(id as RuleId), `${id} produced nothing — the demonstration has lost a rule`);
+  }
+  // And DATA_QUALITY does not, because the environment meets its own limits.
+  // If it fired, everything above would be suppressed and the assertions would
+  // read as a broken engine rather than a broken environment.
+  assert.equal(r.releaseBlocked, false, "planning release is blocked, so no other rule was evaluated");
+
+  // Every signal carries a cohort that still resolves. A region cohort is
+  // GENERATED from a template rather than listed in the registry, and until
+  // `cohort()` learned to resolve those, a signal about the West lost its own
+  // definition and its detail screen had nothing under Population.
+  for (const s of r.signals) {
+    const c = cohort(s.cohort_ref);
+    assert.ok(c.question.length > 0, `${s.cohort_ref} resolves to a cohort with no stated question`);
   }
 });

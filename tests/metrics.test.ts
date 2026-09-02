@@ -513,21 +513,40 @@ test("POPULATION: the responder rate is a subset of the paired population", asyn
   assert.equal(responders.detail.threshold, RESPONDER_THRESHOLD);
 });
 
-test("POPULATION: retention at the window's edge is flagged, not reported as zero", async () => {
-  // The demo window is 180 days, so day-180 retention is structurally
-  // unobservable: nobody can have an action at day 180 of a 180-day window.
-  // It reports 0 of 18 with 224 censored, which is arithmetically right and
-  // reads as a finding unless something says otherwise.
+test("POPULATION: retention censors the people whose window has not run", async () => {
+  // THIS TEST CHANGED WHEN INTAKE BECAME ROLLING, and the change is the point.
+  //
+  // It used to assert that day-180 retention was flagged `mostly_censored`,
+  // because every profile enrolled inside one fortnight of a 180-day window
+  // and so NOBODY could have an action at day 180. The metric was structurally
+  // unobservable and the flag was the only thing standing between a reader and
+  // a flat 0% that looked like a finding.
+  //
+  // With a rolling intake the founding cohort has been enrolled long enough
+  // for day-180 to be a real question, and the recent arrivals are censored
+  // rather than counted as losses. So the flag is correctly ABSENT and the
+  // censoring is doing the work instead — which is what censoring is for, and
+  // what a single-cohort fixture could never exercise.
   const rows = await population();
   const ctx = metricContext("test");
-  const late = computeRetention(rows, ALL_ELIGIBLE, ctx, 180);
-  assert.equal(late.detail.mostly_censored, "true",
-    "day-180 retention on a 180-day window reports a rate with no flag, so 0% reads as a result");
 
-  // The earlier milestones are observable and are not flagged.
+  const late = computeRetention(rows, ALL_ELIGIBLE, ctx, 180);
+  assert.ok(late.denominator > 30,
+    `only ${late.denominator} people have been enrolled 180 days — the founding cohort is gone`);
+  assert.ok(Number(late.missing.censored_window_not_elapsed) > 0,
+    "nobody is censored at day 180, so intake is not rolling and the milestone is not observable");
+  assert.equal(late.detail.mostly_censored, "false",
+    "day-180 retention is flagged as mostly censored even though most of the cohort has run 180 days");
+
+  // Earlier milestones are observable for more people, and the denominator
+  // grows monotonically as the milestone comes closer — the shape a rolling
+  // intake produces and a single cohort cannot.
   const early = computeRetention(rows, ALL_ELIGIBLE, ctx, 30);
+  const mid = computeRetention(rows, ALL_ELIGIBLE, ctx, 90);
+  assert.ok(early.denominator >= mid.denominator && mid.denominator >= late.denominator,
+    `observable counts do not fall as the milestone recedes: ${early.denominator}, ` +
+    `${mid.denominator}, ${late.denominator}`);
   assert.equal(early.detail.mostly_censored, "false");
-  assert.ok(early.denominator > 200, `only ${early.denominator} people are observable at day 30`);
 });
 
 test("POPULATION: time to review measures a response to the gate, not the next action", async () => {

@@ -5,6 +5,7 @@ import {
   MANIFEST, DATASET_VERSION, REGION_SEED_OFFSET, seedFor,
   type ManifestRow, type Region,
 } from "./demo-population-manifest";
+import { CALENDAR_DAYS, demoEpoch, enrolmentDayFor } from "./demo-population-calendar";
 import { displayName, pick, MEMBER_NOTES } from "./demo-population-dictionaries";
 import { ALEX_ID, SAM_ID, DEMO_CLINICIAN_ID } from "./demo-seed";
 
@@ -88,6 +89,12 @@ export function tenantForRow(row: ManifestRow): string {
  */
 export const DEMO_CLINICIAN_CODE = "NE-C1";
 
+/** The person id behind a manifest row. Exported so the quality manifest can
+ *  check a per-person bound without re-deriving the hash and drifting from it. */
+export function popPersonId(row: ManifestRow): string {
+  return popId("person", row.id);
+}
+
 export function clinicianPersonId(code: string): string {
   return code === DEMO_CLINICIAN_CODE ? DEMO_CLINICIAN_ID : popId("clinician", code);
 }
@@ -122,9 +129,14 @@ function seedPopulationInner(db: Database.Database) {
     return t;
   };
   const sql = (d: Date) => d.toISOString().slice(0, 19).replace("T", " ");
-  // p14: "All timestamps derive from demo_epoch plus seeded offsets." Six
-  // months of history means enrolment starts 180 days back.
-  const EPOCH_DAYS = 180;
+  // p14: "All timestamps derive from demo_epoch plus seeded offsets."
+  //
+  // EPOCH_DAYS is the age of the fabricated SERVICE, not of any one person.
+  // The two were the same number until intake became rolling, which is exactly
+  // the confusion the calendar module exists to end. A person's own enrolment
+  // date comes from `enrolmentDayFor`, and it has to be the same function the
+  // generator uses or a profile's first check-in can precede their account.
+  const EPOCH_DAYS = CALENDAR_DAYS;
 
   const insertTenant = db.prepare(
     "INSERT INTO tenants (id, kind, name, parent_tenant_id, created_at) VALUES (?, ?, ?, ?, ?)",
@@ -189,10 +201,12 @@ function seedPopulationInner(db: Database.Database) {
     const seed = seedFor(row);
     const id = popId("person", row.id);
     const tenant = tenantForRow(row);
-    // Enrolment is spread across the first fortnight of the window by seed, so
-    // the cohort does not all start on one day — a population whose members
-    // every enrolled on the same date makes retention meaningless.
-    const enrolledDaysAgo = EPOCH_DAYS - (seed % 14);
+    // Enrolment is spread across the whole calendar: a founding cohort in the
+    // first half and continuing intake since. A population that all enrolled
+    // inside one fortnight makes retention meaningless AND makes every
+    // cohort-entry comparison unfirable, because the recent windows contain
+    // nobody to convert.
+    const enrolledDaysAgo = EPOCH_DAYS - enrolmentDayFor(row);
 
     insertPerson.run(id, tenant, displayName(seed), sql(at(enrolledDaysAgo)));
     insertAttributes.run(
@@ -308,4 +322,116 @@ function bindNarrativePersonas(db: Database.Database) {
  *  generator so the text a person "wrote" is stable across rebuilds. */
 export function memberNoteFor(row: ManifestRow): string {
   return pick(MEMBER_NOTES, seedFor(row), 1);
+}
+
+/**
+ * The operational feeds (handoff 07 §3.4, p34).
+ *
+ * Open first-visit slots and staffed review capacity, by site and week. Two
+ * of p34's seven rules compare against these and produced nothing without
+ * them, and the reason they produced nothing was honest: no scheduling system
+ * and no rota existed anywhere in the schema, so the organization capacity
+ * screen drew demand alone and named the missing source above the chart.
+ *
+ * THESE ARE FABRICATED STAND-INS for integrations this deployment does not
+ * have, and they are shaped to behave like the real thing rather than to make
+ * a rule fire:
+ *
+ *   Capacity varies by site and drifts week to week, because a rota does. Two
+ *   of the eight organizations are deliberately under-resourced relative to
+ *   their demand and the rest are not, so REGION_CAPACITY has something to
+ *   find and somewhere to find nothing.
+ *
+ *   Every row carries an `as_of`. p34 refuses to evaluate stale slot data, and
+ *   a feed with no age would make that condition unevaluable — the same defect
+ *   as having no feed, wearing a number.
+ *
+ *   One site's feed is deliberately STALE. A capacity rule that has never met
+ *   an out-of-date input has not been tested against the condition p34 spends
+ *   a column on.
+ */
+export function seedOperationalFeeds(db: Database.Database) {
+  const epoch = demoEpoch();
+  const day = (n: number) => new Date(epoch.getTime() + n * 86400000);
+  const date = (d: Date) => d.toISOString().slice(0, 10);
+  const PERIOD = 28;
+
+  const insSlots = db.prepare(
+    `INSERT INTO capacity_slots
+       (id, tenant_id, census_region, period_start, period_days, open_first_visit_slots, as_of)
+     VALUES (?, ?, ?, ?, ?, ?, ?) ON CONFLICT(tenant_id, period_start) DO NOTHING`);
+  const insCoverage = db.prepare(
+    `INSERT INTO review_coverage
+       (id, tenant_id, census_region, period_start, period_days, staffed_review_capacity,
+        coverage_schedule, as_of)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(tenant_id, period_start) DO NOTHING`);
+
+  // SIZED TO THE POPULATION IT SERVES. 240 profiles across a year is roughly
+  // three first-visit referrals per region per four-week period, so a site
+  // meeting its share offers two or three slots and one falling behind offers
+  // one. Numbers borrowed from a real network would make every ratio 0.01 and
+  // the rule unfirable in the other direction — the units have to match the
+  // fixture, not the ambition.
+  // ONE REGION IS GENUINELY STRAINED, and one is close enough to be worth
+  // watching. That is the authored story, and it is authored at the region
+  // level rather than the site level because a rule about regional capacity
+  // reads a region: making one site of two thin leaves the region comfortable
+  // and the finding invisible.
+  //
+  //   West   — under-resourced on both feeds. Demand runs ahead of slots and
+  //            fixed reviews run ahead of the rota. It should fire.
+  //   South  — thin on slots and adequately staffed. It should come close and
+  //            not fire, because a console where the only two states are
+  //            "fine" and "alarm" gets read as an alarm system.
+  const THIN_CAPACITY = new Set<Region>(["WE", "SO"]);
+  const THIN_REVIEW = new Set<Region>(["WE"]);
+  // The site whose scheduling feed stopped updating. p34's staleness condition
+  // needs something to be stale.
+  const STALE_FEED = "MW-B";
+
+  db.transaction(() => {
+    for (const region of Object.keys(REGION_NAMES) as Region[]) {
+      for (const arm of ["A", "B"] as const) {
+        const key = `${region}-${arm}`;
+        const tenant = orgTenantId(region, arm);
+        // Arm A carries two thirds of each region's panel (see armFor), so it
+        // needs the larger share of the slots. The under-resourced sites are
+        // given a share that does not keep up with it.
+        const baseline = THIN_CAPACITY.has(region) ? 1 : (arm === "A" ? 3 : 2);
+        const reviewBase = THIN_REVIEW.has(region) ? 1 : (arm === "A" ? 3 : 2);
+
+        for (let period = 0; period * PERIOD < CALENDAR_DAYS; period++) {
+          const periodStart = day(period * PERIOD);
+          // A deterministic wobble: a rota moves, and a feed reporting the
+          // identical number every period for a year is not a feed.
+          const wobble = ((period * 7919) % 3) - 1;
+          // WHEN THE FEED LAST REPORTED, which is the END of the period it
+          // describes, not the beginning. Dating it to the period start made
+          // every reading look four weeks old the moment it was written, and
+          // the newest row in a window was 24 days stale — so p34's staleness
+          // condition refused a feed that was working perfectly.
+          const asOf = key === STALE_FEED
+            // Frozen months ago. The rows still arrive; they stopped meaning
+            // anything, which is the failure a staleness check exists for and
+            // is far more common than a feed that stops entirely.
+            ? day(Math.min(period * PERIOD, CALENDAR_DAYS - 120))
+            : day(Math.min((period + 1) * PERIOD, CALENDAR_DAYS));
+
+          insSlots.run(
+            popId("slots", `${key}:${period}`), tenant, REGION_NAMES[region],
+            date(periodStart), PERIOD, Math.max(1, baseline + wobble), date(asOf),
+          );
+          insCoverage.run(
+            popId("coverage", `${key}:${period}`), tenant, REGION_NAMES[region],
+            // No bonus period for a stretched rota. Everywhere else a good
+            // month adds a slot; a site running one reviewer does not get a
+            // second one because the month was quiet.
+            date(periodStart), PERIOD,
+            Math.max(1, reviewBase + (THIN_REVIEW.has(region) ? 0 : wobble > 0 ? 1 : 0)),
+            "business hours, weekdays", date(asOf),
+          );
+        }
+      }
+    }
+  })();
 }

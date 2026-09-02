@@ -227,6 +227,37 @@ const median = (xs: number[]): number | null => {
   return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
 };
 
+/**
+ * A 95% interval for the mean of the within-person differences.
+ *
+ * Normal approximation, stated as such in the result rather than left for a
+ * reader to assume. Two things follow from saying it out loud: it is only
+ * reasonable at a decent sample size, so it returns null below thirty pairs
+ * rather than producing a confident-looking interval from eight people; and it
+ * describes SAMPLING uncertainty only. It says nothing about whether the
+ * people with two measures resemble the people with one, which is the larger
+ * uncertainty here and is reported separately as unpaired count and
+ * missingness.
+ *
+ * Null for a degenerate sample rather than a zero-width interval: an interval
+ * of [x, x] reads as perfect precision, which is the opposite of what one
+ * observation means.
+ */
+function confidenceInterval(xs: number[]): [number, number] | null {
+  const n = xs.length;
+  // p37's minimum analysis size. Below it the normal approximation is not
+  // defensible and the honest answer is that there is no interval.
+  if (n < 30) return null;
+  const mean = xs.reduce((a, b) => a + b, 0) / n;
+  // Sample variance, n-1 in the denominator: dividing by n estimates the
+  // variance of THIS sample rather than of the population it came from, and
+  // produces an interval that is systematically too narrow.
+  const variance = xs.reduce((s, x) => s + (x - mean) ** 2, 0) / (n - 1);
+  if (variance === 0) return null;
+  const se = Math.sqrt(variance / n);
+  return [mean - 1.96 * se, mean + 1.96 * se];
+}
+
 const percentile = (xs: number[], p: number): number | null => {
   if (xs.length === 0) return null;
   const s = [...xs].sort((a, b) => a - b);
@@ -310,17 +341,33 @@ export function computeObservedChange(rows: Observation[], c: CohortDefinition, 
   const paired = pop.filter((r) => r.baseline !== null && r.followUp !== null);
   const deltas = paired.map((r) => r.followUp! - r.baseline!);
   const mean = deltas.length ? deltas.reduce((a, b) => a + b, 0) / deltas.length : null;
+  const ci = confidenceInterval(deltas);
   return base(def, c, ctx, paired.length, pop.length,
     { unpaired: pop.length - paired.length },
     {
       paired_n: paired.length,
       mean_change: mean === null ? null : Math.round(mean * 100) / 100,
       median_change: median(deltas),
-      // The interval is the observed spread, NOT a confidence interval — this
-      // is a descriptive metric at the bottom rung of p36's ladder, and
-      // labelling a range as a confidence interval would promote it a level.
+      // THE OBSERVED SPREAD. Every value seen, which is a description of the
+      // people in the cohort and not an estimate of anything about anyone
+      // else. Kept because it answers a different question from the interval
+      // below: "how varied were these people" rather than "how precisely do we
+      // know their average".
       range_low: deltas.length ? Math.min(...deltas) : null,
       range_high: deltas.length ? Math.max(...deltas) : null,
+      // THE CONFIDENCE INTERVAL on the mean paired difference.
+      //
+      // An earlier version reported only the range and said in this comment
+      // that calling it a confidence interval would promote the finding a rung
+      // on p36's ladder. That was right about the range and wrong about the
+      // interval, and it left p32's required display for this metric — which
+      // lists "interval" — unmet. A confidence interval on a descriptive mean
+      // quantifies sampling uncertainty; it adjusts for nothing and assumes no
+      // design, so it is still level 1. What would promote a finding is an
+      // ADJUSTED estimate, and nothing here adjusts.
+      ci_low: ci === null ? null : Math.round(ci[0] * 100) / 100,
+      ci_high: ci === null ? null : Math.round(ci[1] * 100) / 100,
+      ci_method: ci === null ? null : "95% normal approximation on the mean of within-person differences",
       instrument_version: "phq-9 standard",
     });
 }

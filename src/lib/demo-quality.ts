@@ -1,6 +1,8 @@
 import type Database from "better-sqlite3";
 import { MANIFEST, MANIFEST_EMAIL_LIKE, checkManifest, type CheckResult } from "./demo-population-manifest";
 import { TARGETS } from "./demo-population-generator";
+import { MIN_MEASURES, exposureDaysFor, scaledRange } from "./demo-population-calendar";
+import { popPersonId } from "./demo-population-seed";
 
 // The data-quality manifest (handoff 07 §2.8, p29).
 //
@@ -86,15 +88,41 @@ export function runQualityChecks(db: Database.Database): CheckResult[] {
   // no longer matches the specification it claims to implement. The first
   // version of the generator produced a person with 1 check-in and another
   // with 134 against a stated bound of 18–90, and nothing said so.
-  const range = (table: string, label: string, [lo, hi]: readonly [number, number]) => {
-    const r = db.prepare(
-      `SELECT MIN(n) AS lo, MAX(n) AS hi FROM (
-         SELECT user_id, COUNT(*) AS n FROM ${table} WHERE user_id IN ${POP} GROUP BY user_id)`,
-    ).get() as { lo: number | null; hi: number | null };
-    const ok = r.lo !== null && r.lo >= lo && r.hi !== null && r.hi <= hi;
+  // SCALED TO EXPOSURE, per person. p14's ranges describe somebody observed
+  // for the full six months, and intake is rolling — a profile that enrolled
+  // three weeks ago cannot have eighteen check-ins. Checking the flat number
+  // would either fail the whole manifest or force every profile to enrol on
+  // the same fortnight, which is the constraint that made the planning
+  // engine's two-window rules unfirable.
+  //
+  // The rate is what is checked, so a generator that shortchanged a recent
+  // arrival still fails. Reported as the number of profiles OUTSIDE their own
+  // bound, because a min and a max across a population with different windows
+  // do not mean anything.
+  const range = (table: string, label: string, target: readonly [number, number]) => {
+    const counts = new Map<string, number>();
+    for (const r of db.prepare(
+      `SELECT user_id AS id, COUNT(*) AS n FROM ${table} WHERE user_id IN ${POP} GROUP BY user_id`,
+    ).all() as { id: string; n: number }[]) counts.set(r.id, Number(r.n));
+
+    const offenders: string[] = [];
+    let lo = Infinity;
+    let hi = 0;
+    for (const row of MANIFEST) {
+      const n = counts.get(popPersonId(row)) ?? 0;
+      const [min, max] = scaledRange(
+        target, exposureDaysFor(row), table === "screenings" ? MIN_MEASURES : 1);
+      lo = Math.min(lo, n);
+      hi = Math.max(hi, n);
+      if (n < min || n > max) offenders.push(`${row.id} has ${n}, wanted ${min}–${max}`);
+    }
     out.push({
-      check: `Per person — ${label}`, expected: `${lo}–${hi}`,
-      actual: r.lo === null ? "none" : `${r.lo}–${r.hi}`, pass: ok,
+      check: `Per person — ${label}`,
+      expected: `${target[0]}–${target[1]} at full exposure, scaled pro rata`,
+      actual: offenders.length === 0
+        ? `${lo === Infinity ? 0 : lo}–${hi} across the population, all inside their own bound`
+        : `${offenders.length} outside: ${offenders.slice(0, 3).join("; ")}`,
+      pass: offenders.length === 0,
     });
   };
   range("checkins", "check-ins", TARGETS.checkins);
