@@ -1516,7 +1516,6 @@ export function populationChain(db: Database.Database) {
  * would turn a bad dataset into no demonstration at all.
  */
 function reconcilePopulation(db: Database.Database) {
-  if (process.env.EMDR_DEMO !== "1") return;
   const record = (status: string, detail: string | null) => {
     try {
       db.prepare(
@@ -1526,6 +1525,19 @@ function reconcilePopulation(db: Database.Database) {
       ).run(new Date().toISOString().slice(0, 19).replace("T", " "), status, detail);
     } catch { /* the log must never be the thing that breaks the boot */ }
   };
+  // WRITTEN BEFORE THE ATTEMPT, not only after it. The first version recorded
+  // only the two outcomes, and the deployed instance then reported "no attempt
+  // recorded" — which is a third state the code could not distinguish from
+  // "never called". A marker written first separates a repair that crashed
+  // from one that never ran.
+  if (process.env.EMDR_DEMO !== "1") {
+    // Recorded rather than a bare return: "this is not a demo environment" and
+    // "the repair never ran" are different answers, and only one of them is a
+    // problem.
+    record("skipped_not_demo", `EMDR_DEMO=${JSON.stringify(process.env.EMDR_DEMO ?? null)}`);
+    return;
+  }
+  record("running", null);
   try {
     populationChain(db);
     record("ok", null);
@@ -1546,7 +1558,16 @@ export function lastPopulationRepair(db: Database.Database):
   try {
     return (db.prepare("SELECT attempted_at, status, detail FROM demo_repair WHERE id = 1")
       .get() ?? null) as { attempted_at: string; status: string; detail: string | null } | null;
-  } catch { return null; }
+  } catch (err) {
+    // NOT a silent null. A swallowed read error is indistinguishable from "no
+    // attempt was made", and those are different problems — one is a missing
+    // table, the other a repair that never ran.
+    return {
+      attempted_at: "unknown",
+      status: "unreadable",
+      detail: err instanceof Error ? err.message : String(err),
+    };
+  }
 }
 
 /**
