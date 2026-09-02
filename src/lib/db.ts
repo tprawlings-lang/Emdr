@@ -54,6 +54,10 @@ export function getDb(): Database.Database {
   // alone, because it may carry an owner and an approval date that a redeploy
   // has no business overwriting (p34, plan decision D5).
   seedPolicyThresholds(db);
+  // The fabricated population, reconciled on every boot for the same reason
+  // the demo accounts above are: a deployed database seeds once, and every
+  // wave since that seeding reached the code and never reached the data.
+  reconcilePopulation(db);
   refreshDemoDaily(db);
   return db;
 }
@@ -1431,17 +1435,83 @@ export function seedDemo(db: Database.Database) {
     seedDemoData(db);
     seedOrgData(db);
     seedPayerData(db);
-    seedPopulationData(db);
-    seedOperationalFeeds(db);
-    generatePopulationHistory(db);
-    // The reserved tail, LIVED rather than written: the last fortnight of
-    // every person's history goes through the check-in routing rule and the
-    // safety gate engine, so the window every metric and every planning rule
-    // reads is one the engine actually saw.
-    runAgents(db);
+    populationChain(db);
+    // NOT part of populationChain: this binds the two AGGREGATE OPERATOR
+    // accounts to the tenants they report on, which is account wiring rather
+    // than population data. It also has to stay out of the per-boot
+    // reconciliation — by the time that runs the demo accounts have been
+    // reconciled, so the bind would succeed where it previously no-opped and
+    // move a NAMED operator person into the organization's tenant. That
+    // tenant's 4,820 have no names on purpose, so that an aggregate drilldown
+    // is impossible rather than merely refused.
     bindAggregateAccounts(db);
   })();
   refreshDemoDaily(db);
+}
+
+/**
+ * The fabricated population, from manifest to lived fortnight, in one place.
+ *
+ * ONE DEFINITION, THREE CALLERS — a first boot, a reset, and the per-boot
+ * reconciliation below. It was three copies of a five-call sequence, and they
+ * had already drifted: one of them called `seedOperationalFeeds` twice. A
+ * sequence that must stay identical in three places is a sequence that will
+ * not.
+ *
+ * EVERY STEP IS IDEMPOTENT, and deliberately so — each one asks the database
+ * whether its own work is already there and returns if it is. That is what
+ * makes it safe to run on every boot: nothing here deletes, so a database that
+ * already has a population pays four existence checks and writes nothing.
+ */
+export function populationChain(db: Database.Database) {
+  seedPopulationData(db);       // tenants, clinicians, 240 persons, attributes
+  seedOperationalFeeds(db);     // capacity slots and review coverage
+  generatePopulationHistory(db); // accounts, consents, six months of history
+  // The reserved tail, LIVED rather than written: the last fortnight of every
+  // person's history goes through the check-in routing rule and the safety
+  // gate engine, so the window every metric and every planning rule reads is
+  // one the engine actually saw.
+  runAgents(db);
+}
+
+/**
+ * Give a deployed demonstration the population its code expects.
+ *
+ * THE FAILURE THIS EXISTS FOR. `seed()` returns the moment any user exists,
+ * which is right for accounts and wrong for a dataset. The deployed
+ * demonstration keeps a persistent disk, so it seeded once — while only the
+ * manifest existed — and every wave since shipped CODE onto a database that
+ * could not exercise it. Checked on the deployed instance: 240 profiles, and
+ * between them zero check-ins, zero measures, zero modules and zero accounts.
+ * Four of the nineteen data-quality checks failed and the console correctly
+ * refused to demonstrate, which is the gate working and the dataset still
+ * being wrong.
+ *
+ * NOTHING HERE DELETES. The repair is additive because every step of the chain
+ * is idempotent, so a database missing its history gains it and a database
+ * that has it is untouched. That matters more than it sounds: this runs
+ * unattended on every boot, and a rebuild-on-boot would be a deployment that
+ * can destroy data while nobody is watching. Replacing an OLD population with
+ * a new one is a different operation — it deletes, so it belongs behind the
+ * admin console's reset button and a typed reason, not here.
+ *
+ * BEST-EFFORT, AND SAID SO. A failure here is logged and the boot continues,
+ * because the authority on whether a dataset is fit to demonstrate is the p29
+ * manifest on the admin page, which is computed live and blocks external
+ * demonstrations on its own. A repair that took the process down instead
+ * would turn a bad dataset into no demonstration at all.
+ */
+function reconcilePopulation(db: Database.Database) {
+  if (process.env.EMDR_DEMO !== "1") return;
+  try {
+    populationChain(db);
+  } catch (err) {
+    console.error(
+      "[demo] population reconcile failed; the data-quality manifest on " +
+      "/admin/demo is the authority on whether this dataset can be shown:",
+      err instanceof Error ? err.message : err,
+    );
+  }
 }
 
 /**
@@ -1498,11 +1568,7 @@ function seed(db: Database.Database) {
       seedDemoData(db);
       seedOrgData(db);
       seedPayerData(db);
-      seedPopulationData(db);
-      seedOperationalFeeds(db);
-      generatePopulationHistory(db);
-      // The reserved tail, LIVED rather than written.
-      runAgents(db);
+      populationChain(db);
       bindAggregateAccounts(db);
       return;
     }

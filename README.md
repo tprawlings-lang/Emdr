@@ -252,6 +252,37 @@ side by **throwing rather than filtering** — a filtered metric is a metric wit
 denominator. This is the prerequisite for running synthetic agents alongside a study with real
 participants.
 
+**The deployed demonstration now gets the dataset its code expects.** Checked on the live
+instance after the agent layer shipped: the code was there and the data was not — 240 profiles
+with zero check-ins, zero measures, zero modules and zero accounts between them. `seed()`
+returns the moment any user exists, which is right for accounts and wrong for a dataset, and
+the deployment keeps a persistent disk: it seeded while only the manifest existed, and every
+wave since reached the code and never reached the data. The population chain is now one
+definition reconciled on every boot, and **it is additive** — every step already asked the
+database whether its own work was there, so a stale deployment gains its history and a complete
+one writes nothing. Nothing deletes: this runs unattended, and a rebuild-on-boot is a deploy
+that can destroy data while nobody is watching. Replacing an old population *does* delete, so it
+belongs behind the reset button and a typed reason.
+
+**And the 240 can now actually sign in.** `/app/today` refuses a member on four gates —
+membership, informed consent, the five-instrument screening battery, a completed profile — and
+the population passed one, so a presenter opening any profile landed on the paywall. They now
+carry the onboarding record with everything else, dated to the day each enrolled: an active
+membership, a profile whose answers vary by archetype, and the four intake instruments the
+outcome series does not supply. 240 of 240 reach the product, and the manifest checks it.
+
+That intake battery exposed a defect it would otherwise have multiplied. Three screens computed
+"baseline → latest" from the first and last row of the screenings table *whatever instrument
+they were* — correct by accident while only one existed. The deployed console was already
+showing the accident: a member's row read "5 → 16", five being a PC-PTSD-5 total whose maximum
+is five, against a PHQ-9. And naming the outcome instrument dropped completion by the fraction
+that had been other instruments' rows, which tipped **DATA_QUALITY** over p34's 30% limit and
+suppressed every other rule. The threshold was not the problem: `metricMissingness` was
+returning one minus the completion rate and calling it missing data — the same mistake found
+earlier for activation, in the same function's default branch. Every non-completion carries a
+recorded reason, so the engine was blocking **FOLLOWUP_GAP, the rule that exists to report those
+barriers**, on the grounds that they existed.
+
 **The last fortnight of the population is lived, not written.** The generator writes rows; the
 agent layer (`src/lib/agents/`) lives days. Fourteen days of the 360-day calendar are reserved,
 and across them each of the 240 fabricated people is asked what they want to do — check in, open

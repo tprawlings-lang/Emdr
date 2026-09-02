@@ -1,3 +1,4 @@
+import { OUTCOME_INSTRUMENT } from "@/lib/demo-population-generator";
 import { data } from "@/lib/data";
 import { DATASET_VERSION } from "@/lib/demo-population-manifest";
 import { demoNow, demoToday } from "@/lib/demo-clock";
@@ -113,10 +114,17 @@ export async function loadObservations(tenantIds: string[], window?: Window): Pr
         (SELECT COUNT(DISTINCT strftime('%Y-%W', k.checkin_date))
            FROM checkins k WHERE k.user_id = u.id${kWin})                        AS active_weeks,
         (SELECT COUNT(*) FROM practice_completions pc WHERE pc.user_id = u.id${pWin})  AS modules_completed,
-        (SELECT COUNT(*) FROM screenings s WHERE s.user_id = u.id${sWin})              AS measures_complete,
-        (SELECT s.total_score FROM screenings s WHERE s.user_id = u.id${sWin}
+        -- THE OUTCOME INSTRUMENT, named. A person also has an intake battery
+        -- taken once at enrolment, and taking the first and last row of
+        -- the screenings table whatever they are compares a PC-PTSD-5 (max 5)
+        -- against a PHQ-9 (max 27) and reports the difference as change.
+        (SELECT COUNT(*) FROM screenings s WHERE s.user_id = u.id
+           AND s.instrument = '${OUTCOME_INSTRUMENT}'${sWin})                   AS measures_complete,
+        (SELECT s.total_score FROM screenings s WHERE s.user_id = u.id
+           AND s.instrument = '${OUTCOME_INSTRUMENT}'${sWin}
           ORDER BY s.created_at ASC LIMIT 1)                                    AS baseline,
-        (SELECT s.total_score FROM screenings s WHERE s.user_id = u.id${sWin}
+        (SELECT s.total_score FROM screenings s WHERE s.user_id = u.id
+           AND s.instrument = '${OUTCOME_INSTRUMENT}'${sWin}
           ORDER BY s.created_at DESC LIMIT 1)                                   AS follow_up,
         (SELECT COUNT(*) FROM longitudinal_events e
           WHERE e.person_id = u.id AND e.event_type = 'safety_state.changed'

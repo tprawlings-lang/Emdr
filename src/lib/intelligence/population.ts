@@ -1,3 +1,4 @@
+import { OUTCOME_INSTRUMENT } from "@/lib/demo-population-generator";
 import { data } from "@/lib/data";
 import { ready, partial, empty, type Envelope, type ProjectionMeta } from "@/lib/presentation/envelope";
 import { CLINICAL_POLICY_VERSION } from "@/lib/clinical-policy";
@@ -107,7 +108,8 @@ export async function buildPopulationOverview(tenantIds: string[]): Promise<Enve
     `SELECT COUNT(*) AS covered,
             SUM(CASE WHEN (SELECT COUNT(*) FROM checkins k WHERE k.user_id = u.id) > 0
                      THEN 1 ELSE 0 END) AS active,
-            SUM(CASE WHEN (SELECT COUNT(*) FROM screenings s WHERE s.user_id = u.id) >= 2
+            SUM(CASE WHEN (SELECT COUNT(*) FROM screenings s WHERE s.user_id = u.id
+                            AND s.instrument = '${OUTCOME_INSTRUMENT}') >= 2
                      THEN 1 ELSE 0 END) AS measured
        FROM users u WHERE u.tenant_id IN (${marks}) AND u.role = 'member'`,
     tenantIds,
@@ -129,15 +131,18 @@ export async function buildPopulationOverview(tenantIds: string[]): Promise<Enve
   )) as { reason: string; n: number }[];
   const completedMeasures = (await c.get(
     `SELECT COUNT(*) AS n FROM screenings s
-       JOIN persons p ON p.id = s.user_id WHERE p.tenant_id IN (${marks})`,
+       JOIN persons p ON p.id = s.user_id
+      WHERE p.tenant_id IN (${marks}) AND s.instrument = '${OUTCOME_INSTRUMENT}'`,
     tenantIds,
   )) as { n: number };
 
   const improved = (await c.get(
     `SELECT COUNT(*) AS n FROM (
        SELECT u.id,
-              (SELECT s.total_score FROM screenings s WHERE s.user_id = u.id ORDER BY s.created_at ASC LIMIT 1) AS b,
-              (SELECT s.total_score FROM screenings s WHERE s.user_id = u.id ORDER BY s.created_at DESC LIMIT 1) AS l
+              (SELECT s.total_score FROM screenings s WHERE s.user_id = u.id
+                 AND s.instrument = '${OUTCOME_INSTRUMENT}' ORDER BY s.created_at ASC LIMIT 1) AS b,
+              (SELECT s.total_score FROM screenings s WHERE s.user_id = u.id
+                 AND s.instrument = '${OUTCOME_INSTRUMENT}' ORDER BY s.created_at DESC LIMIT 1) AS l
          FROM users u WHERE u.tenant_id IN (${marks}) AND u.role = 'member')
       WHERE b IS NOT NULL AND l IS NOT NULL AND l < b`,
     tenantIds,
@@ -148,7 +153,8 @@ export async function buildPopulationOverview(tenantIds: string[]): Promise<Enve
             COUNT(*) AS covered,
             SUM(CASE WHEN (SELECT COUNT(*) FROM checkins k WHERE k.user_id = p.id) > 0
                      THEN 1 ELSE 0 END) AS active,
-            SUM(CASE WHEN (SELECT COUNT(*) FROM screenings s WHERE s.user_id = p.id) >= 2
+            SUM(CASE WHEN (SELECT COUNT(*) FROM screenings s WHERE s.user_id = p.id
+                            AND s.instrument = '${OUTCOME_INSTRUMENT}') >= 2
                      THEN 1 ELSE 0 END) AS measured
        FROM persons p
        LEFT JOIN person_attributes a ON a.person_id = p.id

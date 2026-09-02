@@ -1,6 +1,10 @@
 import type Database from "better-sqlite3";
 import { MANIFEST, MANIFEST_EMAIL_LIKE, checkManifest, type CheckResult } from "./demo-population-manifest";
-import { TARGETS } from "./demo-population-generator";
+import { TARGETS, OUTCOME_INSTRUMENT, INTAKE_INSTRUMENTS } from "./demo-population-generator";
+
+/** The five instruments `screeningComplete` requires before a member may
+ *  reach the product: the outcome instrument plus the intake battery. */
+const REQUIRED_INSTRUMENTS = INTAKE_INSTRUMENTS.length + 1;
 import { MIN_MEASURES, exposureDaysFor, scaledRange } from "./demo-population-calendar";
 import { popPersonId } from "./demo-population-seed";
 
@@ -99,10 +103,13 @@ export function runQualityChecks(db: Database.Database): CheckResult[] {
   // arrival still fails. Reported as the number of profiles OUTSIDE their own
   // bound, because a min and a max across a population with different windows
   // do not mean anything.
-  const range = (table: string, label: string, target: readonly [number, number]) => {
+  const range = (
+    table: string, label: string, target: readonly [number, number], where = "",
+  ) => {
     const counts = new Map<string, number>();
     for (const r of db.prepare(
-      `SELECT user_id AS id, COUNT(*) AS n FROM ${table} WHERE user_id IN ${POP} GROUP BY user_id`,
+      `SELECT user_id AS id, COUNT(*) AS n FROM ${table}
+        WHERE user_id IN ${POP}${where} GROUP BY user_id`,
     ).all() as { id: string; n: number }[]) counts.set(r.id, Number(r.n));
 
     const offenders: string[] = [];
@@ -126,8 +133,46 @@ export function runQualityChecks(db: Database.Database): CheckResult[] {
     });
   };
   range("checkins", "check-ins", TARGETS.checkins);
-  range("screenings", "measures", TARGETS.measures);
+  // THE OUTCOME INSTRUMENT ONLY. p14's 4–8 describes the repeated measure that
+  // produces a trajectory, not the one-time intake battery a person completes
+  // to open the product at all. Counting both put every profile four over its
+  // ceiling and would have been "fixed" by removing the onboarding — which is
+  // to say, by making the 240 unable to sign in again.
+  range("screenings", "measures", TARGETS.measures,
+    ` AND instrument = '${OUTCOME_INSTRUMENT}'`);
   range("practice_completions", "modules", TARGETS.modules);
+
+  // The intake battery itself, checked rather than assumed: a member is
+  // refused at /app/today until all five instruments are on file, so a profile
+  // missing one is a profile that cannot be demonstrated.
+  const battery = db.prepare(
+    `SELECT COUNT(*) AS n FROM (
+       SELECT user_id FROM screenings WHERE user_id IN ${POP}
+        GROUP BY user_id HAVING COUNT(DISTINCT instrument) >= ?)`,
+  ).get(REQUIRED_INSTRUMENTS) as { n: number };
+  out.push({
+    check: "Onboarding — screening battery",
+    expected: `all ${REQUIRED_INSTRUMENTS} instruments for each of ${MANIFEST.length}`,
+    actual: `${Number(battery.n)} of ${MANIFEST.length} complete`,
+    pass: Number(battery.n) === MANIFEST.length,
+  });
+
+  // Membership and profile, the other two gates between a seeded person and
+  // the product. Without them a presenter signing in as a profile lands on the
+  // paywall, which is what happened.
+  for (const [table, label, extra] of [
+    ["subscriptions", "membership", "AND status IN ('active','trialing')"],
+    ["user_profiles", "profile", "AND profile_complete = 1"],
+  ] as const) {
+    const n = one(
+      `SELECT COUNT(*) AS n FROM ${table} WHERE user_id IN ${POP} ${extra}`);
+    out.push({
+      check: `Onboarding — ${label}`,
+      expected: `${MANIFEST.length}`,
+      actual: String(n),
+      pass: n === MANIFEST.length,
+    });
+  }
 
   // ── Missingness carries a reason ───────────────────────────────────────
   // p28: "record why the value is absent." A missing value with no reason is
