@@ -23,7 +23,37 @@ export function getDb(): Database.Database {
   if (db) return db;
   const dir = dataDir();
   fs.mkdirSync(dir, { recursive: true });
-  db = new Database(path.join(dir, "emdr.db"));
+  // BUILT INTO A LOCAL, PUBLISHED ONCE. The module-level handle used to be
+  // assigned on the line that opens the file, before any of the boot path had
+  // run — and that turned any failure in the rest of this function into a
+  // permanent, silent one. The request that hit the failure returned a 500;
+  // every request after it took `if (db) return db` and got a database that
+  // worked, so nothing looked broken, while every step AFTER the failing one
+  // never ran again for the life of the process.
+  //
+  // It was not hypothetical. On the deployed instance this masked two things
+  // at once: the planning thresholds were never seeded, so the planning
+  // console answered 500 on an empty `policy_thresholds` exactly as p34 says
+  // it must; and the population reconciliation below never ran, so a dataset
+  // that had been stale for several waves stayed stale and its repair log
+  // stayed empty. One assignment, two mysteries.
+  //
+  // Publishing only on success means a failed boot is RETRIED by the next
+  // caller instead of being cached. The handle is closed first, because a
+  // retry that inherits a half-open file is a second failure wearing the
+  // first one's clothes.
+  const fresh = new Database(path.join(dir, "emdr.db"));
+  try {
+    return (db = boot(fresh));
+  } catch (err) {
+    try { fresh.close(); } catch { /* already unusable; the original error is the one that matters */ }
+    throw err;
+  }
+}
+
+/** Everything a usable database needs, in order. Separate from `getDb` so the
+ *  handle is published only when all of it has succeeded. */
+function boot(db: Database.Database): Database.Database {
   db.pragma("journal_mode = WAL");
   db.pragma("foreign_keys = ON");
   migrate(db);

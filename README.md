@@ -252,6 +252,17 @@ side by **throwing rather than filtering** — a filtered metric is a metric wit
 denominator. This is the prerequisite for running synthetic agents alongside a study with real
 participants.
 
+**One assignment was masking two failures on the deployed instance.** `getDb()` published its
+module-level handle on the line that *opens* the file, before the boot path had run — so a
+failure in any later step became permanent and silent: that request 500'd, and every request
+after it took `if (db) return db` and got a database that worked. Nothing looked broken, while
+every step after the failing one never ran again for the life of the process. It hid both open
+problems at once: the planning thresholds were never seeded, so `/review/planning` answered 500
+on an empty table exactly as p34 demands but for the wrong reason; and the population
+reconciliation never ran, so the stale dataset stayed stale and its repair log honestly reported
+"no attempt recorded". The handle is now built into a local and published only when the whole
+boot succeeds, so a failed boot is retried rather than cached.
+
 **The deployed demonstration now gets the dataset its code expects.** Checked on the live
 instance after the agent layer shipped: the code was there and the data was not — 240 profiles
 with zero check-ins, zero measures, zero modules and zero accounts between them. `seed()`
