@@ -457,6 +457,52 @@ function generateInner(db: Database.Database): GeneratedCounts {
     }
     counts.measures += completed;
 
+    // ── An authored access barrier (p14's "authored gaps", p31's worked
+    //    signal, p43's fairness audit) ──────────────────────────────────────
+    //
+    // WHY THIS EXISTS. The manifest is balanced on every dimension p29 checks
+    // — 60 per region, 40 per band, 30 per archetype — so the population it
+    // describes contains no disparity at all. That is correct for a fixture
+    // and useless for a planning engine: every one of p34's rules evaluates to
+    // "no gap", and a screen that has never had anything to show has not been
+    // tested. Measured before this was added, the largest follow-up difference
+    // between any declared cohort and the eligible population was 3.4
+    // percentage points, against a threshold of 12.
+    //
+    // WHAT IT IS. Follow-up measures that were NOT DELIVERED, in the second
+    // half of the window, to people whose preferred language is Spanish. The
+    // reason is "unavailable" — p28's word for the system's own failure — and
+    // that framing is the point: this is an operational access barrier, which
+    // is the thing p43's audit exists to make discoverable. It is not a
+    // statement about the people in the cohort, and nothing here may be read
+    // as one.
+    //
+    // WHY THE SECOND HALF ONLY. So the gap is absent in the first window and
+    // present in the second, which is a barrier that appeared rather than a
+    // property of the population — the shape a planning signal is supposed to
+    // catch.
+    if (row.language === "Spanish") {
+      const extra = MANIFEST.indexOf(row) % 2 === 0 ? 2 : 1;
+      for (let k = 0; k < extra; k++) {
+        const day = Math.round(DEMO_DAYS * 0.55 + k * 30);
+        insEvent.run(
+          popId("access-barrier", `${row.id}:${k}`), tenant, personId, "measure.not_completed",
+          JSON.stringify({
+            instrument: "phq-9", dueOn: dayDate(epoch, day),
+            reason: "unavailable",
+            // Named in the row, so a reader who reaches the event knows this
+            // is an authored scenario and not an emergent property of the
+            // generator.
+            scenario: "language-access-barrier",
+            detail: "follow-up measure not delivered in the person's preferred language",
+            fabricated: true,
+          }),
+          null, "system", dayStamp(epoch, day, 12), dayStamp(epoch, day, 12), PROV, null, null,
+        );
+        counts.measuresMissing++;
+      }
+    }
+
     // ── Modules (p14: 8–55) ──────────────────────────────────────────────
     const moduleCount = rng.int(path.modules[0], path.modules[1]);
     for (let i = 0; i < moduleCount; i++) {

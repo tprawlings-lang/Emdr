@@ -24,10 +24,64 @@ export const RESPONDER_THRESHOLD = 5;
  *  seven-day week and over a business week are different metrics. */
 const WEEK_DAYS = 7;
 
-export async function loadObservations(tenantIds: string[]): Promise<Observation[]> {
+/** A closed date range, inclusive at both ends. */
+export interface Window { start: string; end: string; }
+
+/**
+ * Dates are interpolated into the SQL below rather than bound, because the
+ * window appears inside six correlated subqueries and threading positional
+ * parameters through them in the right order is the kind of thing that works
+ * until someone adds a seventh. So the values are checked to be exactly a
+ * calendar date first, and nothing else can reach the string.
+ */
+function assertDate(d: string): string {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) {
+    throw new Error(`"${d}" is not a calendar date; a metric window must be YYYY-MM-DD`);
+  }
+  return d;
+}
+
+/**
+ * Read the population as `Observation[]`, optionally over a WINDOW.
+ *
+ * The window is what makes p34's repeat-in-two-windows rules evaluable at all:
+ * "the gap held for two windows" is a different claim from "the gap is there
+ * over six months", and only the first one distinguishes a pattern from a
+ * reading. Without a window every subquery counts a person's whole history,
+ * which is the right default for a dashboard and useless for a trend.
+ *
+ * Enrolment is clipped to the window too. Someone who enrolled after the
+ * window closed has no observed weeks in it and must not appear in a
+ * denominator; someone who enrolled during it is observed for the part of the
+ * window they were actually present for, not for all of it.
+ */
+export async function loadObservations(tenantIds: string[], window?: Window): Promise<Observation[]> {
   if (tenantIds.length === 0) return [];
   const c = await data();
   const marks = tenantIds.map(() => "?").join(",");
+  const w = window ? { start: assertDate(window.start), end: assertDate(window.end) } : null;
+  // `checkin_date` is already a calendar date; the rest are ISO timestamps, so
+  // they are truncated before comparison rather than compared as strings —
+  // "2026-05-31T22:00:00Z" is not BETWEEN "2026-03-01" AND "2026-05-31".
+  const inWin = (col: string) => (w ? ` AND substr(${col}, 1, 10) BETWEEN '${w.start}' AND '${w.end}'` : "");
+  const kWin = w ? ` AND k.checkin_date BETWEEN '${w.start}' AND '${w.end}'` : "";
+  // NOT applied to `first_action`, and the exception is the whole of what a
+  // window means for a COHORT-ENTRY metric. Activation asks whether a person
+  // acted within seven days OF ENROLLING; clipping their first action to a
+  // window that opened months later reports everyone who enrolled before it as
+  // having failed to activate. The first version of this did exactly that and
+  // reported an 86.7-point drift between two windows of the same stable
+  // population — the number that found the bug.
+  //
+  // So a window selects the ENROLMENT COHORT for activation, and the activity
+  // for everything else. `enrolledInWindow` below is what carries that.
+  const sWin = inWin("s.created_at");
+  const pWin = inWin("pc.created_at");
+  const eWin = inWin("e.occurred_at");
+  // Somebody who enrolled after the window closed was not observed in it, and
+  // counting them as a person who failed to activate is the same censoring
+  // error retention has.
+  const enrolWin = w ? ` AND substr(u.created_at, 1, 10) <= '${w.end}'` : "";
 
   const rows = (await c.all(
     `SELECT
@@ -41,21 +95,21 @@ export async function loadObservations(tenantIds: string[]): Promise<Observation
         a.access_needs_json                         AS access_needs_json,
         u.created_at                                AS enrolled_at,
         (SELECT MIN(k.checkin_date) FROM checkins k WHERE k.user_id = u.id)      AS first_action,
-        (SELECT MAX(k.checkin_date) FROM checkins k WHERE k.user_id = u.id)      AS last_action,
+        (SELECT MAX(k.checkin_date) FROM checkins k WHERE k.user_id = u.id${kWin})      AS last_action,
         (SELECT COUNT(DISTINCT strftime('%Y-%W', k.checkin_date))
-           FROM checkins k WHERE k.user_id = u.id)                              AS active_weeks,
-        (SELECT COUNT(*) FROM practice_completions pc WHERE pc.user_id = u.id)  AS modules_completed,
-        (SELECT COUNT(*) FROM screenings s WHERE s.user_id = u.id)              AS measures_complete,
-        (SELECT s.total_score FROM screenings s WHERE s.user_id = u.id
+           FROM checkins k WHERE k.user_id = u.id${kWin})                        AS active_weeks,
+        (SELECT COUNT(*) FROM practice_completions pc WHERE pc.user_id = u.id${pWin})  AS modules_completed,
+        (SELECT COUNT(*) FROM screenings s WHERE s.user_id = u.id${sWin})              AS measures_complete,
+        (SELECT s.total_score FROM screenings s WHERE s.user_id = u.id${sWin}
           ORDER BY s.created_at ASC LIMIT 1)                                    AS baseline,
-        (SELECT s.total_score FROM screenings s WHERE s.user_id = u.id
+        (SELECT s.total_score FROM screenings s WHERE s.user_id = u.id${sWin}
           ORDER BY s.created_at DESC LIMIT 1)                                   AS follow_up,
         (SELECT COUNT(*) FROM longitudinal_events e
           WHERE e.person_id = u.id AND e.event_type = 'safety_state.changed'
-            AND json_extract(e.payload, '$.state') = 'paused')                  AS pauses
+            AND json_extract(e.payload, '$.state') = 'paused'${eWin})           AS pauses
        FROM users u
        LEFT JOIN person_attributes a ON a.person_id = u.id
-      WHERE u.tenant_id IN (${marks}) AND u.role = 'member'`,
+      WHERE u.tenant_id IN (${marks}) AND u.role = 'member'${enrolWin}`,
     tenantIds,
   )) as Record<string, unknown>[];
 
@@ -68,7 +122,7 @@ export async function loadObservations(tenantIds: string[]): Promise<Observation
             COALESCE(json_extract(e.payload, '$.partial'), 0)           AS partial,
             COUNT(*) AS n
        FROM longitudinal_events e JOIN persons p ON p.id = e.person_id
-      WHERE p.tenant_id IN (${marks}) AND e.event_type = 'measure.not_completed'
+      WHERE p.tenant_id IN (${marks}) AND e.event_type = 'measure.not_completed'${eWin}
       GROUP BY 1, 2, 3`,
     tenantIds,
   )) as { person_id: string; reason: string; partial: number; n: number }[];
@@ -109,7 +163,7 @@ export async function loadObservations(tenantIds: string[]): Promise<Observation
         AND json_extract(e2.payload, '$.respondsTo') = e.id
       WHERE p.tenant_id IN (${marks})
         AND e.event_type = 'safety_state.changed'
-        AND json_extract(e.payload, '$.state') = 'paused'
+        AND json_extract(e.payload, '$.state') = 'paused'${eWin}
       GROUP BY e.id`,
     tenantIds,
   )) as { person_id: string; hours: number }[];
@@ -118,7 +172,10 @@ export async function loadObservations(tenantIds: string[]): Promise<Observation
     latencies.set(r.person_id, [...(latencies.get(r.person_id) ?? []), Math.round(Number(r.hours))]);
   }
 
-  const today = Date.now();
+  // The window's end, not the clock. A metric over a window that closed in
+  // May must not have its denominators grow every day afterwards.
+  const asOf = w ? new Date(`${w.end}T23:59:59Z`).getTime() : Date.now();
+  const windowOpened = w ? new Date(`${w.start}T00:00:00Z`).getTime() : null;
   const days = (from: unknown, to: unknown): number | null => {
     if (!from || !to) return null;
     return Math.round(
@@ -128,7 +185,12 @@ export async function loadObservations(tenantIds: string[]): Promise<Observation
 
   return rows.map((r) => {
     const enrolled = String(r.enrolled_at);
-    const daysEnrolled = Math.max(0, Math.round((today - new Date(enrolled).getTime()) / 86400000));
+    const enrolledAt = new Date(enrolled).getTime();
+    const daysEnrolled = Math.max(0, Math.round((asOf - enrolledAt) / 86400000));
+    // Weeks OBSERVED inside the window: from whichever is later, the window
+    // opening or the person's enrolment, to the window's close.
+    const observedFrom = windowOpened === null ? enrolledAt : Math.max(windowOpened, enrolledAt);
+    const observedDays = Math.max(0, Math.round((asOf - observedFrom) / 86400000));
     const miss = byPerson.get(String(r.person_id))
       ?? { partial: 0, declined: 0, unavailable: 0, skipped: 0, interrupted: 0, notDue: 0 };
     return {
@@ -148,7 +210,10 @@ export async function loadObservations(tenantIds: string[]): Promise<Observation
       // nothing in them. p33: never remove non-users from the denominator of
       // an engagement rate — and a week with no activity is exactly such a
       // week.
-      observedWeeks: Math.max(1, Math.ceil(daysEnrolled / WEEK_DAYS)),
+      observedWeeks: Math.max(1, Math.ceil(observedDays / WEEK_DAYS)),
+      // Whether this person ENTERED in the window. True when there is no
+      // window, so an unwindowed load behaves exactly as before.
+      enrolledInWindow: windowOpened === null || enrolledAt >= windowOpened,
       daysToLastAction: days(enrolled, r.last_action),
       // Every module completion in this dataset is a completed instance; the
       // generator writes no abandoned ones, so starts equals completions and
@@ -173,11 +238,14 @@ export async function loadObservations(tenantIds: string[]): Promise<Observation
 /** The context every metric result carries (p48). Built once per run so every
  *  metric in a view shares one refresh time and one lineage reference — two
  *  numbers refreshed a second apart are not comparable and must not look it. */
-export function metricContext(runId: string): ComputeContext {
+export function metricContext(runId: string, window?: Window): ComputeContext {
   const now = new Date();
   const start = new Date(now.getTime() - 180 * 86400000);
   return {
-    window: { start: start.toISOString().slice(0, 10), end: now.toISOString().slice(0, 10) },
+    // The window travels in the result (p48). A context built for one window
+    // and used to compute another would produce a result that names dates its
+    // numbers do not come from, which is worse than an unlabelled one.
+    window: window ?? { start: start.toISOString().slice(0, 10), end: now.toISOString().slice(0, 10) },
     dataVersion: DATASET_VERSION,
     projectionVersion: "population_metrics.v2",
     refreshedAt: now.toISOString().slice(0, 19) + "Z",

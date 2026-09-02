@@ -19,7 +19,7 @@ export const metadata = { title: "Review — Steady" };
 // defect again — an empty list implying a working channel — so the screen says
 // which four questions it can answer and which nine it cannot, by name.
 
-/** §26's thirteen review screens. Five exist; the rest are named rather than
+/** §26's thirteen review screens, plus handoff 07's planning detail. Some exist; the rest are named rather than
  *  quietly omitted, because a reviewer who cannot tell "not built" from "not
  *  found" will assume the first and stop looking. */
 const ATLAS: Array<{ route: string; question: string }> = [
@@ -30,6 +30,9 @@ const ATLAS: Array<{ route: string; question: string }> = [
   { route: "/review/bls", question: "Review pacing and stop controls" },
   { route: "/review/testing", question: "Judge release behavior" },
   { route: "/review/safety", question: "Replay fixed scenarios" },
+  // Not one of §26's thirteen. Handoff 07 p44 specifies it, and where the two
+  // handoffs differ the later one controls.
+  { route: "/review/planning", question: "Inspect and challenge a planning signal" },
   { route: "/review/audit", question: "Trace all governed events" },
   { route: "/review/lineage", question: "Trace a screen statement to source" },
   { route: "/review/research", question: "Use approved de-identified data" },

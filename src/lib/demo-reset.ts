@@ -49,10 +49,29 @@ import { seedDemo, syncIdentitySpine } from "./db";
  *  Anything added here needs a reason of that kind. The schema guard in
  *  `tests/demo-reset.test.ts` checks that every table is either cleared or
  *  listed here, so a new table cannot escape the reset by being forgotten. */
-export const PRESERVED_TABLES = ["review_notes"] as const;
+export const PRESERVED_TABLES = [
+  "review_notes",
+  // Policy configuration, not fabricated data. p34 requires a threshold to
+  // carry an owner and an approval date and to be safe from quiet edits — and
+  // a reset that silently rewrites both is exactly a quiet edit, made by a
+  // presenter who was only trying to get back to a clean baseline. The table
+  // refuses DELETE at the schema level, so listing it here is a statement of
+  // intent rather than the mechanism.
+  "policy_thresholds",
+] as const;
 
 export const DEMO_DATA_TABLES = [
-  // Payer domain first: claims reference persons, and contract measures
+  // Planning first: a signal review points at its signal, and a signal is
+  // derived entirely from the fabricated population it is about.
+  //
+  // The reviews go WITH the signals rather than surviving like review_notes,
+  // and the difference is what the record means. A review note is a reviewer's
+  // request about the product; a signal review is their judgement about a
+  // specific set of numbers. Rebuilding the numbers and keeping the judgement
+  // would attach a human's decision to evidence they never saw.
+  "planning_signal_reviews",
+  "planning_signals",
+  // Payer domain next: claims reference persons, and contract measures
   // reference their contract. Ordered for, not disabled — a mistake in this
   // list fails loudly instead of leaving orphans.
   "export_jobs",

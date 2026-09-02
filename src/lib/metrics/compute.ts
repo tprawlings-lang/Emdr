@@ -36,6 +36,16 @@ export interface Observation {
   hasAccount: boolean;
 
   daysEnrolled: number;
+  /** Whether the person entered the cohort inside the window being reported.
+   *  Always true when no window is in play.
+   *
+   *  This is the field that keeps a COHORT-ENTRY metric honest. Activation
+   *  asks whether someone acted within seven days of enrolling, so a window
+   *  selects who entered during it — not whose activity fell inside it. A
+   *  window applied the second way reports everybody who enrolled earlier as
+   *  a failure to activate, which is the same censoring error retention has
+   *  and is just as invisible in the output. */
+  enrolledInWindow: boolean;
   /** Days from enrolment to the first completed action, or null if there was
    *  none. Null is NOT zero: one means they acted immediately. */
   daysToFirstAction: number | null;
@@ -216,10 +226,19 @@ export function computeActivation(rows: Observation[], c: CohortDefinition, ctx:
   // Excluded: people whose first seven days have not elapsed. They cannot have
   // activated within a window that has not finished, and counting them as
   // failures is the censoring error retention has too.
-  const observable = pop.filter((r) => r.daysEnrolled >= 7);
+  // Two exclusions, and they are different. `enrolledInWindow` removes people
+  // who entered before the window this result is labelled with — they belong
+  // to an earlier cohort and were already counted there. `daysEnrolled >= 7`
+  // removes people whose seven days have not elapsed, who cannot have
+  // activated within a window that has not finished.
+  const entered = pop.filter((r) => r.enrolledInWindow);
+  const observable = entered.filter((r) => r.daysEnrolled >= 7);
   const n = observable.filter((r) => r.daysToFirstAction !== null && r.daysToFirstAction <= 7).length;
   return base(def, c, ctx, n, observable.length,
-    { excluded_window_not_elapsed: pop.length - observable.length },
+    {
+      excluded_window_not_elapsed: entered.length - observable.length,
+      excluded_entered_earlier: pop.length - entered.length,
+    },
     { window_days: 7 });
 }
 
