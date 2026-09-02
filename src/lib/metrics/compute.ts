@@ -371,13 +371,24 @@ export function computeFollowupCompletion(rows: Observation[], c: CohortDefiniti
   // one, and folding it into the denominator makes every completion rate look
   // worse the longer a cohort is enrolled.
   const due = complete + partial + declined + unavailable + skipped + interrupted;
+  // NOBODY WE KNOW NOTHING ABOUT. A person with no measure in any state — not
+  // completed, not refused, not undelivered, not even scheduled — is the only
+  // genuinely missing case this metric has. Everyone else's absence carries a
+  // reason, which is what p28 requires and what the manifest checks.
+  const noRecord = pop.filter((r) =>
+    r.measuresComplete + r.measuresPartial + r.measuresDeclined + r.measuresUnavailable
+    + r.measuresSkipped + r.measuresInterrupted + r.measuresNotDue === 0).length;
   return base(def, c, ctx, complete, due,
     // All six of p28's reasons, separately. p32's required display names five
     // states; reporting six and letting the screen group them is honest, while
     // squeezing six into five means relabelling somebody's refusal as an
     // outage.
-    { partial, declined, unavailable, skipped, interrupted, not_due: sum((r) => r.measuresNotDue) },
-    { due });
+    {
+      partial, declined, unavailable, skipped, interrupted,
+      not_due: sum((r) => r.measuresNotDue),
+      no_record: noRecord,
+    },
+    { due, cohort_n: pop.length });
 }
 
 export function computeObservedChange(rows: Observation[], c: CohortDefinition, ctx: ComputeContext): MetricResult {
@@ -549,9 +560,30 @@ export function metricMissingness(r: MetricResult): number {
       const total = r.denominator;
       return total === 0 ? 1 : excluded("unpaired") / total;
     }
+    case "followup_completion.v1": {
+      // THE SAME MISTAKE AS ACTIVATION, IN THE SAME FUNCTION'S DEFAULT BRANCH.
+      //
+      // This used to fall through below and return one minus the completion
+      // rate — so a population where 30% of due measures did not complete read
+      // as a population with 30% MISSING DATA. Every one of those
+      // non-completions carries a recorded reason (refused, undelivered,
+      // interrupted, partial); p28 requires that, and p29's manifest checks it
+      // separately. Calling an accounted-for refusal "missing" is not a
+      // description of data quality, it is a description of access.
+      //
+      // The consequence was worse than a wrong number. DATA_QUALITY blocks
+      // every other rule when it fires, and the fabricated deployment's
+      // authored access barriers put follow-up completion just under 70% — so
+      // the engine suppressed FOLLOWUP_GAP, the rule whose entire purpose is
+      // to report that exact finding, on the grounds that the finding existed.
+      //
+      // What is missing is what nobody recorded anything about.
+      const n = Number(r.detail?.cohort_n ?? 0);
+      return n === 0 ? 1 : excluded("no_record") / n;
+    }
     default:
-      // Follow-up completion and the rest: the metric IS a completion rate, so
-      // what did not complete is what is missing.
+      // The rest: the metric IS a completion rate, so what did not complete is
+      // what is missing.
       return r.denominator === 0 ? 1 : (r.denominator - r.numerator) / r.denominator;
   }
 }

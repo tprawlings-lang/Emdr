@@ -311,10 +311,24 @@ export function seedDemoData(db: Database.Database) {
     ["[2,1,2,1,2,1,2,0,0,2,1,1,1,1,1,1,0,0]", 16],
   ];
   const pclWeek = [52, 46, 39];
+  // THE PRIMARY OUTCOME INSTRUMENT, REPEATED — not only PCL-5 and ITQ.
+  //
+  // Alex had three weekly PCL-5 and ITQ readings and a single PHQ-9 at intake,
+  // so every screen that reports "baseline → latest" on the primary instrument
+  // had one point to work with and showed no change at all. It looked like it
+  // worked only because those screens took the first and last row of the
+  // screenings table whatever the instrument was, and compared a PC-PTSD-5
+  // total (maximum 5) against a PCL-5 (maximum 80). The environment has one
+  // primary outcome measure; everybody in it needs a series on that one.
+  const phqWeek = [9, 7, 5];
   itqWeek.forEach(([answers, total], w) => {
     const day = 21 - w * 7;
     insScreening.run(id(), alexId, "pcl-5", "standard (past month)", pclWeek[w], "[]", "[]", daysAgo(day));
     insScreening.run(id(), alexId, "itq", "Cloitre et al. (ICD-11)", total, answers, "[]", daysAgo(day));
+    // w === 0 is the intake PHQ-9 already written above, at the same date.
+    if (w > 0) {
+      insScreening.run(id(), alexId, "phq-9", "standard", phqWeek[w], "[]", "[]", daysAgo(day));
+    }
   });
 
   const insCheckin = db.prepare(

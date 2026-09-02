@@ -23,7 +23,7 @@ import test from "node:test";
 import fs from "node:fs";
 import path from "node:path";
 import {
-  StableRandom, DEMO_DAYS, MISSING_REASONS, TARGETS, EDGE_CASE_PROFILES,
+  StableRandom, DEMO_DAYS, MISSING_REASONS, TARGETS, EDGE_CASE_PROFILES, OUTCOME_INSTRUMENT,
 } from "../src/lib/demo-population-generator";
 import { MANIFEST } from "../src/lib/demo-population-manifest";
 import { runQualityChecks, qualitySummary } from "../src/lib/demo-quality";
@@ -85,10 +85,16 @@ test("the measure curve hits the manifest's baseline and follow-up exactly", asy
   const c = await data();
   const wrong: string[] = [];
   for (const row of MANIFEST.slice(0, 60)) {
+    // THE OUTCOME INSTRUMENT, named. A person also carries an intake battery
+    // taken once at enrolment — four other instruments on four other scales —
+    // and reading the screenings table unfiltered compares the manifest's
+    // authored PHQ-9 baseline against whichever instrument happened to sort
+    // first. That is the same confusion the console was making.
     const rows = (await c.all(
       `SELECT total_score FROM screenings
         WHERE user_id = (SELECT id FROM users WHERE email = ?)
-        ORDER BY created_at`, [`${row.id.toLowerCase()}@steady.local`],
+          AND instrument = ?
+        ORDER BY created_at`, [`${row.id.toLowerCase()}@steady.local`, OUTCOME_INSTRUMENT],
     )) as { total_score: number }[];
     if (rows.length === 0) { wrong.push(`${row.id}: no measures`); continue; }
     if (rows[0].total_score !== row.baseline) wrong.push(`${row.id}: first ${rows[0].total_score} ≠ baseline ${row.baseline}`);

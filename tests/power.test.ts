@@ -190,11 +190,33 @@ test("missingness is a property of the metric, not of which keys happen to be se
     "a cohort where everybody's window has elapsed reports missing data, so the rule that " +
     "reads it will withhold exactly when it has something to say");
 
-  // Follow-up completion is a completion rate, so what did not complete IS
-  // what is missing — the same function, a different answer, on purpose.
+  // THE SAME MISTAKE, ONE BRANCH LOWER — and this guard used to assert it.
+  //
+  // Follow-up completion fell through to "what did not complete is what is
+  // missing", so a population where 30% of due measures did not complete read
+  // as 30% missing DATA. Every one of those non-completions carries a recorded
+  // reason; p28 requires that and p29's manifest checks it separately. And the
+  // consequence was the activation bug's exact shape, one rule further out:
+  // DATA_QUALITY suppresses every other rule when it fires, so the fabricated
+  // deployment's authored access barriers blocked FOLLOWUP_GAP — the rule for
+  // reporting low completion — on the grounds that completion was low.
   const completion = computeFollowupCompletion(
     simulateCompletion({ ...scaledSpec(BASE, 200, -30, SHARE), seed: 3 }), TEST_COHORT, CTX);
-  assert.ok(metricMissingness(completion) > 0.3);
+  assert.ok(completion.value! < 0.7, "the simulated completion gap is not present");
+  assert.equal(metricMissingness(completion), 0,
+    "a cohort where every absence carries a reason reports missing data, so DATA_QUALITY " +
+    "will block the engine exactly when FOLLOWUP_GAP has something to say");
+
+  // And the direction that IS missing data: people nobody recorded anything
+  // about at all. Without this the case above could be satisfied by a function
+  // that always returns zero.
+  const silent = simulateCompletion({ ...scaledSpec(BASE, 200, -30, SHARE), seed: 3 })
+    .map((r) => ({
+      ...r, measuresComplete: 0, measuresPartial: 0, measuresDeclined: 0,
+      measuresUnavailable: 0, measuresSkipped: 0, measuresInterrupted: 0, measuresNotDue: 0,
+    }));
+  assert.equal(metricMissingness(computeFollowupCompletion(silent, TEST_COHORT, CTX)), 1,
+    "a cohort with no measure record of any kind does not report as missing");
 });
 
 test("the harness evaluates the real rules against the real thresholds", () => {

@@ -64,7 +64,14 @@ test("the planning list shows what fired and every rule that did not", async ({ 
   // once, and the stale-feed finding was invisible on the screen built to
   // surface it.
   await expect(main).toContainText(/days old, past the/);
-  await expect(main).toContainText(/confidence interval crosses zero/);
+  // MODULE_SIGNAL withholds on its interval, and WHICH way depends on the
+  // data: it crosses zero, or it could not be computed at all. Asserting one
+  // wording pinned a fact about the dataset rather than about the screen —
+  // and it changed for a real reason. The observed-change pairing used to take
+  // the first and last screening whatever the instrument, so a person's
+  // intake PC-PTSD-5 was differenced against their PHQ-9 and the spurious
+  // spread was what produced an interval to cross zero at all.
+  await expect(main).toContainText(/confidence interval/);
   await expect(main).toContainText(/below the minimum analysis size/);
 });
 

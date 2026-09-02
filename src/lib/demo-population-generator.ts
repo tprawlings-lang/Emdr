@@ -99,6 +99,22 @@ function dayStamp(epoch: Date, day: number, hour: number): string {
   return t.toISOString().slice(0, 19).replace("T", " ");
 }
 
+/**
+ * A timestamp for a column the baseline hash does NOT exclude.
+ *
+ * `demoBaseline` drops columns ending in `_at`, so a stamp on one of those may
+ * carry any time of day. A value in any other column is hashed, and a seed
+ * that took the time of day from the clock made two resets a second apart
+ * disagree — intermittently, about one run in three. The convention across the
+ * seed is minute 15, second 00, and the guard in `tests/demo-reset.test.ts`
+ * enforces it on every seeded row.
+ */
+function pinnedStamp(epoch: Date, day: number, hour: number): string {
+  const t = new Date(epoch.getTime() + day * 86400000);
+  t.setUTCHours(hour, 15, 0, 0);
+  return t.toISOString().slice(0, 19).replace("T", " ");
+}
+
 function dayDate(epoch: Date, day: number): string {
   return new Date(epoch.getTime() + day * 86400000).toISOString().slice(0, 10);
 }
@@ -257,6 +273,12 @@ function popId(kind: string, key: string): string {
 export interface GeneratedCounts {
   accounts: number;
   consents: number;
+  subscriptions: number;
+  profiles: number;
+  /** Intake-battery screenings. Counted apart from `measures`, because they
+   *  are a different thing: taken once at enrolment to open the product, where
+   *  a measure is the repeated outcome reading p14 sets a range for. */
+  intake: number;
   checkins: number;
   measures: number;
   measuresMissing: number;
@@ -266,6 +288,56 @@ export interface GeneratedCounts {
   clinicianActions: number;
   corrections: number;
 }
+
+/**
+ * THE OUTCOME INSTRUMENT.
+ *
+ * One instrument carries the repeated measure, and every "baseline → latest"
+ * in the product means this one. Naming it is not tidiness: the trend queries
+ * used to take the first and last row of `screenings` whatever they were, so a
+ * person with an intake battery had their PC-PTSD-5 (max 5) compared against a
+ * PHQ-9 (max 27) and the console reported the difference as improvement. The
+ * deployed demonstration was showing exactly that — "5 → 16" — before the 240
+ * had any intake battery at all.
+ */
+export const OUTCOME_INSTRUMENT = "phq-9";
+
+/** Scored range per instrument, so an intake score is drawn against the right
+ *  ceiling rather than reusing the PHQ-9's. */
+export const INSTRUMENTS: Record<string, { max: number; version: string }> = {
+  "phq-9":      { max: 27, version: "standard" },
+  "gad-7":      { max: 21, version: "standard" },
+  "pcl-5":      { max: 80, version: "dsm-5" },
+  "itq":        { max: 24, version: "v1" },
+  "pc-ptsd-5":  { max: 5,  version: "2021" },
+};
+
+/** The four the outcome series does not supply. `screeningComplete` requires
+ *  all five before a member may reach the product. */
+export const INTAKE_INSTRUMENTS = ["pc-ptsd-5", "pcl-5", "itq", "gad-7"] as const;
+
+/** Onboarding answers by archetype, so a profile reads as the person the rest
+ *  of their history describes rather than as the same paragraph 240 times. */
+const ONBOARDING_GOALS: Record<Archetype, {
+  therapistStatus: string; emdrExperience: string; goals: string[]; traumaAreas: string[];
+}> = {
+  "Early response":  { therapistStatus: "currently", emdrExperience: "some",
+    goals: ["Keep the progress going", "Understanding triggers"], traumaAreas: ["Relationships"] },
+  "Steady response": { therapistStatus: "previously", emdrExperience: "no",
+    goals: ["Daily grounding", "Processing trauma safely"], traumaAreas: ["Childhood"] },
+  "Late response":   { therapistStatus: "previously", emdrExperience: "no",
+    goals: ["Sleeping through the night", "Processing trauma safely"], traumaAreas: ["Accident"] },
+  "No change":       { therapistStatus: "currently", emdrExperience: "some",
+    goals: ["Finding something that works"], traumaAreas: ["Childhood", "Loss"] },
+  "Sporadic use":    { therapistStatus: "no", emdrExperience: "no",
+    goals: ["Trying this out"], traumaAreas: [] },
+  "Module mismatch": { therapistStatus: "no", emdrExperience: "no",
+    goals: ["Getting unstuck", "Daily grounding"], traumaAreas: ["Work", "Relationships"] },
+  "Access barrier":  { therapistStatus: "no", emdrExperience: "no",
+    goals: ["Getting started"], traumaAreas: ["Loss"] },
+  "Safety pause":    { therapistStatus: "currently", emdrExperience: "no",
+    goals: ["Staying steady", "Daily grounding"], traumaAreas: ["Childhood", "Relationships"] },
+};
 
 /** p14's per-person targets, checked after generation rather than assumed. */
 export const TARGETS = {
@@ -284,7 +356,8 @@ export function generatePopulationHistory(db: Database.Database): GeneratedCount
 
 function generateInner(db: Database.Database): GeneratedCounts {
   const counts: GeneratedCounts = {
-    accounts: 0, consents: 0, checkins: 0, measures: 0, measuresMissing: 0,
+    accounts: 0, consents: 0, subscriptions: 0, profiles: 0, intake: 0,
+    checkins: 0, measures: 0, measuresMissing: 0,
     modules: 0, sessions: 0, safetyEvents: 0, clinicianActions: 0, corrections: 0,
   };
 
@@ -329,6 +402,23 @@ function generateInner(db: Database.Database): GeneratedCounts {
         actor_type, occurred_at, recorded_at, source_system, provenance,
         correlation_id, supersedes_event_id)
      VALUES (?, ?, ?, ?, 1, ?, ?, ?, ?, ?, 'demo-generator', ?, ?, ?)`);
+  // ── Onboarding: what a person had to do BEFORE any of the above ────────
+  //
+  // A profile with six months of history and no onboarding is not a person
+  // who used the product — it is rows next to an account that cannot sign in.
+  // `/app/today` refuses a member on four gates (membership, consent,
+  // screening battery, profile), and until this was written the 240 passed one
+  // of them: signing in as any of them landed on the paywall.
+  const insSubscription = db.prepare(
+    `INSERT INTO subscriptions (user_id, plan, status, price_cents, currency, provider,
+       current_period_end, created_at)
+     VALUES (?, 'monthly', 'active', 3499, 'usd', 'demo', ?, ?)
+     ON CONFLICT(user_id) DO NOTHING`);
+  const insProfile = db.prepare(
+    `INSERT INTO user_profiles (user_id, therapist_status, emdr_experience, goals_json,
+       trauma_areas_json, restricted_topics_json, profile_complete, created_at)
+     VALUES (?, ?, ?, ?, ?, '[]', 1, ?)
+     ON CONFLICT(user_id) DO NOTHING`);
 
   const PROV = JSON.stringify({ fabricated: true, dataset_version: DATASET_VERSION });
 
@@ -388,6 +478,41 @@ function generateInner(db: Database.Database): GeneratedCounts {
     ] as const) {
       insConsent.run(popId("consent", `${row.id}:${scope}`), personId, tenant, version, scope, dayStamp(epoch, startDay, 8));
       counts.consents++;
+    }
+
+    // Membership, intake battery and profile — all dated to the day they
+    // enrolled, because that is when a person does them.
+    insSubscription.run(
+      personId,
+      // A period end in the future, so the membership reads as active rather
+      // than as one that lapsed the day the dataset was built. PINNED, because
+      // `current_period_end` is not a `_at` column and so is hashed into the
+      // baseline — this is the exact column that once made two resets disagree.
+      pinnedStamp(epoch, CALENDAR_DAYS + 30, 8), dayStamp(epoch, startDay, 8));
+    counts.subscriptions++;
+
+    const goals = ONBOARDING_GOALS[row.archetype];
+    insProfile.run(
+      personId, goals.therapistStatus, goals.emdrExperience,
+      JSON.stringify(goals.goals), JSON.stringify(goals.traumaAreas),
+      dayStamp(epoch, startDay, 8));
+    counts.profiles++;
+
+    // THE INTAKE BATTERY. `screeningComplete` requires all five instruments,
+    // and the outcome series below supplies only one of them. These are taken
+    // once, at enrolment, and scored from the SAME baseline the archetype
+    // already fixes — a person whose PHQ-9 opens at 18 does not open at 2 on
+    // the PCL-5, and drawing them independently would produce a population
+    // whose instruments disagree about the same person on the same day.
+    const severity0 = measureOn(row, 0) / Math.max(1, INSTRUMENTS["phq-9"].max);
+    for (const instrument of INTAKE_INSTRUMENTS) {
+      const spec = INSTRUMENTS[instrument];
+      insScreening.run(
+        popId("intake", `${row.id}:${instrument}`), personId, tenant,
+        instrument, spec.version,
+        Math.max(0, Math.min(spec.max, Math.round(severity0 * spec.max))),
+        "[]", dayStamp(epoch, startDay, 9));
+      counts.intake++;
     }
 
     // ── The access pathway (handoff 06 §26's funnel) ─────────────────────

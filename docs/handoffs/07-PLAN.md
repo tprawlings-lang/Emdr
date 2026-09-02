@@ -931,6 +931,80 @@ assertion earlier in this build failed on a no-op refactor.
 reason, scenario injection, projection validation, QA export), the nightly reset, and p56's
 presenter scripts.
 
+### The deployed dataset, and the onboarding that makes it a demonstration
+
+Checked on the deployed instance after the agent layer shipped: **the code was live and the
+data was not there**. 240 profiles, and between them zero check-ins, zero measures, zero
+modules and zero accounts. Four of the nineteen data-quality checks failed and the admin
+console correctly refused to demonstrate — the p29 gate working exactly as specified, on a
+dataset that had been wrong for several waves.
+
+**One line caused it.** `seed()` returns the moment any user exists, which is right for
+accounts and wrong for a dataset. The deployment keeps a persistent disk, so it seeded once —
+while only the Wave 2 manifest existed — and every wave since shipped code onto data that could
+not exercise it.
+
+**The repair is additive, and that is the whole design.** `populationChain()` is now one
+definition with three callers (first boot, reset, and a per-boot reconciliation), and every
+step of it already asked the database whether its own work was there: `seedPopulationData`
+returns if the first tenant exists, `generatePopulationHistory` returns if the first profile
+has a check-in, `runAgents` writes with `ON CONFLICT DO NOTHING`. So a database missing its
+history gains it and a complete one pays four existence checks. **Nothing deletes.** That
+matters because this runs unattended on every boot: a rebuild-on-boot is a deployment that can
+destroy data while nobody is watching. Replacing an *old* population with a new one does
+delete, so it belongs behind the admin console's reset button and a typed reason. Guarded by
+stripping a seeded database to the deployed instance's exact shape — profiles kept, history and
+accounts gone, plus a `real` person present throughout — and requiring the boot to restore
+19 checks and leave the real person's rows untouched. Mutation-tested: a `populationChain` that
+deletes fails the build.
+
+Three copies of that five-call sequence had already drifted — one of them called
+`seedOperationalFeeds` twice.
+
+#### The 240 could not sign in
+
+`/app/today` refuses a member on four gates — membership, informed consent, the five-instrument
+screening battery, a completed profile — and the 240 passed **one**. A presenter signing in as
+any of them landed on the paywall. They were rows beside an account, not people who had used
+the product.
+
+The generator now writes the onboarding record with everything else, dated to the day each
+person enrolled: an active membership, a profile whose answers vary by archetype, and the four
+intake instruments the outcome series does not supply. **240 of 240 now reach the product**, and
+three new manifest checks say so rather than leaving it to be discovered by signing in.
+
+#### Naming the outcome instrument — a defect the intake battery would have multiplied
+
+Three places computed "baseline → latest" by taking the first and last row of the screenings
+table **whatever instrument they were**. With one instrument on file that read correctly by
+accident. The deployed console was already showing the accident: a member's panel row read
+**"5 → 16"** — five being a PC-PTSD-5 total, whose maximum *is* five, against a PHQ-9. Adding an
+intake battery to all 240 would have spread that across the population, so `OUTCOME_INSTRUMENT`
+lands with it and the manifest counts p14's 4–8 against that instrument alone. Alex, the
+narrative persona, had three weekly PCL-5 and ITQ readings and a single PHQ-9, so his primary
+trend was one point wide; he now carries the same series on the instrument everyone else is
+measured by.
+
+#### The same missingness bug, one branch lower
+
+Naming the instrument dropped follow-up completion by the fraction that had been made of other
+instruments' rows — and **DATA_QUALITY fired at 30.1% against p34's 30% limit, suppressing every
+other rule.** The threshold was not the problem. `metricMissingness` fell through to "what did
+not complete is what is missing", which for follow-up completion is *one minus the completion
+rate*: a population where 30% of due measures did not complete read as a population with 30%
+missing data.
+
+This is the activation bug, in the same function's default branch, one rule further out. Every
+one of those non-completions carries a recorded reason — p28 requires it and p29's manifest
+checks it separately — so calling an accounted-for refusal "missing" describes access, not data
+quality. And because DATA_QUALITY suppresses everything when it fires, the fabricated
+deployment's *authored* access barriers blocked **FOLLOWUP_GAP, the rule whose entire purpose is
+to report them**, on the grounds that there was something to report.
+
+Missingness for this metric is now the share of people with **no measure record of any kind**.
+Four rules fire again, for the right reason. The guard that used to assert the old behaviour
+now pins both directions, so a function returning a constant zero fails it.
+
 ### Wave 8 — the rest
 **Spec: pp9, 29, 56. Exit evidence: cold-start rehearsal passes twice.**
 

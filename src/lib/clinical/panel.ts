@@ -1,3 +1,4 @@
+import { OUTCOME_INSTRUMENT } from "@/lib/demo-population-generator";
 import { data } from "@/lib/data";
 import { ready, type Envelope, type ProjectionMeta } from "@/lib/presentation/envelope";
 import { CLINICAL_POLICY_VERSION } from "@/lib/clinical-policy";
@@ -78,9 +79,13 @@ export async function buildClinicianPanel(tenantId: string): Promise<Envelope<Pa
             u.name                                 AS name,
             (SELECT COUNT(*) FROM checkins k WHERE k.user_id = u.id)                    AS check_ins,
             (SELECT MAX(k.checkin_date) FROM checkins k WHERE k.user_id = u.id)         AS last_checkin,
+            -- The outcome instrument, named: an intake battery sits at the
+            -- front of every person's screenings and is not this trend.
             (SELECT s.total_score FROM screenings s WHERE s.user_id = u.id
+               AND s.instrument = '${OUTCOME_INSTRUMENT}'
               ORDER BY s.created_at ASC LIMIT 1)                                        AS baseline,
             (SELECT s.total_score FROM screenings s WHERE s.user_id = u.id
+               AND s.instrument = '${OUTCOME_INSTRUMENT}'
               ORDER BY s.created_at DESC LIMIT 1)                                       AS latest,
             (SELECT COUNT(*) FROM longitudinal_events e
               WHERE e.person_id = u.id AND e.event_type = 'measure.not_completed')      AS missing,
