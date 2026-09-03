@@ -24,6 +24,7 @@ export const REVIEW_SCREENS: Array<{ href: string; label: string; layer: RailSlu
   { href: "/review/planning", label: "Planning signals", layer: "evidence" },
   { href: "/review/bls", label: "BLS oversight", layer: "evidence" },
   { href: "/review/autonomous", label: "Autonomous flow", layer: "evidence" },
+  { href: "/review/status", label: "Service status", layer: "evidence" },
   { href: "/review/audit", label: "Audit and lineage", layer: "audit" },
 ];
 

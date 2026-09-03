@@ -1,6 +1,7 @@
 import { metric, type MetricDefinition, type MetricStatus } from "./dictionary";
 import { cohortHash, type CohortDefinition } from "./cohorts";
 import { SMALL_CELL } from "@/components/charts/aggregate";
+import { SAFETY_CONFIG_VERSION } from "@/lib/safety/governance";
 
 // Metric computation (handoff 07 §3.2 p32, §3.3 p33, §5.3 p48).
 //
@@ -445,7 +446,7 @@ export function computeSafetyPauseRate(rows: Observation[], c: CohortDefinition,
   const active = pop.filter((r) => r.activeWeeks > 0);
   return base(def, c, ctx, active.filter((r) => r.hadFixedPause).length, active.length,
     { inactive_excluded: pop.length - active.length },
-    { rule_version: "beta-clinrev-2026-07" });
+    { rule_version: SAFETY_CONFIG_VERSION });
 }
 
 export function computeTimeToReview(rows: Observation[], c: CohortDefinition, ctx: ComputeContext): MetricResult {
