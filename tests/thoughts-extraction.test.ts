@@ -17,6 +17,8 @@ process.env.EMDR_DEMO = "1";
 
 import { strict as assert } from "node:assert";
 import test from "node:test";
+import fs from "node:fs";
+import path from "node:path";
 
 import {
   validateExtraction, quoteHash, EXTRACTION_SCHEMA_VERSION,
@@ -210,6 +212,30 @@ test("the fixture returns nothing for text it did not write", () => {
 test("the fixture requires its own marker, not merely familiar words", () => {
   const unmarked = TRANSCRIPT.replace(FIXTURE_MARKER, "");
   assert.equal(fixtureExtraction("tr1", unmarked), null);
+});
+
+test("no fixture marker contains a word the transcripts deliberately mis-hear", () => {
+  // The transcripts carry "semed" and "sleap" so a clinician has something to
+  // correct. A fixture keyed on a phrase containing one is keyed on the words
+  // most likely to change — and the effect is a demo that dead-ends: fix the
+  // typo, press re-organize, and the fixture no longer recognises its own
+  // transcript. That shipped once; this is why it will not again.
+  const src = fs.readFileSync(path.join(process.cwd(), "src/lib/clinical/extraction-fixture.ts"), "utf8");
+  const markers = [...src.matchAll(/marker: "([^"]+)"/g)].map((m) => m[1]);
+  assert.ok(markers.length >= 4, "expected a marker per fabricated transcript");
+  const MISHEARD = ["semed", "sleap"];
+  for (const marker of markers) {
+    for (const wrong of MISHEARD) {
+      assert.ok(!marker.includes(wrong),
+        `marker ${JSON.stringify(marker)} contains "${wrong}", which is a word the clinician is meant to correct`);
+    }
+  }
+});
+
+test("a corrected transcript is still recognised by its fixture", () => {
+  // The end-to-end version of the rule above.
+  const corrected = TRANSCRIPT.replace("semed", "seemed").replace("sleap", "sleep");
+  assert.ok(fixtureExtraction("tr1", corrected), "correcting the mis-heard words must not make the transcript unrecognisable");
 });
 
 test("the fixture proposes some items a reviewer should reject", () => {

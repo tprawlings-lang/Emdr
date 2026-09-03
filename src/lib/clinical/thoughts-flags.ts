@@ -46,14 +46,23 @@ export const THOUGHTS_FLAGS = Object.keys(FLAGS) as ThoughtsFlag[];
  *  in the one environment built for clinical review would make the flagship
  *  workstream the single thing a clinical reviewer cannot exercise.
  *
- *  The later phases are NOT here, and that is not caution — they are not built.
- *  A flag that opens a surface with nothing behind it is worse than a closed
- *  one, because the reviewer's conclusion is "this is broken" rather than "this
- *  is not finished yet".
+ *  EXTRACTION JOINED IT WHEN IT WAS BUILT, not before. The rule this list
+ *  follows is that a flag opens a surface with something behind it: a flag over
+ *  an unbuilt phase reads as "this is broken" rather than "this is not finished
+ *  yet", which is the worse of the two messages to send a reviewer. Phase 2 now
+ *  has an extractor, a contract that refuses what §9.2 forbids, candidate items
+ *  and an atomic save, so the surface has something to show.
+ *
+ *  The phases after it are still absent, for the same reason they always were.
  *
  *  `EMDR_..._CAPTURE=0` forces it off even in demo, which is how the refusal
- *  path gets demonstrated. */
-const DEMO_ENABLED: ReadonlySet<ThoughtsFlag> = new Set(["CLINICIAN_THOUGHTS_CAPTURE"]);
+ *  path gets demonstrated — and turning EXTRACTION off while CAPTURE stays on
+ *  is how the transcript-only path gets demonstrated, which is a real state
+ *  (§8.1's review_transcript_only) and not merely a switch. */
+const DEMO_ENABLED: ReadonlySet<ThoughtsFlag> = new Set([
+  "CLINICIAN_THOUGHTS_CAPTURE",
+  "CLINICIAN_THOUGHTS_EXTRACTION",
+]);
 
 /** Off unless explicitly set to "1", except where demo enables it above.
  *

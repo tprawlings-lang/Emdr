@@ -12,6 +12,8 @@ import { thoughtsSurfaceAvailable } from "@/lib/clinical/thoughts-flags";
 import {
   listThoughts, getThought, currentTranscript, transcriptVersions,
 } from "@/lib/clinical/thought-store";
+import { listItemsForThought } from "@/lib/clinical/memory-store";
+import { runExtraction } from "@/lib/clinical/extraction";
 import type { TenantContext } from "@/lib/repository";
 
 export const dynamic = "force-dynamic";
@@ -90,9 +92,42 @@ export default async function MemberThoughtsPage({
     if (!thought) return null;
     const t = await currentTranscript(scope, thought);
     if (!t) return null;
+
+    // ORGANIZING HAPPENS HERE, not in the recorder. The clinician has already
+    // stopped speaking and is waiting on one spinner; splitting transcription
+    // and extraction into two waits would show them two, for a step they did
+    // not ask for separately.
+    //
+    // Its failure is not this function's failure. An extractor that cannot run
+    // leaves a perfectly good transcript, and returning null here would throw
+    // that away and tell the clinician their recording could not be loaded —
+    // which is untrue and is the one thing they are worried about.
+    let candidates: Awaited<ReturnType<typeof listItemsForThought>> = [];
+    if (thoughtsSurfaceAvailable("CLINICIAN_THOUGHTS_EXTRACTION")) {
+      const existing = await listItemsForThought(scope, thoughtId);
+      const alreadyRun = existing.length > 0;
+      if (!alreadyRun && thought.status === "processing") {
+        await runExtraction(scope, thoughtId);
+      }
+      candidates = (await listItemsForThought(scope, thoughtId)).filter((i) => i.status === "candidate");
+    }
+
+    const after = await getThought(scope, thoughtId);
     return {
       transcript: { text: t.text, hash: t.hash, version: t.version, provider: t.provider },
-      transcriptOnly: thought.status === "review_transcript_only",
+      transcriptOnly: after?.status === "review_transcript_only",
+      candidates: candidates.map((i) => ({
+        id: i.id,
+        itemType: i.itemType,
+        statementClass: i.statementClass,
+        displayText: i.displayText,
+        normalizedLabel: i.normalizedLabel,
+        // The quoted span, resolved from the transcript rather than stored
+        // twice. A second copy of the words is a second thing that can drift
+        // from what the clinician actually said.
+        quote: i.span ? t.text.slice(i.span.start, i.span.end) : null,
+        numericFacts: i.numericFacts,
+      })),
     };
   }
 

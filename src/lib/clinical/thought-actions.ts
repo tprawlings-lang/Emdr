@@ -195,6 +195,112 @@ export async function saveThoughtAction(formData: FormData): Promise<ActionResul
   }
 }
 
+/** Organize a transcript into candidate items (§9, Phase 2).
+ *
+ *  BEHIND ITS OWN FLAG, not capture's. §22's phase order: extraction requires
+ *  capture, and a deployment can have the first without the second — which is
+ *  exactly the transcript-only path §8.1 gives a state to, and is worth being
+ *  able to demonstrate on purpose rather than only by outage. */
+export async function organizeThoughtAction(formData: FormData): Promise<ActionResult> {
+  if (!thoughtsSurfaceAvailable("CLINICIAN_THOUGHTS_EXTRACTION")) {
+    return { ok: false, error: "Organizing thoughts is not enabled in this environment." };
+  }
+  const { ctx, clinicianId } = await clinicianContext();
+  const thoughtId = String(formData.get("thoughtId") ?? "");
+
+  const { runExtraction } = await import("./extraction");
+  const result = await runExtraction(ctx, thoughtId);
+  const thought = await getThought(ctx, thoughtId);
+
+  await audit({
+    actorId: clinicianId, actorRole: "clinician", family: "clinical",
+    type: "clinician_thought_organized", target: thoughtId,
+    // Counts and outcome, never the items. §18: the act is recorded, the
+    // clinical content is not.
+    detail: {
+      personId: thought?.personId,
+      outcome: result.outcome,
+      items: result.items.length,
+      refused: result.rejected.length,
+      droppedCitations: result.droppedCitations,
+      source: result.source,
+    },
+  });
+  if (thought) revalidatePath(`/clinician/member/${thought.personId}/thoughts`);
+
+  if (result.outcome === "unavailable") {
+    // Retryable: the transcript is intact and running it again is the fix. The
+    // copy is §17.4's, and it leads with the transcript being safe because that
+    // is the clinician's actual worry.
+    return {
+      ok: false,
+      retryable: true,
+      error: `Your transcript is safe. Steady could not organize it yet. ${result.reason}`.trim(),
+    };
+  }
+  return { ok: true, thoughtId };
+}
+
+/** The Save Thoughts command (§14.1).
+ *
+ *  The decisions arrive as one JSON field rather than as repeated form keys,
+ *  because they are one atomic submission: a form encoding that could arrive
+ *  partially parsed would let half a clinician's judgement look like all of it. */
+export async function saveThoughtsAction(formData: FormData): Promise<ActionResult> {
+  if (!thoughtsSurfaceAvailable("CLINICIAN_THOUGHTS_EXTRACTION")) {
+    return { ok: false, error: "Organizing thoughts is not enabled in this environment." };
+  }
+  const { ctx, clinicianId } = await clinicianContext();
+  const thoughtId = String(formData.get("thoughtId") ?? "");
+  const transcriptVersion = Number(formData.get("transcriptVersion") ?? 0);
+  const idempotencyKey = String(formData.get("idempotencyKey") ?? "");
+  if (!idempotencyKey) return { ok: false, error: "That could not be saved. Please try again." };
+
+  let decisions: unknown;
+  try {
+    decisions = JSON.parse(String(formData.get("decisions") ?? "[]"));
+  } catch {
+    return { ok: false, error: "That could not be saved. Please try again." };
+  }
+  if (!Array.isArray(decisions)) return { ok: false, error: "That could not be saved. Please try again." };
+
+  const { saveThoughts, StaleSubmissionError, UndecidedCandidatesError } = await import("./save-thoughts");
+  try {
+    const result = await saveThoughts(ctx, {
+      thoughtId,
+      transcriptVersion,
+      idempotencyKey,
+      decisions: decisions as never,
+    });
+    const thought = await getThought(ctx, thoughtId);
+    await audit({
+      actorId: clinicianId, actorRole: "clinician", family: "clinical",
+      type: "clinician_thought_items_saved", target: thoughtId,
+      detail: {
+        personId: thought?.personId,
+        approved: result.approved.length,
+        rejected: result.rejected.length,
+        replayed: result.replayed,
+      },
+    });
+    if (thought) revalidatePath(`/clinician/member/${thought.personId}/thoughts`);
+    return { ok: true, thoughtId };
+  } catch (e) {
+    if (e instanceof StaleSubmissionError) {
+      // Retryable only after a reload: the screen is out of date, and trying
+      // the same submission again would fail the same way.
+      return { ok: false, error: e.message };
+    }
+    if (e instanceof UndecidedCandidatesError) {
+      return { ok: false, error: "Every item needs a Keep or Remove before you can save." };
+    }
+    if (e instanceof InvalidTransitionError) {
+      return { ok: false, error: "That recording is no longer available." };
+    }
+    throw e;
+  }
+}
+
 export async function discardThoughtAction(formData: FormData): Promise<ActionResult> {
   if (!thoughtsSurfaceAvailable("CLINICIAN_THOUGHTS_CAPTURE")) return unavailable();
   const { ctx, clinicianId } = await clinicianContext();
