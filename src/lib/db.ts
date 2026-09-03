@@ -1143,8 +1143,19 @@ export const SCHEMA_SQL = `
     person_id TEXT NOT NULL REFERENCES persons(id),
     -- The clinician as a PERSON, not as a caller-supplied string (§6.2).
     clinician_person_id TEXT NOT NULL REFERENCES persons(id),
+    -- SPEC CONFLICT, RESOLVED IN FAVOUR OF THE STATE MACHINE. §6's CHECK lists
+    -- six states; §8.1's diagram produces a seventh —
+    --   processing -- transcript succeeds, extraction fails --> review_transcript_only
+    -- and §17.4 writes the user-facing copy for it ("Your transcript is safe.
+    -- Steady could not organize it yet"). Shipping §6's list verbatim would
+    -- make the database refuse a state the product is specified to reach, and
+    -- the failure would land on the exact path Phase 1's definition of done is
+    -- about: an interrupted processing run losing a completed transcript.
     status TEXT NOT NULL CHECK (
-      status IN ('capturing','processing','review','saved','discarded','failed')
+      status IN (
+        'capturing','processing','review','review_transcript_only',
+        'saved','discarded','failed'
+      )
     ),
     audio_storage_key TEXT,
     -- Resolved from org policy at capture. Defaults to deletion rather than

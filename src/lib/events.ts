@@ -117,6 +117,23 @@ export const EVENT_TYPES = {
   "clinician.reviewed": 1,
   "module_unlock.requested": 2,
   "module_unlock.decided": 2,
+
+  // Clinician thoughts and clinical memory (Clinician Thoughts spec §7).
+  //
+  // Phase 1 registers only the three that Phase 1 can emit. The rest of §7's
+  // table — item approval, thread decisions, inference lifecycle — arrive with
+  // the phases that produce them, because an event type registered before
+  // anything writes it is a schema claim nobody has tested, and `appendEvent`
+  // throws on an unregistered type precisely so the set stays honest.
+  //
+  // NONE OF THESE CARRY TRANSCRIPT TEXT. §18: raw protected content stays out
+  // of ordinary logs, and §6.2 permits an event to "point to protected source
+  // records by ID and store hashes and typed metadata". So the payloads carry
+  // ids, versions, hashes and durations — enough to replay which thought
+  // reached which state and when, and not enough to reconstruct what was said.
+  "clinician_thought.recorded": 1,
+  "clinician_thought.transcribed": 1,
+  "clinician_thought.discarded": 1,
 } as const;
 
 export type EventType = keyof typeof EVENT_TYPES;

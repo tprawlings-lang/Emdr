@@ -542,8 +542,14 @@ CREATE TABLE IF NOT EXISTS clinician_thoughts (
   tenant_id text NOT NULL REFERENCES tenants(id),
   person_id text NOT NULL REFERENCES persons(id),
   clinician_person_id text NOT NULL REFERENCES persons(id),
+  -- Seven states, not §6's six: §8.1's state machine produces
+  -- review_transcript_only when the transcript lands and extraction fails, and
+  -- §17.4 writes the copy for it. See the note on the SQLite original.
   status text NOT NULL CHECK (
-    status IN ('capturing','processing','review','saved','discarded','failed')
+    status IN (
+      'capturing','processing','review','review_transcript_only',
+      'saved','discarded','failed'
+    )
   ),
   audio_storage_key text,
   audio_retention_policy text NOT NULL DEFAULT 'delete_after_verified_transcript',
