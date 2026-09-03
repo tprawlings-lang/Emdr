@@ -13,7 +13,7 @@
 
 ---
 
-# ▶ RESUME HERE — session handoff, 2026-08-29
+# ▶ RESUME HERE — session handoff, 2026-09-03
 
 **This block is written for a fresh context window.** It is the shortest path from "I have
 just opened this repository" to "I am doing the next useful thing."
@@ -33,12 +33,25 @@ rather than merely similar; and a ten-metric dictionary with a cohort registry, 
 arithmetic is checked against hand calculations written out in the tests rather than against
 itself. **All demo logins are in
 [`docs/demo/demo-logins.md`](docs/demo/demo-logins.md)** — start there to sign in as
-anyone. Waves 2–8 (the 240-patient population and the planning engine) are open. The
+anyone. **Wave 6 (the seven planning rules and the eight-state review machine) is also
+done.** What is open is **Wave 7** — fairness controls, the audit screen and the
+model-registry shell — and the rest of **Wave 8**: the control centre, nightly reset and
+scenario scripts. The demo clock itself is built. The
 specification is
 [`docs/handoffs/07-demo-login-synthetic-population-and-planning-engine.pdf`](docs/handoffs/07-demo-login-synthetic-population-and-planning-engine.pdf)
 and the plan — including its Wave 0 gap list, the eleven subsystems it must **reuse rather
 than rebuild**, and five decisions the PDF leaves open — is
 [`docs/handoffs/07-PLAN.md`](docs/handoffs/07-PLAN.md). Read the plan before the PDF.
+
+**A second program is waiting and has not started.** `docs/handoffs/` now holds a separate
+five-handoff series, the **Clinical Intelligence Expansion** — return-to-life goals, a
+treatment-response fingerprint, a between-visit command centre, a recovery trajectory, and
+therapeutic load and readiness. Its numbering restarts at 01, so read filename prefixes
+rather than numbers. Its order is load-bearing and its stated prerequisite is the Clinician
+Thoughts spec v2.1, whose **Phase 2 (extraction) is not built**. Do not start the expansion
+ahead of it. The folder also contains `future-platform-intelligence/`, which is marked
+**PARKED / DO NOT IMPLEMENT** — it is a future program, not scope. Status table for both is
+in [`docs/handoffs/README.md`](docs/handoffs/README.md).
 
 ## Read these, in this order
 
