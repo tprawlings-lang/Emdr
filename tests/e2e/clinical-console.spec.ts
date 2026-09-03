@@ -120,7 +120,7 @@ test("the audit console is tenant-scoped and never prints raw detail", async ({ 
   await signInAsClinician(page);
   await page.goto("/review/audit");
 
-  await expect(page.getByRole("heading", { name: "Audit and lineage" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Audit trail" })).toBeVisible();
   await expect(page.getByTestId("chain-banner")).toBeVisible();
   await expect(page.getByText(/view filter/)).toBeVisible();
 

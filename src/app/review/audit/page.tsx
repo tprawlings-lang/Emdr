@@ -33,7 +33,7 @@ export default async function AuditConsolePage() {
     <ReviewPage
       layer="audit"
       here="/review/audit"
-      title="Audit and lineage"
+      title="Audit trail"
       lede="Who did what, in order, with the hash chain verified rather than asserted."
     >
       <p className="mt-1 text-sm text-olive">
