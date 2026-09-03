@@ -61,7 +61,13 @@ export interface Data extends DataClient {
   backend: "sqlite" | "postgres";
 }
 
-function usePostgres(): boolean {
+/** RENAMED FROM `usePostgres`. In a React codebase a `use` prefix means a
+ *  hook, and the linter enforced that meaning by rejecting this file outright —
+ *  a plain predicate called from a plain function, flagged as a hook called
+ *  outside a component. The rule was right about the name even though it was
+ *  wrong about the function: a reader skimming this file had to open it to
+ *  learn it was not a hook. */
+function postgresConfigured(): boolean {
   return process.env.EMDR_DB === "postgres";
 }
 
@@ -179,7 +185,7 @@ let cached: Data | null = null;
 export async function data(): Promise<Data> {
   if (cached) return cached;
 
-  if (usePostgres()) {
+  if (postgresConfigured()) {
     const pool = await getPool();
     const base = pgClientFromQuery((sql, params) => pool.query(sql, params as unknown[]));
     cached = {

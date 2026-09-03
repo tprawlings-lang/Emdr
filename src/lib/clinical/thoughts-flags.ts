@@ -37,13 +37,34 @@ const FLAGS = {
 export type ThoughtsFlag = keyof typeof FLAGS;
 export const THOUGHTS_FLAGS = Object.keys(FLAGS) as ThoughtsFlag[];
 
-/** Every flag is OFF unless explicitly set to "1".
+/** Flags that are ON in demo without being set.
+ *
+ *  CAPTURE ONLY, and the reason is the one that turned on resourcing BLS in
+ *  demo: a reviewer who cannot run the workflow cannot give feedback on it, and
+ *  unusable-by-default is not a safety property when the data is fabricated.
+ *  Phase 1 shipped a recorder, a transcript and a review screen; leaving it dark
+ *  in the one environment built for clinical review would make the flagship
+ *  workstream the single thing a clinical reviewer cannot exercise.
+ *
+ *  The later phases are NOT here, and that is not caution — they are not built.
+ *  A flag that opens a surface with nothing behind it is worse than a closed
+ *  one, because the reviewer's conclusion is "this is broken" rather than "this
+ *  is not finished yet".
+ *
+ *  `EMDR_..._CAPTURE=0` forces it off even in demo, which is how the refusal
+ *  path gets demonstrated. */
+const DEMO_ENABLED: ReadonlySet<ThoughtsFlag> = new Set(["CLINICIAN_THOUGHTS_CAPTURE"]);
+
+/** Off unless explicitly set to "1", except where demo enables it above.
  *
  *  Read at call time, never captured into a module-level constant. A flag read
  *  at module load cannot be turned off without a redeploy, and this codebase
  *  has already shipped that bug once. */
 export function thoughtsFlagEnabled(flag: ThoughtsFlag): boolean {
-  return process.env[FLAGS[flag]] === "1";
+  const set = process.env[FLAGS[flag]];
+  if (set === "0") return false;
+  if (set === "1") return true;
+  return process.env.EMDR_DEMO === "1" && DEMO_ENABLED.has(flag);
 }
 
 /** The phase order §24 requires be worked in. A later phase's surface must not

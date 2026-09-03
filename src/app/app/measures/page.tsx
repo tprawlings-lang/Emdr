@@ -1,4 +1,5 @@
 import { MemberPage } from "@/components/member/MemberPage";
+import { requestNow } from "@/lib/request-clock";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { requireMember } from "@/lib/auth";
@@ -18,6 +19,10 @@ export default async function MeasuresPage({
   searchParams: Promise<{ submitted?: string }>;
 }) {
   const user = await requireMember();
+  // The page's clock, read once. Every "how long ago" and every gate below
+  // uses this reading, so nothing on the screen can disagree with anything
+  // else about what time it is.
+  const now = requestNow();
   if (!(await subscriptionActive(user.id))) redirect("/subscribe");
   if (!(await hasConsent(user.id))) redirect("/app/onboarding");
   if (!(await screeningComplete(user.id))) redirect("/app/screening");
@@ -39,8 +44,11 @@ export default async function MeasuresPage({
       )) as { created_at: string } | undefined;
       const instrument = getInstrument(t.id)!;
       // Age in days computed in JS (was SQLite julianday) — dialect-neutral.
+      // ONE clock reading for the whole page, taken above: read per row, two
+      // measures could land either side of midnight and disagree about what
+      // "today" is, which is how a due date flickers between renders.
       const age = last
-        ? Math.floor((Date.now() - new Date(last.created_at.replace(" ", "T") + "Z").getTime()) / 86400000)
+        ? Math.floor((now - new Date(last.created_at.replace(" ", "T") + "Z").getTime()) / 86400000)
         : Infinity;
       return { ...t, instrument, last, age, due: age >= t.cadenceDays };
     })

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { requestNow } from "@/lib/request-clock";
 import { ReviewPage } from "@/components/clinical/ReviewPage";
 import { requireClinician } from "@/lib/auth";
 import { recentAuditEvents } from "@/lib/audit";
@@ -83,6 +84,10 @@ function buildInputs(sp: SP): SafetyInputs {
 
 export default async function AutonomousReview({ searchParams }: { searchParams: Promise<SP> }) {
   await requireClinician();
+  // The page's clock, read once. Every "how long ago" and every gate below
+  // uses this reading, so nothing on the screen can disagree with anything
+  // else about what time it is.
+  const now = requestNow();
   const sp = await searchParams;
   const status = safetyCoreStatus();
 
@@ -100,7 +105,11 @@ export default async function AutonomousReview({ searchParams }: { searchParams:
   let sessionResult: SessionDecision | null = null;
   if (sp.s_startSuds) {
     const startSuds = num(sp.s_startSuds, 3);
-    const startedAtMs = Date.now() - num(sp.s_minutes, 0) * 60000;
+    // ONE reading. The simulator took two — one to derive the start time and
+    // one to evaluate the post-set — so the elapsed time it simulated included
+    // however long the render itself took. Small, and wrong in a screen whose
+    // whole purpose is to show a reviewer what the engine decides.
+    const startedAtMs = now - num(sp.s_minutes, 0) * 60000;
     const pre = preSessionCheck(newSession(startedAtMs), startSuds);
     if (pre.action === "deny_stimulation" || !sp.s_postSuds) {
       sessionResult = pre;
@@ -113,7 +122,7 @@ export default async function AutonomousReview({ searchParams }: { searchParams:
           dissociation: num(sp.s_dissociation, 0),
           oriented: sp._ssim ? on(sp.s_oriented) : true,
         },
-        Date.now()
+        now
       );
     }
   }
