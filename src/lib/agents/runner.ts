@@ -117,14 +117,16 @@ const dayStamp = (epoch: Date, day: number, hour: number) => {
  * through the async client; the shape is the same and a guard checks the two
  * agree.
  */
-export function runAgents(db: Database.Database): AgentRunResult {
+export function runAgents(db: Database.Database, now = Date.now()): AgentRunResult {
   const out = empty();
   // IDEMPOTENT. Every id is derived from the profile, the kind and the day, and
   // every insert is conflict-do-nothing, so a second run writes nothing and a
   // reset lands in the same place. The counters still report what the run
   // WOULD have written, which is what makes them comparable across runs.
   out.days = AGENT_HORIZON;
-  const epoch = demoEpoch();
+  // `now` is a parameter so the day-rollover case can be exercised: a fault
+  // that only appears after midnight is one no local run reproduces.
+  const epoch = demoEpoch(now);
 
   const provenanceOf = db.prepare("SELECT provenance FROM persons WHERE id = ?");
   // What the generator left behind, counted strictly before the reserved tail
@@ -137,7 +139,23 @@ export function runAgents(db: Database.Database): AgentRunResult {
        harm_urge, feels_safe, dissociation, sleep_quality, substance_flag,
        recommended_action, created_at)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-     ON CONFLICT(user_id, checkin_date) DO NOTHING`);
+     -- CONFLICT ON THE ID, not on (user_id, checkin_date).
+     --
+     -- Both are unique, and choosing the wrong one broke the deployed
+     -- demonstration the morning after this began running on every boot. The
+     -- id is derived from the profile and the day OFFSET, which does not move;
+     -- the checkin date comes from the demo epoch, which advances every day. So
+     -- any later day the insert carried the same id and a different date, the
+     -- date conflict did not match, and the primary key rejected it — aborting
+     -- the whole population chain.
+     --
+     -- Conflicting on the id means these rows are written once and keep their
+     -- dates. That is the right treatment for a record of something that
+     -- happened: a check-in on the 3rd stays a check-in on the 3rd, and ages
+     -- like every other row of seeded history. The operational feeds are
+     -- re-dated instead, because a capacity feed is a snapshot of now rather
+     -- than a record of then, and the two are different kinds of row.
+     ON CONFLICT(id) DO NOTHING`);
   const insScreening = db.prepare(
     `INSERT INTO screenings (id, user_id, tenant_id, instrument, instrument_version,
        total_score, answers_json, risk_flags_json, created_at)
