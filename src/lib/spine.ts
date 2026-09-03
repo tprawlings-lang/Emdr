@@ -20,6 +20,7 @@ import type { Role } from "./roles";
 import { data } from "./data";
 import { ulid } from "./ids";
 import { PLATFORM_TENANT_ID, newId } from "./db";
+import { CHECKIN_ROUTING_VERSION } from "./gating";
 
 // ---------- Identity dual-write ----------
 
@@ -151,7 +152,7 @@ export async function recordCheckin(args: {
       via: args.via ?? "web",
     },
     actorType: "patient",
-    provenance: { ruleVersion: "checkin-routing-v1" },
+    provenance: { ruleVersion: CHECKIN_ROUTING_VERSION },
   });
 }
 

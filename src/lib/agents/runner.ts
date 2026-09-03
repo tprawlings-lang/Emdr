@@ -1,5 +1,6 @@
 import type Database from "better-sqlite3";
-import { evaluateCheckin } from "@/lib/gating";
+import { evaluateCheckin, CHECKIN_ROUTING_VERSION } from "@/lib/gating";
+import { currentPayloadVersion } from "@/lib/events";
 import { evaluateAccess } from "@/lib/safety/engine";
 import { AccessTier } from "@/lib/safety/types";
 import { accessProfileFor } from "@/lib/demo-population-disparity";
@@ -171,15 +172,26 @@ export function runAgents(db: Database.Database, now = Date.now()): AgentRunResu
        pre_suds, post_suds, started_at, ended_at)
      VALUES (?, ?, ?, 'resourcing', 'completed', ?, ?, ?, ?)
      ON CONFLICT(id) DO NOTHING`);
+  // payload_version is now a PARAMETER, looked up from the event's registered
+  // schema. It was the literal 1, and daily_checkin.completed is on schema 2 —
+  // so every check-in this layer appended told the ledger it used a schema it
+  // did not use. §30.2 requires every event to carry its schema version, and a
+  // version that is present and wrong is worse than one that is absent: a
+  // reader who trusts it parses the payload by the wrong shape.
   const insEvent = db.prepare(
     `INSERT INTO longitudinal_events
        (id, tenant_id, person_id, event_type, payload_version, payload, actor_id,
         actor_type, occurred_at, recorded_at, source_system, provenance,
         correlation_id, supersedes_event_id)
-     VALUES (?, ?, ?, ?, 1, ?, ?, ?, ?, ?, 'demo-agent', ?, ?, ?)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'demo-agent', ?, ?, ?)
      ON CONFLICT(id) DO NOTHING`);
 
   const PROV = JSON.stringify({ fabricated: true, agent: true });
+  // The check-in events get their own provenance because this layer runs the
+  // PRODUCT'S routing rule (evaluateCheckin) rather than a copy, and an event
+  // that does not say which rule version decided it cannot be traced back to
+  // one. The live web and mobile paths stamp the same constant.
+  const CHECKIN_PROV = JSON.stringify({ fabricated: true, agent: true, ruleVersion: CHECKIN_ROUTING_VERSION });
 
   db.transaction(() => {
     for (const row of MANIFEST) {
@@ -253,7 +265,7 @@ export function runAgents(db: Database.Database, now = Date.now()): AgentRunResu
       for (const d of plan) {
         liveOneDay({
           row, personId, tenant, rel: d.rel, absolute: d.absolute, intent: d.intent, epoch, out,
-          insCheckin, insScreening, insPractice, insSession, insEvent, PROV, db,
+          insCheckin, insScreening, insPractice, insSession, insEvent, PROV, CHECKIN_PROV, db,
         });
       }
     }
@@ -288,6 +300,7 @@ interface DayArgs {
   insSession: Database.Statement;
   insEvent: Database.Statement;
   PROV: string;
+  CHECKIN_PROV: string;
   db: Database.Database;
 }
 
@@ -318,6 +331,7 @@ function liveOneDay(a: DayArgs) {
       v.substance_flag ? 1 : 0, action, dayStamp(epoch, absolute, 8));
     a.insEvent.run(
       agentId(row.id, "checkin-ev", rel), tenant, personId, "daily_checkin.completed",
+      currentPayloadVersion("daily_checkin.completed"),
       JSON.stringify({
         projectionId: id, checkinDate: date, ...v,
         harmUrge: v.harm_urge, feelsSafe: v.feels_safe, sleepQuality: v.sleep_quality,
@@ -325,7 +339,7 @@ function liveOneDay(a: DayArgs) {
         triggerIds: [], via: "web", fabricated: true,
       }),
       personId, "patient", dayStamp(epoch, absolute, 8), dayStamp(epoch, absolute, 8),
-      a.PROV, null, null);
+      a.CHECKIN_PROV, null, null);
     out.checkIns += 1;
 
     // ── The gate ────────────────────────────────────────────────────────
@@ -365,6 +379,7 @@ function liveOneDay(a: DayArgs) {
     if (decision.tier < AccessTier.STEADY) {
       a.insEvent.run(
         agentId(row.id, "restricted", rel), tenant, personId, "safety_state.changed",
+        currentPayloadVersion("safety_state.changed"),
         JSON.stringify({
           state: "access_restricted",
           reason: "gate_lowered_ceiling",
@@ -400,6 +415,7 @@ function liveOneDay(a: DayArgs) {
         // nobody can audit.
         a.insEvent.run(
           agentId(row.id, "refused", rel), tenant, personId, "safety_state.changed",
+          currentPayloadVersion("safety_state.changed"),
           JSON.stringify({
             state: "session_refused",
             reason: "gate_refused_activating_session",
@@ -432,6 +448,7 @@ function liveOneDay(a: DayArgs) {
     if (!intent.measureDelivered) {
       a.insEvent.run(
         agentId(row.id, "undelivered", rel), tenant, personId, "measure.not_completed",
+        currentPayloadVersion("measure.not_completed"),
         JSON.stringify({
           instrument: "phq-9", dueOn: date, reason: "unavailable", cause: "service",
           mechanisms: accessProfileFor(row).mechanisms, fabricated: true,
@@ -442,6 +459,7 @@ function liveOneDay(a: DayArgs) {
     } else if (!intent.completesMeasure) {
       a.insEvent.run(
         agentId(row.id, "skipped", rel), tenant, personId, "measure.not_completed",
+        currentPayloadVersion("measure.not_completed"),
         JSON.stringify({
           instrument: "phq-9", dueOn: date, reason: "skipped", cause: "person", fabricated: true,
         }),
