@@ -94,16 +94,26 @@ test("the contract report shows a miss as plainly as a hit", async ({ page }) =>
   // The seeded contract deliberately contains a measure that misses, because a
   // report where everything passes demonstrates nothing about one that has to
   // show a failure.
-  // Both outcomes are present and neither is softened. Located by ROW rather
-  // than by the word: the result cell renders a glyph beside the word, so an
-  // exact-text match on "met" finds nothing and a loose one also matches
-  // "not met".
-  const missed = page.getByRole("row", { name: /Median days referral to care start/ });
+  // Both outcomes are present and neither is softened. Asserted on the FIGURE,
+  // which is now the primary surface: the measures are drawn against their own
+  // targets and the table beneath is a disclosure holding the same rows. The
+  // verdict has to be legible where the reader actually looks.
+  //
+  // Located by the row that carries the measure's name rather than by the word
+  // itself: the verdict renders a glyph beside the word, so an exact-text match
+  // on "met" finds nothing and a loose one also matches "not met".
+  const missed = page.getByRole("listitem").filter({ hasText: "Median days referral to care start" });
   await expect(missed).toContainText("not met");
 
-  const hit = page.getByRole("row", { name: /Members who started care/ });
+  const hit = page.getByRole("listitem").filter({ hasText: "Members who started care" });
   await expect(hit).toContainText("met");
   await expect(hit).not.toContainText("not met");
+
+  // And the same rows are still reachable as a table, for a reader who wants
+  // the numbers rather than the comparison.
+  await page.getByText(/same measures as a table/i).click();
+  await expect(page.getByRole("row", { name: /Median days referral to care start/ }))
+    .toContainText("not met");
 });
 
 test("the payer role cannot reach a person-level surface", async ({ page }) => {

@@ -1,5 +1,6 @@
 import { PayerPage } from "@/components/app/PayerPage";
 import { EnvelopeView } from "@/components/presentation/EnvelopeView";
+import { Figure, TargetBars } from "@/components/charts/aggregate";
 import { Note, Panel, WithNote } from "@/components/app/surfaces";
 import { buildContractReport } from "@/lib/intelligence/payer";
 import { resolvePayerTenant } from "@/lib/intelligence/scope";
@@ -74,9 +75,42 @@ export default async function PayerContractPage({
                 title={r.contract.name}
                 footnote={`Utilisation measures use only months whose claims have arrived, so no rate here is flattered by a partial month. Contract expects a ${r.contract.claimsLagDays}-day claims lag.`}
               >
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <caption className="sr-only">Agreed measures, observed value against target</caption>
+                {/* §29's payer contract-performance contract, drawn.
+                    It was a four-column table, which reads as a list of
+                    unrelated numbers: five measures in five different units,
+                    and the reader has to do the comparison themselves.
+
+                    NO SHARED AXIS, because §29.1 forbids overlaying different
+                    scales and these rows are a rate, a duration and a count
+                    per thousand. Each is drawn against its OWN target, placed
+                    at the same point on every track, so what is compared
+                    across rows is distance from target — the only comparable
+                    thing here. */}
+                <Figure
+                  title="Each measure against its agreed target"
+                  summary={`${r.measures.length} contract measures, each drawn against its own target rather than a shared axis.`}
+                  footnote={`Cohort ${r.contract.cohortVersion}, ${r.contract.periodStart} to ${r.contract.periodEnd}. The target is the tick at the middle of every track; a measure with no observed value keeps its row and says why.`}
+                >
+                  <TargetBars
+                    rows={r.measures.map((m) => ({
+                      label: m.label,
+                      unit: m.unit,
+                      observed: m.observed,
+                      target: m.target,
+                      better: m.better,
+                      met: m.met,
+                      withheld: m.withheld,
+                    }))}
+                  />
+                </Figure>
+
+                <details className="mt-8 border-t border-ground/10 pt-5">
+                  <summary className="cursor-pointer text-sm font-medium text-app-ink">
+                    The same measures as a table
+                  </summary>
+                  <div className="mt-4 overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <caption className="sr-only">Agreed measures, observed value against target</caption>
                     <thead>
                       <tr className="border-b border-ground/10 text-left">
                         <th scope="col" className="py-2 pr-4 font-semibold text-app-ink">Measure</th>
@@ -121,9 +155,10 @@ export default async function PayerContractPage({
                           </td>
                         </tr>
                       ))}
-                    </tbody>
-                  </table>
-                </div>
+                      </tbody>
+                    </table>
+                  </div>
+                </details>
               </Panel>
             </WithNote>
           )}
