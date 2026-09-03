@@ -66,13 +66,15 @@ as "the common clinician-memory and evidence layer".
 | 0 | Architecture gate — seven tables, flags, tenancy | **Done** |
 | 1 | Capture and transcript | **Done** |
 | 2 | Structured organization — extraction, candidates, review cards, Save Thoughts | **Done** |
-| 3 | Threads and follow-ups | Not started |
+| 3 | Threads and follow-ups | **Done** |
 | 4 | Session Prep | Not started |
 | 5 | Ask Steady | Not started |
 
-Approved clinical memory exists as of Phase 2, which is the layer the expansion consumes.
-Phase 3 is the next piece and the one handoff 02 (Treatment Response Fingerprint) reaches
-for — intervention-response patterns over time are threads.
+Approved clinical memory exists as of Phase 2 and longitudinal threads as of Phase 3 —
+between them, the layer the expansion consumes. Handoff 02 (Treatment Response Fingerprint)
+reaches for exactly this: intervention-response patterns over time are threads.
+
+Phase 4 (Session Prep) is next in the spec's own order.
 
 ## `future-platform-intelligence/` is parked, deliberately
 

@@ -202,7 +202,11 @@ test("the six flag names exist, and outside demo every one defaults off", () => 
 /** The phases that actually exist. This list is the test's whole point: it is
  *  updated when a phase LANDS, so a flag turned on ahead of its
  *  implementation fails here rather than in front of a reviewer. */
-const BUILT: ThoughtsFlag[] = ["CLINICIAN_THOUGHTS_CAPTURE", "CLINICIAN_THOUGHTS_EXTRACTION"];
+const BUILT: ThoughtsFlag[] = [
+  "CLINICIAN_THOUGHTS_CAPTURE",
+  "CLINICIAN_THOUGHTS_EXTRACTION",
+  "CLINICIAN_THREADS",
+];
 
 test("demo enables exactly the phases that are built", () => {
   // The same reasoning that turned on resourcing BLS in demo: a reviewer who
@@ -265,7 +269,10 @@ test("a downstream surface cannot open over a closed one", () => {
 test("a flag is read at call time, not at module load", () => {
   // A flag captured into a constant when the module first loads cannot be
   // turned off without a redeploy. This codebase has shipped that bug before.
-  const f: ThoughtsFlag = "CLINICIAN_THREADS";
+  // A flag that is NOT demo-enabled, so "unset" genuinely means off here. It
+  // was CLINICIAN_THREADS until Phase 3 landed and turned that one on in demo,
+  // at which point this test was asserting the opposite of what it meant.
+  const f: ThoughtsFlag = "CLINICIAN_SESSION_PREP";
   delete process.env[f];
   assert.equal(thoughtsFlagEnabled(f), false);
   process.env[f] = "1";

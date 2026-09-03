@@ -60,7 +60,10 @@ test("extraction is on in demo now that the phase behind it exists", () => {
   // The rule the flag list follows: a flag opens a surface with something
   // behind it. Phase 2 has an extractor, a contract, candidates and a save.
   assert.equal(thoughtsFlagEnabled("CLINICIAN_THOUGHTS_EXTRACTION"), true);
-  assert.equal(thoughtsFlagEnabled("CLINICIAN_THREADS"), false, "Phase 3 is not built");
+  // Phase 3 landed after this test was written, so the example of an unbuilt
+  // phase moved on to Phase 4. The authoritative built/unbuilt list is in
+  // clinician-thoughts-phase0.test.ts; this only checks the phase it needs.
+  assert.equal(thoughtsFlagEnabled("CLINICIAN_SESSION_PREP"), false, "Phase 4 is not built");
 });
 
 test("the cards render the statement class before the sentence", () => {

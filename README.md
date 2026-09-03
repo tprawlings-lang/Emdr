@@ -50,10 +50,11 @@ five-handoff series, the **Clinical Intelligence Expansion** — return-to-life 
 treatment-response fingerprint, a between-visit command centre, a recovery trajectory, and
 therapeutic load and readiness. Its numbering restarts at 01, so read filename prefixes
 rather than numbers. Its order is load-bearing and its stated prerequisite is the Clinician
-Thoughts spec v2.1. **Phases 0, 1 and 2 of that spec are built** — capture, transcript,
-extraction, candidate items, the review cards and the atomic Save Thoughts command — so
-approved clinical memory now exists for the expansion to consume. Phases 3–5 (threads,
-Session Prep, Ask Steady) are open. The folder also contains `future-platform-intelligence/`, which is marked
+Thoughts spec v2.1. **Phases 0–3 of that spec are built** — capture, transcript,
+extraction, candidate items, the review cards, the atomic Save Thoughts command, and
+longitudinal threads with their Connect / Not related decisions — so approved clinical
+memory and the threads over it now exist for the expansion to consume. Phases 4 and 5
+(Session Prep, Ask Steady) are open. The folder also contains `future-platform-intelligence/`, which is marked
 **PARKED / DO NOT IMPLEMENT** — it is a future program, not scope. Status table for both is
 in [`docs/handoffs/README.md`](docs/handoffs/README.md).
 

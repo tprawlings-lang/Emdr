@@ -36,6 +36,7 @@ import {
 import { encryptField } from "./../crypto";
 import { currentTranscript, getThought, transitionThought } from "./thought-store";
 import { recordItemApproved, recordItemRejected } from "./thoughts";
+import { thoughtsFlagEnabled } from "./thoughts-flags";
 
 export type ItemDecision = "approve" | "reject";
 
@@ -216,6 +217,22 @@ export async function saveThoughts(ctx: TenantContext, req: SaveThoughtsRequest)
 
   if (thought.status === "review" || thought.status === "review_transcript_only") {
     await transitionThought(ctx, req.thoughtId, "save");
+  }
+
+  // §3.2: "AI-suggested relationships to existing threads appear AFTER the main
+  // review. They are not auto-accepted." So matching runs here, once the
+  // clinician has finished deciding what is true — never during, so that
+  // deciding what a thing IS is not entangled with deciding what it connects
+  // to. Its failure does not fail the save: the approvals are already
+  // committed, and a matcher that could roll them back would be a suggestion
+  // engine with veto power over the record.
+  if (thoughtsFlagEnabled("CLINICIAN_THREADS") && approved.length > 0) {
+    try {
+      const { matchApprovedItems } = await import("./thread-match");
+      await matchApprovedItems(ctx, approved);
+    } catch (err) {
+      console.error("thread matching after save failed (non-fatal):", err);
+    }
   }
 
   return { approved, rejected, replayed: false };

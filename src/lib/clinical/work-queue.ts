@@ -26,6 +26,7 @@
 import { alertQueue, type ClinicalAlert } from "./alerts";
 import { buildCaseload, type CaseloadRow, type PriorityBand } from "./caseload";
 import { activePolicy, type ClinicalPolicy } from "../clinical-policy";
+import { thoughtsFlagEnabled } from "./thoughts-flags";
 import { data } from "../data";
 import {
   ready, empty, projectionFailed, policyUnavailable,
@@ -318,6 +319,56 @@ export async function buildWorkQueue(args: {
       actionable: r.actionable,
       blockedReason: r.actionable ? null : "Another clinician owns this person under the active caseload model.",
     });
+  }
+
+  // Approved follow-ups (Phase 3). The clinician's own note to themselves,
+  // kept by them, surfacing as work.
+  //
+  // BEHIND THE THREADS FLAG and skipped entirely when it is off, so a
+  // deployment without Phase 3 sees the queue it had. Its failure is swallowed
+  // for the same reason the thread matcher's is: this is an addition to a
+  // clinician's day, and an addition that could take the whole queue down with
+  // it would be a worse trade than not having it.
+  if (thoughtsFlagEnabled("CLINICIAN_THREADS")) {
+    try {
+      const { openFollowUps } = await import("./followups");
+      const ctx = { tenantId: args.tenantId, personId: args.clinicianId };
+      for (const f of await openFollowUps(ctx, { now })) {
+        const row = caseById.get(f.personId);
+        // Only for people this clinician actually holds. A follow-up written by
+        // a colleague about their own patient is their work, not this
+        // clinician's, and the caseload model already knows the difference.
+        if (!row) continue;
+        items.push({
+          id: `followup:${f.itemId}`,
+          // Review-today, never needs-action-now: nothing is wrong, somebody
+          // asked themselves to remember something.
+          group: "review_today",
+          // "watch", the lowest band that still appears. A follow-up is a
+          // standing intention, not an escalation, and giving it a working
+          // band would let a note-to-self outrank a person the caseload model
+          // is actually worried about.
+          band: "watch",
+          personId: f.personId,
+          personName: row.displayName,
+          reason: "Follow-up you recorded",
+          detail: f.label ? `${f.text} · ${f.label}` : f.text,
+          resolvedAt: null,
+          change: null,
+          evidenceAt: f.approvedAt,
+          ownerId: f.approvedBy ?? row.primaryClinicianId,
+          ownerName: ownerNames.get(f.approvedBy ?? row.primaryClinicianId ?? "") ?? null,
+          dueAt: null,
+          overdue: false,
+          eventCount: 1,
+          action: "open",
+          actionable: row.actionable,
+          blockedReason: row.actionable ? null : "Another clinician owns this person under the active caseload model.",
+        });
+      }
+    } catch (err) {
+      console.error("follow-up queue rows failed (non-fatal):", err);
+    }
   }
 
   // §20.3: "Queue order is stable for the same policy version and evidence

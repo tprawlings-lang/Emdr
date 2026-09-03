@@ -140,6 +140,21 @@ export async function approvedMemory(ctx: TenantContext, personId: string, limit
   return rows.map(toItem);
 }
 
+/** Several items by id, in one query.
+ *
+ *  The alternative is a getItem per membership, which turns a thread timeline
+ *  into a query per entry. Ids are parameterised rather than interpolated —
+ *  they come from rows this tenant can already see, but a list built into SQL
+ *  by string concatenation is a habit worth not having. */
+export async function itemsByIds(ctx: TenantContext, ids: string[]): Promise<MemoryItem[]> {
+  if (ids.length === 0) return [];
+  const placeholders = ids.map(() => "?").join(", ");
+  const rows = await repo(ctx).findMany<Row>(
+    "clinical_memory_items", `id IN (${placeholders})`, ids
+  );
+  return rows.map(toItem);
+}
+
 export async function getItem(ctx: TenantContext, id: string): Promise<MemoryItem | null> {
   const row = await repo(ctx).findOne<Row>("clinical_memory_items", "id = ?", [id]);
   return row ? toItem(row) : null;
