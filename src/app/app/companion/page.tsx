@@ -17,8 +17,8 @@ export default async function CompanionPage({
   const user = await requireMember();
   if (!(await subscriptionActive(user.id))) redirect("/subscribe");
   if (!(await hasConsent(user.id))) redirect("/app/onboarding");
-  if (!screeningComplete(user.id)) redirect("/app/screening");
-  if (!profileComplete(user.id)) redirect("/app/onboarding/profile");
+  if (!(await screeningComplete(user.id))) redirect("/app/screening");
+  if (!(await profileComplete(user.id))) redirect("/app/onboarding/profile");
 
   const { from } = await searchParams;
   const ctx = await buildCompanionContext(user.id);

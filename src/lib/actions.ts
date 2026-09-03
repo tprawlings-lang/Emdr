@@ -1524,7 +1524,14 @@ export async function speakInSession(args: {
   name: string | null;
 }): Promise<{ ok: boolean; error?: string; response?: SessionResponse }> {
   const user = await requireMember();
-  if (!liveAvailableFor(user.id)) return { ok: false, error: "Live sessions are not enabled." };
+  // AWAITED. This read `if (!liveAvailableFor(user.id))` — and that function is
+  // async, so the expression was `!Promise`, which is always false. The guard
+  // had never once fired: outside a demo environment a live spoken session
+  // could be driven without the voice consent `decideVoiceAvailability`
+  // requires, and without the feature flag being on.
+  if (!(await liveAvailableFor(user.id))) {
+    return { ok: false, error: "Live sessions are not enabled." };
+  }
 
   const c = await data();
   const owned = await c.get("SELECT id FROM therapy_sessions WHERE id = ? AND user_id = ?", [args.sessionId, user.id]);

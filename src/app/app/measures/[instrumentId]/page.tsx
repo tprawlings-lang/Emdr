@@ -17,7 +17,7 @@ export default async function TakeMeasurePage({
   const user = await requireMember();
   if (!(await subscriptionActive(user.id))) redirect("/subscribe");
   if (!(await hasConsent(user.id))) redirect("/app/onboarding");
-  if (!screeningComplete(user.id)) redirect("/app/screening");
+  if (!(await screeningComplete(user.id))) redirect("/app/screening");
 
   const { instrumentId } = await params;
   const instrument = getInstrument(instrumentId);
