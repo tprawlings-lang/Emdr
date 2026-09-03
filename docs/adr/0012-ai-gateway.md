@@ -1,6 +1,32 @@
 # 0012 — All model calls route through a Steady AI Gateway
 
-**Status:** Proposed — required before Handoff A code lands.
+**Status:** Accepted and implemented (core). The gateway is `src/lib/ai-gateway/`,
+every model call in the product routes through `invoke()`, and a guard fails the
+build if any module outside `src/lib/ai-gateway/provider.ts` imports a provider
+SDK. Built as the Phase 0 architecture gate of the Clinician Thoughts handoff,
+whose first definition of done is "no code path can accidentally call a model
+provider directly."
+
+Landed: the single entry point (§1), the task registry (§2), tool tiers with the
+prohibited tier enforced at registration (§4), provenance on every inference
+(§6), and a swappable provider so evaluation can run against fixtures (§7).
+
+Not yet landed: generic structured-output validation (§3) — it stays per-task;
+the deterministic crisis check still runs at the companion call site rather than
+inside the gateway (§5); and §7's golden sets exist only as the fixture provider
+the tests use.
+
+**Migration note.** This ADR counted four direct call sites. There were five: a
+health-check API route reached the provider too — a file nobody thinks of as AI
+code, which is exactly the erosion §1 predicts. And two of the four were
+character-for-character identical copies of the same rephrase call in the web and
+mobile paths; they are now one registered task.
+
+A fifth tool tier was needed. `escalate_risk` notifies a care team and fits none
+of §4's four: it is not patient-owned or reversible, and `write-clinical`'s
+"requires human confirmation" is wrong for a suicide-risk alert, because waiting
+is the harm. `safety-escalation` is admissible only for an action that can raise
+protection and never lower it.
 Consumes [ADR 0010](0010-event-sourced-longitudinal-spine.md) (provenance) and
 [ADR 0011](0011-tenancy-and-person-account-separation.md) (purpose-scoped retrieval).
 

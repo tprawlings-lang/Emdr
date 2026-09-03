@@ -3,7 +3,7 @@
 import { redirect } from "next/navigation";
 import { landingFor, isRole, type Role } from "./roles";
 import { revalidatePath } from "next/cache";
-import { hashPassword, newId, verifyPassword } from "./db";
+import { hashPassword, newId, verifyPassword, tenantForUser } from "./db";
 import { data } from "./data";
 import { checkAgeEligibility } from "./age-gate";
 import { safetyRefundAndCancel, setCancelAtPeriodEnd, startDemoSubscription, subscriptionActive } from "./billing";
@@ -44,7 +44,7 @@ import { selectTechniques } from "./therapy-kb";
 import { validateCompanionOutput, SAFE_FALLBACK } from "./safety/companion-guard";
 import {
   composeSessionResponse,
-  buildSessionRephrasePrompt,
+  rephraseSessionLine,
   type SessionResponse,
 } from "./session-companion";
 import { generateProgramPlan } from "./program-plan";
@@ -1572,34 +1572,16 @@ export async function speakInSession(args: {
     name: args.name,
   });
 
-  let response = base;
-
   // Optional AI phrasing — ONLY reword an already-safe line the responder marked
-  // aiEligible (attunement + cleared techniques; never crisis/grounding), and
-  // only when the model is available. Guarded; falls back to the deterministic
-  // text on any violation or error.
-  if (base.aiEligible && aiCompanionEnabled()) {
-    try {
-      const Anthropic = (await import("@anthropic-ai/sdk")).default;
-      const client = new Anthropic({ maxRetries: 2 });
-      const msg = await client.messages.create({
-        model: "claude-haiku-4-5-20251001",
-        max_tokens: 160,
-        system: buildSessionRephrasePrompt(base, args.calmPlace),
-        messages: [{ role: "user", content: transcript }],
-      });
-      const text = msg.content
-        .filter((b) => b.type === "text")
-        .map((b) => ("text" in b ? b.text : ""))
-        .join(" ")
-        .trim();
-      if (text && validateCompanionOutput(text).ok) {
-        response = { ...base, text, source: "ai" };
-      }
-    } catch {
-      /* keep the deterministic line */
-    }
-  }
+  // aiEligible (attunement + cleared techniques; never crisis/grounding).
+  // Guarded, and falls back to the deterministic text on any violation, model
+  // failure or absent provider. Shared with the mobile path: this call and its
+  // mobile twin were identical, and keeping two copies of a safety behaviour is
+  // how the two products end up differing without anyone deciding they should.
+  let response = await rephraseSessionLine({
+    base, transcript, calmPlace: args.calmPlace,
+    userId: user.id, tenantId: tenantForUser(user.id),
+  });
 
   // Belt-and-braces: never emit an unguarded line.
   if (!validateCompanionOutput(response.text).ok) {

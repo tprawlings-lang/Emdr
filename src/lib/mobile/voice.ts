@@ -6,7 +6,7 @@
 // the line is already safe), never touching the session's stop rules.
 
 import { data } from "../data";
-import { newId } from "../db";
+import { newId, tenantForUser } from "../db";
 import { audit } from "../audit";
 import { rateLimit } from "../rate-limit";
 import { hasVoiceConsent, liveAvailableFor } from "../gating";
@@ -14,9 +14,8 @@ import { VOICE_CONSENT_SECTIONS, VOICE_CONSENT_VERSION } from "../policy";
 import { decideAccess } from "../safety/decide";
 import { memoryEnabled, getModelExposableMemoryItems } from "../companion";
 import { selectTechniques } from "../therapy-kb/select";
-import { composeSessionResponse, buildSessionRephrasePrompt, type SessionResponse } from "../session-companion";
+import { composeSessionResponse, rephraseSessionLine, type SessionResponse } from "../session-companion";
 import { validateCompanionOutput, SAFE_FALLBACK } from "../safety/companion-guard";
-import { aiCompanionEnabled } from "../companion-ai";
 import { grantConsent, withdrawConsent } from "../spine";
 
 // ---------- consent + availability ----------
@@ -84,23 +83,11 @@ export async function speakInSession(userId: string, args: {
     transcript, currentSuds: args.currentSuds, tier, techniques,
     calmPlace: args.calmPlace, name: args.name,
   });
-  let response = base;
-
-  // Optional AI warmth pass — only reword an already-safe, aiEligible line.
-  if (base.aiEligible && aiCompanionEnabled()) {
-    try {
-      const Anthropic = (await import("@anthropic-ai/sdk")).default;
-      const client = new Anthropic({ maxRetries: 2 });
-      const msg = await client.messages.create({
-        model: "claude-haiku-4-5-20251001",
-        max_tokens: 160,
-        system: buildSessionRephrasePrompt(base, args.calmPlace),
-        messages: [{ role: "user", content: transcript }],
-      });
-      const text = msg.content.filter((b) => b.type === "text").map((b) => ("text" in b ? b.text : "")).join(" ").trim();
-      if (text && validateCompanionOutput(text).ok) response = { ...base, text, source: "ai" };
-    } catch { /* keep deterministic line */ }
-  }
+  // The optional warmth pass, through the gateway and shared with the web path.
+  // Both used to carry their own copy of this call.
+  let response = await rephraseSessionLine({
+    base, transcript, calmPlace: args.calmPlace, userId, tenantId: tenantForUser(userId),
+  });
   if (!validateCompanionOutput(response.text).ok) {
     response = { ...response, text: SAFE_FALLBACK, source: "deterministic" };
   }

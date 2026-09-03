@@ -1,4 +1,3 @@
-import Anthropic from "@anthropic-ai/sdk";
 import { newId } from "./db";
 import { data } from "./data";
 import { decryptField, encryptField } from "./crypto";
@@ -41,14 +40,15 @@ async function guardCompanionText(userId: string, text: string): Promise<string>
   }
 }
 import { getProgramPlan } from "./program-plan";
+import { invoke, type GatewayTool, type ModelMessage } from "./ai-gateway";
+import { COMPANION_REPLY } from "./ai-gateway/registry";
+import { tenantForUser } from "./db";
 
 // LLM-backed companion. The deterministic safety routing in actions.ts
 // (crisis regex → canned crisis reply + alert) always runs BEFORE this module,
 // and the rules engine in companion.ts remains the fallback when no API key
 // is configured or the API call fails — the demo never hard-depends on the
 // network.
-
-const MODEL = process.env.EMDR_COMPANION_MODEL ?? "claude-opus-4-8";
 
 export function aiCompanionEnabled(): boolean {
   return Boolean(process.env.ANTHROPIC_API_KEY);
@@ -58,13 +58,15 @@ export function aiCompanionEnabled(): boolean {
 
 const TRIGGER_CATEGORIES = ["relational", "environmental", "body", "memory", "internal", "other"];
 
-function tools(memoryOn: boolean): Anthropic.Tool[] {
-  const list: Anthropic.Tool[] = [
+function tools(memoryOn: boolean): GatewayTool[] {
+  const list: GatewayTool[] = [
     {
       name: "record_trigger",
+      tier: "write-soft",
+      capability: "record_patient_trigger",
       description:
         "Save or update one of the member's triggers in their trigger map. Call this whenever the member describes a trigger in any detail — what sets them off, how intense it is, how their body or behavior responds, or context worth keeping. Use the member's own words for notes where possible. If the trigger already exists, the fields you provide update it, so it is always safe to call with new detail.",
-      input_schema: {
+      inputSchema: {
         type: "object",
         properties: {
           trigger_name: {
@@ -97,9 +99,11 @@ function tools(memoryOn: boolean): Anthropic.Tool[] {
   if (memoryOn) {
     list.push({
       name: "remember",
+      tier: "write-soft",
+      capability: "store_patient_memory",
       description:
         "Store a durable fact about the member so future conversations can build on it. Call this when the member shares something worth carrying forward: a grounding tool that works or doesn't, a preference about how to be spoken to, a pattern you notice across sessions or check-ins, a topic to avoid, or progress worth celebrating later. Use memory_type 'focus_area' when the member names something they specifically want to work on — those are offered back as focus choices before their therapy sessions. Use 'grounding_tool' with key 'calm place' for their calm-place image. Do not store crisis content or anything the member asked you to forget.",
-      input_schema: {
+      inputSchema: {
         type: "object",
         properties: {
           memory_type: {
@@ -133,9 +137,14 @@ function tools(memoryOn: boolean): Anthropic.Tool[] {
   }
   list.push({
     name: "escalate_risk",
+    // Its own tier. This only ever RAISES protection — it opens an alert to the
+    // care team and can close nothing — so it must not wait for the human
+    // confirmation write-clinical requires. Waiting is the harm here.
+    tier: "safety-escalation",
+    capability: "notify_care_team",
     description:
       "Call this if the member expresses suicidal thoughts, intent to harm themselves or others, or says they are not safe — even indirectly. This notifies their care team. After calling it, your reply must direct them to call or text 988, call 911 if in immediate danger, and use the in-app crisis page.",
-    input_schema: {
+    inputSchema: {
       type: "object",
       properties: {
         reason: { type: "string", description: "Brief description of the risk language, for the care team" },
@@ -426,7 +435,7 @@ Use this to give direction: when they ask what to work on or prepare for, anchor
 
 // ---------- Conversation ----------
 
-async function loadHistory(convId: string, userId: string): Promise<Anthropic.MessageParam[]> {
+async function loadHistory(convId: string, userId: string): Promise<ModelMessage[]> {
   const c = await data();
   const rows = (await c.all(
     `SELECT sender, message_text FROM ai_messages
@@ -470,64 +479,55 @@ export async function generateAiReply(
       mode: "grounding",
     };
   }
-  // The SDK retries transient errors (429/5xx/network) with exponential
-  // backoff; set it explicitly rather than relying on the default (2).
-  const client = new Anthropic({ maxRetries: 3 });
   const memoryOn = await memoryEnabled(ctx.userId);
   const conv = (await (await data()).get("SELECT context_type FROM ai_conversations WHERE id = ?", [convId])) as { context_type: string } | undefined;
   const system = await buildSystemPrompt(ctx, conv?.context_type ?? "general", userText);
-  const toolSet = tools(memoryOn);
-  const messages: Anthropic.MessageParam[] = [...(await loadHistory(convId, ctx.userId)), { role: "user", content: userText }];
   const state = { riskFlag: false };
 
-  for (let turn = 0; turn < 5; turn++) {
-    const response = await client.messages.create({
-      model: MODEL,
-      max_tokens: 1024,
-      thinking: { type: "adaptive" },
-      output_config: { effort: "low" },
-      system,
-      tools: toolSet,
-      messages,
-    });
+  // Through the gateway. The tool LOOP moved (it is the same for every task
+  // that has tools, and writing it per feature is how one of them ends up
+  // without a ceiling); the tool EFFECTS stayed here, because what
+  // `record_trigger` does to this member's record is domain behaviour and does
+  // not belong in an infrastructure module.
+  //
+  // What the move buys, beyond one less provider client: the tier check. Every
+  // tool this conversation can offer now carries a declared capability, and the
+  // registry refuses one that matches a prohibited capability at REGISTRATION —
+  // so "generative output cannot override a safety state" is enforced when
+  // somebody writes the tool rather than when a model reaches for it.
+  const result = await invoke({
+    task: COMPANION_REPLY.id,
+    scope: {
+      tenantId: tenantForUser(ctx.userId),
+      personId: ctx.userId,
+      purpose: "companion_reply",
+      actorId: ctx.userId,
+    },
+    system,
+    messages: [...(await loadHistory(convId, ctx.userId)), { role: "user", content: userText }],
+    tools: tools(memoryOn),
+    executeTool: (use) =>
+      executeTool(ctx.userId, convId, use.name, use.input, state),
+  });
 
-    const toolUses = response.content.filter(
-      (b): b is Anthropic.ToolUseBlock => b.type === "tool_use"
-    );
-    if (toolUses.length === 0 || response.stop_reason !== "tool_use") {
-      const text = response.content
-        .filter((b): b is Anthropic.TextBlock => b.type === "text")
-        .map((b) => b.text)
-        .join("\n")
-        .trim();
-      return {
-        text: ensureCrisisResources(
-          await guardCompanionText(
-            ctx.userId,
-            text || "I'm here. Tell me a little more about what's going on for you right now."
-          ),
-          state.riskFlag
+  if (result.outcome === "answered") {
+    return {
+      text: ensureCrisisResources(
+        await guardCompanionText(
+          ctx.userId,
+          result.text || "I'm here. Tell me a little more about what's going on for you right now."
         ),
-        riskFlag: state.riskFlag,
-        mode: state.riskFlag ? "crisis" : "ai",
-      };
-    }
-
-    messages.push({ role: "assistant", content: response.content });
-    // Tools run sequentially so their DB writes and the hash-chained audits
-    // stay ordered (no concurrent transactions).
-    const results: Anthropic.ToolResultBlockParam[] = [];
-    for (const t of toolUses) {
-      results.push({
-        type: "tool_result",
-        tool_use_id: t.id,
-        content: await executeTool(ctx.userId, convId, t.name, t.input as Record<string, unknown>, state),
-      });
-    }
-    messages.push({ role: "user", content: results });
+        state.riskFlag
+      ),
+      riskFlag: state.riskFlag,
+      mode: state.riskFlag ? "crisis" : "ai",
+    };
   }
 
-  // Tool-loop ceiling reached — close gently rather than erroring.
+  // The model did not answer: no provider configured, a provider failure, or
+  // the tool-loop ceiling. All three close gently rather than erroring, because
+  // a member mid-conversation should not be shown a stack trace, and the
+  // gateway has already recorded which of the three it was.
   return {
     text: ensureCrisisResources(
       "I've noted everything you just shared. Let's pause here for a breath — what feels most important to sit with right now?",

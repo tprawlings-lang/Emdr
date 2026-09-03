@@ -1777,3 +1777,21 @@ function seed(db: Database.Database) {
     ).run(memberId);
   })();
 }
+
+/** The tenant a user's records live in.
+ *
+ *  Added because the gateway records every inference against a tenant, and the
+ *  call sites that needed one were each about to write their own query — which
+ *  is how `PLATFORM_TENANT_ID` ends up hardcoded as a "temporary" default in
+ *  four places. Falls back to the platform tenant for a user who predates
+ *  tenancy, which is the same inference `backfillProvenance` makes and is
+ *  recorded here rather than assumed at the call site. */
+export function tenantForUser(userId: string): string {
+  try {
+    const row = getDb().prepare("SELECT tenant_id FROM users WHERE id = ?").get(userId) as
+      | { tenant_id: string | null } | undefined;
+    return row?.tenant_id || PLATFORM_TENANT_ID;
+  } catch {
+    return PLATFORM_TENANT_ID;
+  }
+}
