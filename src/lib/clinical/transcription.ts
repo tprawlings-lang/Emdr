@@ -33,6 +33,7 @@
 //   guess from an error string.
 
 import crypto from "node:crypto";
+import { fixtureTranscription } from "./transcription-fixture";
 
 export interface TranscriptSpan {
   /** Character offsets into the transcript text. */
@@ -116,14 +117,34 @@ export const unconfiguredTranscription: TranscriptionService = {
   },
 };
 
-let active: TranscriptionService = unconfiguredTranscription;
+let override: TranscriptionService | null = null;
 
+/** The service for this environment, resolved AT CALL TIME.
+ *
+ *  Not captured into a module-level constant: a provider decided when the
+ *  module first loaded cannot be changed without a redeploy, and this codebase
+ *  has shipped that bug before.
+ *
+ *  THE FIXTURE IS REACHABLE ONLY IN DEMO, and that gate is the most important
+ *  line in this file. A service that invents clinical text would, outside a
+ *  demonstration, put words a clinician never said into a patient's record,
+ *  attributed to that clinician, in a field the product treats as source
+ *  evidence. `EMDR_DEMO` is the only way to it and a guard fails the build if
+ *  that stops being true.
+ *
+ *  Outside demo the answer is the unconfigured service, which fails retryably
+ *  and keeps the audio — because a deployment with no provider should hold what
+ *  the clinician said until one exists, not fabricate a substitute. */
 export function transcriptionService(): TranscriptionService {
-  return active;
+  if (override) return override;
+  if (process.env.EMDR_DEMO === "1") return fixtureTranscription;
+  return unconfiguredTranscription;
 }
 
+/** For tests and for a future real provider's own integration tests. Returns
+ *  the restore function, so a test cannot leave the environment changed. */
 export function setTranscriptionService(s: TranscriptionService): () => void {
-  const previous = active;
-  active = s;
-  return () => { active = previous; };
+  const previous = override;
+  override = s;
+  return () => { override = previous; };
 }

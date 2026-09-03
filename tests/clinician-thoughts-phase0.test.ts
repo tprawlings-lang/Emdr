@@ -187,12 +187,46 @@ test("a model may propose and only a person may accept", () => {
 
 // ── Feature flags (§22) ─────────────────────────────────────────────────────
 
-test("the six flag names exist and every one defaults off", () => {
+test("the six flag names exist, and outside demo every one defaults off", () => {
   assert.equal(THOUGHTS_FLAGS.length, 6);
-  for (const f of THOUGHTS_FLAGS) {
-    delete process.env[f];
-    assert.equal(thoughtsFlagEnabled(f), false, `${f} is on with nothing set`);
+  const demo = process.env.EMDR_DEMO;
+  delete process.env.EMDR_DEMO;
+  try {
+    for (const f of THOUGHTS_FLAGS) {
+      delete process.env[f];
+      assert.equal(thoughtsFlagEnabled(f), false, `${f} is on with nothing set`);
+    }
+  } finally { if (demo) process.env.EMDR_DEMO = demo; }
+});
+
+test("demo enables capture and nothing else", () => {
+  // The same reasoning that turned on resourcing BLS in demo: a reviewer who
+  // cannot run the workflow cannot give feedback on it, and unusable-by-default
+  // is not a safety property when the data is fabricated.
+  //
+  // The later phases stay dark because they are NOT BUILT. A flag that opens a
+  // surface with nothing behind it is worse than a closed one — the reviewer
+  // concludes "this is broken" rather than "this is not finished".
+  process.env.EMDR_DEMO = "1";
+  for (const f of THOUGHTS_FLAGS) delete process.env[f];
+
+  assert.equal(thoughtsFlagEnabled("CLINICIAN_THOUGHTS_CAPTURE"), true,
+    "capture is dark in the one environment built for clinical review");
+  for (const f of THOUGHTS_FLAGS.filter((x) => x !== "CLINICIAN_THOUGHTS_CAPTURE")) {
+    assert.equal(thoughtsFlagEnabled(f), false,
+      `${f} is on in demo, but the phase behind it is not built`);
   }
+});
+
+test("an explicit 0 forces a flag off, even in demo", () => {
+  // How the refusal path gets demonstrated: a presenter showing what a
+  // clinician sees when the feature is not available to them.
+  process.env.EMDR_DEMO = "1";
+  process.env.CLINICIAN_THOUGHTS_CAPTURE = "0";
+  assert.equal(thoughtsFlagEnabled("CLINICIAN_THOUGHTS_CAPTURE"), false,
+    "demo overrides an explicit off, so the refusal path cannot be shown");
+  assert.equal(thoughtsSurfaceAvailable("CLINICIAN_THOUGHTS_CAPTURE"), false);
+  delete process.env.CLINICIAN_THOUGHTS_CAPTURE;
 });
 
 test("a downstream surface cannot open over a closed one", () => {
@@ -200,6 +234,10 @@ test("a downstream surface cannot open over a closed one", () => {
   // already exists." A rollout is exactly when somebody enables the interesting
   // flag first.
   for (const f of THOUGHTS_FLAGS) delete process.env[f];
+  // Closed EXPLICITLY, not by absence. Demo turns capture on by default now, so
+  // an unset flag is no longer a closed one — and a fixture that means to close
+  // something has to say so, or it silently stops testing what it says.
+  process.env.CLINICIAN_THOUGHTS_CAPTURE = "0";
   process.env.CLINICIAN_SESSION_PREP = "1";
   assert.equal(thoughtsSurfaceAvailable("CLINICIAN_SESSION_PREP"), false,
     "Session Prep opened with extraction and capture both off");
