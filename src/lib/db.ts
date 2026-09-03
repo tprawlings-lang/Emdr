@@ -1298,6 +1298,38 @@ export const SCHEMA_SQL = `
   CREATE INDEX IF NOT EXISTS idx_memory_person_label
     ON clinical_memory_items(tenant_id, person_id, normalized_label);
 
+  -- Save Thoughts idempotency (§8.1: "a repeated Save Thoughts command with
+  -- the same idempotency key must not duplicate approved items").
+  --
+  -- A SEPARATE ROW RATHER THAN A COLUMN ON THE THOUGHT, because a thought can
+  -- be saved more than once across its life — a correction after a transcript
+  -- edit is a second save — and a single column would only remember the last
+  -- one. The retry this defends against is a browser resubmitting the same
+  -- decision set, which is exactly the case where the key is not the newest.
+  --
+  -- The unique constraint is the mechanism. The command inserts the key first,
+  -- inside the same transaction as the approvals: a duplicate insert fails, the
+  -- transaction rolls back, and no second copy of an approved item exists. The
+  -- alternative — checking for the key and then writing — has a window between
+  -- the two where a concurrent retry does the work twice.
+  CREATE TABLE IF NOT EXISTS clinician_thought_saves (
+    id TEXT PRIMARY KEY,
+    tenant_id TEXT NOT NULL REFERENCES tenants(id),
+    thought_id TEXT NOT NULL REFERENCES clinician_thoughts(id),
+    idempotency_key TEXT NOT NULL,
+    -- Which transcript the decisions were made against. §14.1: "a stale browser
+    -- submission must return a conflict rather than writing against an older
+    -- transcript." Stored so a replay can be checked against it too.
+    transcript_version INTEGER NOT NULL,
+    approved_count INTEGER NOT NULL DEFAULT 0,
+    rejected_count INTEGER NOT NULL DEFAULT 0,
+    saved_by TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    UNIQUE(thought_id, idempotency_key)
+  );
+  CREATE INDEX IF NOT EXISTS idx_thought_saves_thought
+    ON clinician_thought_saves(thought_id, created_at);
+
   -- Longitudinal threads.
   CREATE TABLE IF NOT EXISTS clinical_threads (
     id TEXT PRIMARY KEY,
@@ -1653,6 +1685,7 @@ export const TENANT_SCOPED_TABLES = [
   // off this list, so a table missing from it is a table nothing is checking.
   "clinician_thoughts",
   "clinician_thought_transcripts",
+  "clinician_thought_saves",
   "clinical_memory_items",
   "clinical_threads",
   "clinical_thread_memberships",

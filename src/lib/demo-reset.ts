@@ -99,6 +99,9 @@ export const DEMO_DATA_TABLES = [
   "clinical_threads",
   "clinical_retrieval_documents",
   "clinical_memory_items",
+  // Before clinician_thoughts: it points at them, so it has to go first or the
+  // delete fails on the foreign key.
+  "clinician_thought_saves",
   "clinician_thought_transcripts",
   "clinician_thoughts",
   // Payer domain next: claims reference persons, and contract measures

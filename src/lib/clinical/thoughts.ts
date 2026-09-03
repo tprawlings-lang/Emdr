@@ -196,6 +196,124 @@ export async function recordThoughtTranscribed(args: {
   });
 }
 
+/** Candidate items produced from a transcript (§7).
+ *
+ *  The item IDS travel, not their text. §18 keeps clinical narrative out of the
+ *  ledger, and the items are rows that can be read with the right scope — an
+ *  event carrying their display text would be a second copy of a clinician's
+ *  private judgement in a store whose whole point is that nothing is ever
+ *  removed from it.
+ *
+ *  `aiInferenceId` is what makes a candidate attributable: it names the exact
+ *  inference, and therefore the task version and model, that proposed this set.
+ *  Null when the extraction came from the demo fixture, which is not an
+ *  inference and must not be recorded as one. */
+export async function recordExtractionCompleted(args: {
+  thoughtId: string;
+  transcriptId: string;
+  tenantId: string;
+  personId: string;
+  itemIds: string[];
+  taskVersion: string;
+  aiInferenceId: string | null;
+}): Promise<string | null> {
+  return appendEventSafe({
+    personId: args.personId,
+    tenantId: args.tenantId,
+    type: "clinician_thought.extraction_completed",
+    actorId: null,
+    actorType: "system",
+    payload: {
+      thoughtId: args.thoughtId,
+      transcriptId: args.transcriptId,
+      itemIds: args.itemIds,
+      taskVersion: args.taskVersion,
+      aiInferenceId: args.aiInferenceId,
+    },
+  });
+}
+
+/** A clinician accepted a candidate (§7).
+ *
+ *  `statementClass` is on the event because the class is the claim. Replaying
+ *  an approval without it would rebuild an approved item whose epistemic status
+ *  had to be looked up somewhere else — and Phase 2's definition of done is
+ *  that replay reproduces the approved memory state, not most of it. */
+export async function recordItemApproved(args: {
+  memoryItemId: string;
+  thoughtId: string;
+  tenantId: string;
+  personId: string;
+  itemType: string;
+  statementClass: string;
+  approvedBy: string;
+}): Promise<string | null> {
+  return appendEventSafe({
+    personId: args.personId,
+    tenantId: args.tenantId,
+    type: "clinical_memory.item_approved",
+    actorId: args.approvedBy,
+    actorType: "clinician",
+    payload: {
+      memoryItemId: args.memoryItemId,
+      thoughtId: args.thoughtId,
+      itemType: args.itemType,
+      statementClass: args.statementClass,
+      approvedBy: args.approvedBy,
+    },
+  });
+}
+
+/** A clinician removed a candidate (§7).
+ *
+ *  Recorded rather than silent. A rejected candidate is evidence about the
+ *  extractor, and §11's learning posture needs to know what the clinician threw
+ *  away as much as what they kept. */
+export async function recordItemRejected(args: {
+  memoryItemId: string;
+  thoughtId: string;
+  tenantId: string;
+  personId: string;
+  rejectedBy: string;
+}): Promise<string | null> {
+  return appendEventSafe({
+    personId: args.personId,
+    tenantId: args.tenantId,
+    type: "clinical_memory.item_rejected",
+    actorId: args.rejectedBy,
+    actorType: "clinician",
+    payload: {
+      memoryItemId: args.memoryItemId,
+      thoughtId: args.thoughtId,
+      rejectedBy: args.rejectedBy,
+    },
+  });
+}
+
+/** An approved item was corrected (§7, §16). */
+export async function recordItemCorrected(args: {
+  priorItemId: string;
+  replacementItemId: string;
+  tenantId: string;
+  personId: string;
+  reason: string | null;
+  correctedBy: string;
+}): Promise<string | null> {
+  return appendEventSafe({
+    personId: args.personId,
+    tenantId: args.tenantId,
+    type: "clinical_memory.item_corrected",
+    actorId: args.correctedBy,
+    actorType: "clinician",
+    payload: {
+      priorItemId: args.priorItemId,
+      replacementItemId: args.replacementItemId,
+      reason: args.reason,
+      correctedBy: args.correctedBy,
+    },
+  });
+}
+
 /** Thrown away, before or after review.
  *
  *  §16: "Rejecting a candidate before approval is not the same as deleting a
