@@ -134,7 +134,7 @@ examples; open them before writing a screen, because the text alone rebuilds wro
 
 ### Where it stands
 
-**Screens — 72 of 80.** Every role that reads or writes care data is complete.
+**Screens — 73 of 80.** Every role that reads or writes care data is complete.
 
 | Role | Spec | Built | §26 page |
 |---|---|---|---|
@@ -143,7 +143,7 @@ examples; open them before writing a screen, because the text alone rebuilds wro
 | Organization | 9 | **9** | 42 |
 | Payer | 10 | **10** | 43 |
 | Shared access states | 8 | **8** | 46 |
-| Review and administration | 13 | 8 | 44 |
+| Review and administration | 13 | 9 | 44 |
 | Public institutional site | 11 | 9 | 45 |
 
 **Charts — 22 of §29's 22 contracts** (inventory on p75). **Complete.**
@@ -162,7 +162,7 @@ every aggregate screen is counted from that ledger; nothing is pre-aggregated.
 
 ### What is NOT completed, and where to read about it
 
-Eight screens. Each row names the page in the handoff that specifies it.
+Seven screens. Each row names the page in the handoff that specifies it.
 
 | # | Not built | Read | Blocked on |
 |---|---|---|---|
@@ -170,7 +170,6 @@ Eight screens. Each row names the page in the handoff that specifies it.
 | 2 | `/review/clinical` — review language and flow; record a decision against a version | §26 **p44** | No approval record. The decision and its evidence have nowhere to be written |
 | 5 | `/review/research` — approved de-identified data, consent and cohort guard | §26 **p44** | Cohort registry |
 | 6 | `/review/release` — record required sign-offs with owner, evidence and state | §26 **p44**; release gates §31.6 **p99** | A sign-off record. `autonomous_signoffs` is the nearest existing shape |
-| 7 | `/review/demo-data` — reset and verify fabricated data | §26 **p44** | Nothing. `scripts/demo.ts` already does this from the CLI |
 | 9 | `/personal` — public Steady Personal page | §26 **p45** | Naming only. Content lives at `/platform` |
 | 10 | `/intelligence` — public Steady Intelligence page | §26 **p45** | Naming only. Content lives at `/organizations` and `/payers` |
 | 18 | **Wave 6 — hardening**: performance, accessibility, security, telemetry, export parity, disaster recovery | Waves §31.2 **p95**; acceptance §31.5 **p98**; release gates §31.6 **p99**; telemetry §31.7 **p100** | Not started |
@@ -180,7 +179,7 @@ list; the numbering below still refers to the original rows.
 
 **§29's chart inventory is complete.** Two screens still need a record that does not exist yet —
 rows 2 and 6, a review decision and a sign-off. **Everything else is presentation work over data
-that is already there**: rows 7, 9 and 10 are screens over paths that already exist. Row 5
+that is already there**: rows 9 and 10 are screens over paths that already exist. Row 5
 needs the cohort registry; row 18 is its own wave.
 
 Row 8 (`/review/status`) closed the same way rows like it will: nothing new was measured. It
@@ -213,6 +212,34 @@ because a reader who trusts it parses the payload by the wrong shape. And the ag
 product's real routing rule without recording which rule version decided the answer, so its
 check-ins could reach the ledger stage and no further. `CHECKIN_ROUTING_VERSION` now lives beside
 the rule in `gating.ts`, and both writers stamp it.
+
+Row 7 (`/review/demo-data`) makes §26's primary action the **identity scan**, not the reset,
+which is the right way round: a reviewer is being asked to accept that none of these seventeen
+thousand people exist, and a reset button does nothing to support that. The scan looks for the
+marks a real person leaves — a deliverable mail domain, a phone number, a government identifier,
+a street address — in the columns one could arrive in, and reports what it found, **what it
+could not read**, and **what it did not cover**. It does not decrypt: encrypted clinical text is
+counted as unreadable rather than skipped, so a clean result cannot mean "we did not look". A
+missing column is reported rather than counted as zero findings.
+
+The first version of the scan was wrong in a way worth recording. It flagged the demonstration's
+own human accounts, because a real person's real email address is deliverable — and that is
+their address, not contamination. `runQualityChecks` already had this right, *reporting* the
+count of real people rather than judging it. The scan is now scoped to the fabricated population,
+and real people are reported and left alone.
+
+Two guard lessons, both learned the hard way in the same file. The phone rule could not match
+`(415) 555-0134` — a `\b` cannot exist between a space and `(` — and the only reason anyone
+found out is that the guard plants the string it expects to find; a scanner verified against
+clean data is verified against nothing. And "a clean result over nothing is not called clean"
+originally asserted only against a populated database, where it passes whether the empty case is
+handled or not. It now builds the empty case. **A guard that cannot fail is worse than none,
+because it is counted.**
+
+Resetting is deliberately not on that screen. It already exists on the demo administration
+console with a typed reason and an audit entry; a second copy of a control that deletes every
+row, on a screen most of whose readers cannot use it, makes the environment easier to destroy
+and no easier to verify.
 
 **Rows 14–17 are built** — organization engagement and location comparison, payer contract
 performance and data quality. They needed two primitives the chart file did not have, and each
@@ -282,7 +309,7 @@ have to settle are recorded in [`docs/autonomous/01-signoff-ledger.md`](docs/aut
 
 **The cheapest remaining progress** is rows 9 and 10, which are a rename.
 
-**Nothing here is a broken link.** `/review` names the five missing screens on itself
+**Nothing here is a broken link.** `/review` names the four missing screens on itself
 rather than showing an empty queue, and the two public pages have reachable equivalents.
 
 ### What comes after GUI launch — handoff 07, in progress
@@ -498,7 +525,7 @@ about how finished each is.
 | Clinician | 14 | 14 (18 routes) | — |
 | Organization | 9 | 9 | — |
 | Payer | 10 | 10 | — |
-| Review and administration | 13 | 8 | `/review/access`, `/clinical`, `/research`, `/release`, `/demo-data` |
+| Review and administration | 13 | 9 | `/review/access`, `/clinical`, `/research`, `/release` |
 | Public institutional site | 11 | 9 | `/personal`, `/intelligence`. Nothing links to them — the home page routes the three products to `/platform`, `/clinical`, `/organizations` and `/payers` instead — so this is a naming gap, not a broken link |
 | Shared access states | 8 | 8 | — |
 
@@ -523,7 +550,7 @@ table above for which page specifies each.
 
 - `/review` shows no review queue. §26 asks for one; scoped access requests, release
   sign-offs and clinical language approvals are not records anywhere in this deployment.
-  An empty queue would claim a channel that is quiet. The screen names the five missing
+  An empty queue would claim a channel that is quiet. The screen names the four missing
   screens instead.
 - Organization and payer screens are aggregate-only by §30.6 — aggregate access must not
   create person-level care access. That is a data-model requirement, not a page.
@@ -673,7 +700,7 @@ others were examined and found unremarkable.
 | 4 | Aggregate — organization | done — 9 screens, real aggregates |
 | 4 | Aggregate — payer | done — 10 screens, on a real claims model |
 | — | **Governed export** | done — both aggregate consoles, six §31.4 requirements as columns |
-| 5 | Review and public | **8 of 13 review screens, 9 of 11 public** — itemised in GUI launch above |
+| 5 | Review and public | **9 of 13 review screens, 9 of 11 public** — itemised in GUI launch above |
 | 6 | Hardening — performance, accessibility, security, telemetry, export parity, disaster recovery | **not started** — §31.5 p98, §31.6 p99, §31.7 p100 |
 
 ## ✔ DONE: handoff 05, the GUI and decision-surface work
