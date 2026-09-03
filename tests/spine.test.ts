@@ -75,6 +75,15 @@ test("no person-scoped table escapes the tenant list", () => {
     "persons", "accounts", "role_assignments", "enrollments",
     "external_identifiers", "longitudinal_events", "audit_log",
     "autonomous_signoffs",
+    // A review decision is a governance record ABOUT THE DEPLOYMENT — a
+    // release gate, a version of member-facing copy, an access request's
+    // outcome. It references users(id) because a decision must name its actor,
+    // which is what brings it here; it carries no tenant_id because its
+    // subject is not any tenant's data. Giving it one would assert that a
+    // release gate or a copy version belongs to a tenant, and then eight gates
+    // would have to be signed off once per tenant to mean the same thing.
+    // Same reasoning as autonomous_signoffs directly above.
+    "review_decisions",
   ]);
   const tables = (db
     .prepare("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'")

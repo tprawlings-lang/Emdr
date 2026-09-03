@@ -131,6 +131,8 @@ export const DEMO_DATA_TABLES = [
   "autopilot_events",
   "autopilot_plans",
   "autonomous_signoffs",
+  "review_decisions",
+  "access_requests",
   "payments",
   "subscriptions",
   "program_plans",

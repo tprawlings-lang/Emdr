@@ -19,6 +19,9 @@ import { logout } from "@/lib/actions";
 
 export const REVIEW_SCREENS: Array<{ href: string; label: string; layer: RailSlug }> = [
   { href: "/review", label: "Review home", layer: "overview" },
+  { href: "/review/access", label: "Access requests", layer: "actions" },
+  { href: "/review/clinical", label: "Clinical language", layer: "actions" },
+  { href: "/review/release", label: "Release gates", layer: "actions" },
   { href: "/review/testing", label: "Testing console", layer: "actions" },
   { href: "/review/safety", label: "Safety rule results", layer: "evidence" },
   { href: "/review/planning", label: "Planning signals", layer: "evidence" },
@@ -26,6 +29,7 @@ export const REVIEW_SCREENS: Array<{ href: string; label: string; layer: RailSlu
   { href: "/review/autonomous", label: "Autonomous flow", layer: "evidence" },
   { href: "/review/status", label: "Service status", layer: "evidence" },
   { href: "/review/demo-data", label: "Demo data", layer: "evidence" },
+  { href: "/review/research", label: "Research workspace", layer: "evidence" },
   { href: "/review/audit", label: "Audit trail", layer: "audit" },
   { href: "/review/lineage", label: "Lineage trace", layer: "audit" },
 ];

@@ -304,3 +304,23 @@ export function regionCohorts(): CohortDefinition[] {
     }),
   );
 }
+
+/**
+ * A version for the registry AS A WHOLE, derived from the cohorts in it.
+ *
+ * An export that spans every cohort cannot carry a single cohort's version,
+ * and a hand-maintained registry constant would be one someone forgets to bump
+ * — which is the precise failure this file's "a change is a NEW cohort, never
+ * an edit" rule exists to prevent, reintroduced one level up. Derived instead,
+ * so adding, removing or altering any cohort changes the identity of every
+ * file produced from the set, and an old report cannot be silently reproduced
+ * under a different registry.
+ */
+export function registryVersion(): string {
+  const digest = crypto
+    .createHash("sha256")
+    .update(COHORTS.map((c) => `${c.id}@${c.version}:${cohortHash(c)}`).sort().join("\n"))
+    .digest("hex")
+    .slice(0, 16);
+  return `cohort-registry:${digest}`;
+}
