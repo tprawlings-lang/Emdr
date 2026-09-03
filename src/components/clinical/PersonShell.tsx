@@ -39,6 +39,12 @@ const SCREENS: Array<{ slug: string; label: string; layer: RailSlug }> = [
   { slug: "/measures", label: "Measures", layer: "progress" },
   { slug: "/sessions", label: "Sessions", layer: "progress" },
   { slug: "/safety", label: "Safety", layer: "actions" },
+  // §17.1: "Place Record Thoughts in the existing action rail/header region so
+  // it is available without scrolling into the formal record." Recording a
+  // thought IS an action — the clinician does it, deliberately, after a
+  // session — so it belongs beside the other things they do here rather than
+  // under evidence, where it would read as something to consult.
+  { slug: "/thoughts", label: "Thoughts", layer: "actions" },
   { slug: "/plan", label: "Plan", layer: "evidence" },
   // The full clinical record — timeline, cited summary, review actions. §26's
   // real split is /measures, /sessions, /plan, /safety and /audit; this is the

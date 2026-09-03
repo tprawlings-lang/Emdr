@@ -1,0 +1,194 @@
+import Link from "next/link";
+import { notFound } from "next/navigation";
+import { requireClinician } from "@/lib/auth";
+import { data } from "@/lib/data";
+import { PLATFORM_TENANT_ID } from "@/lib/db";
+import { audit } from "@/lib/audit";
+import { loadPersonHeader } from "@/lib/clinical/person-header";
+import { PersonShell } from "@/components/clinical/PersonShell";
+import { Panel, Note, WithNote, Callout } from "@/components/app/surfaces";
+import { ThoughtsWorkspace } from "@/components/clinical/ThoughtsWorkspace";
+import { thoughtsSurfaceAvailable } from "@/lib/clinical/thoughts-flags";
+import {
+  listThoughts, getThought, currentTranscript, transcriptVersions,
+} from "@/lib/clinical/thought-store";
+import type { TenantContext } from "@/lib/repository";
+
+export const dynamic = "force-dynamic";
+
+// Thoughts (§17.2, and §20's file map: "NEW. Thought history, source
+// drill-down, capture/review launcher").
+//
+// It lives inside the person record rather than in a clinician app of its own,
+// per §2's repository note — "Record Thoughts belongs inside the existing person
+// workspace, not a stand-alone clinician app" — and Appendix B's reminder that
+// the member page already follows a first-thirty-seconds design this should sit
+// inside rather than beside.
+//
+// THE FLAG IS CHECKED HERE AND IN EVERY ACTION. §22: a disabled downstream
+// surface must not appear just because data for it exists. A page that renders
+// a recorder while the actions refuse it is worse than one that says the
+// feature is off — the clinician speaks for ninety seconds and finds out
+// afterwards.
+
+export default async function MemberThoughtsPage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
+  const clinician = await requireClinician();
+  const { id } = await params;
+  const c = await data();
+
+  // The acting tenant, from the clinician's own record. notFound rather than
+  // forbidden for a member outside it: a 403 confirms the record exists.
+  const me = (await c.get("SELECT tenant_id FROM users WHERE id = ?", [clinician.id])) as
+    | { tenant_id: string } | undefined;
+  const tenantId = me?.tenant_id ?? PLATFORM_TENANT_ID;
+
+  const member = (await c.get(
+    "SELECT id, name FROM users WHERE id = ? AND tenant_id = ? AND role = 'member'",
+    [id, tenantId]
+  )) as { id: string; name: string } | undefined;
+  if (!member) notFound();
+
+  const ctx: TenantContext = { tenantId, personId: clinician.id };
+  const header = await loadPersonHeader({ personId: id, clinicianId: clinician.id, tenantId });
+  if (!header) notFound();
+
+  const available = thoughtsSurfaceAvailable("CLINICIAN_THOUGHTS_CAPTURE");
+  const thoughts = available ? await listThoughts(ctx, id) : [];
+  // Counted up front rather than inside the row: a query per rendered row is
+  // how a list that is fine at five thoughts is unusable at two hundred.
+  const versionCounts = new Map(
+    await Promise.all(
+      thoughts.map(async (t) => [t.id, (await transcriptVersions(ctx, t.id)).length] as const)
+    )
+  );
+
+  await audit({
+    actorId: clinician.id, actorRole: "clinician", family: "clinical",
+    type: "clinician_thoughts_opened", target: id,
+    detail: { count: thoughts.length },
+  });
+
+  /** Reads one thought's current transcript for the review step.
+   *
+   *  A server action rather than a fetch: it re-authenticates and re-resolves
+   *  the tenant on every call, so the id the browser sends is checked against
+   *  the caller's own scope rather than trusted because the page rendered. */
+  async function loadTranscript(thoughtId: string) {
+    "use server";
+    const who = await requireClinician();
+    const cc = await data();
+    const row = (await cc.get("SELECT tenant_id FROM users WHERE id = ?", [who.id])) as
+      | { tenant_id: string } | undefined;
+    const scope: TenantContext = {
+      tenantId: row?.tenant_id ?? PLATFORM_TENANT_ID, personId: who.id,
+    };
+    const thought = await getThought(scope, thoughtId);
+    if (!thought) return null;
+    const t = await currentTranscript(scope, thought);
+    if (!t) return null;
+    return {
+      transcript: { text: t.text, hash: t.hash, version: t.version, provider: t.provider },
+      transcriptOnly: thought.status === "review_transcript_only",
+    };
+  }
+
+  return (
+    <PersonShell person={header} active="/thoughts" title="Thoughts">
+      {!available ? (
+        <Callout tone="info" label="Not enabled here">
+          <p className="measure">
+            Recording thoughts is switched off in this environment. Nothing that was recorded
+            before is lost — a flag change never deletes or rewrites stored history — and this
+            page will show it again when the feature is turned back on.
+          </p>
+        </Callout>
+      ) : (
+        <>
+          <WithNote
+            note={
+              <Note
+                tone="info"
+                title="What this is for"
+                owner={clinician.name}
+                boundary="A thought is not a formal note. Nothing here is written into the clinical record, and nothing here is shown to the patient."
+              >
+                <p>
+                  Say what you noticed after a session. Steady writes it down and you check what
+                  it heard before anything is kept.
+                </p>
+              </Note>
+            }
+          >
+            <ThoughtsWorkspace
+              personId={id}
+              personName={member.name}
+              loadTranscript={loadTranscript}
+            />
+          </WithNote>
+
+          <Panel
+            title="Recorded thoughts"
+            className="mt-6"
+            footnote="Newest first. A saved thought keeps every version of its transcript, so a correction never erases what was originally heard."
+          >
+            {thoughts.length === 0 ? (
+              <p className="measure text-sm text-ground">
+                Nothing recorded yet for {member.name}.
+              </p>
+            ) : (
+              <ul className="divide-y divide-ground/5">
+                {thoughts.map((t) => (
+                  <li key={t.id} className="grid gap-1 py-3 sm:grid-cols-[12rem_1fr] sm:gap-4">
+                    <div>
+                      <span className="text-sm text-app-ink">{t.recordedAt}</span>
+                      <span className="mt-0.5 block text-xs text-olive">
+                        {/* Word and glyph, never colour alone. */}
+                        <span aria-hidden>
+                          {t.status === "saved" ? "◆" : t.status === "discarded" ? "○" : "▲"}
+                        </span>{" "}
+                        {t.status.replace(/_/g, " ")}
+                      </span>
+                    </div>
+                    <div className="text-sm text-ground">
+                      {t.audioDeletedAt
+                        ? `Audio deleted ${t.audioDeletedAt}.`
+                        : t.audioStorageKey
+                          ? "Audio retained until its transcript is verified."
+                          : "No audio was captured."}
+                      {t.currentTranscriptId && (
+                        <span className="mt-0.5 block text-xs text-olive">
+                          {versionCounts.get(t.id) ?? 0} transcript version
+                          {versionCounts.get(t.id) === 1 ? "" : "s"}
+                        </span>
+                      )}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </Panel>
+
+          <Panel title="Where a thought goes" className="mt-6">
+            <p className="measure text-sm text-ground">
+              A saved thought stays in this list, readable by people with access to this
+              patient. It does not become a formal note, and a later AI draft that uses it
+              still needs you to review and sign it.
+            </p>
+            <p className="measure mt-3 text-sm text-olive">
+              Organizing thoughts into structured items, threads and session preparation is
+              built in later phases. Until then this page holds the recording and the
+              transcript, which is what those phases will read from.{" "}
+              <Link href="/review/audit" className="text-state-info underline">
+                Every action here is in the audit trail.
+              </Link>
+            </p>
+          </Panel>
+        </>
+      )}
+    </PersonShell>
+  );
+}

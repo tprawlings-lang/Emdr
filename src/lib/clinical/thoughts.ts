@@ -167,7 +167,10 @@ export async function recordThoughtTranscribed(args: {
   transcriptId: string;
   tenantId: string;
   personId: string;
-  actorId: string;
+  /** The clinician for a correction; null when the transcription service
+   *  produced it. Nullable rather than a placeholder string: an event that
+   *  names a person who did not act is worse than one that names nobody. */
+  actorId: string | null;
   version: number;
   transcriptHash: string;
   provider: string | null;
