@@ -31,6 +31,7 @@ import type Database from "better-sqlite3";
 import crypto from "node:crypto";
 import { DEMO_SEED_VERSION } from "./demo-seed";
 import { seedDemo, syncIdentitySpine } from "./db";
+import { isEncrypted } from "./crypto";
 
 /** Every table holding data, in an order safe for unconditional deletion.
  *  Children first: SQLite enforces the foreign keys these tables declare, so
@@ -250,8 +251,18 @@ export function demoBaseline(db: Database.Database): BaselineResult {
 const SALTED_COLUMN = /^password_hash$|^entry_hash$|^prev_hash$/;
 
 /** The envelope produced by lib/crypto.ts encryptField. */
+/**
+ * ASKS THE MODULE THAT WRITES IT. This had its own copy of the test, looking
+ * for a prefix (`enc:`) that `crypto.ts` has never produced — so ciphertext
+ * was hashed by content into a baseline whose entire purpose is to be
+ * reproducible across two resets. Nothing caught it because no seeded table
+ * carried an encrypted column, and the moment one did, two resets disagreed
+ * for a reason that had nothing to do with whether the dataset was rebuilt
+ * correctly. The legacy shape is kept for rows written before the current
+ * format.
+ */
 function isCiphertext(v: string): boolean {
-  return v.startsWith("enc:") || /^v\d+:[A-Za-z0-9+/=]+:/.test(v);
+  return isEncrypted(v) || /^v\d+:[A-Za-z0-9+/=]+:/.test(v);
 }
 
 // ---------------------------------------------------------------------------

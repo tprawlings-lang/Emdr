@@ -146,7 +146,7 @@ examples; open them before writing a screen, because the text alone rebuilds wro
 | Review and administration | 13 | 6 | 44 |
 | Public institutional site | 11 | 9 | 45 |
 
-**Charts — 20 of §29's 22 contracts** (inventory on p75).
+**Charts — 21 of §29's 22 contracts** (inventory on p75).
 
 **Datasets — built and deterministic.** `npm run demo -- reset` rebuilds all of it from
 seed, and prints a baseline hash so a change to the data is visible rather than silent.
@@ -162,7 +162,7 @@ every aggregate screen is counted from that ledger; nothing is pre-aggregated.
 
 ### What is NOT completed, and where to read about it
 
-Ten screens and two charts. Each row names the page in the handoff that specifies it.
+Ten screens and one chart. Each row names the page in the handoff that specifies it.
 
 | # | Not built | Read | Blocked on |
 |---|---|---|---|
@@ -176,16 +176,15 @@ Ten screens and two charts. Each row names the page in the handoff that specifie
 | 9 | `/personal` — public Steady Personal page | §26 **p45** | Naming only. Content lives at `/platform` |
 | 10 | `/intelligence` — public Steady Intelligence page | §26 **p45** | Naming only. Content lives at `/organizations` and `/payers` |
 | 12 | Clinician **function and goals** chart | §29 **p75**; information order §27.4 **p51** | **A goals model.** No goal record exists in the tenancy schema |
-| 13 | Clinician **plan response** chart | §29 **p75**; §27.4 **p51** | Plan-version records to annotate against |
 | 18 | **Wave 6 — hardening**: performance, accessibility, security, telemetry, export parity, disaster recovery | Waves §31.2 **p95**; acceptance §31.5 **p98**; release gates §31.6 **p99**; telemetry §31.7 **p100** | Not started |
 
 Row 3 (`/review/safety`) closed during handoff 07's Wave 1 and has been removed from the
 list; the numbering below still refers to the original rows.
 
-**Both remaining charts need a record that does not exist yet** — rows 12 and 13, a goal and a
-plan version — as do two screens, rows 2 and 6 (a review decision and a sign-off). **Everything
-else is presentation work over data that is already there**: rows 4, 7, 8, 9 and 10 are screens
-over paths that already exist. Row 5 needs the cohort registry; row 18 is its own wave.
+**The last chart needs a record that does not exist yet** — row 12, a goal — as do two screens,
+rows 2 and 6 (a review decision and a sign-off). **Everything else is presentation work over data
+that is already there**: rows 4, 7, 8, 9 and 10 are screens over paths that already exist. Row 5
+needs the cohort registry; row 18 is its own wave.
 
 **Rows 14–17 are built** — organization engagement and location comparison, payer contract
 performance and data quality. They needed two primitives the chart file did not have, and each
@@ -217,6 +216,25 @@ outcome measure across the programme, so a person whose whole series is PHQ-9 pr
 
 The old component is deleted rather than left unused, and the member boundary that named it now
 names its replacement too — a rule about a shape, not about a filename.
+
+**Row 13 is built** — the plan-response chart, as annotations on the measures panels rather
+than as a chart of its own, which is what §27.4's progress view asks for. It was listed as
+blocked on "plan-version records"; `program_plans` has been append-only and versioned all along
+— a revision is a new row — and what was missing was that no seed had ever written one. The
+generator now writes two or three versions per person, dated across their enrolment.
+
+§29.1 governs the form: *annotations mark plan versions; they do not imply cause*. So a version
+is a dated rule across every panel and a label, and nothing else — no shading of the period
+after it, no before-and-after figure, no arithmetic across the mark. Each of those would be an
+argument about what the plan did, drawn from an uncontrolled comparison on one person. The
+sentence saying so is printed by the component rather than by the page, so a screen cannot show
+the marks without it.
+
+That change surfaced a latent defect in the reset baseline: `isCiphertext` tested for a prefix
+(`enc:`) that `crypto.ts` has never produced, so encrypted values were hashed **by content**
+into a baseline whose whole purpose is to be identical across two resets. Nothing had caught it
+because no seeded table carried an encrypted column until this one did. `crypto.ts` now exports
+the predicate, so the format has one definition.
 
 **The cheapest remaining progress** is rows 9 and 10, which are a rename.
 

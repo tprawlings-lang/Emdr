@@ -128,6 +128,20 @@ export default async function MemberDetailPage({
   const moduleName = (mid: string) => MODULES.find((m) => m.id === mid)?.name ?? mid;
   const planRow = await getProgramPlan(member.id);
 
+  // EVERY plan version, not only the current one. `program_plans` is
+  // append-only — a revision is a new row — so the history is already there,
+  // and it is what the plan-response half of the progress view annotates
+  // against. Dates only: the plan's CONTENT belongs on the plan tab, and
+  // putting it on the chart would turn a mark into an argument.
+  const planVersions = (await c.all(
+    `SELECT created_at FROM program_plans WHERE user_id = ? ORDER BY created_at`,
+    [member.id],
+  )) as { created_at: string }[];
+  const planMarks = planVersions.map((v, i) => ({
+    date: v.created_at.slice(0, 10),
+    label: i === 0 ? "Plan written" : `Plan revised (version ${i + 1})`,
+  }));
+
   // Latest unlock row per module (unlocks are ordered newest-first), so the
   // specialist controls show current access state.
   const unlockByModule = new Map<string, (typeof unlocks)[number]>();
@@ -173,9 +187,16 @@ export default async function MemberDetailPage({
             <ClinicalFigure
               title="Validated measures over time"
               summary={`${measureSeries.length} instrument${measureSeries.length === 1 ? "" : "s"} on file, each on its own scale and all on one date axis from ${windowFrom} to ${windowTo}.`}
-              footnote={`Readings taken, joined in order — no fitted line and no value between two readings. Each panel is scaled to its own instrument, so the panels are read down the dates rather than across the heights.`}
+              footnote={`Readings taken, joined in order — no fitted line and no value between two readings. Each panel is scaled to its own instrument, so the panels are read down the dates rather than across the heights.${
+                planMarks.length > 0 ? ` ${planMarks.length} plan version${planMarks.length === 1 ? "" : "s"} on record.` : ""
+              }`}
             >
-              <SmallMultiples series={measureSeries} from={windowFrom} to={windowTo} />
+              <SmallMultiples
+                series={measureSeries}
+                from={windowFrom}
+                to={windowTo}
+                annotations={planMarks.filter((m) => m.date >= windowFrom && m.date <= windowTo)}
+              />
             </ClinicalFigure>
           </div>
           {itqSeries.length > 0 && (
