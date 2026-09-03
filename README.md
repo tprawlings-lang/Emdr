@@ -146,7 +146,7 @@ examples; open them before writing a screen, because the text alone rebuilds wro
 | Review and administration | 13 | 6 | 44 |
 | Public institutional site | 11 | 9 | 45 |
 
-**Charts — 21 of §29's 22 contracts** (inventory on p75).
+**Charts — 22 of §29's 22 contracts** (inventory on p75). **Complete.**
 
 **Datasets — built and deterministic.** `npm run demo -- reset` rebuilds all of it from
 seed, and prints a baseline hash so a change to the data is visible rather than silent.
@@ -162,7 +162,7 @@ every aggregate screen is counted from that ledger; nothing is pre-aggregated.
 
 ### What is NOT completed, and where to read about it
 
-Ten screens and one chart. Each row names the page in the handoff that specifies it.
+Ten screens. Each row names the page in the handoff that specifies it.
 
 | # | Not built | Read | Blocked on |
 |---|---|---|---|
@@ -175,14 +175,13 @@ Ten screens and one chart. Each row names the page in the handoff that specifies
 | 8 | `/review/status` — service health, version, degradation and the safe fallback | §26 **p44**; degraded-service state **p46** | Nothing. `/status/degraded` already exists as a shared access state |
 | 9 | `/personal` — public Steady Personal page | §26 **p45** | Naming only. Content lives at `/platform` |
 | 10 | `/intelligence` — public Steady Intelligence page | §26 **p45** | Naming only. Content lives at `/organizations` and `/payers` |
-| 12 | Clinician **function and goals** chart | §29 **p75**; information order §27.4 **p51** | **A goals model.** No goal record exists in the tenancy schema |
 | 18 | **Wave 6 — hardening**: performance, accessibility, security, telemetry, export parity, disaster recovery | Waves §31.2 **p95**; acceptance §31.5 **p98**; release gates §31.6 **p99**; telemetry §31.7 **p100** | Not started |
 
 Row 3 (`/review/safety`) closed during handoff 07's Wave 1 and has been removed from the
 list; the numbering below still refers to the original rows.
 
-**The last chart needs a record that does not exist yet** — row 12, a goal — as do two screens,
-rows 2 and 6 (a review decision and a sign-off). **Everything else is presentation work over data
+**§29's chart inventory is complete.** Two screens still need a record that does not exist yet —
+rows 2 and 6, a review decision and a sign-off. **Everything else is presentation work over data
 that is already there**: rows 4, 7, 8, 9 and 10 are screens over paths that already exist. Row 5
 needs the cohort registry; row 18 is its own wave.
 
@@ -235,6 +234,22 @@ That change surfaced a latent defect in the reset baseline: `isCiphertext` teste
 into a baseline whose whole purpose is to be identical across two resets. Nothing had caught it
 because no seeded table carried an encrypted column until this one did. `crypto.ts` now exports
 the predicate, so the format has one definition.
+
+**Row 12 is built, and it required inventing a measure.** No functional record existed. The
+Everyday Function check is four questions about what somebody was able to *do* in the past week
+— start the day, keep up with work or home, be around people, do something restorative — scored
+0–16 with **higher better**, the opposite direction to every validated instrument beside it.
+
+It is not a validated instrument and the codebase is built so it cannot pass for one. It lives
+in `src/lib/measures/house.ts`, a **separate file and separate type** from `instruments.ts`, so
+`getInstrument()` cannot return it. It has **no cutoff, typed `null`** so it cannot grow one — a
+threshold is what turns a number into a claim about a person, and there is nothing behind this
+one to support such a claim. Its disclosure is a property of the *series*, rendered on its own
+panel, because a panel drawn beside PHQ-9 borrows PHQ-9's authority and this measure has none to
+borrow. Guards fail the build if it enters the validated registry, acquires a cutoff or a band,
+appears anywhere in `gating.ts`, `safety/`, `planning/`, `fitness-screener.ts` or `autopilot.ts`,
+or asks about feeling rather than doing. Its status and the open questions a reviewer would still
+have to settle are recorded in [`docs/autonomous/01-signoff-ledger.md`](docs/autonomous/01-signoff-ledger.md).
 
 **The cheapest remaining progress** is rows 9 and 10, which are a rename.
 

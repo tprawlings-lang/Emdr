@@ -521,6 +521,105 @@ export function backfillPlanVersions(db: Database.Database): { written: number }
   return { written };
 }
 
+/**
+ * The house function measure, written for every outcome reading already on
+ * file.
+ *
+ * ITS OWN STEP, for the reason the previous one documented and this one then
+ * ignored: `generatePopulationHistory` short-circuits on "does the first
+ * profile have a check-in", so anything added to it later reaches a fresh
+ * database and never a deployed one. The function series was written inside
+ * the generator, shipped, and drew nothing on the live instance — the same
+ * mistake, one commit after writing down the rule against it.
+ *
+ * IT READS THE OUTCOME SERIES rather than recomputing dates. One writer, one
+ * code path: a backfill that re-derived the schedule would be a second
+ * generator quietly disagreeing with the first about which weeks a person was
+ * measured in.
+ *
+ * The fraction comes from the reading's INDEX, not from its date. A date-
+ * derived fraction would move every day, because the epoch does — and a score
+ * that changes daily makes the reproducible baseline unstable for a reason
+ * that has nothing to do with the data.
+ */
+export function backfillFunctionMeasure(db: Database.Database): { written: number } {
+  const already = db.prepare(
+    "SELECT COUNT(*) AS n FROM screenings WHERE instrument = ?")
+    .get(EVERYDAY_FUNCTION.id) as { n: number };
+  if (already.n > 0) return { written: 0 };
+
+  const outcomes = db.prepare(
+    `SELECT id, created_at FROM screenings WHERE user_id = ? AND instrument = ?
+      ORDER BY created_at, id`);
+  const insFn = db.prepare(
+    `INSERT INTO screenings (id, user_id, tenant_id, instrument, instrument_version,
+       total_score, answers_json, risk_flags_json, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, '[]', '[]', ?)
+     ON CONFLICT(id) DO NOTHING`);
+
+  let written = 0;
+  db.transaction(() => {
+    for (const row of MANIFEST) {
+      const personId = popId("person", row.id);
+      const tenant = tenantForRow(row);
+      const readings = outcomes.all(personId, OUTCOME_INSTRUMENT) as
+        { id: string; created_at: string }[];
+      if (readings.length === 0) continue;
+
+      readings.forEach((r, i) => {
+        const frac = i / Math.max(1, readings.length - 1);
+        insFn.run(
+          popId("function", `${row.id}:${i}`), personId, tenant,
+          EVERYDAY_FUNCTION.id, EVERYDAY_FUNCTION.version,
+          functionScore(row, frac), r.created_at);
+        written += 1;
+      });
+    }
+  })();
+  return { written };
+}
+
+/**
+ * Function, derived from the same curve as the symptoms and lagged behind it.
+ *
+ * A person whose symptom readings improve while their function scores wander
+ * at random is not a person; it is two generators. The relationship is
+ * deliberately loose — function follows a change rather than moving with it,
+ * which is the ordinary picture and the reason the two are worth drawing
+ * separately at all. A function score that is exactly the maximum minus the
+ * PHQ-9 would not be a second measure.
+ *
+ * Deterministic from the profile and the reading index, with no shared random
+ * state: the same person always gets the same series, whichever step writes it.
+ */
+function functionScore(row: ManifestRow, frac: number): number {
+  const ceiling = Math.max(1, INSTRUMENTS[OUTCOME_INSTRUMENT].max);
+  const symptom = measureOn(row, frac) / ceiling;
+  const lagged = measureOn(row, Math.max(0, frac - 0.12)) / ceiling;
+  const base = 1 - (symptom * 0.4 + lagged * 0.6);
+
+  // A PER-PERSON OFFSET, never zero.
+  //
+  // Symptom severity and functional impairment are correlated and far from
+  // identical: two people with the same PHQ-9 can be holding down very
+  // different weeks, and the gap between the two is the reason a clinician
+  // would look at both. Without this the two series were the same number in
+  // different units — for anyone whose curve is flat, exactly the maximum
+  // minus their symptom score, which is not a second measure. A guard fails
+  // the build if any person's function series is a deterministic mirror.
+  //
+  // It is also what makes the demonstration's most useful conversation
+  // possible: somebody whose symptoms improved while their function did not.
+  const offsets = [-3, -2, -1, 1, 2, 3];
+  const offset = offsets[seedFor(row) % offsets.length];
+
+  // A small, stable wobble on top, so the series is not a smooth function of
+  // the other one — two measures of one person agree in direction, not detail.
+  const jitter = ((seedFor(row) + Math.round(frac * 100)) % 3) - 1;
+  return Math.max(0, Math.min(EVERYDAY_FUNCTION.max,
+    Math.round(base * EVERYDAY_FUNCTION.max) + offset + jitter));
+}
+
 export function generatePopulationHistory(db: Database.Database): GeneratedCounts {
   return db.transaction(() => generateInner(db))();
 }
@@ -809,30 +908,6 @@ function generateInner(db: Database.Database): GeneratedCounts {
     // on top, rather than subtracted from a due count — otherwise a person
     // with a high miss rate falls below the specified minimum, which is
     // exactly what happened first time.
-    // THE HOUSE FUNCTION MEASURE, on the same dates as the outcome series.
-    //
-    // Same dates on purpose: the chart draws them as aligned panels, and two
-    // series taken on different weeks make "what was function doing when the
-    // PHQ-9 moved" a question the picture cannot answer.
-    //
-    // DERIVED FROM THE SAME CURVE rather than drawn independently. A person
-    // whose symptom readings improve while their function scores wander at
-    // random is not a person; it is two generators. The relationship is
-    // deliberately loose — function lags, and the archetype's own missingness
-    // shakes it — because a function score that is exactly 16 minus the PHQ-9
-    // is not a second measure at all.
-    const functionOn = (frac: number) => {
-      const symptom = measureOn(row, frac) / Math.max(1, INSTRUMENTS[OUTCOME_INSTRUMENT].max);
-      // Lagged: function follows a change in symptoms rather than moving with
-      // it, which is the ordinary clinical picture and the reason the two are
-      // worth drawing separately.
-      const lagged = measureOn(row, Math.max(0, frac - 0.12)) /
-        Math.max(1, INSTRUMENTS[OUTCOME_INSTRUMENT].max);
-      const base = 1 - (symptom * 0.4 + lagged * 0.6);
-      return Math.max(0, Math.min(EVERYDAY_FUNCTION.max,
-        Math.round(base * EVERYDAY_FUNCTION.max + (rng.int(0, 4) - 2))));
-    };
-
     const measureBound = scaledRange(TARGETS.measures, exposure, MIN_MEASURES);
     const wantMeasures = Math.max(
       // FULL exposure, not the generated portion. The measure schedule is a
@@ -927,15 +1002,6 @@ function generateInner(db: Database.Database): GeneratedCounts {
         // it came from.
         i === 0 ? row.baseline : i === dueCount - 1 ? row.followUp : measureOn(row, since(day)),
         "[]", dayStamp(epoch, day, 12),
-      );
-      // The house function measure, taken the same day. It is stored in the
-      // same table as the validated instruments because that is where a
-      // person's answers live — and it is told apart everywhere by its id,
-      // never by where it is kept.
-      insScreening.run(
-        popId("function", `${row.id}:${i}`), personId, tenant,
-        EVERYDAY_FUNCTION.id, EVERYDAY_FUNCTION.version,
-        functionOn(since(day)), "[]", dayStamp(epoch, day, 12),
       );
       completed++;
     }

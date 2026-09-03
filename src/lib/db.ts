@@ -7,7 +7,9 @@ import { seedPolicyThresholds } from "./planning/policy";
 import { seedOrgData, ORG_TENANT_ID } from "./demo-org-seed";
 import { seedPayerData, PAYER_TENANT_ID } from "./demo-payer-seed";
 import { seedPopulationData, seedOperationalFeeds, orgTenantId } from "./demo-population-seed";
-import { generatePopulationHistory, backfillPlanVersions } from "./demo-population-generator";
+import {
+  generatePopulationHistory, backfillPlanVersions, backfillFunctionMeasure,
+} from "./demo-population-generator";
 import { runAgents } from "./agents/runner";
 import { ulid, NIL_ULID, ulidFrom } from "./ids";
 
@@ -1614,6 +1616,7 @@ export function populationChain(db: Database.Database) {
   // arrive and the screen needing them stays empty on the one instance anybody
   // looks at. Anything added later belongs here, guarded by its own table.
   backfillPlanVersions(db);
+  backfillFunctionMeasure(db);
   // The reserved tail, LIVED rather than written: the last fortnight of every
   // person's history goes through the check-in routing rule and the safety
   // gate engine, so the window every metric and every planning rule reads is
