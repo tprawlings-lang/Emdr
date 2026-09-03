@@ -355,3 +355,26 @@ test("the population does not check in every day — it is people, not a cron jo
   assert.ok(out.checkIns > 0);
   assert.equal(out.people, POP.length);
 });
+
+test("the agent run survives the day rolling over", () => {
+  // The same fault the operational feeds had, one table along, and it aborted
+  // the deployed instance's whole population chain every boot: the check-in id
+  // is derived from the profile and the day OFFSET, which does not move, while
+  // `checkin_date` comes from `demoEpoch()`, which advances every day. Insert
+  // the same id with a different date, conflict on the date, and the primary
+  // key rejects it.
+  //
+  // These rows are written once and keep their dates, because a check-in on
+  // the 3rd stays a check-in on the 3rd. It is the capacity feed — a snapshot
+  // of now rather than a record of then — that gets re-dated instead.
+  const before = one("SELECT COUNT(*) AS n FROM checkins WHERE id LIKE 'agent-%'");
+  assert.ok(before > 0, "no agent check-ins to roll over");
+
+  for (const days of [1, 9]) {
+    assert.doesNotThrow(
+      () => runAgents(db, Date.now() + days * 86400000),
+      `runAgents threw ${days} day(s) later — every boot after midnight fails`);
+  }
+  assert.equal(one("SELECT COUNT(*) AS n FROM checkins WHERE id LIKE 'agent-%'"), before,
+    "a later day wrote a second copy of the same lived fortnight");
+});
