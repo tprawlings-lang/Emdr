@@ -1,6 +1,9 @@
 import Link from "next/link";
 import { ReviewPage, REVIEW_SCREENS } from "@/components/clinical/ReviewPage";
 import { Panel } from "@/components/app/surfaces";
+import { listAccessRequests } from "@/lib/review/access";
+import { decisionsAt } from "@/lib/review/decisions";
+import { reviewableSurfaces, copyVersion } from "@/lib/review/clinical-copy";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Review — Steady" };
@@ -12,12 +15,13 @@ export const metadata = { title: "Review — Steady" };
 // so the rail's Overview layer pointed at a 404 and the guard failed the build,
 // which is exactly what it is for.
 //
-// What this screen does NOT do is show a review queue. §26 asks for one, and
-// there is no queue to show: scoped access requests, release sign-offs and
-// clinical language approvals are not modelled as records anywhere in this
-// deployment. A queue rendered empty here would be the notification-truth
-// defect again — an empty list implying a working channel — so the screen says
-// which four questions it can answer and which nine it cannot, by name.
+// The queue is real now. It was not: scoped access requests, release sign-offs
+// and clinical language approvals were not recorded as anything, so this screen
+// listed the questions it could not answer rather than rendering an empty list
+// that implied a working channel. All three are records in review_decisions
+// today, so the counts below are counted rather than assumed — and a zero here
+// now means nothing is waiting, which is a claim the screen could not make
+// before and can.
 
 /** §26's thirteen review screens, plus handoff 07's planning detail. Some exist; the rest are named rather than
  *  quietly omitted, because a reviewer who cannot tell "not built" from "not
@@ -43,6 +47,18 @@ const ATLAS: Array<{ route: string; question: string }> = [
 
 export default async function ReviewHome() {
   const built = new Set(REVIEW_SCREENS.map((s) => s.href));
+  const unbuilt = ATLAS.filter((a) => !built.has(a.route));
+
+  // Cheap counts only. Release-gate state needs an identity scan and a
+  // scenario replay to resolve, and running those on the console's front door
+  // would make the most-opened screen the slowest one — so the gate row links
+  // out rather than reporting a number this page would have to guess at.
+  const pendingRequests = await listAccessRequests();
+  const pendingAccess = pendingRequests.filter((r) => !r.decision).length;
+  const surfaces = reviewableSurfaces();
+  const copyDecisions = await decisionsAt("clinical_language", copyVersion());
+  const surfaceCount = surfaces.length;
+  const unreviewedCopy = surfaces.filter((s) => copyDecisions.get(s.id)?.decision !== "approved").length;
 
   return (
     <ReviewPage
@@ -67,37 +83,54 @@ export default async function ReviewHome() {
         </ul>
       </Panel>
 
+      {unbuilt.length > 0 && (
+        <Panel
+          title="Not built"
+          className="mt-6"
+          footnote="Named rather than omitted: a reviewer who cannot tell 'not built' from 'not found' assumes the first and stops looking."
+        >
+          <ul className="space-y-1.5">
+            {unbuilt.map((a) => (
+              <li key={a.route} className="flex flex-wrap items-baseline justify-between gap-2 px-3 py-1.5 text-sm">
+                <span className="text-ground">{a.question}</span>
+                <span className="font-mono text-xs text-olive">{a.route}</span>
+              </li>
+            ))}
+          </ul>
+        </Panel>
+      )}
+
       <Panel
-        title="Not built"
+        title="The review queue"
         className="mt-6"
-        footnote="Named rather than omitted: a reviewer who cannot tell 'not built' from 'not found' assumes the first and stops looking."
+        footnote="Counted from the decision record, not from a notification channel. A zero here means nothing is waiting, which is a claim this screen can now actually make."
       >
-        <ul className="space-y-1.5">
-          {ATLAS.filter((a) => !built.has(a.route)).map((a) => (
-            <li
-              key={a.route}
-              className="flex flex-wrap items-baseline justify-between gap-2 px-3 py-1.5 text-sm"
-            >
-              <span className="text-ground">{a.question}</span>
-              <span className="font-mono text-xs text-olive">{a.route}</span>
-            </li>
-          ))}
+        <ul className="space-y-2">
+          <li className="flex flex-wrap items-baseline justify-between gap-2 rounded-xl px-3 py-2.5">
+            <Link href="/review/access" className="font-medium text-app-ink underline">
+              Access requests awaiting a decision
+            </Link>
+            <span className="tabular-nums text-olive">{pendingAccess}</span>
+          </li>
+          <li className="flex flex-wrap items-baseline justify-between gap-2 rounded-xl px-3 py-2.5">
+            <Link href="/review/clinical" className="font-medium text-app-ink underline">
+              Member-facing surfaces not approved at the current copy version
+            </Link>
+            <span className="tabular-nums text-olive">
+              {unreviewedCopy} of {surfaceCount}
+            </span>
+          </li>
+          <li className="flex flex-wrap items-baseline justify-between gap-2 rounded-xl px-3 py-2.5">
+            <Link href="/review/release" className="font-medium text-app-ink underline">
+              Release gates
+            </Link>
+            <span className="text-olive">
+              resolved on the gate screen — each one&rsquo;s state depends on evidence this page does not run
+            </span>
+          </li>
         </ul>
       </Panel>
 
-      <Panel title="The review queue" className="mt-6">
-        <p className="measure text-ground/90">
-          This screen is meant to carry a queue of open decisions and release gates. There
-          is no such queue: scoped access requests, release sign-offs and clinical language
-          approvals are not recorded as anything in this deployment, so there is nothing to
-          order or assign.
-        </p>
-        <p className="measure mt-3 text-sm text-olive">
-          An empty queue rendered here would say a channel exists and happens to be quiet,
-          which is a different and false statement. It needs a request record with a
-          requester, a scope, an expiry and an approver before it can be listed.
-        </p>
-      </Panel>
     </ReviewPage>
   );
 }

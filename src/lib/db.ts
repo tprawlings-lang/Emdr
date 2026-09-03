@@ -430,6 +430,77 @@ export const SCHEMA_SQL = `
   );
   CREATE INDEX IF NOT EXISTS idx_signoffs_rule ON autonomous_signoffs(rule_id, config_version, created_at);
 
+  -- The review decision record (§26 p44 role-level acceptance: "Every decision
+  -- records actor, role, version, evidence and time").
+  --
+  -- ONE table for three screens — clinical language review, release-gate
+  -- sign-off, and the approval half of a scoped access request — because §26
+  -- states the acceptance rule once for all of them and three tables would be
+  -- three chances to satisfy it differently. The review home also needs a
+  -- single queue to read; assembling one from three shapes is where a missing
+  -- decision hides.
+  --
+  -- APPEND-ONLY, LAST WRITE WINS per (subject_kind, subject_id,
+  -- subject_version) — the autonomous_signoffs pattern, generalized. A
+  -- reviewer changing their mind is a new row; the previous decision stays
+  -- readable, because "who approved this and when" must survive the reversal.
+  --
+  -- subject_version IS THE MECHANISM, not bookkeeping. A decision is recorded
+  -- against a specific version of the thing decided, so when that thing
+  -- changes the decision no longer matches and the subject returns to
+  -- unreviewed on its own. This is what makes "release gates cannot be
+  -- bypassed from ordinary admin controls" (§26 p44) structural rather than a
+  -- rule someone has to keep: you cannot approve a gate and then quietly alter
+  -- what you approved, because the approval is bound to the evidence
+  -- fingerprint it was shown.
+  CREATE TABLE IF NOT EXISTS review_decisions (
+    id TEXT PRIMARY KEY,
+    subject_kind TEXT NOT NULL CHECK (subject_kind IN ('clinical_language','release_gate','access_request')),
+    subject_id TEXT NOT NULL,
+    -- The version or evidence fingerprint the decision was made against.
+    subject_version TEXT NOT NULL,
+    decision TEXT NOT NULL CHECK (decision IN ('approved','blocked','changes_requested')),
+    -- Why, in the reviewer's words. Encrypted: a rationale can name a patient
+    -- safety concern or a person, and this table is read by every reviewer.
+    rationale TEXT,
+    -- What the reviewer was looking at, captured at decision time rather than
+    -- re-derived at read time. Re-deriving it would show today's evidence
+    -- beside yesterday's decision and imply the two were connected.
+    evidence_json TEXT NOT NULL DEFAULT '{}',
+    actor_id TEXT REFERENCES users(id),
+    actor_role TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+  CREATE INDEX IF NOT EXISTS idx_review_decisions_subject
+    ON review_decisions(subject_kind, subject_id, subject_version, created_at);
+
+  -- A request for scoped access (§26 p44: "Approve scoped access — Role,
+  -- purpose, expiration — Approve or deny").
+  --
+  -- The REQUEST is a record and the DECISION is a different record, in
+  -- review_decisions. Keeping them apart is what lets a request be denied
+  -- without destroying the evidence that it was made, and lets the same
+  -- request be re-decided later without losing the first answer.
+  --
+  -- expires_at is stored on the REQUEST because the expiry is part of what is
+  -- being asked for and therefore part of what is approved. An approver who
+  -- grants open-ended access and an approver who grants thirty days have not
+  -- made the same decision, and an expiry attached to the grant afterwards
+  -- would let the two be confused.
+  CREATE TABLE IF NOT EXISTS access_requests (
+    id TEXT PRIMARY KEY,
+    tenant_id TEXT NOT NULL REFERENCES tenants(id),
+    requested_by TEXT NOT NULL REFERENCES users(id),
+    -- The role being asked for, and what it is needed for, in the requester's
+    -- own words. Recorded before any decision, because a purpose supplied
+    -- after an approval is a justification rather than a reason.
+    requested_role TEXT NOT NULL,
+    purpose TEXT NOT NULL,
+    expires_at TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+  CREATE INDEX IF NOT EXISTS idx_access_requests_tenant ON access_requests(tenant_id, created_at);
+
   -- Reviewer change requests (Phase 4 testing cycle).
   --
   -- The point of a review environment is that someone walks it and says what
@@ -1539,6 +1610,12 @@ export const TENANT_SCOPED_TABLES = [
   "program_plans", "care_tracks", "care_track_intake", "practice_completions",
   "upsell_events", "autopilot_plans", "autopilot_events", "lesson_reads",
   "review_notes", "screening_progress",
+  // An access request is raised inside one tenant and names the person who
+  // raised it, the role they want and what they want it for. Reading another
+  // tenant's would show who is asking for what access there — which is exactly
+  // the reconnaissance the request record exists to make reviewable, not
+  // available.
+  "access_requests",
   // An export names the person who asked for it. It is a disclosure record
   // rather than care data, but it is scoped to exactly one tenant and reading
   // another's would show their cohorts, filters and stated purposes.

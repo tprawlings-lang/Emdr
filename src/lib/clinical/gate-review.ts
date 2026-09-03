@@ -128,6 +128,22 @@ const STATE_COPY: Record<GateState, { member: string; action: string; alternativ
   },
 };
 
+/** The six gate states, in escalation order. */
+export const GATE_STATES: GateState[] = ["open", "caution", "limited", "review_needed", "safety_stop", "unknown"];
+
+/**
+ * The shipping copy for a gate state.
+ *
+ * Exported for the clinical language review (§31.6 p99, "Approved page and
+ * gate copy") so that screen reads the copy the product ACTUALLY SHIPS rather
+ * than a transcription of it. A review screen holding its own copy of the
+ * words can approve a sentence the product does not say, and the approval
+ * would look identical either way.
+ */
+export function gateCopyFor(state: GateState): { member: string; action: string; alternative: string | null; headline: string } {
+  return STATE_COPY[state];
+}
+
 export function memberCopyFor(state: GateState): string {
   return STATE_COPY[state].member;
 }

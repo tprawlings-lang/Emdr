@@ -13,14 +13,16 @@
 
 ---
 
-# ▶ RESUME HERE — session handoff, 2026-08-29
+# ▶ RESUME HERE — session handoff, 2026-09-03
 
 **This block is written for a fresh context window.** It is the shortest path from "I have
 just opened this repository" to "I am doing the next useful thing."
 
-**The live job is GUI launch** — handoff 06 carried all the way, screens, charts and
-datasets. Its status, its instructions and everything still owed are in the **GUI launch**
-section immediately below this one. Start there.
+**Handoff 06's screen atlas is complete — 80 of 80 screens, 22 of 22 charts.** The last
+four were the review console's deciding screens (`/review/access`, `/review/clinical`,
+`/review/release`, `/review/research`); what they needed and how the decision record works
+is in the **GUI launch** section immediately below. What remains of handoff 06 is the
+non-screen material in §§30–31.
 
 **Handoff 07 has started.** **Waves 1–5 are done**: six demo roles with one account and one
 password each and the organization/payer boundary enforced rather than commented; the
@@ -33,12 +35,25 @@ rather than merely similar; and a ten-metric dictionary with a cohort registry, 
 arithmetic is checked against hand calculations written out in the tests rather than against
 itself. **All demo logins are in
 [`docs/demo/demo-logins.md`](docs/demo/demo-logins.md)** — start there to sign in as
-anyone. Waves 2–8 (the 240-patient population and the planning engine) are open. The
+anyone. **Wave 6 (the seven planning rules and the eight-state review machine) is also
+done.** What is open is **Wave 7** — fairness controls, the audit screen and the
+model-registry shell — and the rest of **Wave 8**: the control centre, nightly reset and
+scenario scripts. The demo clock itself is built. The
 specification is
 [`docs/handoffs/07-demo-login-synthetic-population-and-planning-engine.pdf`](docs/handoffs/07-demo-login-synthetic-population-and-planning-engine.pdf)
 and the plan — including its Wave 0 gap list, the eleven subsystems it must **reuse rather
 than rebuild**, and five decisions the PDF leaves open — is
 [`docs/handoffs/07-PLAN.md`](docs/handoffs/07-PLAN.md). Read the plan before the PDF.
+
+**A second program is waiting and has not started.** `docs/handoffs/` now holds a separate
+five-handoff series, the **Clinical Intelligence Expansion** — return-to-life goals, a
+treatment-response fingerprint, a between-visit command centre, a recovery trajectory, and
+therapeutic load and readiness. Its numbering restarts at 01, so read filename prefixes
+rather than numbers. Its order is load-bearing and its stated prerequisite is the Clinician
+Thoughts spec v2.1, whose **Phase 2 (extraction) is not built**. Do not start the expansion
+ahead of it. The folder also contains `future-platform-intelligence/`, which is marked
+**PARKED / DO NOT IMPLEMENT** — it is a future program, not scope. Status table for both is
+in [`docs/handoffs/README.md`](docs/handoffs/README.md).
 
 ## Read these, in this order
 
@@ -134,7 +149,7 @@ examples; open them before writing a screen, because the text alone rebuilds wro
 
 ### Where it stands
 
-**Screens — 75 of 80.** Every role that reads or writes care data is complete.
+**Screens — 80 of 80.** Every screen in §26's atlas is built.
 
 | Role | Spec | Built | §26 page |
 |---|---|---|---|
@@ -143,7 +158,7 @@ examples; open them before writing a screen, because the text alone rebuilds wro
 | Organization | 9 | **9** | 42 |
 | Payer | 10 | **10** | 43 |
 | Shared access states | 8 | **8** | 46 |
-| Review and administration | 13 | 9 | 44 |
+| Review and administration | 13 | **13** | 44 |
 | Public institutional site | 11 | **11** | 45 |
 
 **Charts — 22 of §29's 22 contracts** (inventory on p75). **Complete.**
@@ -160,162 +175,60 @@ seed, and prints a baseline hash so a change to the data is visible rather than 
 After a reset: 17,304 persons, 7 tenants, 77,098 longitudinal events. Every figure on
 every aggregate screen is counted from that ledger; nothing is pre-aggregated.
 
-### What is NOT completed, and where to read about it
+### The four review screens that were missing, and what they needed
 
-Five screens. Each row names the page in the handoff that specifies it.
+`/review/access`, `/review/clinical`, `/review/release` and `/review/research` were the last
+gap in §26's atlas. Three were recorded as blocked on records that did not exist. Two of
+those blockers had in fact been resolved by earlier work and the tracker had not caught up:
+the **cohort registry** was built in handoff 07 Wave 5, and the **export machinery** —
+filter-hash parity, small-cell suppression, signed files, the disclosure register — already
+existed for the organization and payer consoles. `/review/research` needed a screen over
+them, not a new subsystem.
 
-| # | Not built | Read | Blocked on |
-|---|---|---|---|
-| 1 | `/review/access` — approve scoped access (role, purpose, expiry) | §26 **p44** | Nothing. This is the binding `src/lib/intelligence/scope.ts` currently fakes by resolving the single organization tenant |
-| 2 | `/review/clinical` — review language and flow; record a decision against a version | §26 **p44** | No approval record. The decision and its evidence have nowhere to be written |
-| 5 | `/review/research` — approved de-identified data, consent and cohort guard | §26 **p44** | Cohort registry |
-| 6 | `/review/release` — record required sign-offs with owner, evidence and state | §26 **p44**; release gates §31.6 **p99** | A sign-off record. `autonomous_signoffs` is the nearest existing shape |
-| 18 | **Wave 6 — hardening**: performance, accessibility, security, telemetry, export parity, disaster recovery | Waves §31.2 **p95**; acceptance §31.5 **p98**; release gates §31.6 **p99**; telemetry §31.7 **p100** | Not started |
+What genuinely had to be built was **one decision record**, in `review_decisions`.
 
-Row 3 (`/review/safety`) closed during handoff 07's Wave 1 and has been removed from the
-list; the numbering below still refers to the original rows.
+§26 p44 states the acceptance rule once for all three deciding screens — *"every decision
+records actor, role, version, evidence and time"* — so they share one table rather than
+three, and the review home has a single queue to count rather than three shapes to
+reconcile.
 
-**§29's chart inventory is complete.** Two screens still need a record that does not exist yet —
-rows 2 and 6, a review decision and a sign-off. **Everything else is presentation work over data
-that is already there**. Row 5 needs the cohort registry; row 18 is its own wave.
+**A decision is bound to the version it was made against, and that is the whole design.**
+Approving a release gate approves the *evidence that was on the screen*, not the gate's
+name: the sign-off is recorded against a fingerprint of the evidence, so when the evidence
+moves, the approval stops matching and the gate reopens by itself. This is what makes
+p44's *"release gates cannot be bypassed from ordinary admin controls"* a mechanism instead
+of a rule someone has to remember — the bypass it forecloses is not a villain editing rows,
+it is the ordinary sequence where a gate is signed off on Monday, the evidence changes on
+Tuesday, and nothing anywhere says so. The screen distinguishes *"nobody has reviewed
+this"* from *"somebody reviewed this and then the evidence moved"*, because only one of
+those is anybody's fault.
 
-Rows 9 and 10 (`/personal`, `/intelligence`) were tracked here as "naming only — content lives
-at /platform", and that was wrong. §26 p45 gives every public screen its own purpose, and the
-three differ: /platform is "understand one system and three surfaces", /personal is "review
-member value **and limits**", /intelligence is "review aggregate intelligence". The second is
-the question a clinician asks and the third is the question a reviewer asks, and filing both as
-duplicates of the first meant the site answered neither. A guard now checks the atlas by route
-**and purpose**, and fails if either page becomes a copy of its neighbour.
+The same binding runs through the other two. Clinical language decisions are recorded
+against a composite of every policy version that governs the words, so a policy bump
+reopens the review rather than carrying it silently forward. An access decision is bound to
+the role **and** the expiry that were requested, so an edited request cannot inherit an old
+approval.
 
-Row 8 (`/review/status`) closed the same way rows like it will: nothing new was measured. It
-composes the two probes that already existed — `readServiceStatus()`, which queries the database
-rather than declaring a state, and `demoHealth()`, which counts the environment's own invariants —
-and prints the versions that say which build produced the answer. A guard fails the build if a row
-ever states a status word the probe did not produce, because a hand-written "operational" is a
-claim about a system by somebody who was not looking at it.
+Three further things the screens refuse rather than discourage: a reviewer cannot approve
+their own access request; a request with no expiry cannot be raised at all, because an
+open-ended grant is not a scope; and an **attested** gate cannot be approved without a
+pointer to where its evidence lives.
 
-Row 4 (`/review/lineage`) walks §30.1's pipeline backwards from a sentence the product would
-show someone — role view, projection, policy, ledger, source — and every hop is a query. The
-join already existed and nothing had read it: every event that produces a current-state row
-carries that row's primary key in `payload.projectionId`, so a statement's provenance is the set
-of events naming the row it was read from, and a statement with none of them is a row nobody
-appended.
+**Measured, measured-on-request, and attested evidence never render alike.** Five of the
+eight gates resolve from the running system — the identity scan, the data-quality checks,
+the safety scenario replay, the clinical-copy tally, the claims registry. One is a ledger
+rebuild, too expensive to run on page load, so it is run on request. Three —
+authorization, accessibility, analytics integrity — are things a server component cannot
+check, and they are labelled as one owner's word with a reference, not given a green tick
+that implies the system verified them. A release conversation held over a column of
+identical ticks cannot ask the only question that matters, which is what each tick is
+standing on.
 
-**It reports gaps, and it is supposed to.** Most seeded history in this environment was
-reconstructed from the current-state rows by genesis backfill — those rows are not derived from
-their events, their events are derived from them — so they trace as `gap`, with the reason
-stated. Reporting that as `complete` would have made this the most confident liar in the
-product. The check-ins the agent layer lives through are original and trace as `complete`, which
-is the distinction a reviewer deciding how much of the demonstration to believe actually needs.
-The guard builds both cases in a real database and fails if the two produce the same verdict: a
-fixture that cannot distinguish two implementations is not a fixture.
-
-Building it exposed two defects in the write path, both fixed here. The demo agent stamped
-`payload_version` as the literal `1` on every event it appended, and `daily_checkin.completed`
-is on schema 2 — a schema version that is present and wrong is worse than one that is absent,
-because a reader who trusts it parses the payload by the wrong shape. And the agent ran the
-product's real routing rule without recording which rule version decided the answer, so its
-check-ins could reach the ledger stage and no further. `CHECKIN_ROUTING_VERSION` now lives beside
-the rule in `gating.ts`, and both writers stamp it.
-
-Row 7 (`/review/demo-data`) makes §26's primary action the **identity scan**, not the reset,
-which is the right way round: a reviewer is being asked to accept that none of these seventeen
-thousand people exist, and a reset button does nothing to support that. The scan looks for the
-marks a real person leaves — a deliverable mail domain, a phone number, a government identifier,
-a street address — in the columns one could arrive in, and reports what it found, **what it
-could not read**, and **what it did not cover**. It does not decrypt: encrypted clinical text is
-counted as unreadable rather than skipped, so a clean result cannot mean "we did not look". A
-missing column is reported rather than counted as zero findings.
-
-The first version of the scan was wrong in a way worth recording. It flagged the demonstration's
-own human accounts, because a real person's real email address is deliverable — and that is
-their address, not contamination. `runQualityChecks` already had this right, *reporting* the
-count of real people rather than judging it. The scan is now scoped to the fabricated population,
-and real people are reported and left alone.
-
-Two guard lessons, both learned the hard way in the same file. The phone rule could not match
-`(415) 555-0134` — a `\b` cannot exist between a space and `(` — and the only reason anyone
-found out is that the guard plants the string it expects to find; a scanner verified against
-clean data is verified against nothing. And "a clean result over nothing is not called clean"
-originally asserted only against a populated database, where it passes whether the empty case is
-handled or not. It now builds the empty case. **A guard that cannot fail is worse than none,
-because it is counted.**
-
-Resetting is deliberately not on that screen. It already exists on the demo administration
-console with a typed reason and an audit entry; a second copy of a control that deletes every
-row, on a screen most of whose readers cannot use it, makes the environment easier to destroy
-and no easier to verify.
-
-**Rows 14–17 are built** — organization engagement and location comparison, payer contract
-performance and data quality. They needed two primitives the chart file did not have, and each
-exists because of a specific way the table it replaced was *better* than a careless chart would
-be:
-
-| Primitive | The failure it refuses |
-|---|---|
-| `RateBars` | A **fixed 0–100% axis**. `BarList` scales to the largest row, which is right for counts and wrong for shares — four sites at 61, 58, 55 and 52 per cent rescaled to their own maximum draw as a staircase, and a nine-point spread reads as a collapse. Every row still prints its own denominator, because sites are not the same size |
-| `TargetBars` | **No shared axis at all.** A contract's measures are a rate, a duration and a count per thousand, and §29.1 forbids overlaying different scales — so each row is normalised to *its own* target, drawn at the same point on every track. What is compared across rows is distance from target, the only comparable thing there. Direction is stated in words, because a short bar is a *good* result for a lower-is-better measure |
-
-Both are guarded by rendering the component and reading the marks rather than by matching source
-for a formula: a width computed from the wrong denominator is the entire failure, and it is
-invisible in a source match. Mutation-tested — rescaling the rate axis, putting the targets on a
-shared axis, or dropping a measure with no observed value each fails the build. Each page keeps
-its table underneath, as a disclosure, for a reader who wants the numbers rather than the
-comparison.
-
-**Row 11 is built** — the clinician measures chart, as p76's aligned small multiples. It was
-not a table: it was two independent SVG charts that placed each reading by its **index in its own
-series**. Every consequence of that is invisible in code review and obvious in a rendered panel —
-two instruments measured on different days put the same date in different places, a series of
-three readings stretched across the same width as one of twelve, and a three-month gap drew
-exactly as wide as a one-week gap, which turns an absence of data into a smooth decline. The
-panels now share one date axis and keep separate scales, because §29.1 forbids overlaying a
-PHQ-9 on a PCL-5. PHQ-9 and GAD-7 reach the chart for the first time; PHQ-9 is the repeated
-outcome measure across the programme, so a person whose whole series is PHQ-9 previously had an
-"Outcome trends" section that drew nothing.
-
-The old component is deleted rather than left unused, and the member boundary that named it now
-names its replacement too — a rule about a shape, not about a filename.
-
-**Row 13 is built** — the plan-response chart, as annotations on the measures panels rather
-than as a chart of its own, which is what §27.4's progress view asks for. It was listed as
-blocked on "plan-version records"; `program_plans` has been append-only and versioned all along
-— a revision is a new row — and what was missing was that no seed had ever written one. The
-generator now writes two or three versions per person, dated across their enrolment.
-
-§29.1 governs the form: *annotations mark plan versions; they do not imply cause*. So a version
-is a dated rule across every panel and a label, and nothing else — no shading of the period
-after it, no before-and-after figure, no arithmetic across the mark. Each of those would be an
-argument about what the plan did, drawn from an uncontrolled comparison on one person. The
-sentence saying so is printed by the component rather than by the page, so a screen cannot show
-the marks without it.
-
-That change surfaced a latent defect in the reset baseline: `isCiphertext` tested for a prefix
-(`enc:`) that `crypto.ts` has never produced, so encrypted values were hashed **by content**
-into a baseline whose whole purpose is to be identical across two resets. Nothing had caught it
-because no seeded table carried an encrypted column until this one did. `crypto.ts` now exports
-the predicate, so the format has one definition.
-
-**Row 12 is built, and it required inventing a measure.** No functional record existed. The
-Everyday Function check is four questions about what somebody was able to *do* in the past week
-— start the day, keep up with work or home, be around people, do something restorative — scored
-0–16 with **higher better**, the opposite direction to every validated instrument beside it.
-
-It is not a validated instrument and the codebase is built so it cannot pass for one. It lives
-in `src/lib/measures/house.ts`, a **separate file and separate type** from `instruments.ts`, so
-`getInstrument()` cannot return it. It has **no cutoff, typed `null`** so it cannot grow one — a
-threshold is what turns a number into a claim about a person, and there is nothing behind this
-one to support such a claim. Its disclosure is a property of the *series*, rendered on its own
-panel, because a panel drawn beside PHQ-9 borrows PHQ-9's authority and this measure has none to
-borrow. Guards fail the build if it enters the validated registry, acquires a cutoff or a band,
-appears anywhere in `gating.ts`, `safety/`, `planning/`, `fitness-screener.ts` or `autopilot.ts`,
-or asks about feeling rather than doing. Its status and the open questions a reviewer would still
-have to settle are recorded in [`docs/autonomous/01-signoff-ledger.md`](docs/autonomous/01-signoff-ledger.md).
-
-**The cheapest remaining progress** is rows 9 and 10, which are a rename.
-
-**Nothing here is a broken link.** `/review` names the four missing screens on itself
-rather than showing an empty queue, and the two public pages have reachable equivalents.
+**Every reviewable sentence is read from the module that ships it.** `/review/clinical`
+pulls the six gate-state strings out of `gate-review.ts` rather than transcribing them. A
+registry with its own copy of the words would drift the first time somebody edited one and
+not the other, and would then approve sentences no member reads — while looking exactly as
+convincing as one that worked.
 
 ### What comes after GUI launch — handoff 07, in progress
 

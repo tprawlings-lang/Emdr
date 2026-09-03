@@ -30,8 +30,44 @@ travels with the code.
 | 03 | [Institutional website redesign](03-institutional-website-redesign.pdf) | The public surface: audience pages, one claims registry, Trust Center, Evidence, FAQ, the review gateway, demo legal copy, the copy guard | **Done** — [`../site/release-acceptance.md`](../site/release-acceptance.md) |
 | 04 | [Presentation layer v1](04-presentation-layer-v1.pdf) | How data, gating, routing, and processing are rendered. The member score boundary, day states, the gate, the session flow, the visual system, component contracts | **◐ In progress** — [`../site/presentation-layer.md`](../site/presentation-layer.md). §§2, 3, 4, 5, 7, 8 done. **§6 is next and not started** |
 | 05 | [GUI and decision-surface](05-gui-and-decision-surface.pdf) | How events, measures, gates, summaries, and audit history become screens people can act on. Role views, the presentation contract, gate states, components, tokens, charts, and the build order | **◐ In progress** — [`../site/gui-decisions.md`](../site/gui-decisions.md). Phase 0 and Phase 1 landed; Phases 2–5 open |
-| 06 | [Web GUI, analytics and clinical presentation](06-web-gui-analytics-and-clinical-presentation.pdf) | **Supersedes 05 where they differ.** Part I reprints handoff 05; Part II is the coding annex — an 80-screen route atlas, the `ClinicianPatientProjection` contract, queue ordering, 20 page examples, 22 chart screens, the projection/API/component architecture, and a six-wave build order | **◐ In progress** — [`../site/gui-decisions.md`](../site/gui-decisions.md). Wave 0 done; Waves 1–6 open |
-| 07 | [Demo login, synthetic population and planning engine](07-demo-login-synthetic-population-and-planning-engine.pdf) | Role-selectable demo access for six roles, 240 fabricated longitudinal patients across the four U.S. Census regions, a versioned metric dictionary and cohort registry, seven deterministic planning rules with an eight-state review machine, fairness controls, a model-registry shell, five screens, twelve APIs and ten release gates | **Not started** — plan and Wave 0 gap list in [`07-PLAN.md`](07-PLAN.md) |
+| 06 | [Web GUI, analytics and clinical presentation](06-web-gui-analytics-and-clinical-presentation.pdf) | **Supersedes 05 where they differ.** Part I reprints handoff 05; Part II is the coding annex — an 80-screen route atlas, the `ClinicianPatientProjection` contract, queue ordering, 20 page examples, 22 chart screens, the projection/API/component architecture, and a six-wave build order | **◐ In progress** — [`../site/gui-decisions.md`](../site/gui-decisions.md). **80 of 80 screens; 22 of 22 charts.** The screen atlas is complete. Remaining: the non-screen items in §§30–31 |
+| 07 | [Demo login, synthetic population and planning engine](07-demo-login-synthetic-population-and-planning-engine.pdf) | Role-selectable demo access for six roles, 240 fabricated longitudinal patients across the four U.S. Census regions, a versioned metric dictionary and cohort registry, seven deterministic planning rules with an eight-state review machine, fairness controls, a model-registry shell, five screens, twelve APIs and ten release gates | **◐ In progress** — **Waves 0–6 done** (demo identity, seed manifest, deterministic generator, role projections, metrics, planning rules). **Wave 7 (governance: fairness controls, audit screen, model-registry shell) is open**; Wave 8 is part-built — the demo clock exists, the control centre, nightly reset and scenario scripts do not. [`07-PLAN.md`](07-PLAN.md) |
+
+## A second program landed, and it is not in the table above
+
+The table above is the **original** series, 01–07. In September 2026 a second, separately
+numbered series was added to this folder: the **Clinical Intelligence Expansion**, five
+handoffs plus an execution overview, ordered by
+[`README_EXECUTION_ORDER.txt`](README_EXECUTION_ORDER.txt). It is **not started.**
+
+Its numbering restarts at 01, so `01_Steady_Return_to_Life_Goals...` and
+`01-platform-readiness...` are different documents from different programs. Read the
+filename prefix, not the number.
+
+| # | Handoff | Adds | Status |
+|---|---|---|---|
+| 00 | [Execution overview](00_Steady_Clinical_Intelligence_Expansion_Execution_Overview.pdf) | The dependency map, the repository foundations each feature must extend rather than duplicate, and eight cross-feature invariants | Read |
+| 01 | [Return-to-Life Goals](01_Steady_Return_to_Life_Goals_Engineering_Handoff.pdf) | Functional goals and observable progress ladders — the outcome layer | **Not started** |
+| 02 | [Treatment Response Fingerprint](02_Steady_Treatment_Response_Fingerprint_Engineering_Handoff.pdf) | Evidence-linked patterns of how one person responds to an intervention in a context | **Not started** |
+| 03 | [Between-Visit Care Command Center](03_Steady_Between_Visit_Care_Command_Center_Engineering_Handoff.pdf) | One clinician action surface for non-safety attention signals | **Not started** |
+| 04 | [Personalized Recovery Trajectory](04_Steady_Personalized_Recovery_Trajectory_Engineering_Handoff.pdf) | Per-domain trajectories and descriptive deviation detection | **Not started** |
+| 05 | [Therapeutic Load & Readiness](05_Steady_Therapeutic_Load_Readiness_Engineering_Handoff.pdf) | Stabilize / maintain / consider-progression decision support | **Not started** |
+
+**The order is load-bearing.** Document 00 states that later handoffs consume contracts
+created by earlier ones — 05 depends on all four before it. They are not independent
+features that can be picked off by interest.
+
+**Its stated prerequisite is the Clinician Thoughts / Clinical Memory / Session Prep
+Specification v2.1** ([`Steady_Clinician_Thoughts_Engineering_Spec_v2_1.pdf`](Steady_Clinician_Thoughts_Engineering_Spec_v2_1.pdf)),
+as "the common clinician-memory and evidence layer". Phase 0 and Phase 1 of that spec are
+built; **Phase 2, extraction, is not**. The expansion program should not start ahead of it.
+
+## `future-platform-intelligence/` is parked, deliberately
+
+That subfolder is marked **PARKED / DO NOT IMPLEMENT** by its own README. Five engineering
+handoffs — wearables, medication support, clinician-assigned modules, passive phenotyping,
+communication-change signals — kept as a future program, not a backlog. Do not start them,
+and do not treat their presence in this folder as scope.
 
 ## Reading order for a fresh context window
 
