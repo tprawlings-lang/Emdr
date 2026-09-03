@@ -519,6 +519,168 @@ ALTER TABLE lesson_reads ADD COLUMN IF NOT EXISTS tenant_id text NOT NULL DEFAUL
 ALTER TABLE review_notes ADD COLUMN IF NOT EXISTS tenant_id text NOT NULL DEFAULT '00000000000000000000000000';
 
 -- ---------------------------------------------------------------------------
+-- Clinician thoughts, clinical memory and threads
+-- ---------------------------------------------------------------------------
+--
+-- The Postgres mirror of the clinician thinking layer (Clinician Thoughts spec
+-- §6; SQLite original in src/lib/db.ts). Phase 0's definition of done requires
+-- the schema plan to be mirrored for both, and this file is the mirror.
+--
+-- Every table below carries tenant_id, so the RLS block that follows picks them
+-- up with no edit: its policy loop enumerates the catalog rather than a
+-- hardcoded list, which is what makes "a new tenant-scoped table cannot be added
+-- and left unprotected" true rather than a convention.
+--
+-- Types differ from SQLite where Postgres has a better one — timestamptz for
+-- instants, jsonb for structured columns — because a mirror that keeps TEXT
+-- everywhere would carry SQLite's limitations into a database that does not
+-- have them. The logical schema is the same; the storage types are the right
+-- ones for each engine.
+
+CREATE TABLE IF NOT EXISTS clinician_thoughts (
+  id text PRIMARY KEY,
+  tenant_id text NOT NULL REFERENCES tenants(id),
+  person_id text NOT NULL REFERENCES persons(id),
+  clinician_person_id text NOT NULL REFERENCES persons(id),
+  status text NOT NULL CHECK (
+    status IN ('capturing','processing','review','saved','discarded','failed')
+  ),
+  audio_storage_key text,
+  audio_retention_policy text NOT NULL DEFAULT 'delete_after_verified_transcript',
+  audio_deleted_at timestamptz,
+  current_transcript_id text,
+  source_session_id text,
+  recorded_at timestamptz NOT NULL,
+  saved_at timestamptz,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_thoughts_person_time
+  ON clinician_thoughts(tenant_id, person_id, recorded_at DESC);
+
+CREATE TABLE IF NOT EXISTS clinician_thought_transcripts (
+  id text PRIMARY KEY,
+  tenant_id text NOT NULL REFERENCES tenants(id),
+  person_id text NOT NULL REFERENCES persons(id),
+  thought_id text NOT NULL REFERENCES clinician_thoughts(id),
+  version integer NOT NULL,
+  transcript_text text NOT NULL,
+  transcript_hash text NOT NULL,
+  provider text,
+  provider_model text,
+  language text,
+  confidence_json jsonb,
+  created_by text NOT NULL CHECK (created_by IN ('transcription_service','clinician')),
+  created_at timestamptz NOT NULL DEFAULT now(),
+  UNIQUE(thought_id, version)
+);
+
+CREATE TABLE IF NOT EXISTS clinical_memory_items (
+  id text PRIMARY KEY,
+  tenant_id text NOT NULL REFERENCES tenants(id),
+  person_id text NOT NULL REFERENCES persons(id),
+  source_thought_id text,
+  source_transcript_id text,
+  source_span_json jsonb,
+  item_type text NOT NULL,
+  statement_class text NOT NULL CHECK (
+    statement_class IN (
+      'clinician_observation','patient_report',
+      'clinician_hypothesis','clinician_uncertainty'
+    )
+  ),
+  normalized_label text,
+  display_text text NOT NULL,
+  status text NOT NULL CHECK (status IN ('candidate','approved','rejected','superseded')),
+  approved_by text,
+  approved_at timestamptz,
+  supersedes_id text,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_memory_person_type_status
+  ON clinical_memory_items(tenant_id, person_id, item_type, status);
+CREATE INDEX IF NOT EXISTS idx_memory_person_label
+  ON clinical_memory_items(tenant_id, person_id, normalized_label);
+
+CREATE TABLE IF NOT EXISTS clinical_threads (
+  id text PRIMARY KEY,
+  tenant_id text NOT NULL REFERENCES tenants(id),
+  person_id text NOT NULL REFERENCES persons(id),
+  thread_type text NOT NULL,
+  canonical_label text NOT NULL,
+  status text NOT NULL CHECK (status IN ('active','resolved','archived')),
+  created_by text NOT NULL CHECK (created_by IN ('clinician','system')),
+  first_seen_at timestamptz,
+  last_seen_at timestamptz,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_threads_person_status
+  ON clinical_threads(tenant_id, person_id, status, last_seen_at DESC);
+
+CREATE TABLE IF NOT EXISTS clinical_thread_memberships (
+  id text PRIMARY KEY,
+  tenant_id text NOT NULL REFERENCES tenants(id),
+  person_id text NOT NULL REFERENCES persons(id),
+  thread_id text NOT NULL REFERENCES clinical_threads(id),
+  memory_item_id text NOT NULL REFERENCES clinical_memory_items(id),
+  relationship text NOT NULL DEFAULT 'supports',
+  status text NOT NULL CHECK (status IN ('proposed','accepted','rejected')),
+  proposed_by text NOT NULL CHECK (proposed_by IN ('clinician','model','system')),
+  decided_by text,
+  decided_at timestamptz,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  UNIQUE(thread_id, memory_item_id)
+);
+CREATE INDEX IF NOT EXISTS idx_memberships_thread_status
+  ON clinical_thread_memberships(tenant_id, thread_id, status);
+
+CREATE TABLE IF NOT EXISTS clinical_inferences (
+  id text PRIMARY KEY,
+  tenant_id text NOT NULL REFERENCES tenants(id),
+  person_id text NOT NULL REFERENCES persons(id),
+  inference_type text NOT NULL,
+  display_text text NOT NULL,
+  status text NOT NULL CHECK (status IN ('proposed','accepted','dismissed','expired')),
+  ai_inference_id text,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  expires_at timestamptz,
+  decided_by text,
+  decided_at timestamptz
+);
+CREATE INDEX IF NOT EXISTS idx_inference_person_status
+  ON clinical_inferences(tenant_id, person_id, status, created_at DESC);
+
+-- No tenant_id, and therefore no RLS policy of its own: this is a join table
+-- reachable only through an inference that carries one. A tenant_id column here
+-- that nothing sets would make the policy loop count a protection that is not
+-- actually enforcing anything.
+CREATE TABLE IF NOT EXISTS clinical_inference_evidence (
+  inference_id text NOT NULL REFERENCES clinical_inferences(id),
+  evidence_type text NOT NULL,
+  evidence_id text NOT NULL,
+  rank integer NOT NULL,
+  PRIMARY KEY(inference_id, evidence_type, evidence_id)
+);
+
+CREATE TABLE IF NOT EXISTS clinical_retrieval_documents (
+  id text PRIMARY KEY,
+  tenant_id text NOT NULL REFERENCES tenants(id),
+  person_id text NOT NULL REFERENCES persons(id),
+  source_type text NOT NULL,
+  source_id text NOT NULL,
+  text_for_retrieval text NOT NULL,
+  content_hash text NOT NULL,
+  embedding_model text,
+  embedding_ref text,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  UNIQUE(tenant_id, source_type, source_id)
+);
+CREATE INDEX IF NOT EXISTS idx_retrieval_person
+  ON clinical_retrieval_documents(tenant_id, person_id, source_type);
+
+-- ---------------------------------------------------------------------------
 -- Row-level security (ADR 0011 §3 — the second half of tenant isolation)
 -- ---------------------------------------------------------------------------
 --

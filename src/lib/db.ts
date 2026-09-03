@@ -1112,6 +1112,196 @@ export const SCHEMA_SQL = `
 
   CREATE INDEX IF NOT EXISTS idx_levents_type ON longitudinal_events(event_type, id);
   CREATE INDEX IF NOT EXISTS idx_levents_correlation ON longitudinal_events(correlation_id);
+
+  -- ── Clinician thoughts, clinical memory and threads ──────────────────────
+  --
+  -- The clinician thinking layer (Clinician Thoughts spec §6). A clinician
+  -- speaks after a session, Steady transcribes and organizes, the clinician
+  -- reviews, and approved items become source-backed clinical memory.
+  --
+  -- THE SHAPE IS THE PRODUCT RULE. §5's three layers are three tables on
+  -- purpose: source (audio and transcript versions), clinical memory (small
+  -- approved items), and intelligence (model-created patterns that never become
+  -- clinical truth without an explicit human action). The spec's instruction is
+  -- blunt about the alternative — "do not maintain one AI-written master patient
+  -- summary" — because a summary cannot show its provenance and cannot be
+  -- reconstructed at a point in time.
+  --
+  -- NOTHING HERE IS EVER MUTATED IN PLACE. A transcript correction writes a new
+  -- version; a correction to an approved item writes a replacement carrying
+  -- supersedes_id. §16 requires it, and it is also what makes a clinician's
+  -- earlier judgement still readable after they change their mind.
+  --
+  -- Every table carries tenant_id and person_id (§6.2), so the Postgres mirror
+  -- picks up row-level security automatically: its policy loop enumerates every
+  -- table with a tenant_id column rather than a hand-kept list.
+
+  -- One clinician thought capture.
+  CREATE TABLE IF NOT EXISTS clinician_thoughts (
+    id TEXT PRIMARY KEY,
+    tenant_id TEXT NOT NULL REFERENCES tenants(id),
+    person_id TEXT NOT NULL REFERENCES persons(id),
+    -- The clinician as a PERSON, not as a caller-supplied string (§6.2).
+    clinician_person_id TEXT NOT NULL REFERENCES persons(id),
+    status TEXT NOT NULL CHECK (
+      status IN ('capturing','processing','review','saved','discarded','failed')
+    ),
+    audio_storage_key TEXT,
+    -- Resolved from org policy at capture. Defaults to deletion rather than
+    -- retention: an organization must not acquire an audio archive of its
+    -- clinicians by never making a decision (see clinical/thoughts-flags.ts).
+    audio_retention_policy TEXT NOT NULL DEFAULT 'delete_after_verified_transcript',
+    audio_deleted_at TEXT,
+    current_transcript_id TEXT,
+    source_session_id TEXT,
+    recorded_at TEXT NOT NULL,
+    saved_at TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+  CREATE INDEX IF NOT EXISTS idx_thoughts_person_time
+    ON clinician_thoughts(tenant_id, person_id, recorded_at DESC);
+
+  -- Versioned transcripts. A clinician correction adds a version; extraction
+  -- reruns against the latest and the original stays readable (§16).
+  CREATE TABLE IF NOT EXISTS clinician_thought_transcripts (
+    id TEXT PRIMARY KEY,
+    tenant_id TEXT NOT NULL REFERENCES tenants(id),
+    person_id TEXT NOT NULL REFERENCES persons(id),
+    thought_id TEXT NOT NULL REFERENCES clinician_thoughts(id),
+    version INTEGER NOT NULL,
+    transcript_text TEXT NOT NULL,
+    transcript_hash TEXT NOT NULL,
+    provider TEXT,
+    provider_model TEXT,
+    language TEXT,
+    confidence_json TEXT,
+    created_by TEXT NOT NULL CHECK (created_by IN ('transcription_service','clinician')),
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    UNIQUE(thought_id, version)
+  );
+
+  -- Extracted and approved memory items — layer 2.
+  --
+  -- statement_class is the epistemic-status column, and it is the reason this
+  -- table exists rather than a notes field. §4's rule: "I think this may connect
+  -- to abandonment" is not "abandonment is an active patient theme", and "I am
+  -- not sure she is ready" is not "patient not ready". A schema that stored only
+  -- the text would let the first become the second on the next read.
+  CREATE TABLE IF NOT EXISTS clinical_memory_items (
+    id TEXT PRIMARY KEY,
+    tenant_id TEXT NOT NULL REFERENCES tenants(id),
+    person_id TEXT NOT NULL REFERENCES persons(id),
+    source_thought_id TEXT,
+    source_transcript_id TEXT,
+    source_span_json TEXT,
+    item_type TEXT NOT NULL,
+    statement_class TEXT NOT NULL CHECK (
+      statement_class IN (
+        'clinician_observation','patient_report',
+        'clinician_hypothesis','clinician_uncertainty'
+      )
+    ),
+    normalized_label TEXT,
+    display_text TEXT NOT NULL,
+    status TEXT NOT NULL CHECK (status IN ('candidate','approved','rejected','superseded')),
+    approved_by TEXT,
+    approved_at TEXT,
+    supersedes_id TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+  CREATE INDEX IF NOT EXISTS idx_memory_person_type_status
+    ON clinical_memory_items(tenant_id, person_id, item_type, status);
+  CREATE INDEX IF NOT EXISTS idx_memory_person_label
+    ON clinical_memory_items(tenant_id, person_id, normalized_label);
+
+  -- Longitudinal threads.
+  CREATE TABLE IF NOT EXISTS clinical_threads (
+    id TEXT PRIMARY KEY,
+    tenant_id TEXT NOT NULL REFERENCES tenants(id),
+    person_id TEXT NOT NULL REFERENCES persons(id),
+    thread_type TEXT NOT NULL,
+    canonical_label TEXT NOT NULL,
+    status TEXT NOT NULL CHECK (status IN ('active','resolved','archived')),
+    created_by TEXT NOT NULL CHECK (created_by IN ('clinician','system')),
+    first_seen_at TEXT,
+    last_seen_at TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+  CREATE INDEX IF NOT EXISTS idx_threads_person_status
+    ON clinical_threads(tenant_id, person_id, status, last_seen_at DESC);
+
+  -- Thread membership. proposed_by and decided_by are separate columns
+  -- because Phase 3's definition of done is "no auto-link in v1": a model may
+  -- propose, and only a clinician decision moves a membership to accepted.
+  CREATE TABLE IF NOT EXISTS clinical_thread_memberships (
+    id TEXT PRIMARY KEY,
+    tenant_id TEXT NOT NULL REFERENCES tenants(id),
+    person_id TEXT NOT NULL REFERENCES persons(id),
+    thread_id TEXT NOT NULL REFERENCES clinical_threads(id),
+    memory_item_id TEXT NOT NULL REFERENCES clinical_memory_items(id),
+    relationship TEXT NOT NULL DEFAULT 'supports',
+    status TEXT NOT NULL CHECK (status IN ('proposed','accepted','rejected')),
+    proposed_by TEXT NOT NULL CHECK (proposed_by IN ('clinician','model','system')),
+    decided_by TEXT,
+    decided_at TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    UNIQUE(thread_id, memory_item_id)
+  );
+  CREATE INDEX IF NOT EXISTS idx_memberships_thread_status
+    ON clinical_thread_memberships(tenant_id, thread_id, status);
+
+  -- Layer 3: model-created inference, which stays model-derived until a human
+  -- accepts it (§31, "no inference promotion"). expires_at exists so a
+  -- pattern nobody acted on stops being presented rather than accumulating.
+  CREATE TABLE IF NOT EXISTS clinical_inferences (
+    id TEXT PRIMARY KEY,
+    tenant_id TEXT NOT NULL REFERENCES tenants(id),
+    person_id TEXT NOT NULL REFERENCES persons(id),
+    inference_type TEXT NOT NULL,
+    display_text TEXT NOT NULL,
+    status TEXT NOT NULL CHECK (status IN ('proposed','accepted','dismissed','expired')),
+    ai_inference_id TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    expires_at TEXT,
+    decided_by TEXT,
+    decided_at TEXT
+  );
+  CREATE INDEX IF NOT EXISTS idx_inference_person_status
+    ON clinical_inferences(tenant_id, person_id, status, created_at DESC);
+
+  -- Every inference names the records it rests on. Without this table a
+  -- generated claim is unfalsifiable, which is why §11 withholds any claim
+  -- whose citations cannot be resolved.
+  CREATE TABLE IF NOT EXISTS clinical_inference_evidence (
+    inference_id TEXT NOT NULL REFERENCES clinical_inferences(id),
+    evidence_type TEXT NOT NULL,
+    evidence_id TEXT NOT NULL,
+    rank INTEGER NOT NULL,
+    PRIMARY KEY(inference_id, evidence_type, evidence_id)
+  );
+
+  -- Retrieval metadata. The vector itself lives in provider-specific storage;
+  -- what is kept here is what the vector was made FROM, so an embedding can be
+  -- invalidated when its source changes and a stale one cannot answer for a
+  -- record that has since been corrected.
+  CREATE TABLE IF NOT EXISTS clinical_retrieval_documents (
+    id TEXT PRIMARY KEY,
+    tenant_id TEXT NOT NULL REFERENCES tenants(id),
+    person_id TEXT NOT NULL REFERENCES persons(id),
+    source_type TEXT NOT NULL,
+    source_id TEXT NOT NULL,
+    text_for_retrieval TEXT NOT NULL,
+    content_hash TEXT NOT NULL,
+    embedding_model TEXT,
+    embedding_ref TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+    UNIQUE(tenant_id, source_type, source_id)
+  );
+  CREATE INDEX IF NOT EXISTS idx_retrieval_person
+    ON clinical_retrieval_documents(tenant_id, person_id, source_type);
 `;
 
 function migrate(db: Database.Database) {
@@ -1365,6 +1555,24 @@ export const TENANT_SCOPED_TABLES = [
   // staffing and their backlog.
   "capacity_slots",
   "review_coverage",
+  // The clinician thinking layer. Every one of these carries a patient's
+  // clinical content or a clinician's private judgement about them, and §19's
+  // tenancy row requires "foreign tenant person ID returns not-found, foreign
+  // write refused, search and retrieval cannot enumerate another tenant".
+  // Listed here from the day the tables exist rather than after the first read
+  // path is written: the repository's scoping and the schema guard both work
+  // off this list, so a table missing from it is a table nothing is checking.
+  "clinician_thoughts",
+  "clinician_thought_transcripts",
+  "clinical_memory_items",
+  "clinical_threads",
+  "clinical_thread_memberships",
+  "clinical_inferences",
+  // `clinical_inference_evidence` is deliberately absent: it is a join table
+  // with no tenant_id of its own, reachable only through an inference that has
+  // one. Giving it a column nothing sets would make the guard count a
+  // protection that does not exist.
+  "clinical_retrieval_documents",
 ] as const;
 
 /** Create the platform tenant and mirror `users` onto the identity spine
