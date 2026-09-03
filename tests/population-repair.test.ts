@@ -31,6 +31,7 @@ import { runQualityChecks } from "../src/lib/demo-quality";
 import { MANIFEST } from "../src/lib/demo-population-manifest";
 import { popPersonId } from "../src/lib/demo-population-seed";
 import { OUTCOME_INSTRUMENT, INTAKE_INSTRUMENTS } from "../src/lib/demo-population-generator";
+import { EVERYDAY_FUNCTION } from "../src/lib/measures/house";
 import { subscriptionActive } from "../src/lib/billing";
 import { hasConsent, screeningComplete } from "../src/lib/gating";
 import { profileComplete } from "../src/lib/profile";
@@ -337,4 +338,75 @@ test("the operational feeds survive the day rolling over", async () => {
   // And the chain still completes, which is the thing that actually broke.
   assert.doesNotThrow(() => populationChain(db),
     "the population chain still aborts on the feed seed");
+});
+
+test("the house function measure reaches a database that already has its history", () => {
+  // The same rule as the plan versions, and I broke it one commit after
+  // writing it down: the function series was written INSIDE the generator, so
+  // it reached a fresh database and never the deployed one, and the panel drew
+  // nothing on the only instance anybody looks at.
+  db.prepare("DELETE FROM screenings WHERE instrument = ?").run(EVERYDAY_FUNCTION.id);
+  assert.equal(
+    one("SELECT COUNT(*) AS n FROM screenings WHERE instrument = ?", [EVERYDAY_FUNCTION.id]), 0);
+
+  populationChain(db);
+
+  const fn = one("SELECT COUNT(*) AS n FROM screenings WHERE instrument = ?",
+    [EVERYDAY_FUNCTION.id]);
+  const outcome = one("SELECT COUNT(*) AS n FROM screenings WHERE instrument = ? AND user_id IN " +
+    MARKS, [OUTCOME_INSTRUMENT, ...POP]);
+  assert.equal(fn, outcome,
+    `${fn} function readings against ${outcome} outcome readings — the two series are not on ` +
+    "the same weeks, so the panels cannot be read against each other");
+
+  // Every score inside its own scale, and never a cutoff away from meaning.
+  const outOfRange = one(
+    "SELECT COUNT(*) AS n FROM screenings WHERE instrument = ? AND (total_score < 0 OR total_score > ?)",
+    [EVERYDAY_FUNCTION.id, EVERYDAY_FUNCTION.max]);
+  assert.equal(outOfRange, 0, "a function reading is off its own scale");
+
+  // Idempotent.
+  populationChain(db);
+  assert.equal(one("SELECT COUNT(*) AS n FROM screenings WHERE instrument = ?",
+    [EVERYDAY_FUNCTION.id]), fn, "the function step is not idempotent");
+});
+
+test("function and symptoms agree in direction without being the same number", () => {
+  // Two measures of one person agree in direction and not in detail. A
+  // function score that is exactly the maximum minus the PHQ-9 is not a second
+  // measure; one that wanders at random is a second generator.
+  let compared = 0;
+  let agreed = 0;
+  let identical = 0;
+  for (const row of MANIFEST) {
+    const id = popPersonId(row);
+    const phq = (db.prepare(
+      "SELECT total_score AS s FROM screenings WHERE user_id = ? AND instrument = ? ORDER BY created_at, id")
+      .all(id, OUTCOME_INSTRUMENT) as { s: number }[]).map((r) => r.s);
+    const fn = (db.prepare(
+      "SELECT total_score AS s FROM screenings WHERE user_id = ? AND instrument = ? ORDER BY created_at, id")
+      .all(id, EVERYDAY_FUNCTION.id) as { s: number }[]).map((r) => r.s);
+    if (phq.length < 2 || fn.length !== phq.length) continue;
+
+    // ONLY PEOPLE WHOSE SYMPTOMS ACTUALLY MOVED. The first version compared
+    // everybody, including the archetypes whose curve is deliberately flat —
+    // and for those, "did function rise" is decided by the wobble, so the
+    // guard was measuring its own noise and reporting it as disagreement.
+    const change = phq[phq.length - 1] - phq[0];
+    if (Math.abs(change) < 3) continue;
+
+    const symptomFell = change < 0;
+    const functionRose = fn[fn.length - 1] > fn[0];
+    compared += 1;
+    if (symptomFell === functionRose) agreed += 1;
+    // The degenerate case: function as a mirror of the symptom score.
+    if (fn.every((v, i) => v === EVERYDAY_FUNCTION.max - Math.round(phq[i] * 16 / 27))) {
+      identical += 1;
+    }
+  }
+  assert.ok(compared > 50, `only ${compared} people changed enough to compare`);
+  assert.ok(agreed / compared > 0.75,
+    `function and symptoms moved together for only ${Math.round((agreed / compared) * 100)}% — ` +
+    "the two series are describing different people");
+  assert.equal(identical, 0, "function is a deterministic mirror of the symptom score");
 });
