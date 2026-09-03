@@ -146,7 +146,7 @@ examples; open them before writing a screen, because the text alone rebuilds wro
 | Review and administration | 13 | 6 | 44 |
 | Public institutional site | 11 | 9 | 45 |
 
-**Charts — 19 of §29's 22 contracts** (inventory on p75).
+**Charts — 20 of §29's 22 contracts** (inventory on p75).
 
 **Datasets — built and deterministic.** `npm run demo -- reset` rebuilds all of it from
 seed, and prints a baseline hash so a change to the data is visible rather than silent.
@@ -162,7 +162,7 @@ every aggregate screen is counted from that ledger; nothing is pre-aggregated.
 
 ### What is NOT completed, and where to read about it
 
-Ten screens and three charts. Each row names the page in the handoff that specifies it.
+Ten screens and two charts. Each row names the page in the handoff that specifies it.
 
 | # | Not built | Read | Blocked on |
 |---|---|---|---|
@@ -175,7 +175,6 @@ Ten screens and three charts. Each row names the page in the handoff that specif
 | 8 | `/review/status` — service health, version, degradation and the safe fallback | §26 **p44**; degraded-service state **p46** | Nothing. `/status/degraded` already exists as a shared access state |
 | 9 | `/personal` — public Steady Personal page | §26 **p45** | Naming only. Content lives at `/platform` |
 | 10 | `/intelligence` — public Steady Intelligence page | §26 **p45** | Naming only. Content lives at `/organizations` and `/payers` |
-| 11 | Clinician **measures** chart | §29 inventory **p75**, worked example **p76** | Nothing. `/clinician/member/[id]/measures` renders a table where the spec draws aligned small multiples |
 | 12 | Clinician **function and goals** chart | §29 **p75**; information order §27.4 **p51** | **A goals model.** No goal record exists in the tenancy schema |
 | 13 | Clinician **plan response** chart | §29 **p75**; §27.4 **p51** | Plan-version records to annotate against |
 | 18 | **Wave 6 — hardening**: performance, accessibility, security, telemetry, export parity, disaster recovery | Waves §31.2 **p95**; acceptance §31.5 **p98**; release gates §31.6 **p99**; telemetry §31.7 **p100** | Not started |
@@ -183,11 +182,10 @@ Ten screens and three charts. Each row names the page in the handoff that specif
 Row 3 (`/review/safety`) closed during handoff 07's Wave 1 and has been removed from the
 list; the numbering below still refers to the original rows.
 
-**Four need a record that does not exist yet** — rows 2, 6, 12 and 13 (a review decision,
-a sign-off, a goal, a plan version). **Everything else is presentation work over data that
-is already there**: row 11 renders the right numbers in the wrong form, and rows 4, 7, 8, 9
-and 10 are screens over paths that already exist. Row 5 needs the cohort registry; row 18 is
-its own wave.
+**Both remaining charts need a record that does not exist yet** — rows 12 and 13, a goal and a
+plan version — as do two screens, rows 2 and 6 (a review decision and a sign-off). **Everything
+else is presentation work over data that is already there**: rows 4, 7, 8, 9 and 10 are screens
+over paths that already exist. Row 5 needs the cohort registry; row 18 is its own wave.
 
 **Rows 14–17 are built** — organization engagement and location comparison, payer contract
 performance and data quality. They needed two primitives the chart file did not have, and each
@@ -205,6 +203,20 @@ invisible in a source match. Mutation-tested — rescaling the rate axis, puttin
 shared axis, or dropping a measure with no observed value each fails the build. Each page keeps
 its table underneath, as a disclosure, for a reader who wants the numbers rather than the
 comparison.
+
+**Row 11 is built** — the clinician measures chart, as p76's aligned small multiples. It was
+not a table: it was two independent SVG charts that placed each reading by its **index in its own
+series**. Every consequence of that is invisible in code review and obvious in a rendered panel —
+two instruments measured on different days put the same date in different places, a series of
+three readings stretched across the same width as one of twelve, and a three-month gap drew
+exactly as wide as a one-week gap, which turns an absence of data into a smooth decline. The
+panels now share one date axis and keep separate scales, because §29.1 forbids overlaying a
+PHQ-9 on a PCL-5. PHQ-9 and GAD-7 reach the chart for the first time; PHQ-9 is the repeated
+outcome measure across the programme, so a person whose whole series is PHQ-9 previously had an
+"Outcome trends" section that drew nothing.
+
+The old component is deleted rather than left unused, and the member boundary that named it now
+names its replacement too — a rule about a shape, not about a filename.
 
 **The cheapest remaining progress** is rows 9 and 10, which are a rename.
 
