@@ -453,3 +453,32 @@ test("a change is never shown without its comparison window", async () => {
     activity: { checkins: 0, activities: 0, sessions: 0 }, series: [], markers: [],
   } as never), ProgressBoundaryError);
 });
+
+test("the companion is reachable from the screen a member lands on", () => {
+  // THE GAP THIS CLOSES. The companion is described as a large part of the
+  // member experience, and it was reachable from exactly two places: a banner
+  // that renders only in the moment after a check-in, and a link inside the
+  // messages screen. A member who signs in lands on Today — and from Today
+  // there was no route to it at all.
+  //
+  // §25 fixes the rail at the same five items for every role, so this is not a
+  // sixth rail entry. It sits with support in the Today projection, which is
+  // the one place guaranteed to render in every one of §30.8's states.
+  const projection = fs.readFileSync(
+    path.join(process.cwd(), "src", "lib", "member", "today.ts"), "utf8");
+  assert.match(projection, /companion:\s*\{/,
+    "the Today projection does not carry the companion, so no state is guaranteed to show it");
+  assert.match(projection, /\/app\/companion/, "the companion has no destination");
+
+  const surface = fs.readFileSync(
+    path.join(process.cwd(), "src", "components", "member", "TodayDecision.tsx"), "utf8");
+  assert.match(surface, /today\.companion\.href/,
+    "Today renders support but not the companion");
+
+  // Both are conversation rather than activating content, so neither may be
+  // hidden behind a day shape. A companion that disappears on the days
+  // somebody is struggling is exactly backwards.
+  const gated = /\{\s*today\.shape[^}]*companion|shape\s*===[^)]*\)\s*&&[^]{0,80}companion/;
+  assert.doesNotMatch(surface, gated,
+    "the companion is conditional on the day's shape");
+});
