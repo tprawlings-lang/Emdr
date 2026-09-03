@@ -1077,6 +1077,32 @@ runs the whole chain, and requires the plans back. The history step short-circui
 run, which is the condition being reproduced, and the mutation — folding the plan step back
 inside the generator's guard — fails it.
 
+### The demonstration broke at midnight, and the repair log said so
+
+The morning after the per-boot reconciliation started running, the deployed console reported
+**`Dataset repair: failed — UNIQUE constraint failed: capacity_slots.id`**. The whole population
+chain was aborting on the first site, every boot.
+
+A feed row's id is derived from the site and the **period index**, which does not move. Its
+`period_start` comes from `demoEpoch()`, which advances **every day**, because the dataset is
+authored relative to "now" so the demonstration always looks current. On any later day the
+insert therefore carried the same id and a different `period_start`: the
+`ON CONFLICT(tenant_id, period_start)` target did not match, the insert proceeded, and the
+primary key rejected it.
+
+It had been latent for as long as the feeds existed — nothing re-ran the seed against an
+existing database until the reconciliation did, and then it failed every day from that point.
+Conflicting on the id and **re-dating** the row keeps the feed the fixed size it should be —
+eight sites by thirteen periods — while letting it describe the calendar it is read against. A
+feed that is never re-dated ages one day per day until p34's staleness condition refuses every
+site, which is the other way this ends badly and takes a week to notice.
+
+Two things are worth keeping from how this was found. The failure was **only** visible because
+the repair records its own verdict where a presenter can read it; before that it was a screen
+that was quietly empty. And `seedOperationalFeeds` now takes `now` as a parameter — not a
+convenience, but because a bug that appears only after midnight is one no local run reproduces,
+and the guard rolls the day forward by one and by eight.
+
 ### Wave 8 — the rest
 **Spec: pp9, 29, 56. Exit evidence: cold-start rehearsal passes twice.**
 

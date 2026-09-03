@@ -350,21 +350,46 @@ export function memberNoteFor(row: ManifestRow): string {
  *   an out-of-date input has not been tested against the condition p34 spends
  *   a column on.
  */
-export function seedOperationalFeeds(db: Database.Database) {
-  const epoch = demoEpoch();
+export function seedOperationalFeeds(db: Database.Database, now = Date.now()) {
+  // `now` is a parameter so the day-rollover case below can be exercised. It
+  // is not a convenience: that case is what broke the deployed demonstration,
+  // and a bug that only appears at midnight is one no local run reproduces.
+  const epoch = demoEpoch(now);
   const day = (n: number) => new Date(epoch.getTime() + n * 86400000);
   const date = (d: Date) => d.toISOString().slice(0, 10);
   const PERIOD = 28;
 
+  // RE-DATED ON CONFLICT, and the conflict target is the ID.
+  //
+  // THE BUG THIS FIXES, found on the deployed instance the morning after the
+  // per-boot reconciliation started running. A row's id is derived from the
+  // site and the PERIOD INDEX, which does not move; its `period_start` comes
+  // from `demoEpoch()`, which advances every day, because the whole dataset is
+  // authored relative to "now" so the demonstration always looks current.
+  //
+  // So on any later day the insert carried the same id and a different
+  // period_start: `ON CONFLICT(tenant_id, period_start)` did not match, the
+  // insert proceeded, and the primary key rejected it. The boot's whole
+  // population chain aborted on the first site — which is why a screen that
+  // needed a dataset added the previous evening was still empty, and why the
+  // repair log read "UNIQUE constraint failed: capacity_slots.id".
+  //
+  // Conflicting on the id and re-dating keeps the feed the fixed size it
+  // should be — eight sites by thirteen periods — while letting it describe
+  // the calendar it is being read against. A feed that is never re-dated ages
+  // one day per day until the staleness rule refuses every site, which is the
+  // other way this ends badly and takes a week to notice.
   const insSlots = db.prepare(
     `INSERT INTO capacity_slots
        (id, tenant_id, census_region, period_start, period_days, open_first_visit_slots, as_of)
-     VALUES (?, ?, ?, ?, ?, ?, ?) ON CONFLICT(tenant_id, period_start) DO NOTHING`);
+     VALUES (?, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT(id) DO UPDATE SET period_start = excluded.period_start, as_of = excluded.as_of`);
   const insCoverage = db.prepare(
     `INSERT INTO review_coverage
        (id, tenant_id, census_region, period_start, period_days, staffed_review_capacity,
         coverage_schedule, as_of)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(tenant_id, period_start) DO NOTHING`);
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT(id) DO UPDATE SET period_start = excluded.period_start, as_of = excluded.as_of`);
 
   // SIZED TO THE POPULATION IT SERVES. 240 profiles across a year is roughly
   // three first-visit referrals per region per four-week period, so a site

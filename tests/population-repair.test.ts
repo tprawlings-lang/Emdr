@@ -289,3 +289,46 @@ test("a dataset added to the generator later reaches a database that already has
   assert.equal(one(`SELECT COUNT(*) AS n FROM program_plans WHERE user_id IN ${MARKS}`, POP), plans,
     "the plan step is not idempotent");
 });
+
+test("the operational feeds survive the day rolling over", async () => {
+  // THE BUG THIS GUARDS, found on the deployed instance the morning after the
+  // per-boot reconciliation started running.
+  //
+  // A feed row's id comes from the site and the PERIOD INDEX, which does not
+  // move. Its `period_start` comes from `demoEpoch()`, which advances every
+  // day, because the dataset is authored relative to "now" so the
+  // demonstration always looks current. On any later day the insert therefore
+  // carried the same id and a different period_start: the conflict target did
+  // not match, the insert proceeded, and the primary key rejected it. The
+  // whole population chain aborted on the first site, every boot, for ever —
+  // and the repair log read "UNIQUE constraint failed: capacity_slots.id".
+  //
+  // A bug that only appears after midnight is one no local run reproduces, so
+  // the day is a parameter rather than the clock.
+  const { seedOperationalFeeds } = await import("../src/lib/demo-population-seed");
+
+  const before = one("SELECT COUNT(*) AS n FROM capacity_slots");
+  assert.ok(before > 0, "there are no feeds to roll over");
+  const firstStart = (db.prepare(
+    "SELECT period_start AS p FROM capacity_slots ORDER BY id LIMIT 1").get() as { p: string }).p;
+
+  // Tomorrow, and a week after that.
+  for (const days of [1, 8]) {
+    assert.doesNotThrow(
+      () => seedOperationalFeeds(db, Date.now() + days * 86400000),
+      `the feed seed threw ${days} day(s) later — every boot after midnight fails`);
+  }
+
+  assert.equal(one("SELECT COUNT(*) AS n FROM capacity_slots"), before,
+    "the feed grew: a new row per day rather than the same rows re-dated");
+
+  const afterStart = (db.prepare(
+    "SELECT period_start AS p FROM capacity_slots ORDER BY id LIMIT 1").get() as { p: string }).p;
+  assert.ok(afterStart > firstStart,
+    `period_start stayed at ${afterStart} — the feed is not being re-dated, so it ages one ` +
+    "day per day until the staleness rule refuses every site");
+
+  // And the chain still completes, which is the thing that actually broke.
+  assert.doesNotThrow(() => populationChain(db),
+    "the population chain still aborts on the feed seed");
+});
