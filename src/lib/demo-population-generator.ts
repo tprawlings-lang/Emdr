@@ -2,6 +2,7 @@ import crypto from "crypto";
 import type Database from "better-sqlite3";
 import { hashPassword } from "./db";
 import { encryptField } from "./crypto";
+import { EVERYDAY_FUNCTION } from "./measures/house";
 import {
   MANIFEST, DATASET_VERSION, seedFor, type ManifestRow, type Archetype,
 } from "./demo-population-manifest";
@@ -808,6 +809,30 @@ function generateInner(db: Database.Database): GeneratedCounts {
     // on top, rather than subtracted from a due count — otherwise a person
     // with a high miss rate falls below the specified minimum, which is
     // exactly what happened first time.
+    // THE HOUSE FUNCTION MEASURE, on the same dates as the outcome series.
+    //
+    // Same dates on purpose: the chart draws them as aligned panels, and two
+    // series taken on different weeks make "what was function doing when the
+    // PHQ-9 moved" a question the picture cannot answer.
+    //
+    // DERIVED FROM THE SAME CURVE rather than drawn independently. A person
+    // whose symptom readings improve while their function scores wander at
+    // random is not a person; it is two generators. The relationship is
+    // deliberately loose — function lags, and the archetype's own missingness
+    // shakes it — because a function score that is exactly 16 minus the PHQ-9
+    // is not a second measure at all.
+    const functionOn = (frac: number) => {
+      const symptom = measureOn(row, frac) / Math.max(1, INSTRUMENTS[OUTCOME_INSTRUMENT].max);
+      // Lagged: function follows a change in symptoms rather than moving with
+      // it, which is the ordinary clinical picture and the reason the two are
+      // worth drawing separately.
+      const lagged = measureOn(row, Math.max(0, frac - 0.12)) /
+        Math.max(1, INSTRUMENTS[OUTCOME_INSTRUMENT].max);
+      const base = 1 - (symptom * 0.4 + lagged * 0.6);
+      return Math.max(0, Math.min(EVERYDAY_FUNCTION.max,
+        Math.round(base * EVERYDAY_FUNCTION.max + (rng.int(0, 4) - 2))));
+    };
+
     const measureBound = scaledRange(TARGETS.measures, exposure, MIN_MEASURES);
     const wantMeasures = Math.max(
       // FULL exposure, not the generated portion. The measure schedule is a
@@ -902,6 +927,15 @@ function generateInner(db: Database.Database): GeneratedCounts {
         // it came from.
         i === 0 ? row.baseline : i === dueCount - 1 ? row.followUp : measureOn(row, since(day)),
         "[]", dayStamp(epoch, day, 12),
+      );
+      // The house function measure, taken the same day. It is stored in the
+      // same table as the validated instruments because that is where a
+      // person's answers live — and it is told apart everywhere by its id,
+      // never by where it is kept.
+      insScreening.run(
+        popId("function", `${row.id}:${i}`), personId, tenant,
+        EVERYDAY_FUNCTION.id, EVERYDAY_FUNCTION.version,
+        functionOn(since(day)), "[]", dayStamp(epoch, day, 12),
       );
       completed++;
     }
