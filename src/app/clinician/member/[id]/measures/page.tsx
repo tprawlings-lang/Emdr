@@ -8,7 +8,7 @@ import { scoreItq } from "@/lib/instruments";
 import { decryptField } from "@/lib/crypto";
 import { getProgramPlan } from "@/lib/program-plan";
 import { clinicianCloseModule, clinicianOpenModule } from "@/lib/actions";
-import TrendChart from "@/components/TrendChart";
+import { ClinicalFigure, SmallMultiples } from "@/components/charts/clinical";
 import { loadPersonHeader } from "@/lib/clinical/person-header";
 import { PersonShell } from "@/components/clinical/PersonShell";
 
@@ -59,10 +59,33 @@ export default async function MemberDetailPage({
     created_at: string;
   }[];
 
-  const pcl5Series = screenings
-    .filter((s) => s.instrument === "pcl-5")
-    .reverse()
-    .map((s) => ({ date: s.created_at.slice(0, 10), value: s.total_score }));
+  // EVERY validated instrument on file, not the two that happened to have a
+  // chart. PHQ-9 is the repeated outcome measure across this programme, and it
+  // was reaching the screen only as a row in the table below — so a person
+  // whose whole outcome series is PHQ-9 had an "Outcome trends" section that
+  // drew nothing, or drew a single intake dot from an instrument taken once.
+  const INSTRUMENTS: { id: string; label: string; unit: string; max: number; lowerIsBetter: boolean }[] = [
+    { id: "phq-9", label: "PHQ-9", unit: "total, 0–27", max: 27, lowerIsBetter: true },
+    { id: "gad-7", label: "GAD-7", unit: "total, 0–21", max: 21, lowerIsBetter: true },
+    { id: "pcl-5", label: "PCL-5", unit: "total, 0–80", max: 80, lowerIsBetter: true },
+  ];
+  const measureSeries = INSTRUMENTS.map((i) => ({
+    label: i.label,
+    unit: i.unit,
+    max: i.max,
+    lowerIsBetter: i.lowerIsBetter,
+    points: screenings
+      .filter((s) => s.instrument === i.id)
+      .map((s) => ({ date: s.created_at.slice(0, 10), value: s.total_score }))
+      .sort((a, b) => a.date.localeCompare(b.date)),
+  })).filter((m) => m.points.length > 0);
+
+  // The shared window: the whole span of readings on file, so every panel is
+  // drawn against the same dates.
+  const allDates = measureSeries.flatMap((m) => m.points.map((p) => p.date)).sort();
+  const windowFrom = allDates[0] ?? member.created_at.slice(0, 10);
+  const windowTo = allDates[allDates.length - 1] ?? windowFrom;
+
   const itqSeries = screenings
     .filter((s) => s.instrument === "itq")
     .reverse()
@@ -129,38 +152,34 @@ export default async function MemberDetailPage({
           already says who this is. */}
       <p className="text-sm text-olive">In the programme since {member.created_at.slice(0, 10)}</p>
 
-      {(pcl5Series.length > 0 || itqSeries.length > 0) && (
+      {measureSeries.length > 0 && (
         <section className="mt-8">
           <h2 className="type-display text-2xl font-medium">Outcome trends</h2>
-          <div className="mt-2 grid gap-4 md:grid-cols-2">
-            {pcl5Series.length > 0 && (
-              <TrendChart
-                title="PCL-5 total"
-                max={80}
-                series={[{ label: "PCL-5", color: "#2f3a33", points: pcl5Series }]}
-              />
-            )}
-            {itqSeries.length > 0 && (
-              <TrendChart
-                title="ITQ symptom sums"
-                max={24}
-                series={[
-                  {
-                    label: "PTSD",
-                    color: "#5c7884",
-                    points: itqSeries.map((s) => ({ date: s.date, value: s.ptsdSum })),
-                  },
-                  {
-                    label: "DSO",
-                    color: "#c9a98f",
-                    points: itqSeries.map((s) => ({ date: s.date, value: s.dsoSum })),
-                  },
-                ]}
-              />
-            )}
+          {/* ALIGNED SMALL MULTIPLES, one panel per instrument on one shared
+              date axis.
+
+              This was a two-column grid of independent charts, each of which
+              placed a reading by its INDEX in its own series. Two instruments
+              measured on different days therefore put the same date in
+              different places, and a series of three readings stretched across
+              the same width as one of twelve — so reading across the panels,
+              which is the only thing small multiples are for, compared
+              positions that meant nothing. A three-month gap also drew exactly
+              as wide as a one-week gap, which turns an absence of data into a
+              smooth decline.
+
+              Scales stay separate: a PHQ-9 and a PCL-5 do not share a y axis. */}
+          <div className="mt-3 rounded-3xl border border-ground/10 bg-linen p-5 shadow-soft">
+            <ClinicalFigure
+              title="Validated measures over time"
+              summary={`${measureSeries.length} instrument${measureSeries.length === 1 ? "" : "s"} on file, each on its own scale and all on one date axis from ${windowFrom} to ${windowTo}.`}
+              footnote={`Readings taken, joined in order — no fitted line and no value between two readings. Each panel is scaled to its own instrument, so the panels are read down the dates rather than across the heights.`}
+            >
+              <SmallMultiples series={measureSeries} from={windowFrom} to={windowTo} />
+            </ClinicalFigure>
           </div>
           {itqSeries.length > 0 && (
-            <p className="mt-2 text-sm text-olive">
+            <p className="mt-3 text-sm text-olive">
               Latest ITQ classification:{" "}
               <span className="font-semibold">{itqSeries[itqSeries.length - 1].label}</span>{" "}
               (provisional, screen-based — diagnosis remains a clinical decision)

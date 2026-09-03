@@ -20,6 +20,160 @@
 import type { ReactNode } from "react";
 
 // ---------------------------------------------------------------------------
+// Aligned small multiples — measures over time (p76)
+// ---------------------------------------------------------------------------
+
+export interface MeasurePoint {
+  /** YYYY-MM-DD. The position on the axis comes from this, not from where the
+   *  reading happens to sit in the list. */
+  date: string;
+  value: number;
+}
+
+export interface MeasureSeries {
+  label: string;
+  /** What the number is in — printed, because every panel has a different one. */
+  unit: string;
+  /** The instrument's own ceiling. Each panel is scaled to ITS instrument. */
+  max: number;
+  /** Stated rather than encoded in colour: for most of these a fall is the
+   *  improvement, and a reader scanning shapes would otherwise guess. */
+  lowerIsBetter: boolean;
+  points: MeasurePoint[];
+}
+
+/**
+ * One panel per instrument, all sharing a single date axis.
+ *
+ * TWO RULES PULL IN OPPOSITE DIRECTIONS, and both are honoured here.
+ *
+ *   §29.1 forbids overlaying different clinical scales, so a PHQ-9 (0–27) and
+ *   a PCL-5 (0–80) cannot share a y axis. Each panel is scaled to its own
+ *   instrument, and says which.
+ *
+ *   The page example is ALIGNED small multiples, so they must share the x
+ *   axis. Reading down the panels to ask "what else was happening the week
+ *   this rose" is the entire reason the form exists, and it only works if a
+ *   date is in the same place on every panel.
+ *
+ * THE DEFECT THIS REPLACES. The previous chart placed a point by its INDEX in
+ * its own series: `x = i / (n - 1)`. Two instruments measured on different
+ * days therefore put the same date in different places, and an instrument with
+ * three readings stretched them across the same width as one with twelve. A
+ * clinician comparing the panels was comparing positions that meant nothing —
+ * and a three-month gap between readings drew exactly as wide as a one-week
+ * gap, which quietly turned an absence of data into a smooth decline.
+ *
+ * NO FITTED LINE, and no interpolation. The marks are the readings that were
+ * taken; the segments join consecutive readings and nothing more. With a real
+ * date axis a long gap is simply wide, which is what makes it visible without
+ * a special case.
+ */
+export function SmallMultiples({
+  series, from, to,
+}: {
+  series: MeasureSeries[];
+  /** The window, shared by every panel. */
+  from: string;
+  to: string;
+}) {
+  const W = 320;
+  const H = 72;
+  const PAD = 8;
+
+  const t = (d: string) => Date.parse(`${d}T00:00:00Z`);
+  const start = t(from);
+  const span = Math.max(1, t(to) - start);
+  // The same date lands on the same x in every panel. That is the whole point.
+  const x = (d: string) => PAD + ((t(d) - start) / span) * (W - PAD * 2);
+  const y = (v: number, max: number) => H - PAD - (Math.max(0, Math.min(max, v)) / max) * (H - PAD * 2);
+
+  const months = (() => {
+    const out: { label: string; at: number }[] = [];
+    const first = new Date(start);
+    const cur = new Date(Date.UTC(first.getUTCFullYear(), first.getUTCMonth(), 1));
+    while (cur.getTime() <= t(to)) {
+      if (cur.getTime() >= start) {
+        out.push({
+          label: cur.toLocaleString("en-GB", { month: "short", timeZone: "UTC" }),
+          at: x(cur.toISOString().slice(0, 10)),
+        });
+      }
+      cur.setUTCMonth(cur.getUTCMonth() + 1);
+    }
+    return out;
+  })();
+
+  return (
+    <div className="space-y-5">
+      {series.map((s) => {
+        const pts = [...s.points].sort((a, b) => t(a.date) - t(b.date));
+        const first = pts[0];
+        const last = pts[pts.length - 1];
+        return (
+          <div key={s.label}>
+            <div className="flex flex-wrap items-baseline justify-between gap-x-3">
+              <span className="text-sm font-medium text-ground">{s.label}</span>
+              <span className="text-xs text-olive">
+                {s.unit} · {s.lowerIsBetter ? "lower is better" : "higher is better"}
+              </span>
+            </div>
+
+            {pts.length === 0 ? (
+              // A panel with no readings keeps its place rather than being
+              // dropped: an instrument that was never taken and one that was
+              // taken and is flat are different facts.
+              <p className="mt-1 text-sm text-olive">No reading in this window.</p>
+            ) : (
+              <>
+                <svg
+                  viewBox={`0 0 ${W} ${H}`}
+                  className="mt-1 w-full"
+                  role="img"
+                  aria-label={`${s.label}: ${pts.length} reading${pts.length === 1 ? "" : "s"} from ${
+                    first.value} on ${first.date} to ${last.value} on ${last.date}, out of ${s.max}.`}
+                >
+                  <line x1={PAD} y1={H - PAD} x2={W - PAD} y2={H - PAD}
+                    stroke="var(--color-ground)" strokeOpacity="0.15" strokeWidth="1" />
+                  {pts.length > 1 && (
+                    <polyline
+                      fill="none"
+                      stroke="var(--color-sage-deep)"
+                      strokeWidth="1.5"
+                      points={pts.map((p) => `${x(p.date)},${y(p.value, s.max)}`).join(" ")}
+                    />
+                  )}
+                  {pts.map((p) => (
+                    <circle key={p.date} cx={x(p.date)} cy={y(p.value, s.max)} r="3"
+                      fill="var(--color-sage-deep)" />
+                  ))}
+                </svg>
+
+                {/* The readings in text, which is the accessible representation
+                    rather than a description of one. */}
+                <p className="mt-1 text-xs text-ground">
+                  {pts.map((p) => `${p.value} (${p.date})`).join(" · ")}
+                </p>
+              </>
+            )}
+          </div>
+        );
+      })}
+
+      {/* One axis, drawn once, under all of them — because there is only one. */}
+      <div aria-hidden className="relative h-4">
+        {months.map((m) => (
+          <span key={m.label + m.at} className="absolute text-[10px] text-olive"
+            style={{ left: `${(m.at / W) * 100}%`, transform: "translateX(-50%)" }}>
+            {m.label}
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Slope — before and after, per session (p61, p77)
 // ---------------------------------------------------------------------------
 

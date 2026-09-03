@@ -72,7 +72,14 @@ const FORBIDDEN = [
   { rx: /\brecommended_track\b/, what: "the hidden track name" },
   { rx: /\bTRACK_LABELS\b/, what: "the track label map" },
   { rx: /\bTRACK_GUIDANCE\b/, what: "track-specific guidance, which reveals the track" },
+  // `TrendChart` was the component this named until the clinician measures
+  // screen replaced it with aligned small multiples. The rule is about the
+  // SHAPE, not the file: a member must not be shown their instrument scores
+  // plotted over time, whatever the component is called. Both names are listed
+  // so that deleting one does not quietly retire the boundary, and so that a
+  // file reintroduced under the old name is caught too.
   { rx: /\bTrendChart\b/, what: "a trend chart over time" },
+  { rx: /\bSmallMultiples\b/, what: "instrument scores plotted over time" },
   { rx: /\bMemberTrajectory\b/, what: "the clinical trajectory chart" },
   { rx: /\bscoreItq\b/, what: "instrument scoring" },
   { rx: /\bpclSeverity\b|\bseverityBand\b/, what: "a diagnostic band" },
