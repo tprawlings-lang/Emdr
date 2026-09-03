@@ -86,6 +86,21 @@ export const DEMO_DATA_TABLES = [
   // Operational feeds, rebuilt with the population they describe.
   "capacity_slots",
   "review_coverage",
+  // The clinician thinking layer, deepest-referencing first. Evidence points at
+  // an inference; a membership points at a thread AND a memory item; an item
+  // points at a transcript, which points at its thought. Ordered for rather
+  // than disabled, so a mistake in this list fails loudly instead of leaving
+  // orphans — and listed at all because a reset that left a clinician's
+  // recorded thoughts about fabricated patients behind would leave the
+  // environment holding clinical text about people who no longer exist.
+  "clinical_inference_evidence",
+  "clinical_inferences",
+  "clinical_thread_memberships",
+  "clinical_threads",
+  "clinical_retrieval_documents",
+  "clinical_memory_items",
+  "clinician_thought_transcripts",
+  "clinician_thoughts",
   // Payer domain next: claims reference persons, and contract measures
   // reference their contract. Ordered for, not disabled — a mistake in this
   // list fails loudly instead of leaving orphans.
