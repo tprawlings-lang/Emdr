@@ -59,8 +59,20 @@ features that can be picked off by interest.
 
 **Its stated prerequisite is the Clinician Thoughts / Clinical Memory / Session Prep
 Specification v2.1** ([`Steady_Clinician_Thoughts_Engineering_Spec_v2_1.pdf`](Steady_Clinician_Thoughts_Engineering_Spec_v2_1.pdf)),
-as "the common clinician-memory and evidence layer". Phase 0 and Phase 1 of that spec are
-built; **Phase 2, extraction, is not**. The expansion program should not start ahead of it.
+as "the common clinician-memory and evidence layer".
+
+| Phase | What it is | Status |
+|---|---|---|
+| 0 | Architecture gate — seven tables, flags, tenancy | **Done** |
+| 1 | Capture and transcript | **Done** |
+| 2 | Structured organization — extraction, candidates, review cards, Save Thoughts | **Done** |
+| 3 | Threads and follow-ups | Not started |
+| 4 | Session Prep | Not started |
+| 5 | Ask Steady | Not started |
+
+Approved clinical memory exists as of Phase 2, which is the layer the expansion consumes.
+Phase 3 is the next piece and the one handoff 02 (Treatment Response Fingerprint) reaches
+for — intervention-response patterns over time are threads.
 
 ## `future-platform-intelligence/` is parked, deliberately
 
