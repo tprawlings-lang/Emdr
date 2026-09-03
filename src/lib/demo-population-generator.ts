@@ -1,6 +1,7 @@
 import crypto from "crypto";
 import type Database from "better-sqlite3";
 import { hashPassword } from "./db";
+import { encryptField } from "./crypto";
 import {
   MANIFEST, DATASET_VERSION, seedFor, type ManifestRow, type Archetype,
 } from "./demo-population-manifest";
@@ -275,6 +276,9 @@ export interface GeneratedCounts {
   consents: number;
   subscriptions: number;
   profiles: number;
+  /** Rows in `program_plans`. A revision is a new row, so this is versions
+   *  rather than people. */
+  planVersions: number;
   /** Intake-battery screenings. Counted apart from `measures`, because they
    *  are a different thing: taken once at enrolment to open the product, where
    *  a measure is the repeated outcome reading p14 sets a range for. */
@@ -339,6 +343,90 @@ const ONBOARDING_GOALS: Record<Archetype, {
     goals: ["Staying steady", "Daily grounding"], traumaAreas: ["Childhood", "Relationships"] },
 };
 
+/**
+ * What each archetype's working plan says, and what its revision says.
+ *
+ * WELLNESS LANE, not treatment. `program-plan.ts` states the rule this has to
+ * respect: "this is a *program* plan (sequencing, focus, preparation), never a
+ * treatment plan. It must not diagnose, name conditions the member hasn't
+ * named, or promise outcomes." So none of these names a condition, and none of
+ * them predicts a result — the revision changes the SEQUENCING in response to
+ * what the readings did, which is the only thing a plan revision honestly is.
+ */
+const PLAN_FOCUS: Record<Archetype, {
+  opening: string;
+  revised: string;
+  targets: string[];
+  approach: string;
+  steps: { moduleId: string; focus: string; why: string }[];
+  grounding: string[];
+}> = {
+  "Early response": {
+    opening: "Build a daily grounding habit first, then begin preparation work.",
+    revised: "Preparation is holding. Keep the daily practice and lengthen the sessions.",
+    targets: ["Sleep and routine", "Noticing early activation"],
+    approach: "Preparation and pacing",
+    steps: [{ moduleId: "grounding", focus: "Twice daily", why: "It is the practice everything else rests on" }],
+    grounding: ["Orienting", "Paced breathing"],
+  },
+  "Steady response": {
+    opening: "Short, regular sessions rather than long ones.",
+    revised: "Steady progress. Widen the focus to a second area at the same pace.",
+    targets: ["Consistency", "Managing the day after a session"],
+    approach: "Preparation and pacing",
+    steps: [{ moduleId: "preparation", focus: "Weekly", why: "Regularity is doing more here than intensity" }],
+    grounding: ["Container", "Paced breathing"],
+  },
+  "Late response": {
+    opening: "Stabilisation first. No activating work until the daily picture settles.",
+    revised: "The daily picture has settled enough to begin preparation.",
+    targets: ["Sleep", "Getting through the evening"],
+    approach: "Stabilisation",
+    steps: [{ moduleId: "grounding", focus: "Daily", why: "Ordinary days first, then anything else" }],
+    grounding: ["Orienting", "Calm place"],
+  },
+  "No change": {
+    opening: "Preparation, with a review of whether the focus is the right one.",
+    revised: "Readings have not moved. Change the focus rather than the intensity.",
+    targets: ["Finding a focus that fits", "Keeping the practice going"],
+    approach: "Review and re-focus",
+    steps: [{ moduleId: "learning", focus: "Before the next session", why: "The focus is worth revisiting before the pace is" }],
+    grounding: ["Orienting"],
+  },
+  "Sporadic use": {
+    opening: "One small practice a day, chosen to be easy to keep.",
+    revised: "Attendance is uneven. Make the practice smaller rather than asking for more.",
+    targets: ["A practice that survives a bad week"],
+    approach: "Low-burden preparation",
+    steps: [{ moduleId: "breathing", focus: "Two minutes", why: "Short and kept beats long and abandoned" }],
+    grounding: ["Paced breathing"],
+  },
+  "Module mismatch": {
+    opening: "Start with preparation and see which modules fit.",
+    revised: "The opened modules are not the ones being used. Re-sequence around what is.",
+    targets: ["Matching the work to the week"],
+    approach: "Re-sequencing",
+    steps: [{ moduleId: "support", focus: "This fortnight", why: "What is actually being opened is the better guide" }],
+    grounding: ["Container"],
+  },
+  "Access barrier": {
+    opening: "Begin with what can be done without an appointment.",
+    revised: "Sessions are still hard to reach. Keep the plan to self-guided work for now.",
+    targets: ["Something workable between contacts"],
+    approach: "Self-guided preparation",
+    steps: [{ moduleId: "grounding", focus: "Daily", why: "It does not depend on a booking" }],
+    grounding: ["Orienting", "Paced breathing"],
+  },
+  "Safety pause": {
+    opening: "Grounding and support only. No activating content.",
+    revised: "Re-entry, at a slower pace than before the pause.",
+    targets: ["Staying steady", "Knowing what to do on a hard day"],
+    approach: "Stabilisation and re-entry",
+    steps: [{ moduleId: "support", focus: "Alongside the daily check-in", why: "The pause is the plan until a person clears it" }],
+    grounding: ["Orienting", "Calm place", "Container"],
+  },
+};
+
 /** p14's per-person targets, checked after generation rather than assumed. */
 export const TARGETS = {
   checkins: [18, 90] as const,
@@ -356,7 +444,7 @@ export function generatePopulationHistory(db: Database.Database): GeneratedCount
 
 function generateInner(db: Database.Database): GeneratedCounts {
   const counts: GeneratedCounts = {
-    accounts: 0, consents: 0, subscriptions: 0, profiles: 0, intake: 0,
+    accounts: 0, consents: 0, subscriptions: 0, profiles: 0, intake: 0, planVersions: 0,
     checkins: 0, measures: 0, measuresMissing: 0,
     modules: 0, sessions: 0, safetyEvents: 0, clinicianActions: 0, corrections: 0,
   };
@@ -414,6 +502,14 @@ function generateInner(db: Database.Database): GeneratedCounts {
        current_period_end, created_at)
      VALUES (?, 'monthly', 'active', 3499, 'usd', 'demo', ?, ?)
      ON CONFLICT(user_id) DO NOTHING`);
+  // PLAN VERSIONS. `program_plans` is append-only by design — a revision is a
+  // new row, never an edit — and nothing seeded had ever written one, so the
+  // table was empty for every fabricated person and the plan-response chart
+  // had no versions to annotate against.
+  const insPlan = db.prepare(
+    `INSERT INTO program_plans (id, user_id, plan_json, generated_by, source, created_at)
+     VALUES (?, ?, ?, 'rules', 'trigger_map', ?)
+     ON CONFLICT(id) DO NOTHING`);
   const insProfile = db.prepare(
     `INSERT INTO user_profiles (user_id, therapist_status, emdr_experience, goals_json,
        trauma_areas_json, restricted_topics_json, profile_complete, created_at)
@@ -513,6 +609,44 @@ function generateInner(db: Database.Database): GeneratedCounts {
         Math.max(0, Math.min(spec.max, Math.round(severity0 * spec.max))),
         "[]", dayStamp(epoch, startDay, 9));
       counts.intake++;
+    }
+
+    // ── The working plan, and its revisions ──────────────────────────────
+    //
+    // Two or three versions across the person's enrolment, because a plan that
+    // was written once and never revisited is not a plan anybody worked from —
+    // and because the plan-response chart's whole subject is what the measures
+    // did either side of a revision.
+    //
+    // A REVISION IS A NEW ROW. The table is append-only and `getProgramPlan`
+    // reads the newest, so the history stays readable: what the plan said in
+    // May is still there in June, which is what makes "since the last plan
+    // version" a question with an answer.
+    const revisions = 1 + (seed % 2) + (path.changeMidpoint < 0.4 ? 1 : 0);
+    for (let v = 0; v < revisions; v++) {
+      // The first sits at enrolment; the rest at even intervals through the
+      // person's own exposure, never past the day their history ends.
+      const day = startDay + Math.round((v / Math.max(1, revisions)) * exposureGenerated);
+      const focus = PLAN_FOCUS[row.archetype];
+      const plan = {
+        summary: v === 0 ? focus.opening : focus.revised,
+        targets: focus.targets.map((t, i) => ({
+          name: t,
+          // Intensity eases as the plan is revised, in step with the measure
+          // curve rather than independently of it: a plan whose targets soften
+          // while the readings do not is a plan describing somebody else.
+          intensity: Math.max(1, Math.round(measureOn(row, since(day)) / 3) - i),
+          approach: focus.approach,
+        })),
+        nextSteps: focus.steps.map((st) => ({
+          moduleId: st.moduleId, focus: st.focus, why: st.why,
+        })),
+        grounding: focus.grounding,
+      };
+      insPlan.run(
+        popId("plan", `${row.id}:${v}`), personId,
+        encryptField(JSON.stringify(plan)), dayStamp(epoch, day, 10));
+      counts.planVersions += 1;
     }
 
     // ── The access pathway (handoff 06 §26's funnel) ─────────────────────

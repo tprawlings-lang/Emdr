@@ -24,6 +24,13 @@ import test from "node:test";
 import { renderToStaticMarkup } from "react-dom/server";
 import { SmallMultiples, type MeasureSeries } from "../src/components/charts/clinical";
 
+/** The visible words, with markup removed. Checks about what a READER is told
+ *  belong here rather than against the HTML: the first version of the
+ *  arithmetic guard below matched `translateX(-50%)` in a style attribute. */
+function text(html: string): string {
+  return html.replace(/<[^>]+>/g, " ");
+}
+
 /** The circle centres, in document order, as [x, y] pairs. */
 function marks(html: string): [number, number][] {
   return [...html.matchAll(/<circle[^>]*cx="([0-9.]+)"[^>]*cy="([0-9.]+)"/g)]
@@ -160,4 +167,88 @@ test("no fitted line, no projection, no score", () => {
     .map((m) => m[1].trim().split(/\s+/).length);
   assert.deepEqual(segments, [3, 2],
     "a path has more vertices than the person has readings — something is being interpolated");
+});
+
+// ---------------------------------------------------------------------------
+// Annotations — the plan-response half of the progress view
+// ---------------------------------------------------------------------------
+
+const PLAN_MARKS = [
+  { date: "2026-02-01", label: "Plan written" },
+  { date: "2026-05-01", label: "Plan revised (version 2)" },
+];
+
+test("a plan version is marked at its date on every panel", () => {
+  // §29.1: annotations mark plan versions and care events. Marked on EVERY
+  // panel, at the same x, because that is what the shared axis is for —
+  // reading down the panels to see what each instrument was doing either side
+  // of a revision.
+  const html = renderToStaticMarkup(
+    <SmallMultiples series={TWO} from={FROM} to={TO} annotations={PLAN_MARKS} />);
+
+  // x1 comes BEFORE stroke-dasharray in the rendered attribute order; a regex
+  // that assumed the reverse matched nothing and passed by finding zero marks
+  // where zero was also the failure.
+  const rules = [...html.matchAll(/<line[^>]*x1="([0-9.]+)"[^>]*stroke-dasharray/g)]
+    .map((m) => Number(m[1]));
+  // Two marks on each of two panels.
+  assert.equal(rules.length, PLAN_MARKS.length * TWO.length,
+    "the marks are not drawn on every panel");
+  // And at the same two positions on both.
+  assert.deepEqual(rules.slice(0, 2), rules.slice(2),
+    "the same plan version is at different places on different panels");
+});
+
+test("a plan version is placed by its date, on the same axis as the readings", () => {
+  const html = renderToStaticMarkup(
+    <SmallMultiples series={TWO} from={FROM} to={TO} annotations={[PLAN_MARKS[1]]} />);
+  const rule = Number(/<line[^>]*x1="([0-9.]+)"[^>]*stroke-dasharray/.exec(html)![1]);
+  const readings = marks(html).map((p) => p[0]);
+  // 1 May sits between the readings of 1 April and 1 July.
+  assert.ok(rule > readings[1] && rule < readings[2],
+    `the 1 May mark at ${rule} is not between the April and July readings`);
+});
+
+test("the marks cannot be shown without the sentence that says they are not a cause", () => {
+  // THE RULE THIS ENFORCES STRUCTURALLY. "Annotations ... do not imply cause."
+  // A page could print that sentence and a later edit could drop it, so the
+  // component prints it: the marks and the caveat are the same decision.
+  const html = renderToStaticMarkup(
+    <SmallMultiples series={TWO} from={FROM} to={TO} annotations={PLAN_MARKS} />);
+  assert.match(html, /not evidence/,
+    "plan versions are marked with no statement that a change after one is not caused by it");
+  for (const a of PLAN_MARKS) {
+    assert.ok(html.includes(a.label), `${a.label} is drawn but never named`);
+  }
+});
+
+test("no annotations, no caveat and no marks", () => {
+  // The sentence is about marks that are present. A chart with none should not
+  // carry a disclaimer for something it does not show.
+  const html = renderToStaticMarkup(<SmallMultiples series={TWO} from={FROM} to={TO} />);
+  assert.doesNotMatch(html, /not evidence/);
+  assert.doesNotMatch(html, /stroke-dasharray/);
+});
+
+test("nothing shades, splits or compares the periods either side of a mark", () => {
+  // The failure this guards. A "plan response" chart that shades after the
+  // revision, or reports a before-and-after difference, has stopped marking an
+  // event and started making an argument about it — from an uncontrolled
+  // comparison, on one person.
+  const html = renderToStaticMarkup(
+    <SmallMultiples series={TWO} from={FROM} to={TO} annotations={PLAN_MARKS} />);
+  assert.doesNotMatch(html, /<rect/, "a period either side of a mark is being shaded");
+
+  // Structural, not a word search. The first version forbade the word "after",
+  // which appears in the component's own caveat — "a change AFTER one of them
+  // is not evidence" — so the guard failed on the sentence it exists to
+  // require. What must not appear is ARITHMETIC across a mark: a point
+  // difference, a percentage, an arrow.
+  assert.doesNotMatch(text(html), /[-+±]\s?\d+(\.\d+)?\s*(points?|%)/i,
+    "a difference across the plan version is being computed and shown");
+
+  // And no mark beyond the readings themselves: a summary point for each
+  // period would be the same comparison drawn instead of written.
+  assert.equal(marks(html).length, TWO[0].points.length + TWO[1].points.length,
+    "there are more marks than the person has readings");
 });

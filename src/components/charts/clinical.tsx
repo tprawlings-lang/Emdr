@@ -69,13 +69,29 @@ export interface MeasureSeries {
  * date axis a long gap is simply wide, which is what makes it visible without
  * a special case.
  */
+export interface Annotation {
+  date: string;
+  label: string;
+}
+
 export function SmallMultiples({
-  series, from, to,
+  series, from, to, annotations = [],
 }: {
   series: MeasureSeries[];
   /** The window, shared by every panel. */
   from: string;
   to: string;
+  /**
+   * Dated care events — plan versions, chiefly — marked across every panel.
+   *
+   * §29.1: "Annotations mark sessions, plan versions or care events. They do
+   * not imply cause." The mark is a date and nothing else: no shading of the
+   * period after it, no separate before/after figure, and no arithmetic on the
+   * two sides. Each of those would be an argument about what the plan did,
+   * dressed as a drawing. The sentence saying so is printed by this component
+   * rather than by the page, so a screen cannot show the marks without it.
+   */
+  annotations?: Annotation[];
 }) {
   const W = 320;
   const H = 72;
@@ -135,6 +151,14 @@ export function SmallMultiples({
                 >
                   <line x1={PAD} y1={H - PAD} x2={W - PAD} y2={H - PAD}
                     stroke="var(--color-ground)" strokeOpacity="0.15" strokeWidth="1" />
+                  {/* The care events, at their dates, on every panel — which is
+                      what the shared axis makes possible and what reading down
+                      the panels is for. */}
+                  {annotations.map((a) => (
+                    <line key={a.date + a.label} x1={x(a.date)} y1={PAD - 4} x2={x(a.date)} y2={H - PAD}
+                      stroke="var(--color-ground)" strokeOpacity="0.35" strokeWidth="1"
+                      strokeDasharray="2 2" />
+                  ))}
                   {pts.length > 1 && (
                     <polyline
                       fill="none"
@@ -169,6 +193,25 @@ export function SmallMultiples({
           </span>
         ))}
       </div>
+
+      {annotations.length > 0 && (
+        <div className="border-t border-ground/10 pt-3">
+          <p className="text-xs font-medium text-app-ink">Marked on every panel</p>
+          <ul className="mt-1 space-y-0.5">
+            {[...annotations].sort((a, b) => a.date.localeCompare(b.date)).map((a) => (
+              <li key={a.date + a.label} className="text-xs text-ground">
+                <span className="text-olive">{a.date}</span> — {a.label}
+              </li>
+            ))}
+          </ul>
+          {/* PRINTED BY THE COMPONENT, not by the page. A screen cannot show
+              these marks and leave the sentence off. */}
+          <p className="measure mt-2 text-xs font-medium text-state-info">
+            These mark when something was recorded. A change after one of them is not evidence
+            that it caused the change.
+          </p>
+        </div>
+      )}
     </div>
   );
 }
