@@ -1056,6 +1056,27 @@ was the majority case, and §30.8 requires an absence to say whether it is *expe
 names the real reason: no check-ins in this period, how many are on record, and when the most
 recent was.
 
+### Adding to the generator after a deployment exists
+
+A second instance of the same failure, worth stating as a rule rather than as two anecdotes.
+
+`generatePopulationHistory` short-circuits on *does the first profile have a check-in*. That is
+right for the six months of history it writes and **wrong for anything added to the generator
+afterwards**: a deployed database already has check-ins, so the new rows never arrive. Plan
+versions were written, verified locally, deployed — and the chart that needed them was still
+empty on the live instance, because the only database anybody looks at had been seeded before
+they existed.
+
+A reset fixes it and is the wrong tool. It deletes, it needs a human, and it would be needed
+again for the next dataset. **A dataset added later gets its own step in `populationChain` with
+its own existence check, against its own table.** That keeps the per-boot reconciliation
+additive — nothing deletes — while letting it actually repair a stale deployment.
+
+Guarded behaviourally: the test deletes the plan rows from a database that keeps its history,
+runs the whole chain, and requires the plans back. The history step short-circuits during that
+run, which is the condition being reproduced, and the mutation — folding the plan step back
+inside the generator's guard — fails it.
+
 ### Wave 8 — the rest
 **Spec: pp9, 29, 56. Exit evidence: cold-start rehearsal passes twice.**
 

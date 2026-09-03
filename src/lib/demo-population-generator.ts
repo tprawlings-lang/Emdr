@@ -276,9 +276,6 @@ export interface GeneratedCounts {
   consents: number;
   subscriptions: number;
   profiles: number;
-  /** Rows in `program_plans`. A revision is a new row, so this is versions
-   *  rather than people. */
-  planVersions: number;
   /** Intake-battery screenings. Counted apart from `measures`, because they
    *  are a different thing: taken once at enrolment to open the product, where
    *  a measure is the repeated outcome reading p14 sets a range for. */
@@ -438,13 +435,98 @@ export const TARGETS = {
   corrections: [0, 2] as const,
 };
 
+/**
+ * The working plan and its revisions, as a step that can run on its own.
+ *
+ * SEPARATE FROM THE GENERATOR ON PURPOSE, and the reason is a failure this
+ * repeated. `generatePopulationHistory` short-circuits on "does the first
+ * profile have a check-in", which is right for the six months of history it
+ * writes and wrong for anything ADDED to the generator afterwards: a deployed
+ * database already has check-ins, so the new rows never arrive and the screen
+ * that needs them stays empty on the one instance anybody looks at. Plan
+ * versions were exactly that — written by the generator, invisible on the
+ * deployment, and a reset the only remedy.
+ *
+ * So a dataset added later gets its OWN existence check and its own step in
+ * the chain. It is additive and idempotent like every other step, which is
+ * what lets the per-boot reconciliation fix a stale deployment without
+ * deleting anything.
+ */
+export function backfillPlanVersions(db: Database.Database): { written: number } {
+  // Its own check, against its own table.
+  const already = db.prepare("SELECT COUNT(*) AS n FROM program_plans WHERE user_id = ?")
+    .get(popId("person", MANIFEST[0].id)) as { n: number };
+  if (already.n > 0) return { written: 0 };
+
+  const epoch = demoEpoch();
+  const insPlan = db.prepare(
+    `INSERT INTO program_plans (id, user_id, plan_json, generated_by, source, created_at)
+     VALUES (?, ?, ?, 'rules', 'trigger_map', ?)
+     ON CONFLICT(id) DO NOTHING`);
+
+  let written = 0;
+  db.transaction(() => {
+    for (const row of MANIFEST) {
+      const personId = popId("person", row.id);
+      // A person the generator has not created yet has nothing to plan for.
+      const exists = db.prepare("SELECT 1 AS n FROM users WHERE id = ?").get(personId);
+      if (!exists) continue;
+
+      const seed = seedFor(row);
+      const path = PATHS[row.archetype];
+      const startDay = enrolmentDayFor(row);
+      const exposure = exposureDaysFor(row);
+      const exposureGenerated = generatedDaysFor(row);
+      const since = (day: number) => (day - startDay) / Math.max(1, exposure);
+      // ── The working plan, and its revisions ────────────────────────────
+      //
+      // Two or three versions across the person's enrolment, because a plan that
+      // was written once and never revisited is not a plan anybody worked from —
+      // and because the plan-response chart's whole subject is what the measures
+      // did either side of a revision.
+      //
+      // A REVISION IS A NEW ROW. The table is append-only and `getProgramPlan`
+      // reads the newest, so the history stays readable: what the plan said in
+      // May is still there in June, which is what makes "since the last plan
+      // version" a question with an answer.
+      const revisions = 1 + (seed % 2) + (path.changeMidpoint < 0.4 ? 1 : 0);
+      for (let v = 0; v < revisions; v++) {
+        // The first sits at enrolment; the rest at even intervals through the
+        // person's own exposure, never past the day their history ends.
+        const day = startDay + Math.round((v / Math.max(1, revisions)) * exposureGenerated);
+        const focus = PLAN_FOCUS[row.archetype];
+        const plan = {
+          summary: v === 0 ? focus.opening : focus.revised,
+          targets: focus.targets.map((t, i) => ({
+            name: t,
+            // Intensity eases as the plan is revised, in step with the measure
+            // curve rather than independently of it: a plan whose targets soften
+            // while the readings do not is a plan describing somebody else.
+            intensity: Math.max(1, Math.round(measureOn(row, since(day)) / 3) - i),
+            approach: focus.approach,
+          })),
+          nextSteps: focus.steps.map((st) => ({
+            moduleId: st.moduleId, focus: st.focus, why: st.why,
+          })),
+          grounding: focus.grounding,
+        };
+        insPlan.run(
+          popId("plan", `${row.id}:${v}`), personId,
+          encryptField(JSON.stringify(plan)), dayStamp(epoch, day, 10));
+        written += 1;
+      }
+    }
+  })();
+  return { written };
+}
+
 export function generatePopulationHistory(db: Database.Database): GeneratedCounts {
   return db.transaction(() => generateInner(db))();
 }
 
 function generateInner(db: Database.Database): GeneratedCounts {
   const counts: GeneratedCounts = {
-    accounts: 0, consents: 0, subscriptions: 0, profiles: 0, intake: 0, planVersions: 0,
+    accounts: 0, consents: 0, subscriptions: 0, profiles: 0, intake: 0,
     checkins: 0, measures: 0, measuresMissing: 0,
     modules: 0, sessions: 0, safetyEvents: 0, clinicianActions: 0, corrections: 0,
   };
@@ -502,14 +584,6 @@ function generateInner(db: Database.Database): GeneratedCounts {
        current_period_end, created_at)
      VALUES (?, 'monthly', 'active', 3499, 'usd', 'demo', ?, ?)
      ON CONFLICT(user_id) DO NOTHING`);
-  // PLAN VERSIONS. `program_plans` is append-only by design — a revision is a
-  // new row, never an edit — and nothing seeded had ever written one, so the
-  // table was empty for every fabricated person and the plan-response chart
-  // had no versions to annotate against.
-  const insPlan = db.prepare(
-    `INSERT INTO program_plans (id, user_id, plan_json, generated_by, source, created_at)
-     VALUES (?, ?, ?, 'rules', 'trigger_map', ?)
-     ON CONFLICT(id) DO NOTHING`);
   const insProfile = db.prepare(
     `INSERT INTO user_profiles (user_id, therapist_status, emdr_experience, goals_json,
        trauma_areas_json, restricted_topics_json, profile_complete, created_at)
@@ -609,44 +683,6 @@ function generateInner(db: Database.Database): GeneratedCounts {
         Math.max(0, Math.min(spec.max, Math.round(severity0 * spec.max))),
         "[]", dayStamp(epoch, startDay, 9));
       counts.intake++;
-    }
-
-    // ── The working plan, and its revisions ──────────────────────────────
-    //
-    // Two or three versions across the person's enrolment, because a plan that
-    // was written once and never revisited is not a plan anybody worked from —
-    // and because the plan-response chart's whole subject is what the measures
-    // did either side of a revision.
-    //
-    // A REVISION IS A NEW ROW. The table is append-only and `getProgramPlan`
-    // reads the newest, so the history stays readable: what the plan said in
-    // May is still there in June, which is what makes "since the last plan
-    // version" a question with an answer.
-    const revisions = 1 + (seed % 2) + (path.changeMidpoint < 0.4 ? 1 : 0);
-    for (let v = 0; v < revisions; v++) {
-      // The first sits at enrolment; the rest at even intervals through the
-      // person's own exposure, never past the day their history ends.
-      const day = startDay + Math.round((v / Math.max(1, revisions)) * exposureGenerated);
-      const focus = PLAN_FOCUS[row.archetype];
-      const plan = {
-        summary: v === 0 ? focus.opening : focus.revised,
-        targets: focus.targets.map((t, i) => ({
-          name: t,
-          // Intensity eases as the plan is revised, in step with the measure
-          // curve rather than independently of it: a plan whose targets soften
-          // while the readings do not is a plan describing somebody else.
-          intensity: Math.max(1, Math.round(measureOn(row, since(day)) / 3) - i),
-          approach: focus.approach,
-        })),
-        nextSteps: focus.steps.map((st) => ({
-          moduleId: st.moduleId, focus: st.focus, why: st.why,
-        })),
-        grounding: focus.grounding,
-      };
-      insPlan.run(
-        popId("plan", `${row.id}:${v}`), personId,
-        encryptField(JSON.stringify(plan)), dayStamp(epoch, day, 10));
-      counts.planVersions += 1;
     }
 
     // ── The access pathway (handoff 06 §26's funnel) ─────────────────────
