@@ -21,7 +21,16 @@ export default function MeditationPlayer({
   const [idx, setIdx] = useState(0);
   const [playing, setPlaying] = useState(true);
   const [voiceOn, setVoiceOn] = useState(voiceDefault);
-  const startedAt = useRef(Date.now());
+  // Set on MOUNT, not in the ref's initial-value argument. That argument is
+  // evaluated on every render even though only the first result is ever kept,
+  // so the practice's start time was being recomputed and discarded on each
+  // one — harmless by luck rather than by design, and wrong the moment anything
+  // reads it before the ref is written. Mount is also the more accurate answer
+  // to "when did this practice start" than first render.
+  const startedAt = useRef(0);
+  useEffect(() => {
+    startedAt.current = Date.now();
+  }, []);
   const { speak, cancel, supported } = useSpeech(voiceOn);
 
   // Advance through segments while playing. Each segment is spoken once on

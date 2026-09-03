@@ -17,6 +17,18 @@ jobs:
       - run: npm ci
       - name: "@safety test suite"
         run: npm run test:safety
+      - name: Lint gate (zero errors, warnings ratcheted)
+        # ADDED BECAUSE IT WAS MISSING, and its absence had cost something: the
+        # repository had accumulated twenty lint ERRORS that nothing ran, among
+        # them eight "cannot access refs during render" in the bilateral
+        # stimulation, narration and resourcing components, and two setState
+        # calls inside effects — one of them driving the mandatory closure
+        # minimum with a counter that drifts under tab throttling.
+        #
+        # Errors block. Warnings are capped at today's count rather than zero,
+        # so the number cannot grow while the existing ones are worked down; the
+        # cap is meant to be lowered, never raised.
+        run: npx eslint --max-warnings 35
       - name: Production build (type-check + compile gate)
         run: npm run build
         env:

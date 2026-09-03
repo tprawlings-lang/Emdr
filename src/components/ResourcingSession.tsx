@@ -1,5 +1,6 @@
 "use client";
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useCallback, useEffect } from "react";
+import { useLatest } from "./useLatest";
 import Link from "next/link";
 import BlsStimulus from "./BlsStimulus";
 import {
@@ -50,10 +51,8 @@ export default function ResourcingSession({ borderline = false }: { borderline?:
 
   // Latest place/word for the speech effect, so it reads current values without
   // re-speaking a prompt on every keystroke (effect keys on flow transitions only).
-  const placeRef = useRef(place);
-  placeRef.current = place;
-  const wordRef = useRef(cueWord);
-  wordRef.current = cueWord;
+  const placeRef = useLatest(place);
+  const wordRef = useLatest(cueWord);
 
   const stop = useCallback(() => {
     cancel();
@@ -80,13 +79,28 @@ export default function ResourcingSession({ borderline = false }: { borderline?:
       speak(b[s.setsCompleted % b.length]);
     } else if (s.phase === "closure") speak(CLOSURE_TEXT);
     else if (s.phase === "completed") speak(COMPLETED_TEXT);
-  }, [s.phase, s.stepIndex, s.setsCompleted, speak, borderline]);
+  }, [s.phase, s.stepIndex, s.setsCompleted, speak, borderline, placeRef, wordRef]);
 
   // Closure timer: enforce the mandatory minimum before "complete" is allowed.
+  //
+  // MEASURED FROM A TIMESTAMP, NOT COUNTED. The old version reset the count to
+  // zero and then incremented it once a second — two problems in a control that
+  // gates a safety minimum. The reset was a setState called synchronously
+  // inside an effect, costing a render pass; and an incrementing counter DRIFTS
+  // whenever the browser throttles the tab, which browsers do to background
+  // tabs routinely. A member who switched away and back could satisfy a
+  // two-minute closure in rather less than two minutes of real time, which is
+  // exactly the thing the minimum exists to prevent.
+  //
+  // Elapsed-from-timestamp cannot drift, and the first tick lands within 250ms
+  // so re-entering closure shows zero promptly without a synchronous reset.
   useEffect(() => {
     if (s.phase !== "closure") return;
-    setClosureSecs(0);
-    const id = setInterval(() => setClosureSecs((n) => n + 1), 1000);
+    const startedAt = Date.now();
+    const id = setInterval(
+      () => setClosureSecs(Math.floor((Date.now() - startedAt) / 1000)),
+      250
+    );
     return () => clearInterval(id);
   }, [s.phase]);
 

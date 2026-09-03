@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useLatest } from "./useLatest";
 import { useSpeech } from "./useSpeech";
 
 // Guided-session narration ("someone is talking"). Delivers clinician-authored
@@ -41,8 +42,7 @@ export default function NarrationView({ beats, voice = false }: { beats: string[
   // the same text already shown. Component is keyed per step by the parent, so this
   // runs once per step; cancel on unmount / mute stops it.
   const { speak, cancel, supported: speechSupported } = useSpeech(voice);
-  const beatsRef = useRef(beats);
-  beatsRef.current = beats;
+  const beatsRef = useLatest(beats);
   useEffect(() => {
     if (!voice || !speechSupported) return;
     beatsRef.current.forEach((b, i) => speak(b, { queue: i > 0 }));

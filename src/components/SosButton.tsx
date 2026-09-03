@@ -18,23 +18,53 @@ function contactHref(method: string | null): string | null {
   return null;
 }
 
+/** Slow paced breath: 4s in, 6s out — the longer exhale settles the nervous
+ *  system.
+ *
+ *  ITS OWN COMPONENT SO ITS STATE RESETS BY MOUNTING. The phase used to live in
+ *  SosButton, which stays mounted while the panel opens and closes, so every
+ *  open had to begin by resetting it — a setState called synchronously inside
+ *  an effect, which costs an extra render pass every time a distressed member
+ *  presses the button. Rendering this inside the panel means "start on the
+ *  in-breath" is simply the initial state.
+ *
+ *  The phase is also derived from ELAPSED TIME rather than a toggle. A toggle
+ *  drifts whenever the browser throttles a background tab, and a paced-breathing
+ *  circle that has drifted is worse than none: the member follows it and finds
+ *  their breathing does not fit. */
+function PacedBreath() {
+  const [phase, setPhase] = useState<"in" | "out">("in");
+
+  useEffect(() => {
+    const startedAt = Date.now();
+    const id = setInterval(() => {
+      setPhase(Math.floor((Date.now() - startedAt) / 5000) % 2 === 0 ? "in" : "out");
+    }, 250);
+    return () => clearInterval(id);
+  }, []);
+
+  return (
+    <div className="mt-8 flex flex-col items-center">
+      <div
+        className="flex items-center justify-center rounded-full bg-sage/40"
+        style={{
+          width: phase === "in" ? 200 : 120,
+          height: phase === "in" ? 200 : 120,
+          transition: phase === "in" ? "width 4s ease-in-out, height 4s ease-in-out" : "width 6s ease-in-out, height 6s ease-in-out",
+        }}
+      >
+        <span className="type-identity text-2xl text-ground">
+          {phase === "in" ? "Breathe in" : "Breathe out"}
+        </span>
+      </div>
+      <p className="mt-4 text-sm text-olive">In through the nose, slow out through the mouth.</p>
+    </div>
+  );
+}
+
 export default function SosButton({ panel }: { panel: SosPanel }) {
   const [open, setOpen] = useState(false);
-  const [phase, setPhase] = useState<"in" | "out">("in");
   const recorded = useRef(false);
-
-  // Slow paced breath while the panel is open: 4s in, 6s out (longer exhale
-  // settles the nervous system). Toggling drives the circle's CSS transition.
-  useEffect(() => {
-    if (!open) return;
-    setPhase("in");
-    let toggle: "in" | "out" = "in";
-    const id = setInterval(() => {
-      toggle = toggle === "in" ? "out" : "in";
-      setPhase(toggle);
-    }, 5000);
-    return () => clearInterval(id);
-  }, [open]);
 
   function openPanel() {
     setOpen(true);
@@ -75,22 +105,7 @@ export default function SosButton({ panel }: { panel: SosPanel }) {
             </div>
             <p className="mt-2 text-olive">Let&apos;s slow things down together. One breath at a time.</p>
 
-            {/* Paced breath */}
-            <div className="mt-8 flex flex-col items-center">
-              <div
-                className="flex items-center justify-center rounded-full bg-sage/40"
-                style={{
-                  width: phase === "in" ? 200 : 120,
-                  height: phase === "in" ? 200 : 120,
-                  transition: phase === "in" ? "width 4s ease-in-out, height 4s ease-in-out" : "width 6s ease-in-out, height 6s ease-in-out",
-                }}
-              >
-                <span className="type-identity text-2xl text-ground">
-                  {phase === "in" ? "Breathe in" : "Breathe out"}
-                </span>
-              </div>
-              <p className="mt-4 text-sm text-olive">In through the nose, slow out through the mouth.</p>
-            </div>
+            <PacedBreath />
 
             {panel.reminderPhrase && (
               <div className="mt-8 rounded-3xl bg-moss p-6 text-center">
