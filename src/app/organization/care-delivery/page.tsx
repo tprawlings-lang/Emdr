@@ -1,7 +1,7 @@
 import { OrgPage } from "@/components/app/OrgPage";
 import { EnvelopeView } from "@/components/presentation/EnvelopeView";
 import { Note, Panel, WithNote } from "@/components/app/surfaces";
-import { Figure, num, pct } from "@/components/charts/aggregate";
+import { Figure, RateBars, num } from "@/components/charts/aggregate";
 import { buildOrgCareDelivery } from "@/lib/intelligence/organization";
 import { resolveOrgTenant } from "@/lib/intelligence/scope";
 
@@ -58,17 +58,21 @@ export default async function OrgCareDeliveryPage() {
                     summary={`Review and measurement coverage across ${num(d.started)} people who started care.`}
                     footnote={`Denominator ${num(d.started)} — everyone who started care. Distinct people, not events.`}
                   >
-                    <ul className="space-y-2.5">
-                      {[
-                        { label: "Seen by a clinician at least once", c: d.reviewed },
-                        { label: "Has at least one validated measure", c: d.measured },
-                      ].map((r) => (
-                        <li key={r.label} className="flex flex-wrap items-baseline justify-between gap-2 border-b border-ground/5 pb-2 text-sm last:border-0">
-                          <span className="text-ground">{r.label}</span>
-                          <span className="font-medium text-ground">{pct(r.c)}</span>
-                        </li>
-                      ))}
-                    </ul>
+                    {/* §29's organization engagement contract. The numbers and
+                        their denominators were already right; they were drawn
+                        as a list, so two coverage rates sat as text with
+                        nothing to compare them by.
+
+                        Both rows share one denominator — everyone who started
+                        care — so a fixed 0–100% axis is the honest one, and
+                        each bar still prints its own numerator and denominator
+                        beside it. */}
+                    <RateBars
+                      rates={[
+                        { label: "Seen by a clinician at least once", count: d.reviewed },
+                        { label: "Has at least one validated measure", count: d.measured },
+                      ]}
+                    />
                   </Figure>
                 </Panel>
               </WithNote>

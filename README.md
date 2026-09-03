@@ -146,7 +146,7 @@ examples; open them before writing a screen, because the text alone rebuilds wro
 | Review and administration | 13 | 6 | 44 |
 | Public institutional site | 11 | 9 | 45 |
 
-**Charts — 15 of §29's 22 contracts** (inventory on p75).
+**Charts — 19 of §29's 22 contracts** (inventory on p75).
 
 **Datasets — built and deterministic.** `npm run demo -- reset` rebuilds all of it from
 seed, and prints a baseline hash so a change to the data is visible rather than silent.
@@ -162,7 +162,7 @@ every aggregate screen is counted from that ledger; nothing is pre-aggregated.
 
 ### What is NOT completed, and where to read about it
 
-Ten screens and seven charts. Each row names the page in the handoff that specifies it.
+Ten screens and three charts. Each row names the page in the handoff that specifies it.
 
 | # | Not built | Read | Blocked on |
 |---|---|---|---|
@@ -178,10 +178,6 @@ Ten screens and seven charts. Each row names the page in the handoff that specif
 | 11 | Clinician **measures** chart | §29 inventory **p75**, worked example **p76** | Nothing. `/clinician/member/[id]/measures` renders a table where the spec draws aligned small multiples |
 | 12 | Clinician **function and goals** chart | §29 **p75**; information order §27.4 **p51** | **A goals model.** No goal record exists in the tenancy schema |
 | 13 | Clinician **plan response** chart | §29 **p75**; §27.4 **p51** | Plan-version records to annotate against |
-| 14 | Organization **engagement** chart | §29 **p75** | Nothing. `/organization/care-delivery` has the Figure and the denominators, drawn as a list |
-| 15 | Organization **location comparison** chart | §29 **p75**; §26 **p42** | Nothing. `/organization/locations` has the rows, drawn as a table |
-| 16 | Payer **contract performance** chart | §29 **p75**; §26 **p43** | Nothing. `/payer/contract` has the data, drawn as a table |
-| 17 | Payer **data quality** chart | §29 **p75**; §26 **p43** | Nothing. `/payer/data-quality` has the data, drawn as a table |
 | 18 | **Wave 6 — hardening**: performance, accessibility, security, telemetry, export parity, disaster recovery | Waves §31.2 **p95**; acceptance §31.5 **p98**; release gates §31.6 **p99**; telemetry §31.7 **p100** | Not started |
 
 Row 3 (`/review/safety`) closed during handoff 07's Wave 1 and has been removed from the
@@ -189,13 +185,28 @@ list; the numbering below still refers to the original rows.
 
 **Four need a record that does not exist yet** — rows 2, 6, 12 and 13 (a review decision,
 a sign-off, a goal, a plan version). **Everything else is presentation work over data that
-is already there**: rows 11, 14, 15, 16 and 17 render the right numbers in the wrong form,
-and rows 4, 7, 8, 9 and 10 are screens over paths that already exist. Row 5 needs the
-cohort registry; row 18 is its own wave.
+is already there**: row 11 renders the right numbers in the wrong form, and rows 4, 7, 8, 9
+and 10 are screens over paths that already exist. Row 5 needs the cohort registry; row 18 is
+its own wave.
 
-**The cheapest real progress** is rows 14–17 — four charts over projections that already
-compute their denominators, with §29.1's guards already written and biting. Rows 9 and 10
-are a rename.
+**Rows 14–17 are built** — organization engagement and location comparison, payer contract
+performance and data quality. They needed two primitives the chart file did not have, and each
+exists because of a specific way the table it replaced was *better* than a careless chart would
+be:
+
+| Primitive | The failure it refuses |
+|---|---|
+| `RateBars` | A **fixed 0–100% axis**. `BarList` scales to the largest row, which is right for counts and wrong for shares — four sites at 61, 58, 55 and 52 per cent rescaled to their own maximum draw as a staircase, and a nine-point spread reads as a collapse. Every row still prints its own denominator, because sites are not the same size |
+| `TargetBars` | **No shared axis at all.** A contract's measures are a rate, a duration and a count per thousand, and §29.1 forbids overlaying different scales — so each row is normalised to *its own* target, drawn at the same point on every track. What is compared across rows is distance from target, the only comparable thing there. Direction is stated in words, because a short bar is a *good* result for a lower-is-better measure |
+
+Both are guarded by rendering the component and reading the marks rather than by matching source
+for a formula: a width computed from the wrong denominator is the entire failure, and it is
+invisible in a source match. Mutation-tested — rescaling the rate axis, putting the targets on a
+shared axis, or dropping a measure with no observed value each fails the build. Each page keeps
+its table underneath, as a disclosure, for a reader who wants the numbers rather than the
+comparison.
+
+**The cheapest remaining progress** is rows 9 and 10, which are a rename.
 
 **Nothing here is a broken link.** `/review` names the eight missing screens on itself
 rather than showing an empty queue, and the two public pages have reachable equivalents.

@@ -1,7 +1,7 @@
 import { PayerPage } from "@/components/app/PayerPage";
 import { EnvelopeView } from "@/components/presentation/EnvelopeView";
 import { Note, Panel, WithNote } from "@/components/app/surfaces";
-import { cell, num } from "@/components/charts/aggregate";
+import { Figure, StackedAllocation, cell, num, type Slice } from "@/components/charts/aggregate";
 import { buildDataQuality } from "@/lib/intelligence/payer";
 import { resolvePayerTenant } from "@/lib/intelligence/scope";
 
@@ -19,6 +19,17 @@ export const metadata = { title: "Data quality — Steady Intelligence" };
 // It exists so that no other payer screen has to be trusted blindly. A rate is
 // only as good as the feed under it, and the months this page names as
 // incomplete are exactly the months utilisation refuses to report.
+
+// The tone each claim status is drawn in. NOT a judgement of the plan: a
+// rejection is a fact about a feed, and "caution" here means "this one is
+// excluded from every rate", which is the thing a reader has to see before
+// trusting a number on another screen.
+const STATUS_TONE: Record<string, Slice["tone"]> = {
+  accepted: "safe",
+  pending: "unknown",
+  corrected: "info",
+  rejected: "caution",
+};
 
 const STATUS_NOTE: Record<string, string> = {
   accepted: "Received and counted.",
@@ -71,7 +82,35 @@ export default async function PayerDataQualityPage() {
                   title="Claim feed"
                   footnote={`${num(q.total)} claims on record for cohort ${q.cohortVersion}. Rejected claims are excluded from every rate; pending ones are not counted as zero.`}
                 >
-                  <ul className="space-y-2.5">
+                  {/* §29's payer data-quality contract. Drawn on ONE shared
+                      denominator rather than as four independent rows, because
+                      the question this screen answers is what share of the feed
+                      a reader may rely on — and pending and rejected have to be
+                      visible IN that total, not filtered out of it. The list
+                      below stays: it carries what each status means, which the
+                      marks cannot. */}
+                  <Figure
+                    title="Claim status against the whole feed"
+                    summary={`${num(q.total)} claims by status, every one on the same denominator so excluded and not-yet-arrived claims stay visible.`}
+                    footnote={`Cohort ${q.cohortVersion}. Observed lag ${
+                      q.observedLagDays === null ? "not yet measurable" : `${q.observedLagDays} days`
+                    }, ${q.expectedLagDays} expected by contract.${
+                      q.incompleteMonths.length > 0
+                        ? ` ${q.incompleteMonths.length} month(s) withheld from every rate.`
+                        : ""
+                    }`}
+                  >
+                    <StackedAllocation
+                      total={q.total}
+                      slices={q.byStatus.map((s) => ({
+                        label: s.status.charAt(0).toUpperCase() + s.status.slice(1),
+                        n: s.n,
+                        tone: STATUS_TONE[s.status] ?? "unknown",
+                      }))}
+                    />
+                  </Figure>
+
+                  <ul className="mt-6 space-y-2.5 border-t border-ground/10 pt-5">
                     {q.byStatus.map((s) => (
                       <li key={s.status} className="border-b border-ground/5 pb-2.5 last:border-0">
                         <div className="flex flex-wrap items-baseline justify-between gap-2">

@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test:safety": "tsx --test tests/*.test.ts",
+    "test:safety": "tsx --test tests/*.test.ts tests/*.test.tsx",
     "test:e2e": "playwright test",
     "test:rls": "bash scripts/verify-rls.sh",
     "loadcheck": "node scripts/loadcheck.mjs",

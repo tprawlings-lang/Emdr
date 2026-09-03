@@ -193,6 +193,63 @@ export function BarList({ bars, unit }: { bars: Bar[]; unit?: string }) {
 }
 
 // ---------------------------------------------------------------------------
+// Rate comparison across categories
+// ---------------------------------------------------------------------------
+
+export interface Rate {
+  label: string;
+  /** The share, and what it is a share OF. Each row carries its own
+   *  denominator: sites, cohorts and teams are not the same size, and a rate
+   *  compared without its denominator is the comparison people get wrong. */
+  count: Count;
+  attention?: boolean;
+}
+
+/**
+ * One rate per category, on a FIXED 0–100% axis.
+ *
+ * The fixed axis is the whole point, and it is why this is not `BarList`.
+ * `BarList` scales to the largest value, which is right for counts and wrong
+ * for shares: four sites at 61%, 58%, 55% and 52% rescaled to their own
+ * maximum draw as a dramatic staircase, and the reader takes a nine-point
+ * spread for a collapse. Held at 0–100% they look like what they are.
+ *
+ * Suppression survives it. A row below the small-cell threshold still draws
+ * its bar position from the share but reports "under 11 (of N)" beside it, so
+ * a suppressed site stays IN the comparison as suppressed rather than
+ * vanishing from it — §29.1's missing-data rule.
+ */
+export function RateBars({ rates }: { rates: Rate[] }) {
+  return (
+    <ul className="space-y-3">
+      {rates.map((r) => (
+        // A wider label column than the other lists: these labels carry the
+        // exact claim being measured ("seen by a clinician AT LEAST ONCE"),
+        // and trimming one to fit a column changes what the bar means.
+        <li key={r.label} className="grid gap-1 sm:grid-cols-[14rem_1fr] sm:items-center sm:gap-4">
+          <span className="text-sm text-ground">{r.label}</span>
+          <span className="flex items-center gap-3">
+            <span aria-hidden className="relative h-4 flex-1 rounded-full bg-moss/60">
+              <span
+                className="absolute inset-y-0 left-0 min-w-1 rounded-full"
+                style={{
+                  // Against 100, never against the largest row.
+                  width: `${Math.max(1, Math.round(share(r.count) * 100))}%`,
+                  backgroundColor: r.attention
+                    ? "var(--color-state-caution)"
+                    : "var(--color-sage-deep)",
+                }}
+              />
+            </span>
+            <span className="whitespace-nowrap text-sm text-ground">{cell(r.count)}</span>
+          </span>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Grouped bars (p80)
 // ---------------------------------------------------------------------------
 
@@ -248,6 +305,112 @@ export function GroupedBars({ groups }: { groups: Group[] }) {
               );
             })}
           </ul>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Observed against an agreed target
+// ---------------------------------------------------------------------------
+
+export interface TargetRow {
+  label: string;
+  /** What the numbers are in — printed, because each row has its own. */
+  unit: string;
+  observed: number | null;
+  target: number;
+  better: "lower" | "higher";
+  /** Null when it could not be computed; `withheld` then says why. */
+  met: boolean | null;
+  withheld?: string;
+}
+
+/**
+ * Contract measures, each against its own target.
+ *
+ * THE AXIS PROBLEM THIS SOLVES. A contract's measures are in different units —
+ * a rate, a count of days, a figure per thousand — and §29.1 forbids
+ * overlaying different scales. So there is no shared axis: every row is drawn
+ * against ITS OWN target, which sits at the same place on every track. What is
+ * being compared across rows is distance from target, which is the only thing
+ * about these five numbers that is comparable at all.
+ *
+ * DIRECTION IS PART OF THE MARK. For a lower-is-better measure a short bar is
+ * a good result, so the bar alone would read backwards to anyone scanning. The
+ * verdict is therefore stated in words and a glyph on every row, and the bar
+ * is the evidence rather than the finding — which is also why a missed target
+ * is exactly as legible as a met one.
+ */
+export function TargetBars({ rows }: { rows: TargetRow[] }) {
+  // The target sits at the midpoint of every track, so "at target" is the same
+  // position on each row and over/under are both visible. A value at or beyond
+  // twice its target fills the track and says so.
+  const position = (observed: number, target: number) =>
+    target === 0 ? 1 : Math.min(1, observed / (2 * target));
+
+  return (
+    <ul className="space-y-4">
+      {rows.map((r) => (
+        <li key={r.label}>
+          <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+            <span className="text-sm font-medium text-ground">{r.label}</span>
+            <span className="text-sm text-ground">
+              {r.observed === null ? (
+                <span className="text-olive">not reported</span>
+              ) : (
+                <>
+                  {r.observed} <span className="text-olive">{r.unit}</span>
+                </>
+              )}
+              <span className="text-olive">
+                {" · target "}
+                {r.target} ({r.better === "lower" ? "lower is better" : "higher is better"})
+              </span>
+            </span>
+          </div>
+
+          <div className="mt-1.5 flex items-center gap-3">
+            <span aria-hidden className="relative h-4 flex-1 rounded-full bg-moss/60">
+              {r.observed !== null && (
+                <span
+                  className="absolute inset-y-0 left-0 min-w-1 rounded-full"
+                  style={{
+                    width: `${Math.max(1, Math.round(position(r.observed, r.target) * 100))}%`,
+                    backgroundColor:
+                      r.met === null
+                        ? "var(--color-state-unknown)"
+                        : r.met
+                          ? "var(--color-state-safe)"
+                          : "var(--color-state-support)",
+                  }}
+                />
+              )}
+              {/* The target, at the midpoint of every track. */}
+              <span
+                className="absolute inset-y-[-3px] w-0.5 bg-ground"
+                style={{ left: "50%" }}
+              />
+            </span>
+            <span className="w-24 shrink-0 whitespace-nowrap text-sm">
+              {r.met === null ? (
+                <span className="text-olive">
+                  <span aria-hidden>○</span> not computed
+                </span>
+              ) : r.met ? (
+                <span className="font-medium text-state-safe">
+                  <span aria-hidden>◆</span> met
+                </span>
+              ) : (
+                <span className="font-medium text-state-support">
+                  <span aria-hidden>▲</span> not met
+                </span>
+              )}
+            </span>
+          </div>
+
+          {r.withheld && <p className="measure mt-1 text-xs text-olive">{r.withheld}</p>}
         </li>
       ))}
     </ul>
