@@ -14,7 +14,14 @@ import {
 
 export const NAV = [
   { href: "/platform", label: "Platform" },
+  // §26 p45's three products, in the order the home page names them. /personal
+  // and /intelligence existed in the atlas and not in the site, so the two
+  // product pages a reviewer is most likely to want were unreachable while
+  // /organizations and /payers — which answer a BUYER's question — were in the
+  // bar. Both sets stay: they are different questions.
+  { href: "/personal", label: "Personal" },
   { href: "/clinical", label: "Clinical" },
+  { href: "/intelligence", label: "Intelligence" },
   { href: "/organizations", label: "Organizations" },
   { href: "/payers", label: "Payers" },
   { href: "/trust", label: "Trust & Safety" },

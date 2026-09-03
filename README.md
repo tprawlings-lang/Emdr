@@ -134,7 +134,7 @@ examples; open them before writing a screen, because the text alone rebuilds wro
 
 ### Where it stands
 
-**Screens — 73 of 80.** Every role that reads or writes care data is complete.
+**Screens — 75 of 80.** Every role that reads or writes care data is complete.
 
 | Role | Spec | Built | §26 page |
 |---|---|---|---|
@@ -144,7 +144,7 @@ examples; open them before writing a screen, because the text alone rebuilds wro
 | Payer | 10 | **10** | 43 |
 | Shared access states | 8 | **8** | 46 |
 | Review and administration | 13 | 9 | 44 |
-| Public institutional site | 11 | 9 | 45 |
+| Public institutional site | 11 | **11** | 45 |
 
 **Charts — 22 of §29's 22 contracts** (inventory on p75). **Complete.**
 
@@ -162,7 +162,7 @@ every aggregate screen is counted from that ledger; nothing is pre-aggregated.
 
 ### What is NOT completed, and where to read about it
 
-Seven screens. Each row names the page in the handoff that specifies it.
+Five screens. Each row names the page in the handoff that specifies it.
 
 | # | Not built | Read | Blocked on |
 |---|---|---|---|
@@ -170,8 +170,6 @@ Seven screens. Each row names the page in the handoff that specifies it.
 | 2 | `/review/clinical` — review language and flow; record a decision against a version | §26 **p44** | No approval record. The decision and its evidence have nowhere to be written |
 | 5 | `/review/research` — approved de-identified data, consent and cohort guard | §26 **p44** | Cohort registry |
 | 6 | `/review/release` — record required sign-offs with owner, evidence and state | §26 **p44**; release gates §31.6 **p99** | A sign-off record. `autonomous_signoffs` is the nearest existing shape |
-| 9 | `/personal` — public Steady Personal page | §26 **p45** | Naming only. Content lives at `/platform` |
-| 10 | `/intelligence` — public Steady Intelligence page | §26 **p45** | Naming only. Content lives at `/organizations` and `/payers` |
 | 18 | **Wave 6 — hardening**: performance, accessibility, security, telemetry, export parity, disaster recovery | Waves §31.2 **p95**; acceptance §31.5 **p98**; release gates §31.6 **p99**; telemetry §31.7 **p100** | Not started |
 
 Row 3 (`/review/safety`) closed during handoff 07's Wave 1 and has been removed from the
@@ -179,8 +177,15 @@ list; the numbering below still refers to the original rows.
 
 **§29's chart inventory is complete.** Two screens still need a record that does not exist yet —
 rows 2 and 6, a review decision and a sign-off. **Everything else is presentation work over data
-that is already there**: rows 9 and 10 are screens over paths that already exist. Row 5
-needs the cohort registry; row 18 is its own wave.
+that is already there**. Row 5 needs the cohort registry; row 18 is its own wave.
+
+Rows 9 and 10 (`/personal`, `/intelligence`) were tracked here as "naming only — content lives
+at /platform", and that was wrong. §26 p45 gives every public screen its own purpose, and the
+three differ: /platform is "understand one system and three surfaces", /personal is "review
+member value **and limits**", /intelligence is "review aggregate intelligence". The second is
+the question a clinician asks and the third is the question a reviewer asks, and filing both as
+duplicates of the first meant the site answered neither. A guard now checks the atlas by route
+**and purpose**, and fails if either page becomes a copy of its neighbour.
 
 Row 8 (`/review/status`) closed the same way rows like it will: nothing new was measured. It
 composes the two probes that already existed — `readServiceStatus()`, which queries the database
@@ -526,7 +531,7 @@ about how finished each is.
 | Organization | 9 | 9 | — |
 | Payer | 10 | 10 | — |
 | Review and administration | 13 | 9 | `/review/access`, `/clinical`, `/research`, `/release` |
-| Public institutional site | 11 | 9 | `/personal`, `/intelligence`. Nothing links to them — the home page routes the three products to `/platform`, `/clinical`, `/organizations` and `/payers` instead — so this is a naming gap, not a broken link |
+| Public institutional site | 11 | **11** | — |
 | Shared access states | 8 | 8 | — |
 
 **§29's chart contracts — 22 specified on p75** (clinician 7, organization 7, payer 8),
@@ -700,7 +705,7 @@ others were examined and found unremarkable.
 | 4 | Aggregate — organization | done — 9 screens, real aggregates |
 | 4 | Aggregate — payer | done — 10 screens, on a real claims model |
 | — | **Governed export** | done — both aggregate consoles, six §31.4 requirements as columns |
-| 5 | Review and public | **9 of 13 review screens, 9 of 11 public** — itemised in GUI launch above |
+| 5 | Review and public | **9 of 13 review screens, 11 of 11 public** — itemised in GUI launch above |
 | 6 | Hardening — performance, accessibility, security, telemetry, export parity, disaster recovery | **not started** — §31.5 p98, §31.6 p99, §31.7 p100 |
 
 ## ✔ DONE: handoff 05, the GUI and decision-surface work
