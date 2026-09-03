@@ -12,8 +12,12 @@ import { thoughtsSurfaceAvailable } from "@/lib/clinical/thoughts-flags";
 import {
   listThoughts, getThought, currentTranscript, transcriptVersions,
 } from "@/lib/clinical/thought-store";
-import { listItemsForThought } from "@/lib/clinical/memory-store";
+import { listItemsForThought, itemsByIds } from "@/lib/clinical/memory-store";
 import { runExtraction } from "@/lib/clinical/extraction";
+import { listThreads, membershipsForPerson } from "@/lib/clinical/thread-store";
+import { scoreThread } from "@/lib/clinical/thread-match";
+import { ThreadSuggestions } from "@/components/clinical/ThreadSuggestions";
+import { ThreadTimeline } from "@/components/clinical/ThreadTimeline";
 import type { TenantContext } from "@/lib/repository";
 
 export const dynamic = "force-dynamic";
@@ -32,6 +36,73 @@ export const dynamic = "force-dynamic";
 // a recorder while the actions refuse it is worse than one that says the
 // feature is off — the clinician speaks for ninety seconds and finds out
 // afterwards.
+
+// The threads view, built outside the component (Phase 3).
+//
+// Outside for two reasons. It reads the clock — recency is part of §10's score
+// — and a clock read in a component body is the impure render the lint rule
+// exists to catch; the same shape as `buildInputs` in the autonomous review
+// page. And it reads ONCE for the whole surface: pending suggestions, refused
+// ones, and the accepted members of every theme all come from the same two
+// tables, so a component fetching its own would turn one page render into a
+// query per theme.
+async function buildThreadView(
+  memberships: Awaited<ReturnType<typeof membershipsForPerson>>,
+  threads: Awaited<ReturnType<typeof listThreads>>,
+  loadItems: (ids: string[]) => Promise<Awaited<ReturnType<typeof itemsByIds>>>,
+) {
+  // One instant for the whole render. Scoring two suggestions against two
+  // different clocks makes them very slightly incomparable, for no reason.
+  const scoredAt = Date.now();
+  const items = await loadItems(memberships.map((m) => m.memoryItemId));
+  const itemById = new Map(items.map((i) => [i.id, i]));
+  const threadById = new Map(threads.map((t) => [t.id, t]));
+
+  const asSuggestion = (m: (typeof memberships)[number]) => {
+    const item = itemById.get(m.memoryItemId);
+    const thread = threadById.get(m.threadId);
+    if (!item || !thread) return null;
+    // Recomputed with the same scorer the matcher used, so what the clinician
+    // reads is why it was actually offered — a reason written separately would
+    // drift from the thing that produced the suggestion.
+    const { because } = scoreThread(item, thread, scoredAt);
+    return {
+      membershipId: m.id,
+      threadLabel: thread.canonicalLabel,
+      threadType: thread.threadType,
+      itemText: item.displayText,
+      itemStatementClass: item.statementClass,
+      because,
+      status: m.status as "proposed" | "rejected",
+    };
+  };
+  // Accepts undefined too: `.map()` over a Map lookup yields `T | undefined`,
+  // and a guard that only narrowed null would leave the undefined in the type.
+  const keep = <T,>(x: T | null | undefined): x is T => !!x;
+
+  return {
+    pending: memberships.filter((m) => m.status === "proposed").map(asSuggestion).filter(keep),
+    refused: memberships.filter((m) => m.status === "rejected").map(asSuggestion).filter(keep),
+    timelines: threads.map((thread) => ({
+      threadId: thread.id,
+      label: thread.canonicalLabel,
+      threadType: thread.threadType,
+      entries: memberships
+        .filter((m) => m.threadId === thread.id && m.status === "accepted")
+        .map((m) => itemById.get(m.memoryItemId))
+        .filter(keep)
+        .sort((a, b) => a.createdAt.localeCompare(b.createdAt))
+        .map((i) => ({
+          itemId: i.id,
+          displayText: i.displayText,
+          statementClass: i.statementClass,
+          itemType: i.itemType,
+          thoughtId: i.sourceThoughtId,
+          createdAt: i.createdAt,
+        })),
+    })),
+  };
+}
 
 export default async function MemberThoughtsPage({
   params,
@@ -59,7 +130,18 @@ export default async function MemberThoughtsPage({
   if (!header) notFound();
 
   const available = thoughtsSurfaceAvailable("CLINICIAN_THOUGHTS_CAPTURE");
+  const threadsAvailable = thoughtsSurfaceAvailable("CLINICIAN_THREADS");
   const thoughts = available ? await listThoughts(ctx, id) : [];
+
+  const threadView = threadsAvailable
+    ? buildThreadView(
+        await membershipsForPerson(ctx, id),
+        await listThreads(ctx, id, "active"),
+        (ms) => itemsByIds(ctx, ms),
+      )
+    : Promise.resolve({ pending: [], refused: [], timelines: [] });
+  const { pending, refused, timelines } = await threadView;
+
   // Counted up front rather than inside the row: a query per rendered row is
   // how a list that is fine at five thoughts is unusable at two hundred.
   const versionCounts = new Map(
@@ -207,6 +289,40 @@ export default async function MemberThoughtsPage({
             )}
           </Panel>
 
+          {threadsAvailable && (
+            <>
+              {pending.length > 0 && (
+                <Panel title="Waiting on a Connect decision" className="mt-6">
+                  <ThreadSuggestions suggestions={pending} rejected={refused} />
+                </Panel>
+              )}
+
+              <Panel
+                title="Themes on this record"
+                className="mt-6"
+                footnote="A theme is a name for something that keeps coming up. Every entry under it opens the thought it came from."
+              >
+                {timelines.length === 0 ? (
+                  <p className="measure text-sm text-ground">
+                    No themes yet. They appear once you connect a kept item to one.
+                  </p>
+                ) : (
+                  <div className="space-y-4">
+                    {timelines.map((t) => (
+                      <ThreadTimeline
+                        key={t.threadId}
+                        label={t.label}
+                        threadType={t.threadType}
+                        entries={t.entries}
+                        personId={id}
+                      />
+                    ))}
+                  </div>
+                )}
+              </Panel>
+            </>
+          )}
+
           <Panel title="Where a thought goes" className="mt-6">
             <p className="measure text-sm text-ground">
               A saved thought stays in this list, readable by people with access to this
@@ -214,9 +330,9 @@ export default async function MemberThoughtsPage({
               still needs you to review and sign it.
             </p>
             <p className="measure mt-3 text-sm text-olive">
-              Organizing thoughts into structured items, threads and session preparation is
-              built in later phases. Until then this page holds the recording and the
-              transcript, which is what those phases will read from.{" "}
+              Session preparation and patient-scoped questions are built in later phases.
+              What this page holds — the recording, the transcript, the kept items and the
+              themes they belong to — is what those phases will read from.{" "}
               <Link href="/review/audit" className="text-state-info underline">
                 Every action here is in the audit trail.
               </Link>

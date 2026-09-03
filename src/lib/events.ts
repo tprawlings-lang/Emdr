@@ -149,6 +149,15 @@ export const EVENT_TYPES = {
   "clinical_memory.item_approved": 1,
   "clinical_memory.item_rejected": 1,
   "clinical_memory.item_corrected": 1,
+  // Phase 3. `proposed` and `accepted` are separate types rather than one
+  // event with a status, because "the system suggested this" and "a clinician
+  // agreed" are different acts by different actors — and a replay that could
+  // not tell them apart could not reconstruct which connections a person
+  // actually made, which is the whole of "no auto-link in v1".
+  "clinical_thread.created": 1,
+  "clinical_thread.connection_proposed": 1,
+  "clinical_thread.connection_accepted": 1,
+  "clinical_thread.connection_rejected": 1,
 } as const;
 
 export type EventType = keyof typeof EVENT_TYPES;

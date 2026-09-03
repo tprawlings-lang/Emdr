@@ -136,6 +136,29 @@ export const THOUGHT_EXTRACT = registerTask({
   fallback: "refuse",
 });
 
+export const THREAD_MATCH = registerTask({
+  id: "clinician.thread.match",
+  version: "1.0.0",
+  // §9's table: "Rank existing thread candidates for approved item", output
+  // "thread candidates with evidence and scores", human gate "connection
+  // requires clinician action in v1".
+  //
+  // REGISTERED BUT NOT CALLED IN THIS DEPLOYMENT, and that is stated rather
+  // than left to be discovered. §10's scoring is four parts arithmetic and one
+  // part semantic similarity; there is no embedding index here, so the matcher
+  // computes the four exactly and records which components it used. A model
+  // call would be slower, non-reproducible, and would put a model's name on a
+  // number a spreadsheet computes. The entry exists so a deployment that HAS
+  // the index has the contract, and so the task's identity is versioned from
+  // the start rather than invented later.
+  purpose: "Ranks existing threads an approved memory item might belong to. Proposes only; a clinician connects.",
+  model: process.env.EMDR_THREAD_MATCH_MODEL ?? "claude-opus-4-8",
+  maxTokens: 1500,
+  phi: "protected-in-hashed-provenance",
+  // The deterministic matcher IS the fallback, and it is what runs today.
+  fallback: "deterministic",
+});
+
 export const SESSION_REPHRASE = registerTask({
   id: "session.rephrase",
   version: "1.0.0",

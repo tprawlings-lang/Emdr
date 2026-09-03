@@ -314,6 +314,92 @@ export async function recordItemCorrected(args: {
   });
 }
 
+/** A longitudinal thread was opened (§7). */
+export async function recordThreadCreated(args: {
+  threadId: string; tenantId: string; personId: string;
+  threadType: string; canonicalLabel: string;
+  createdBy: "clinician" | "system"; actorId: string | null;
+}): Promise<string | null> {
+  return appendEventSafe({
+    personId: args.personId,
+    tenantId: args.tenantId,
+    type: "clinical_thread.created",
+    actorId: args.actorId,
+    actorType: args.createdBy === "clinician" ? "clinician" : "system",
+    payload: {
+      threadId: args.threadId,
+      threadType: args.threadType,
+      // The label is the thread's NAME, not clinical narrative — "sleep", "the
+      // accident", "her sister". §18 keeps content out of the ledger; a name a
+      // clinician chose for a theme is the minimum needed to replay which
+      // thread this is, and without it a rebuild has anonymous threads.
+      canonicalLabel: args.canonicalLabel,
+      createdBy: args.createdBy,
+    },
+  });
+}
+
+/** A connection was suggested (§7).
+ *
+ *  Carries the score and the policy version that produced it. §10 puts the
+ *  weights behind a version so evaluation can change them; recording the
+ *  version here is what makes a past proposal attributable to the policy that
+ *  actually made it rather than to whatever the weights are today. */
+export async function recordConnectionProposed(args: {
+  membershipId: string; threadId: string; memoryItemId: string;
+  tenantId: string; personId: string;
+  proposedBy: "clinician" | "model" | "system";
+  score: number | null; policyVersion: string | null;
+}): Promise<string | null> {
+  return appendEventSafe({
+    personId: args.personId,
+    tenantId: args.tenantId,
+    type: "clinical_thread.connection_proposed",
+    actorId: null,
+    actorType: args.proposedBy === "clinician" ? "clinician" : "system",
+    payload: {
+      membershipId: args.membershipId,
+      threadId: args.threadId,
+      memoryItemId: args.memoryItemId,
+      proposedBy: args.proposedBy,
+      score: args.score,
+      policyVersion: args.policyVersion,
+    },
+  });
+}
+
+/** A clinician connected it (§7). */
+export async function recordConnectionAccepted(args: {
+  membershipId: string; tenantId: string; personId: string; decidedBy: string;
+}): Promise<string | null> {
+  return appendEventSafe({
+    personId: args.personId,
+    tenantId: args.tenantId,
+    type: "clinical_thread.connection_accepted",
+    actorId: args.decidedBy,
+    actorType: "clinician",
+    payload: { membershipId: args.membershipId, decidedBy: args.decidedBy },
+  });
+}
+
+/** A clinician said not related (§7).
+ *
+ *  As load-bearing as the acceptance. "Rejected links remain rejected" is a
+ *  promise the system can only keep if the rejection is a durable fact, and the
+ *  event is what lets a rebuild honour it. */
+export async function recordConnectionRejected(args: {
+  membershipId: string; tenantId: string; personId: string; decidedBy: string;
+}): Promise<string | null> {
+  return appendEventSafe({
+    personId: args.personId,
+    tenantId: args.tenantId,
+    type: "clinical_thread.connection_rejected",
+    actorId: args.decidedBy,
+    actorType: "clinician",
+    payload: { membershipId: args.membershipId, decidedBy: args.decidedBy },
+  });
+}
+
 /** Thrown away, before or after review.
  *
  *  §16: "Rejecting a candidate before approval is not the same as deleting a
