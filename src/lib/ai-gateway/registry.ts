@@ -111,6 +111,31 @@ export const PLAN_DRAFT = registerTask({
   fallback: "refuse",
 });
 
+export const THOUGHT_EXTRACT = registerTask({
+  id: "clinician.thought.extract",
+  version: "1.0.0",
+  // §9's table, verbatim: "Turn transcript into candidate memory items",
+  // output "strict JSON extraction object", human gate "all items reviewed
+  // before approval". The gate is not enforceable from here — it is enforced by
+  // candidates being written with status 'candidate' and only a clinician save
+  // moving them — but the purpose line is what an audit reader sees, so it says
+  // what the task is for rather than what it returns.
+  purpose: "Turns a clinician's spoken thought into CANDIDATE memory items for review. Never writes to the record itself.",
+  model: process.env.EMDR_EXTRACTION_MODEL ?? "claude-opus-4-8",
+  maxTokens: 4000,
+  thinking: true,
+  effort: "medium",
+  maxRetries: 2,
+  phi: "protected-in-hashed-provenance",
+  // REFUSE, not deterministic. There is no deterministic extraction to fall
+  // back to: §8.1's state machine has a state for exactly this
+  // ("review_transcript_only") and §17.4 has the copy for it — "Your transcript
+  // is safe. Steady could not organize it yet." A fallback that invented items
+  // when the model was unreachable would be the one failure this feature must
+  // never have.
+  fallback: "refuse",
+});
+
 export const SESSION_REPHRASE = registerTask({
   id: "session.rephrase",
   version: "1.0.0",

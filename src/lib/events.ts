@@ -134,6 +134,21 @@ export const EVENT_TYPES = {
   "clinician_thought.recorded": 1,
   "clinician_thought.transcribed": 1,
   "clinician_thought.discarded": 1,
+  // Phase 2. Registered now because Phase 2 writes them — the rule above is
+  // that a type appears when something actually emits it.
+  //
+  // The extraction event carries item IDS and never their text, for the reason
+  // stated above: the items are rows a scoped reader can open, and copying a
+  // clinician's private judgement into an append-only ledger would put it
+  // somewhere retention policy can never reach.
+  "clinician_thought.extraction_completed": 1,
+  // Approval carries statementClass. The class IS the claim — an approved
+  // hypothesis and an approved observation are different clinical facts — so a
+  // replay that had to look it up elsewhere would not reproduce the approved
+  // memory state, which is Phase 2's definition of done.
+  "clinical_memory.item_approved": 1,
+  "clinical_memory.item_rejected": 1,
+  "clinical_memory.item_corrected": 1,
 } as const;
 
 export type EventType = keyof typeof EVENT_TYPES;
