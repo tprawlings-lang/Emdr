@@ -44,7 +44,7 @@ reserved ranges reaches a public page.
 | `patient.demo@steady.local` | Alex Rivera | Three weeks into the programme and improving. Consent, processing-session consent, baseline and follow-up measures, check-ins, a safety plan, companion memory. The end-to-end member experience |
 | `patient2.demo@steady.local` | Sam Okafor | Two days in, and PHQ-9 item 9 tripped the urgent queue. **Deliberately has no processing-session consent** — a demo where every gate is pre-satisfied demonstrates nothing about the gates |
 | `clinician.demo@steady.local` | Dr. Maya Chen | Clinician **NE-C1** in NE Care Network A: a panel of 42 — forty of the fabricated profiles plus Alex and Sam — with 84 reviews attributed to this account. Caseload, safety queue, cited summaries, module decisions |
-| `reviewer.demo@steady.local` | Dr. Ellis Nakamura | The review console: fixed safety-scenario replay, **planning signals and their lifecycle**, BLS oversight, the testing console, the audit trail |
+| `reviewer.demo@steady.local` | Dr. Ellis Nakamura | The review console: fixed safety-scenario replay, **planning signals and their lifecycle**, BLS oversight, the testing console, the audit trail, and **the four deciding screens** — access requests, clinical language, release gates, research (see below) |
 | `org.demo@steady.local` | Jordan Idowu | Northside Behavioral Health — 4,820 covered lives across four sites, none of them named. Aggregate only |
 | `network.demo@steady.local` | Dana Okonkwo | NE Care Network A — 42 of the 240 fabricated profiles. The account to use for the **Population** screen; `org.demo` reports on a different population and says so |
 | `payer.demo@steady.local` | Priya Raman | Meridian Health Plan — 12,480 covered lives, one contract, five measures, 1,635 claims. Aggregate only |
@@ -144,6 +144,43 @@ npm run demo -- baseline   # print the dataset fingerprint
 If a member record looks empty, run the reset before concluding anything — the timeline, the
 cited summary and the trajectory are all assembled from the event log, and without the
 genesis backfill they render blank.
+
+---
+
+## Walking the review console
+
+Sign in as the reviewer and open **`/review/release`**. The demo is seeded so that every
+state a reviewer needs to recognise is on screen at once, because most of them cannot be
+produced by clicking through a fresh console.
+
+| Gate | What it demonstrates |
+|---|---|
+| **Demo identity** | **Reopened.** It was signed off, and the evidence under it has since changed — so the approval no longer applies and the screen says which fingerprint it was approved at. This is the behaviour the whole design exists for, and the one thing you cannot create by hand. |
+| Safety regression | Signed off against the evidence currently on the screen. |
+| Accessibility | Approved as an **attestation**, with a pointer to where the evidence lives. The system cannot check a screen-reader path, and the screen does not pretend otherwise. |
+| Clinical language | Not cleared — one surface is still under change request on `/review/clinical`. The gate reads that screen, so the two cannot disagree. |
+| Projection parity | Not run. It rebuilds the ledger, so it is offered on request rather than on page load. |
+| The rest | Untouched, and deliberately distinguishable from every state above. |
+
+Then open **`/review/access`**. Four requests, one in each state — awaiting a decision, an
+active grant, a **grant whose window has closed**, and a denial with its reason. The expired
+one is the one worth pausing on: an approval that has run out is not access, and a demo
+showing only "approved" teaches the opposite.
+
+Two things to try, because both are refused rather than discouraged:
+
+- Approve the pending request while signed in as the account that raised it. You cannot —
+  the request was raised by the admin account, so sign in as `admin.demo@steady.local` to
+  see the refusal, and as the reviewer to decide it.
+- Approve an attested gate on `/review/release` without filling in where the evidence lives.
+
+**`/review/clinical`** shows the six gate-state sentences a member actually reads, pulled
+from the module that ships them rather than transcribed. The safety-stop wording is left
+under change request with the reviewer's reason attached.
+
+**`/review/research`** is cohort-level only. There is no person-level column and no path to
+one. Requesting an export writes a signed row to the disclosure register with its filter
+hash, row count and suppressed-cell count.
 
 ---
 

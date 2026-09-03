@@ -101,7 +101,12 @@ test("no seeded timestamp is in the future", () => {
 
   // Columns that are legitimately in the future: a subscription period has not
   // ended yet, which is what makes it current.
-  const FUTURE_IS_CORRECT = new Set(["current_period_end", "cooldown_until", "retake_allowed_at"]);
+  // An access request's expiry is the same kind of column: a grant that has
+  // not expired yet is what an ACTIVE grant is, and the review screen's whole
+  // point is that approved-and-active and approved-and-expired do not look
+  // alike. Seeding only past expiries would mean the demo could never show the
+  // first of those.
+  const FUTURE_IS_CORRECT = new Set(["current_period_end", "cooldown_until", "retake_allowed_at", "expires_at"]);
 
   const future: string[] = [];
   for (const table of DEMO_DATA_TABLES) {
