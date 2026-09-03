@@ -246,3 +246,46 @@ test("a member with history outside the window is told that, not that they are n
   assert.doesNotMatch(text, /nothing to show yet/,
     "the new-arrival sentence is still being shown to somebody who is not one");
 });
+
+test("a dataset added to the generator later reaches a database that already has history", () => {
+  // THE FAILURE THIS EXISTS FOR, and it happened twice.
+  //
+  // `generatePopulationHistory` short-circuits on "does the first profile have
+  // a check-in". That is right for the six months of history it writes and
+  // wrong for anything ADDED to the generator afterwards: a deployed database
+  // already has check-ins, so the new rows never arrive. Plan versions were
+  // written by the generator, verified locally, deployed — and the chart that
+  // needed them was still empty on the live instance, because the only
+  // database anybody looks at had been seeded before they existed.
+  //
+  // A reset fixes it and is the wrong tool: it deletes, it needs a human, and
+  // it will be needed again for the next dataset. A later dataset gets its own
+  // idempotent step instead.
+  const first = popPersonId(MANIFEST[0]);
+  assert.ok(one("SELECT COUNT(*) AS n FROM checkins WHERE user_id = ?", [first]) > 0,
+    "the fixture is not in the state this guards — the person has no history");
+
+  db.prepare(`DELETE FROM program_plans WHERE user_id IN ${MARKS}`).run(...POP);
+  assert.equal(one(`SELECT COUNT(*) AS n FROM program_plans WHERE user_id IN ${MARKS}`, POP), 0);
+
+  // The whole chain, exactly as a boot runs it. The history step will
+  // short-circuit — that is the condition being reproduced — and the plan step
+  // must not.
+  populationChain(db);
+
+  const plans = one(`SELECT COUNT(*) AS n FROM program_plans WHERE user_id IN ${MARKS}`, POP);
+  assert.ok(plans >= MANIFEST.length,
+    `only ${plans} plan versions for ${MANIFEST.length} people — a dataset added after the ` +
+    "generator's own existence check cannot reach a database that already has history");
+
+  // Append-only, and versioned: some people carry more than one.
+  const revised = one(
+    `SELECT COUNT(*) AS n FROM (SELECT user_id FROM program_plans WHERE user_id IN ${MARKS}
+       GROUP BY user_id HAVING COUNT(*) > 1)`, POP);
+  assert.ok(revised > 0, "nobody's plan was ever revised, so there is nothing to annotate");
+
+  // And running it again writes nothing.
+  populationChain(db);
+  assert.equal(one(`SELECT COUNT(*) AS n FROM program_plans WHERE user_id IN ${MARKS}`, POP), plans,
+    "the plan step is not idempotent");
+});
