@@ -43,10 +43,18 @@ interface FixtureItem {
 
 /** Keyed by a distinctive phrase from each fabricated transcript. Matching on
  *  content rather than on an index means a reordering of the transcript list
- *  cannot silently attach one transcript's items to another. */
+ *  cannot silently attach one transcript's items to another.
+ *
+ *  THE MARKER MUST AVOID THE DELIBERATE MIS-HEARINGS. The transcripts carry
+ *  "semed" and "sleap" precisely so a clinician has something to correct — so
+ *  keying a fixture on a phrase containing one is keying it on the words most
+ *  likely to change. The first version did exactly that, and the effect was a
+ *  demo that dead-ended: fix the typo, press re-organize, and the fixture no
+ *  longer recognised its own transcript, so organizing failed for what looked
+ *  like no reason. Every marker below is a phrase with nothing wrong in it. */
 const FIXTURES: Array<{ marker: string; items: FixtureItem[] }> = [
   {
-    marker: "She semed steadier today",
+    marker: "but she stayed in the room with it",
     items: [
       {
         quote: "she stayed in the room with it, which she has not managed before",

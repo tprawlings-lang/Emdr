@@ -199,20 +199,28 @@ test("the six flag names exist, and outside demo every one defaults off", () => 
   } finally { if (demo) process.env.EMDR_DEMO = demo; }
 });
 
-test("demo enables capture and nothing else", () => {
+/** The phases that actually exist. This list is the test's whole point: it is
+ *  updated when a phase LANDS, so a flag turned on ahead of its
+ *  implementation fails here rather than in front of a reviewer. */
+const BUILT: ThoughtsFlag[] = ["CLINICIAN_THOUGHTS_CAPTURE", "CLINICIAN_THOUGHTS_EXTRACTION"];
+
+test("demo enables exactly the phases that are built", () => {
   // The same reasoning that turned on resourcing BLS in demo: a reviewer who
   // cannot run the workflow cannot give feedback on it, and unusable-by-default
   // is not a safety property when the data is fabricated.
   //
-  // The later phases stay dark because they are NOT BUILT. A flag that opens a
-  // surface with nothing behind it is worse than a closed one — the reviewer
-  // concludes "this is broken" rather than "this is not finished".
+  // The rule is a BICONDITIONAL, and both halves matter. A built phase left
+  // dark is the flagship workstream a clinical reviewer cannot exercise. An
+  // unbuilt phase turned on is a surface with nothing behind it, and the
+  // reviewer concludes "this is broken" rather than "this is not finished".
   process.env.EMDR_DEMO = "1";
   for (const f of THOUGHTS_FLAGS) delete process.env[f];
 
-  assert.equal(thoughtsFlagEnabled("CLINICIAN_THOUGHTS_CAPTURE"), true,
-    "capture is dark in the one environment built for clinical review");
-  for (const f of THOUGHTS_FLAGS.filter((x) => x !== "CLINICIAN_THOUGHTS_CAPTURE")) {
+  for (const f of BUILT) {
+    assert.equal(thoughtsFlagEnabled(f), true,
+      `${f} is dark in the one environment built for clinical review, and the phase behind it exists`);
+  }
+  for (const f of THOUGHTS_FLAGS.filter((x) => !BUILT.includes(x))) {
     assert.equal(thoughtsFlagEnabled(f), false,
       `${f} is on in demo, but the phase behind it is not built`);
   }

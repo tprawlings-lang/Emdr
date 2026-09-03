@@ -184,6 +184,48 @@ hash, row count and suppressed-cell count.
 
 ---
 
+## Walking Clinician Thoughts
+
+Sign in as the clinician, open any member, and go to **Thoughts**. Press Record, speak for a
+few seconds, stop. No microphone content is used — a fabricated transcript is chosen from the
+recording's bytes, and every one of them says so in its own text.
+
+Steady then organizes the transcript into **candidate items**. Nothing is in the record yet.
+
+What to look for on the cards:
+
+- **The kind of claim comes before the sentence.** "You were wondering" and "You observed
+  this" are different rows, and a hypothesis says in words that it will not read as
+  established. This is the whole point of the layer: "I think this may connect to her sister"
+  must not become "her sister is an active theme".
+- **A quoted patient statement is filed as the patient's.** "there is no point" is recorded as
+  her words, not as an assessment of her.
+- **An approximate number says it is approximate.** The transcript says "maybe four hours", so
+  the card says four, approximate.
+- **Nothing is pre-selected.** Save stays disabled until every card is answered.
+
+**At least one candidate on each transcript is wrong, on purpose.** The cancellation transcript
+proposes *"Clinician assesses motivation as low"* — and the line it cites is the clinician
+saying they do **not** want it read that way. The lateness transcript proposes *"Lateness
+reflects avoidance"* against a line that says "not reading that as avoidance yet". Neither can
+be caught by a schema: the type and class are coherent, and only a reader who knows the
+transcript can see the problem. That is what the review screen is for, and a fixture that was
+always right would quietly demonstrate that the clinician's judgement is a formality.
+
+Two more things worth trying:
+
+- **Correct the transcript** (fix "semed" or "sleap") and press *Save correction and
+  re-organize*. The items are redrawn against the corrected text. Editing without re-organizing
+  is refused, because the cards quote offsets into the text you just changed.
+- **Set `CLINICIAN_THOUGHTS_EXTRACTION=0`** and record again. The transcript still arrives and
+  is still saveable; the screen says Steady could not organize it. That is a real state
+  (`review_transcript_only`), not an error page.
+
+Kept items land in clinical memory. They are not a formal note, and nothing is shared with the
+patient.
+
+---
+
 ## Session behaviour
 
 - Sessions are cookie-based, `httpOnly`, signed with `EMDR_SESSION_SECRET`.

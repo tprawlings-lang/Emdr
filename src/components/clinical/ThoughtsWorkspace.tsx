@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { ThoughtRecorder } from "./ThoughtRecorder";
 import { ThoughtReview, type ReviewTranscript } from "./ThoughtReview";
+import type { CandidateCard } from "./ThoughtItemCards";
 
 // Sequences record → review (§3's six interaction states), and nothing else.
 //
@@ -21,7 +22,7 @@ import { ThoughtReview, type ReviewTranscript } from "./ThoughtReview";
 type Stage =
   | { kind: "recording" }
   | { kind: "processing" }
-  | { kind: "review"; thoughtId: string; transcript: ReviewTranscript; transcriptOnly: boolean }
+  | { kind: "review"; thoughtId: string; transcript: ReviewTranscript; transcriptOnly: boolean; candidates: CandidateCard[] }
   | { kind: "failed"; message: string; retryable: boolean };
 
 export function ThoughtsWorkspace({
@@ -35,7 +36,7 @@ export function ThoughtsWorkspace({
   personId: string;
   personName: string;
   loadTranscript: (thoughtId: string) => Promise<
-    { transcript: ReviewTranscript; transcriptOnly: boolean } | null
+    { transcript: ReviewTranscript; transcriptOnly: boolean; candidates: CandidateCard[] } | null
   >;
 }) {
   const [stage, setStage] = useState<Stage>({ kind: "recording" });
@@ -73,7 +74,7 @@ export function ThoughtsWorkspace({
 
       {stage.kind === "processing" && (
         <div className="rounded-2xl border border-ground/10 bg-app-surface px-5 py-5" aria-live="polite">
-          <p className="text-sm font-medium text-app-ink">Creating a transcript…</p>
+          <p className="text-sm font-medium text-app-ink">Creating a transcript and organizing it…</p>
           <p className="measure mt-2 text-sm text-olive">
             Your recording is saved. This takes a few seconds.
           </p>
@@ -85,6 +86,7 @@ export function ThoughtsWorkspace({
           thoughtId={stage.thoughtId}
           transcript={stage.transcript}
           transcriptOnly={stage.transcriptOnly}
+          candidates={stage.candidates}
           onDone={() => {
             setStage({ kind: "recording" });
             router.refresh();
