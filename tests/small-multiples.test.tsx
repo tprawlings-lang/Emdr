@@ -252,3 +252,49 @@ test("nothing shades, splits or compares the periods either side of a mark", () 
   assert.equal(marks(html).length, TWO[0].points.length + TWO[1].points.length,
     "there are more marks than the person has readings");
 });
+
+// ---------------------------------------------------------------------------
+// A measure this project wrote itself, drawn beside ones it did not
+// ---------------------------------------------------------------------------
+
+test("a house measure carries its disclosure on its own panel", () => {
+  // THE HARM THIS PREVENTS. A panel drawn beside PHQ-9 and PCL-5 borrows their
+  // authority: same frame, same marks, same axis, same page. For a validated
+  // instrument that is fine. For a measure with no research behind it the
+  // borrowed authority IS the harm — so the disclosure is a property of the
+  // series rather than a note the page might remember, and it renders on the
+  // panel, not in a footnote a reader scanning one series never reaches.
+  const house = {
+    label: "Everyday function (Steady house measure)",
+    unit: "total, 0–16", max: 16, lowerIsBetter: false,
+    disclosure: "Written by Steady, not a validated instrument.",
+    points: [{ date: "2026-01-01", value: 6 }, { date: "2026-07-01", value: 11 }],
+  };
+  const html = renderToStaticMarkup(
+    <SmallMultiples series={[TWO[0], house]} from={FROM} to={TO} />);
+
+  assert.ok(html.includes(house.disclosure), "the house measure is drawn with nothing said");
+  // Beside the panel it belongs to, before the axis labels at the bottom.
+  assert.ok(html.indexOf(house.label) < html.indexOf(house.disclosure),
+    "the disclosure is not attached to the measure it is about");
+
+  // And a validated instrument does not acquire one.
+  assert.equal(
+    (html.match(/not a validated instrument/g) ?? []).length, 1,
+    "the disclosure is repeated onto panels it is not about");
+});
+
+test("higher-is-better is stated, because this one runs the other way", () => {
+  // Every validated instrument on this screen falls as things improve. The
+  // house measure rises. A reader who assumes the house direction reads
+  // improvement as decline, so the direction is words on every panel.
+  const html = renderToStaticMarkup(
+    <SmallMultiples
+      series={[TWO[0], {
+        label: "Everyday function", unit: "total, 0–16", max: 16, lowerIsBetter: false,
+        points: [{ date: "2026-01-01", value: 6 }],
+      }]}
+      from={FROM} to={TO} />);
+  assert.match(html, /lower is better/);
+  assert.match(html, /higher is better/);
+});

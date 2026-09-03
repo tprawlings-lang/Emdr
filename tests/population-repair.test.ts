@@ -76,11 +76,17 @@ test("the intake battery is complete, and dated at enrolment rather than today",
   }
   // An intake taken "today" for somebody who enrolled five months ago is a
   // person who signed up this morning with five months of history behind them.
+  //
+  // NAMED, not inferred. This asked about every instrument that was not the
+  // outcome one, which was the same set right up until a measure arrived that
+  // is neither: the house function check is taken on the outcome series' own
+  // dates, throughout, and correctly failed a rule about intake.
+  const marks = INTAKE_INSTRUMENTS.map(() => "?").join(",");
   const afterFirstCheckin = one(
     `SELECT COUNT(*) AS n FROM screenings s
-      WHERE s.user_id IN ${MARKS} AND s.instrument <> ?
+      WHERE s.user_id IN ${MARKS} AND s.instrument IN (${marks})
         AND s.created_at > (SELECT MIN(k.created_at) FROM checkins k WHERE k.user_id = s.user_id)`,
-    [...POP, OUTCOME_INSTRUMENT]);
+    [...POP, ...INTAKE_INSTRUMENTS]);
   assert.equal(afterFirstCheckin, 0, "an intake instrument is dated after the person's first check-in");
 });
 

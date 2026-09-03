@@ -9,6 +9,7 @@ import { decryptField } from "@/lib/crypto";
 import { getProgramPlan } from "@/lib/program-plan";
 import { clinicianCloseModule, clinicianOpenModule } from "@/lib/actions";
 import { ClinicalFigure, SmallMultiples } from "@/components/charts/clinical";
+import { EVERYDAY_FUNCTION } from "@/lib/measures/house";
 import { loadPersonHeader } from "@/lib/clinical/person-header";
 import { PersonShell } from "@/components/clinical/PersonShell";
 
@@ -64,16 +65,33 @@ export default async function MemberDetailPage({
   // was reaching the screen only as a row in the table below — so a person
   // whose whole outcome series is PHQ-9 had an "Outcome trends" section that
   // drew nothing, or drew a single intake dot from an instrument taken once.
-  const INSTRUMENTS: { id: string; label: string; unit: string; max: number; lowerIsBetter: boolean }[] = [
+  const INSTRUMENTS: {
+    id: string; label: string; unit: string; max: number; lowerIsBetter: boolean;
+    disclosure?: string;
+  }[] = [
     { id: "phq-9", label: "PHQ-9", unit: "total, 0–27", max: 27, lowerIsBetter: true },
     { id: "gad-7", label: "GAD-7", unit: "total, 0–21", max: 21, lowerIsBetter: true },
     { id: "pcl-5", label: "PCL-5", unit: "total, 0–80", max: 80, lowerIsBetter: true },
+    // THE HOUSE MEASURE, last and labelled. It is drawn in the same frame as
+    // the three above, which is exactly why it carries its disclosure: a panel
+    // beside PHQ-9 borrows PHQ-9's authority, and this one has none to borrow.
+    // It also runs the other way — higher is better — so an unlabelled reader
+    // would take its rise for a decline.
+    {
+      id: EVERYDAY_FUNCTION.id,
+      label: EVERYDAY_FUNCTION.title,
+      unit: `total, 0–${EVERYDAY_FUNCTION.max}`,
+      max: EVERYDAY_FUNCTION.max,
+      lowerIsBetter: false,
+      disclosure: EVERYDAY_FUNCTION.disclosure,
+    },
   ];
   const measureSeries = INSTRUMENTS.map((i) => ({
     label: i.label,
     unit: i.unit,
     max: i.max,
     lowerIsBetter: i.lowerIsBetter,
+    disclosure: i.disclosure,
     points: screenings
       .filter((s) => s.instrument === i.id)
       .map((s) => ({ date: s.created_at.slice(0, 10), value: s.total_score }))

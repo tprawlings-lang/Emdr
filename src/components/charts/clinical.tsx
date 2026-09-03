@@ -40,6 +40,16 @@ export interface MeasureSeries {
    *  improvement, and a reader scanning shapes would otherwise guess. */
   lowerIsBetter: boolean;
   points: MeasurePoint[];
+  /**
+   * Required for anything this project wrote itself.
+   *
+   * A panel drawn beside PHQ-9 and PCL-5 borrows their authority: same frame,
+   * same marks, same axis. For a validated instrument that is fine. For a
+   * measure with no research behind it, the borrowed authority IS the harm —
+   * so the disclosure is part of the series rather than a note the page might
+   * remember to add, and it renders on the panel itself.
+   */
+  disclosure?: string;
 }
 
 /**
@@ -134,6 +144,11 @@ export function SmallMultiples({
                 {s.unit} · {s.lowerIsBetter ? "lower is better" : "higher is better"}
               </span>
             </div>
+            {/* On the panel, not in a footnote. A reader who looks at one
+                series and not the rest still sees what this one is. */}
+            {s.disclosure && (
+              <p className="measure mt-0.5 text-xs text-state-info">{s.disclosure}</p>
+            )}
 
             {pts.length === 0 ? (
               // A panel with no readings keeps its place rather than being
