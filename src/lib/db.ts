@@ -1422,6 +1422,130 @@ export const SCHEMA_SQL = `
   CREATE INDEX IF NOT EXISTS idx_rtl_obs_goal_time
     ON return_to_life_observations(tenant_id, goal_id, occurred_at DESC);
 
+  -- Treatment Response Fingerprint (expansion handoff 02 §4).
+  --
+  -- What has tended to help this person, under what circumstances, and what
+  -- happens afterwards. Note every word of that: TENDED, and AFTERWARDS. §6
+  -- forbids "works", "effective treatment", "caused improvement" and
+  -- "contraindicated" outright, because a table that records what followed an
+  -- intervention is not a table that records what the intervention did.
+  --
+  -- THE CANONICAL REGISTRY IS PER TENANT. A clinician typing "cold water" and
+  -- another typing "ice dive" mean the same thing inside one organization and
+  -- may not across two, so the key is unique per tenant rather than globally —
+  -- and §8 keeps the model out of creating one: it may map wording to a
+  -- CANDIDATE key, never mint a clinical identity when the wording is
+  -- ambiguous.
+  CREATE TABLE IF NOT EXISTS intervention_definitions (
+    id TEXT PRIMARY KEY,
+    tenant_id TEXT NOT NULL REFERENCES tenants(id),
+    canonical_key TEXT NOT NULL,
+    display_name TEXT NOT NULL,
+    intervention_class TEXT NOT NULL,
+    source_scope TEXT NOT NULL,
+    active INTEGER NOT NULL DEFAULT 1,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    UNIQUE(tenant_id, canonical_key)
+  );
+
+  -- One exposure. §3: what, when, source, context.
+  --
+  -- clinician_confirmed is separate from the row existing, because §10 lets
+  -- adapters create instances from session and practice events automatically
+  -- while §8 requires review before a MODEL-derived identity is trusted. An
+  -- instance nobody confirmed is still a real event that happened; it is the
+  -- normalization that is provisional.
+  CREATE TABLE IF NOT EXISTS intervention_instances (
+    id TEXT PRIMARY KEY,
+    tenant_id TEXT NOT NULL REFERENCES tenants(id),
+    person_id TEXT NOT NULL REFERENCES persons(id),
+    intervention_definition_id TEXT NOT NULL REFERENCES intervention_definitions(id),
+    source_type TEXT NOT NULL,
+    source_id TEXT NOT NULL,
+    occurred_at TEXT NOT NULL,
+    ended_at TEXT,
+    dose_json TEXT NOT NULL DEFAULT '{}',
+    context_json TEXT NOT NULL DEFAULT '{}',
+    clinician_confirmed INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+  CREATE INDEX IF NOT EXISTS idx_intervention_instances_person
+    ON intervention_instances(tenant_id, person_id, occurred_at DESC);
+
+  -- What was observed afterwards, in a NAMED WINDOW.
+  --
+  -- window_type is the column that keeps §6's hardest rule honest: "an
+  -- immediate distress decrease plus next-day worsening is displayed as mixed
+  -- response, not netted into one number." Netting requires the two to be
+  -- commensurable, and separate windows are what stop them being treated that
+  -- way. A schema with one "outcome" column would make the averaging both
+  -- possible and tempting.
+  --
+  -- evidence_class travels for the same reason it does on goals and memory
+  -- items: a patient saying it helped, a clinician observing it, and a measured
+  -- SUDS drop are three different facts (§13: "patient report, clinician
+  -- observation, and measured values retain provenance").
+  CREATE TABLE IF NOT EXISTS intervention_response_observations (
+    id TEXT PRIMARY KEY,
+    tenant_id TEXT NOT NULL REFERENCES tenants(id),
+    person_id TEXT NOT NULL REFERENCES persons(id),
+    intervention_instance_id TEXT NOT NULL REFERENCES intervention_instances(id),
+    outcome_type TEXT NOT NULL,
+    window_type TEXT NOT NULL CHECK (window_type IN (
+      'immediate','post_session','same_day','next_day','multi_day','functional'
+    )),
+    value_num REAL,
+    value_text TEXT,
+    unit TEXT,
+    direction TEXT,
+    evidence_class TEXT NOT NULL,
+    source_type TEXT NOT NULL,
+    source_id TEXT NOT NULL,
+    occurred_at TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+  CREATE INDEX IF NOT EXISTS idx_response_obs_instance
+    ON intervention_response_observations(tenant_id, intervention_instance_id, window_type);
+
+  -- A computed pattern, pinned to the policy and the evidence it was computed
+  -- from.
+  --
+  -- §13: "all pattern summaries are reproducible from evidence + policy
+  -- version." The UNIQUE key carries both, so recomputing under the same policy
+  -- over the same cutoff returns the same row rather than a second opinion —
+  -- and a threshold change produces a NEW snapshot beside the old one instead
+  -- of silently restating it.
+  --
+  -- missing_followup_count is its own column and not a derived number, because
+  -- §6 says missing delayed follow-up is REPORTED and never classified as
+  -- recovered. A count that had to be recomputed at read time is a count
+  -- somebody eventually computes as zero.
+  CREATE TABLE IF NOT EXISTS response_fingerprint_snapshots (
+    id TEXT PRIMARY KEY,
+    tenant_id TEXT NOT NULL REFERENCES tenants(id),
+    person_id TEXT NOT NULL REFERENCES persons(id),
+    intervention_definition_id TEXT NOT NULL REFERENCES intervention_definitions(id),
+    policy_version TEXT NOT NULL,
+    evidence_cutoff TEXT NOT NULL,
+    support_count INTEGER NOT NULL,
+    missing_followup_count INTEGER NOT NULL,
+    summary_json TEXT NOT NULL,
+    limitations_json TEXT NOT NULL DEFAULT '[]',
+    computed_at TEXT NOT NULL DEFAULT (datetime('now')),
+    UNIQUE(tenant_id, person_id, intervention_definition_id, policy_version, evidence_cutoff)
+  );
+
+  -- Which records a snapshot was computed from. §13: "every pattern opens
+  -- evidence" — so the link is a row rather than a re-derivation, and a pattern
+  -- whose evidence has been corrected can be told apart from one recomputed
+  -- over different data.
+  CREATE TABLE IF NOT EXISTS response_fingerprint_evidence (
+    snapshot_id TEXT NOT NULL REFERENCES response_fingerprint_snapshots(id),
+    evidence_type TEXT NOT NULL,
+    evidence_id TEXT NOT NULL,
+    PRIMARY KEY(snapshot_id, evidence_type, evidence_id)
+  );
+
   -- Longitudinal threads.
   CREATE TABLE IF NOT EXISTS clinical_threads (
     id TEXT PRIMARY KEY,
@@ -1780,6 +1904,10 @@ export const TENANT_SCOPED_TABLES = [
   "clinician_thought_transcripts",
   // A person's functional goals, their ladder and the evidence behind them.
   // As person-scoped as anything in the product.
+  "intervention_definitions",
+  "intervention_instances",
+  "intervention_response_observations",
+  "response_fingerprint_snapshots",
   "return_to_life_goals",
   "return_to_life_goal_levels",
   "return_to_life_observations",

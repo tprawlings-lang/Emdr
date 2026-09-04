@@ -93,6 +93,13 @@ export const DEMO_DATA_TABLES = [
   // orphans — and listed at all because a reset that left a clinician's
   // recorded thoughts about fabricated patients behind would leave the
   // environment holding clinical text about people who no longer exist.
+  // Fingerprint evidence points at snapshots; observations point at instances;
+  // instances point at definitions. Cleared innermost-first.
+  "response_fingerprint_evidence",
+  "response_fingerprint_snapshots",
+  "intervention_response_observations",
+  "intervention_instances",
+  "intervention_definitions",
   // Observations point at goals, and levels point at goals, so both clear first.
   "return_to_life_observations",
   "return_to_life_goal_levels",

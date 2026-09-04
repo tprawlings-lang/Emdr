@@ -43,6 +43,11 @@ const SCREENS: Array<{ slug: string; label: string; layer: RailSlug }> = [
   // are not the same progress.
   { slug: "/goals", label: "Life goals", layer: "progress" },
   { slug: "/sessions", label: "Sessions", layer: "progress" },
+  // The intervention record (expansion handoff 02 §9). Under progress rather
+  // than evidence because the question it answers — "what has this person
+  // actually been exposed to" — is read alongside the measures and the goals,
+  // not consulted like a document.
+  { slug: "/responses", label: "Responses", layer: "progress" },
   { slug: "/safety", label: "Safety", layer: "actions" },
   // §17.1: "Place Record Thoughts in the existing action rail/header region so
   // it is available without scrolling into the formal record." Recording a

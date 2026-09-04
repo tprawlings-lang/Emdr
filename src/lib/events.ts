@@ -173,6 +173,30 @@ export const EVENT_TYPES = {
   "return_goal.revised": 1,
   "return_goal.completed": 1,
   "return_goal.archived": 1,
+
+  // Treatment Response Fingerprint (expansion handoff 02 §7).
+  //
+  // The pair that carries the whole feature's honesty is
+  // `instance_recorded` / `response_observed`. They are two types and not one
+  // because an exposure and what followed it are two facts — §6: "an immediate
+  // distress decrease plus next-day worsening is displayed as mixed response,
+  // not netted into one number", and a single event carrying both would have
+  // had to net them to have one shape.
+  //
+  // `snapshot_computed` carries the policy version in its provenance rather
+  // than only in the payload, so a replay can tell WHICH thresholds produced a
+  // pattern the clinician saw. §13: "all pattern summaries are reproducible
+  // from evidence + policy version." A threshold change makes a new snapshot
+  // beside the old one; it never restates it.
+  //
+  // No benefit or efficacy word appears in any of these payloads, by
+  // construction: the states they can carry are §6's five, and "works",
+  // "effective", "caused" and "contraindicated" are not among them.
+  "intervention.instance_recorded": 1,
+  "intervention.response_observed": 1,
+  "response_fingerprint.snapshot_computed": 1,
+  "response_fingerprint.pattern_reviewed": 1,
+  "response_fingerprint.pattern_corrected": 1,
 } as const;
 
 export type EventType = keyof typeof EVENT_TYPES;
