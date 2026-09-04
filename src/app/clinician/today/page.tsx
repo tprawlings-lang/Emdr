@@ -84,6 +84,8 @@ export default async function CommandCenterPage({
   });
 
   const commandCenter = commandCenterSurfaceAvailable("CLINICAL_COMMAND_CENTER");
+  // Phase 3's drawer, behind its own flag and everything it rests on.
+  const drawer = commandCenterSurfaceAvailable("CLINICAL_COMMAND_CENTER_DRAWER");
 
   return (
     <ClinicianPage
@@ -95,7 +97,7 @@ export default async function CommandCenterPage({
         <EnvelopeView envelope={envelope} title={commandCenter ? "Command Center" : "Work queue"}>
           {(queue) =>
             commandCenter
-              ? <CommandCenterView queue={queue} filter={filter} />
+              ? <CommandCenterView queue={queue} filter={filter} drawer={drawer} />
               : <MachineGroupView queue={queue} />
           }
         </EnvelopeView>
@@ -114,10 +116,11 @@ export default async function CommandCenterPage({
 // ---------------------------------------------------------------------------
 
 function CommandCenterView({
-  queue, filter,
+  queue, filter, drawer,
 }: {
   queue: WorkQueue;
   filter: UiGroup | "stable" | null;
+  drawer: boolean;
 }) {
   // Recently-resolved has no bucket. §2: it "belongs in Recent Activity and
   // patient history, not as a permanent front-page section."
@@ -146,7 +149,7 @@ function CommandCenterView({
                 </h2>
                 <ul className="mt-3 overflow-hidden rounded-3xl border border-ground/10 bg-linen">
                   {visible.map((i) => (
-                    <WorkQueueRow key={i.id} item={i} now={queue.computedAt} />
+                    <WorkQueueRow key={i.id} item={i} now={queue.computedAt} drawer={drawer} />
                   ))}
                 </ul>
                 {hidden > 0 && (

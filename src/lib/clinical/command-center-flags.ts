@@ -49,6 +49,10 @@ export const ALL_COMMAND_CENTER_FLAGS = Object.keys(COMMAND_CENTER_FLAGS) as Com
 const DEMO_ENABLED = new Set<CommandCenterFlag>([
   "CLINICAL_ATTENTION_SIGNALS",
   "CLINICAL_COMMAND_CENTER",
+  // Joined when Phase 3 landed, on the same terms: the drawer now has a
+  // command-context service behind it and six sections that either show
+  // something or say why they cannot.
+  "CLINICAL_COMMAND_CENTER_DRAWER",
 ]);
 
 /**
