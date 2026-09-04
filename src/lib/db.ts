@@ -1638,6 +1638,15 @@ export const SCHEMA_SQL = `
   -- And §13: "do not mark time billable from Steady alone." There is no
   -- billable column here, deliberately; a column would eventually be read as
   -- an assertion.
+  --
+  -- CORRECTIONS APPEND (§13: "clinician can correct or annotate recorded care
+  -- time"; cross-feature invariant: "corrected derived state supersedes prior
+  -- state without erasing history"). A correction is a NEW ROW carrying
+  -- supersedes_id, and the superseded row stays exactly as it was. An UPDATE in
+  -- place would make the ledger a record of what somebody currently believes
+  -- rather than of what they recorded and when — and a care-time ledger that
+  -- can be silently rewritten is one no staffing or reimbursement conversation
+  -- should ever be built on.
   CREATE TABLE IF NOT EXISTS between_visit_care_actions (
     id TEXT PRIMARY KEY,
     tenant_id TEXT NOT NULL REFERENCES tenants(id),
@@ -1651,7 +1660,29 @@ export const SCHEMA_SQL = `
     duration_seconds INTEGER,
     outcome_state TEXT,
     source_surface TEXT NOT NULL,
+    supersedes_id TEXT REFERENCES between_visit_care_actions(id),
+    correction_reason TEXT,
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+
+  -- Per-tenant feature switches (expansion handoff 03, Appendix B: "flags
+  -- should be tenant-aware when current configuration permits").
+  --
+  -- AN OVERRIDE, NOT A SOURCE OF TRUTH. The environment variable is still the
+  -- deployment-wide answer; a row here says one organization has decided
+  -- differently. Absence means "no opinion", which is why the enabled column
+  -- is NOT NULL and the ROW is the opinion — a nullable boolean would give
+  -- three states where two are meant.
+  CREATE TABLE IF NOT EXISTS tenant_feature_flags (
+    tenant_id TEXT NOT NULL REFERENCES tenants(id),
+    flag TEXT NOT NULL,
+    enabled INTEGER NOT NULL,
+    -- Who decided and why, because a flag that changed a clinician's screen
+    -- with nobody's name on it is a change nobody can ask about.
+    set_by TEXT,
+    reason TEXT,
+    updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+    PRIMARY KEY (tenant_id, flag)
   );
   CREATE INDEX IF NOT EXISTS idx_care_actions_person
     ON between_visit_care_actions(tenant_id, person_id, completed_at);
@@ -1790,6 +1821,25 @@ function migrate(db: Database.Database) {
   widenRoleCheck(db);
   widenThoughtStatusCheck(db);
   addFingerprintEvidenceTenant(db);
+
+  // The care-time correction columns (expansion handoff 03 §13, Phase 6). The
+  // table shipped in Phase 1 without them, and CREATE TABLE IF NOT EXISTS
+  // cannot add a column to a table that already exists — so a database created
+  // by that commit gets them here.
+  //
+  // Both nullable, which is the correction flow's own semantics: an entry with
+  // no supersedes_id is an original, and every row already in the table is one.
+  ensureColumn(db, "between_visit_care_actions", "supersedes_id", "TEXT");
+  ensureColumn(db, "between_visit_care_actions", "correction_reason", "TEXT");
+  // The index lives HERE rather than in SCHEMA_SQL, and that is the bug this
+  // ordering fixes: SCHEMA_SQL runs first, so an index over supersedes_id in it
+  // fails on any database created before the column existed — "no such column",
+  // thrown during boot, on every page. A column added by migration needs its
+  // index added after the migration, not beside the table.
+  db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_care_actions_supersedes
+      ON between_visit_care_actions(tenant_id, supersedes_id);
+  `);
 
   // ── Tenancy backfill (ADR 0011 steps 1–2) ────────────────────────────────
   // Every durable record carries a tenant, not just the ones where it seems
@@ -2025,6 +2075,7 @@ export const TENANT_SCOPED_TABLES = [
   "clinical_attention_signals",
   "clinical_attention_signal_evidence",
   "between_visit_care_actions",
+  "tenant_feature_flags",
   "return_to_life_goals",
   "return_to_life_goal_levels",
   "return_to_life_observations",

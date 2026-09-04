@@ -101,3 +101,119 @@ export function commandCenterSurfaceAvailable(flag: CommandCenterFlag): boolean 
 export function commandCenterFlagRequires(flag: CommandCenterFlag): CommandCenterFlag | null {
   return REQUIRES[flag] ?? null;
 }
+
+// ---------------------------------------------------------------------------
+// Tenant-aware flags (Appendix B; Phase 6)
+// ---------------------------------------------------------------------------
+//
+// Appendix B: "flags should be tenant-aware when current configuration
+// permits", and the sentence after it is the constraint: "turning off
+// presentation does not delete signal, action, or evidence history."
+//
+// SO A TENANT ROW IS AN OVERRIDE, NEVER A SOURCE OF TRUTH. The environment
+// variable stays the deployment-wide answer; a row says one organization
+// decided differently about their own environment. Absence means "no opinion",
+// which is why the row itself is the opinion rather than a nullable column —
+// three states where two are meant is how a flag ends up meaning something
+// different in each place it is read.
+//
+// AND THE DEPENDENCY CHAIN STILL APPLIES. A tenant that switched the drawer on
+// while the substrate is off still gets a closed drawer, because a screen with
+// nothing behind it reads as broken rather than as not-finished. The override
+// changes one flag's answer, not the rule that a phase rests on the one before.
+
+import { data } from "../data";
+
+export interface TenantFlagOverride {
+  flag: CommandCenterFlag;
+  enabled: boolean;
+  setBy: string | null;
+  reason: string | null;
+  updatedAt: string;
+}
+
+/** Every override this tenant has set. Read once per surface rather than per
+ *  flag: six round trips to answer one page's questions is six chances for the
+ *  answers to disagree with each other mid-render. */
+export async function tenantFlagOverrides(
+  tenantId: string
+): Promise<Map<CommandCenterFlag, TenantFlagOverride>> {
+  const c = await data();
+  const rows = (await c.all(
+    `SELECT flag, enabled, set_by, reason, updated_at
+       FROM tenant_feature_flags WHERE tenant_id = ?`,
+    [tenantId]
+  )) as Array<{
+    flag: string; enabled: number; set_by: string | null;
+    reason: string | null; updated_at: string;
+  }>;
+  const out = new Map<CommandCenterFlag, TenantFlagOverride>();
+  for (const r of rows) {
+    // A flag nobody defines any more is ignored rather than crashing a page.
+    // Removing a feature should not brick the tenant that had switched it on.
+    if (!ALL_COMMAND_CENTER_FLAGS.includes(r.flag as CommandCenterFlag)) continue;
+    out.set(r.flag as CommandCenterFlag, {
+      flag: r.flag as CommandCenterFlag,
+      enabled: r.enabled === 1,
+      setBy: r.set_by,
+      reason: r.reason,
+      updatedAt: r.updated_at,
+    });
+  }
+  return out;
+}
+
+/** One flag's answer for one tenant: the override if there is one, otherwise
+ *  the environment's. */
+export function flagEnabledWith(
+  flag: CommandCenterFlag,
+  overrides: Map<CommandCenterFlag, TenantFlagOverride>
+): boolean {
+  const override = overrides.get(flag);
+  return override ? override.enabled : commandCenterFlagEnabled(flag);
+}
+
+/** Whether a surface may render for one tenant: its own answer AND everything
+ *  it rests on, each resolved the same way. */
+export function surfaceAvailableWith(
+  flag: CommandCenterFlag,
+  overrides: Map<CommandCenterFlag, TenantFlagOverride>
+): boolean {
+  let current: CommandCenterFlag | undefined = flag;
+  while (current) {
+    if (!flagEnabledWith(current, overrides)) return false;
+    current = REQUIRES[current];
+  }
+  return true;
+}
+
+/** Set or clear one tenant's opinion about one flag.
+ *
+ *  `enabled: null` REMOVES the row, which is not the same as setting it false:
+ *  false means "this organization decided against it" and absent means "they
+ *  have no opinion and follow the deployment". A surface that reported those
+ *  identically would make an org's deliberate decision indistinguishable from
+ *  never having been asked. */
+export async function setTenantFlag(args: {
+  tenantId: string;
+  flag: CommandCenterFlag;
+  enabled: boolean | null;
+  setBy: string;
+  reason?: string | null;
+}): Promise<void> {
+  const c = await data();
+  if (args.enabled === null) {
+    await c.run("DELETE FROM tenant_feature_flags WHERE tenant_id = ? AND flag = ?", [
+      args.tenantId, args.flag,
+    ]);
+    return;
+  }
+  await c.run(
+    `INSERT INTO tenant_feature_flags (tenant_id, flag, enabled, set_by, reason, updated_at)
+     VALUES (?, ?, ?, ?, ?, datetime('now'))
+     ON CONFLICT(tenant_id, flag) DO UPDATE SET
+       enabled = excluded.enabled, set_by = excluded.set_by,
+       reason = excluded.reason, updated_at = excluded.updated_at`,
+    [args.tenantId, args.flag, args.enabled ? 1 : 0, args.setBy, args.reason ?? null]
+  );
+}

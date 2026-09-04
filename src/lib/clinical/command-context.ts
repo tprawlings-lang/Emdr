@@ -42,7 +42,7 @@ import crypto from "node:crypto";
 import type { TenantContext } from "../repository";
 import { CLINICAL_POLICY_VERSION } from "../clinical-policy";
 import {
-  getSignal, evidenceForSignal, careActionsForPerson, listSignalsForPerson,
+  getSignal, evidenceForSignal, currentCareActions, listSignalsForPerson,
   type AttentionSignal, type SignalEvidence, type CareActionRecord,
 } from "./attention-signals";
 import { listGoals, ladderFor, observationsFor, foldLevel, LEVEL_LABEL } from "./return-to-life";
@@ -403,10 +403,19 @@ async function followUpsFor(
   };
 }
 
+/**
+ * What has been done (§13's action ledger).
+ *
+ * THE CURRENT VIEW, not the whole ledger. A correction appends, so the raw
+ * table holds both the original entry and the one that replaced it — and a
+ * drawer that listed both would show a clinician their own mistake beside its
+ * fix on every open. The superseded rows are still there for anyone auditing;
+ * this is what the record now reads.
+ */
 async function actionHistoryFor(
   ctx: TenantContext, personId: string
 ): Promise<Section<{ actions: CareActionRecord[] }>> {
-  const actions = await careActionsForPerson(ctx, personId, 10);
+  const actions = await currentCareActions(ctx, personId, 10);
   if (actions.length === 0) {
     return missing("none_recorded", "Nothing has been recorded against this person from the Command Center yet.");
   }

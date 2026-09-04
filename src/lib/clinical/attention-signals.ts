@@ -54,12 +54,12 @@ export {
 } from "./attention-vocabulary";
 export type {
   AttentionBand, SignalState, DismissReason, CareAction,
-  AttentionSignal, SignalEvidence, AttentionSignalCandidate,
+  AttentionSignal, SignalEvidence, AttentionSignalCandidate, CareActionRecord,
 } from "./attention-vocabulary";
 
 import {
   ATTENTION_BANDS, OPEN_STATES, SIGNAL_STATES, CARE_ACTIONS, AttentionSignalError,
-  toSignal, nowStamp, type SignalRow,
+  toSignal, nowStamp, type SignalRow, type CareActionRecord,
   type AttentionBand, type SignalState, type DismissReason, type CareAction,
   type AttentionSignal, type SignalEvidence, type AttentionSignalCandidate,
 } from "./attention-vocabulary";
@@ -555,33 +555,26 @@ export async function recordCareAction(
   return id;
 }
 
-export interface CareActionRecord {
-  id: string;
-  personId: string;
-  clinicianPersonId: string;
-  signalId: string | null;
-  action: CareAction;
-  note: string | null;
-  startedAt: string | null;
-  completedAt: string;
-  durationSeconds: number | null;
-  outcomeState: string | null;
-  sourceSurface: string;
-}
-
 export async function careActionsForPerson(
   ctx: TenantContext, personId: string, limit = 25
 ): Promise<CareActionRecord[]> {
-  const rows = await repo(ctx).findMany<{
-    id: string; person_id: string; clinician_person_id: string; signal_id: string | null;
-    action_type: string; note: string | null; started_at: string | null;
-    completed_at: string; duration_seconds: number | null; outcome_state: string | null;
-    source_surface: string;
-  }>(
+  const rows = await repo(ctx).findMany<CareRow>(
     "between_visit_care_actions", "person_id = ?", [personId],
     { orderBy: "completed_at DESC, id DESC", limit }
   );
-  return rows.map((r) => ({
+  return rows.map(toCareAction);
+}
+
+interface CareRow {
+  id: string; person_id: string; clinician_person_id: string; signal_id: string | null;
+  action_type: string; note: string | null; started_at: string | null;
+  completed_at: string; duration_seconds: number | null; outcome_state: string | null;
+  source_surface: string; supersedes_id: string | null; correction_reason: string | null;
+  created_at: string;
+}
+
+function toCareAction(r: CareRow): CareActionRecord {
+  return {
     id: r.id,
     personId: r.person_id,
     clinicianPersonId: r.clinician_person_id,
@@ -593,5 +586,124 @@ export async function careActionsForPerson(
     durationSeconds: r.duration_seconds,
     outcomeState: r.outcome_state,
     sourceSurface: r.source_surface,
-  }));
+    supersedesId: r.supersedes_id,
+    correctionReason: r.correction_reason,
+    createdAt: r.created_at,
+  };
+}
+
+/**
+ * Correct a recorded care action (§13: "clinician can correct or annotate
+ * recorded care time").
+ *
+ * A CORRECTION IS A NEW ROW. The cross-feature invariant is that "corrected
+ * derived state supersedes prior state without erasing history", and a
+ * care-time ledger is exactly where that matters: an UPDATE in place would make
+ * this a record of what somebody currently believes rather than of what they
+ * recorded and when. A ledger that can be silently rewritten is one no staffing
+ * or reimbursement conversation should be built on — which is also why §13 says
+ * not to mark anything billable from Steady alone.
+ *
+ * THE REASON IS REQUIRED. An unexplained rewrite is the thing the append is
+ * protecting against, one level down: a superseded row with no explanation
+ * tells a later reader that something changed and nothing about why.
+ *
+ * A CORRECTION CANNOT BE CORRECTED TWICE INTO A FORK. Correcting an already-
+ * superseded entry is refused — the lineage is a chain, and letting two
+ * corrections both point at the same original would leave two current answers
+ * with no way to choose between them.
+ */
+export async function correctCareAction(
+  ctx: TenantContext,
+  args: {
+    supersedesId: string;
+    clinicianId: string;
+    reason: string;
+    /** Only what is being corrected. Anything omitted is carried forward from
+     *  the superseded entry, so a correction to the duration does not silently
+     *  drop the note. */
+    durationSeconds?: number | null;
+    startedAt?: string | null;
+    note?: string | null;
+    outcomeState?: string | null;
+  }
+): Promise<CareActionRecord> {
+  const reason = args.reason.trim();
+  if (!reason) {
+    throw new AttentionSignalError("A correction needs a reason.");
+  }
+  const r = repo(ctx);
+  const original = await r.findOne<CareRow>(
+    "between_visit_care_actions", "id = ?", [args.supersedesId]
+  );
+  if (!original) throw new AttentionSignalError("No such care action.");
+
+  const alreadySuperseded = await r.findOne<CareRow>(
+    "between_visit_care_actions", "supersedes_id = ?", [args.supersedesId]
+  );
+  if (alreadySuperseded) {
+    throw new AttentionSignalError(
+      "That entry has already been corrected. Correct the current one instead."
+    );
+  }
+
+  const id = ulid();
+  await r.insert("between_visit_care_actions", {
+    id,
+    person_id: original.person_id,
+    clinician_person_id: args.clinicianId,
+    signal_id: original.signal_id,
+    action_type: original.action_type,
+    note: args.note !== undefined ? args.note : original.note,
+    started_at: args.startedAt !== undefined ? args.startedAt : original.started_at,
+    // The COMPLETION time of the original work, carried forward. A correction
+    // is a statement about what happened then, not a second thing happening
+    // now — moving it to now would reorder the ledger by when somebody noticed
+    // a mistake.
+    completed_at: original.completed_at,
+    duration_seconds: args.durationSeconds !== undefined ? args.durationSeconds : original.duration_seconds,
+    outcome_state: args.outcomeState !== undefined ? args.outcomeState : original.outcome_state,
+    source_surface: original.source_surface,
+    supersedes_id: args.supersedesId,
+    correction_reason: reason,
+  });
+
+  await appendEventSafe({
+    personId: original.person_id,
+    tenantId: ctx.tenantId,
+    type: "between_visit_care.action_recorded",
+    actorId: args.clinicianId,
+    actorType: "clinician",
+    payload: {
+      actionId: id,
+      actionType: original.action_type,
+      signalId: original.signal_id,
+      // The correction is legible in the ledger as a correction, with what it
+      // replaced. Without this a replay would see two care actions where one
+      // happened.
+      supersedesId: args.supersedesId,
+      correctionReason: reason,
+      durationSeconds: args.durationSeconds !== undefined ? args.durationSeconds : original.duration_seconds,
+      outcomeState: args.outcomeState !== undefined ? args.outcomeState : original.outcome_state,
+      sourceSurface: original.source_surface,
+    },
+  });
+
+  const row = await r.findOne<CareRow>("between_visit_care_actions", "id = ?", [id]);
+  return toCareAction(row!);
+}
+
+/**
+ * The care actions that currently stand — superseded entries removed.
+ *
+ * The full list is what `careActionsForPerson` returns, because a ledger's
+ * whole value is that the superseded rows are still in it. This is the view a
+ * screen wants: what a clinician recorded, as it now reads.
+ */
+export async function currentCareActions(
+  ctx: TenantContext, personId: string, limit = 25
+): Promise<CareActionRecord[]> {
+  const all = await careActionsForPerson(ctx, personId, limit * 2);
+  const superseded = new Set(all.map((a) => a.supersedesId).filter((x): x is string => !!x));
+  return all.filter((a) => !superseded.has(a.id)).slice(0, limit);
 }

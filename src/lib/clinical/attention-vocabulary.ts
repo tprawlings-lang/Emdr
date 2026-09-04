@@ -175,3 +175,27 @@ export const CARE_ACTIONS = [
   "open_session_prep", "review_trajectory", "adjust_plan_link", "resolve",
 ] as const;
 export type CareAction = (typeof CARE_ACTIONS)[number];
+
+export interface CareActionRecord {
+  id: string;
+  personId: string;
+  clinicianPersonId: string;
+  signalId: string | null;
+  action: CareAction;
+  note: string | null;
+  startedAt: string | null;
+  completedAt: string;
+  durationSeconds: number | null;
+  outcomeState: string | null;
+  sourceSurface: string;
+  /** The entry this one corrects, when it is a correction. §13: "clinician can
+   *  correct or annotate recorded care time", and the cross-feature invariant
+   *  is that corrections append — so the superseded row is still there, and
+   *  this is the pointer back to it. */
+  supersedesId: string | null;
+  /** Why the correction was made. Required on a correction, because an
+   *  unexplained rewrite of a care-time record is the thing a ledger exists to
+   *  prevent. */
+  correctionReason: string | null;
+  createdAt: string;
+}

@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import {
   loadCommandContext, loadCommandSummary, acknowledgeSignalAction, setSignalStateAction,
+  correctCareActionAction,
 } from "@/lib/clinical/attention-actions";
 import type { CommandContext, SectionMissing } from "@/lib/clinical/command-context";
 import type { SummaryOutcome } from "@/lib/clinical/command-summary";
@@ -279,7 +280,7 @@ export function AttentionSignalDrawer({
             <ActiveThreads context={context} />
             <RecoveryAndLoad context={context} />
             <FollowUps context={context} />
-            <ActionHistory context={context} />
+            <ActionHistory context={context} personId={personId} />
 
             <div className="border-t border-ground/10 pt-4">
               <SectionHeading>Next</SectionHeading>
@@ -525,22 +526,106 @@ function FollowUps({ context }: { context: CommandContext }) {
   );
 }
 
-function ActionHistory({ context }: { context: CommandContext }) {
+/**
+ * What has been done, with §13's correction flow.
+ *
+ * A CORRECTION APPENDS, so what a clinician sees here is the current reading of
+ * the ledger — the superseded entries are still stored, and a corrected line
+ * says it was corrected rather than pretending it always said this. Showing
+ * both would put somebody's own mistake beside its fix on every open; hiding
+ * that a correction happened would make the ledger look like it never needed
+ * one. The line does neither.
+ */
+function ActionHistory({ context, personId }: { context: CommandContext; personId: string }) {
   const s = context.actionHistory;
+  const [correcting, setCorrecting] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [corrected, setCorrected] = useState<Set<string>>(new Set());
+
   return (
     <section>
       <SectionHeading>What has been done</SectionHeading>
       {!s.present ? (
         <div className="mt-2"><MissingNote section={s} /></div>
       ) : (
-        <ul className="mt-2 space-y-1">
+        <ul className="mt-2 space-y-1.5">
           {s.actions.map((a) => (
-            <li key={a.id} className="text-xs text-olive">
-              {a.completedAt.slice(0, 16)} — {a.action.replace(/_/g, " ")}
-              {a.outcomeState ? ` (${a.outcomeState.replace(/_/g, " ")})` : ""}
-              {/* §13 forbids counting passive time, so a duration appears only
-                  when something explicitly bounded one. */}
-              {a.durationSeconds !== null && ` · ${Math.round(a.durationSeconds / 60)} min recorded`}
+            <li key={a.id}>
+              <p className="text-xs text-olive">
+                {a.completedAt.slice(0, 16)} — {a.action.replace(/_/g, " ")}
+                {a.outcomeState ? ` (${a.outcomeState.replace(/_/g, " ")})` : ""}
+                {/* §13 forbids counting passive time, so a duration appears only
+                    when something explicitly bounded one. */}
+                {a.durationSeconds !== null && ` · ${Math.round(a.durationSeconds / 60)} min recorded`}
+                {a.supersedesId && (
+                  <span className="text-app-ink"> · corrected{a.correctionReason ? `: ${a.correctionReason}` : ""}</span>
+                )}
+              </p>
+              {corrected.has(a.id) ? (
+                <span className="text-xs text-state-safe">Corrected. It will show on the next open.</span>
+              ) : correcting === a.id ? (
+                <form
+                  action={async (form: FormData) => {
+                    setBusy(true);
+                    setError(null);
+                    try {
+                      const r = await correctCareActionAction(form);
+                      if (!r.ok) { setError(r.error ?? "That could not be saved."); return; }
+                      setCorrected((prev) => new Set(prev).add(a.id));
+                      setCorrecting(null);
+                    } finally {
+                      setBusy(false);
+                    }
+                  }}
+                  className="mt-1 space-y-2 rounded-xl border border-ground/15 px-3 py-2"
+                >
+                  <input type="hidden" name="supersedesId" value={a.id} />
+                  <input type="hidden" name="personId" value={personId} />
+                  <label className="block text-xs text-olive">
+                    Minutes actually spent (leave blank to keep what is recorded)
+                    <input
+                      name="durationMinutes"
+                      inputMode="numeric"
+                      className="mt-1 w-full rounded-lg border border-ground/20 bg-linen px-2 py-1.5 text-sm text-app-ink"
+                    />
+                  </label>
+                  <label className="block text-xs text-olive">
+                    Why are you correcting it?
+                    <input
+                      name="reason"
+                      required
+                      maxLength={300}
+                      placeholder="Logged against the wrong person"
+                      className="mt-1 w-full rounded-lg border border-ground/20 bg-linen px-2 py-1.5 text-sm text-app-ink"
+                    />
+                    <span className="mt-1 block text-xs text-olive">
+                      The original entry is kept. A correction adds a line; it never rewrites one.
+                    </span>
+                  </label>
+                  {error && <p className="text-xs text-state-support">{error}</p>}
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="submit"
+                      disabled={busy}
+                      className="rounded-full bg-app-ink px-3 py-1 text-xs text-linen disabled:opacity-50"
+                    >
+                      {busy ? "…" : "Save the correction"}
+                    </button>
+                    <button type="button" onClick={() => setCorrecting(null)} className="text-xs text-olive underline">
+                      Cancel
+                    </button>
+                  </div>
+                </form>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setCorrecting(a.id)}
+                  className="text-xs text-olive underline"
+                >
+                  Correct this
+                </button>
+              )}
             </li>
           ))}
         </ul>

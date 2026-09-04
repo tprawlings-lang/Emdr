@@ -7,7 +7,7 @@ import { PLATFORM_TENANT_ID } from "../db";
 import { audit } from "../audit";
 import type { TenantContext } from "../repository";
 import {
-  acknowledgeSignal, setSignalState, recordCareAction, getSignal,
+  acknowledgeSignal, setSignalState, recordCareAction, getSignal, correctCareAction,
   AttentionSignalError, DISMISS_REASONS,
   type DismissReason, type CareAction,
 } from "./attention-signals";
@@ -200,4 +200,59 @@ export async function signalStillOpenAction(signalId: string): Promise<boolean> 
   const { ctx } = await clinicianContext();
   const signal = await getSignal(ctx, signalId);
   return signal !== null && (signal.state === "open" || signal.state === "acknowledged");
+}
+
+/**
+ * Correct a recorded care action (§13).
+ *
+ * The domain refuses a correction with no reason and refuses to fork a lineage
+ * by correcting an already-superseded entry; this passes both refusals through
+ * rather than filling anything in. A correction with a default reason would be
+ * a rewrite nobody explained, which is exactly what appending is protecting
+ * against.
+ */
+export async function correctCareActionAction(
+  formData: FormData
+): Promise<AttentionActionResult> {
+  const { ctx, clinicianId } = await clinicianContext();
+  const supersedesId = String(formData.get("supersedesId") ?? "");
+  const personId = String(formData.get("personId") ?? "");
+  const reason = String(formData.get("reason") ?? "").trim().slice(0, 300);
+  const rawMinutes = String(formData.get("durationMinutes") ?? "").trim();
+  const note = String(formData.get("note") ?? "").trim().slice(0, 500);
+
+  if (!supersedesId || !personId) return { ok: false, error: "Missing details." };
+
+  // Minutes in, seconds stored. An empty box means "not correcting the
+  // duration", which is different from correcting it to zero — and a parse
+  // that turned "" into 0 would silently record that no time was spent.
+  let durationSeconds: number | null | undefined;
+  if (rawMinutes !== "") {
+    const minutes = Number(rawMinutes);
+    if (!Number.isFinite(minutes) || minutes < 0) {
+      return { ok: false, error: "Minutes must be a number, or left blank." };
+    }
+    durationSeconds = Math.round(minutes * 60);
+  }
+
+  try {
+    await correctCareAction(ctx, {
+      supersedesId,
+      clinicianId,
+      reason,
+      ...(durationSeconds !== undefined ? { durationSeconds } : {}),
+      ...(note ? { note } : {}),
+    });
+  } catch (err) {
+    if (err instanceof AttentionSignalError) return { ok: false, error: err.message };
+    throw err;
+  }
+
+  await audit({
+    actorId: clinicianId, actorRole: "clinician", family: "clinical",
+    type: "between_visit_care_action_corrected", target: personId,
+    detail: { supersedesId, correctedDuration: durationSeconds !== undefined },
+  });
+  revalidatePath("/clinician/today");
+  return { ok: true };
 }
