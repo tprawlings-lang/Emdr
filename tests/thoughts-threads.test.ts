@@ -25,7 +25,7 @@ import { getDb } from "../src/lib/db";
 import type { TenantContext } from "../src/lib/repository";
 import {
   createThread, proposeMembership, acceptMembership, rejectMembership,
-  revisitMembership, membershipsFor, threadTimeline,
+  revisitMembership, membershipsFor, buildTimelines, membershipsForPerson,
   DuplicateMembershipError, NotProposedError,
 } from "../src/lib/clinical/thread-store";
 import { matchItemToThreads, scoreThread } from "../src/lib/clinical/thread-match";
@@ -79,6 +79,23 @@ function storeItem(i: MemoryItem) {
   ).run(i.id, T.tenant, i.personId, i.itemType, i.statementClass, i.displayText, i.status,
         i.approvedBy, i.approvedAt, i.createdAt);
   return i;
+}
+
+
+/** Builds a thread's timeline exactly as the page does: read the memberships
+ *  and items once, then group with the shared builder. */
+async function timelineFor(threadId: string) {
+  const memberships = await membershipsForPerson(ctx, T.patient);
+  const items = (
+    await Promise.all(memberships.map((m) => getItem(ctx, m.memoryItemId)))
+  ).filter((x): x is MemoryItem => !!x);
+  const threads = await listThreadsForTest();
+  return buildTimelines(threads, memberships, items).find((t) => t.thread.id === threadId) ?? null;
+}
+
+async function listThreadsForTest() {
+  const { listThreads } = await import("../src/lib/clinical/thread-store");
+  return listThreads(ctx, T.patient, "active");
 }
 
 // ---------------------------------------------------------------------------
@@ -224,9 +241,7 @@ test("the timeline carries items, oldest first, not a summary", async () => {
     await acceptMembership(ctx, m.id, new Date(NOW).toISOString());
   }
 
-  const loadItems = async (ids: string[]) =>
-    (await Promise.all(ids.map((id) => getItem(ctx, id)))).filter((x): x is MemoryItem => !!x);
-  const tl = await threadTimeline(ctx, thread.id, loadItems);
+  const tl = await timelineFor(thread.id);
   assert.ok(tl);
   assert.equal(tl.entries.length, 2);
   assert.ok(tl.entries[0].item.createdAt < tl.entries[1].item.createdAt, "oldest first — a pattern has a direction");
@@ -248,9 +263,7 @@ test("only accepted memberships appear on the timeline", async () => {
   const b = await proposeMembership(ctx, { personId: T.patient, threadId: thread.id, memoryItemId: refused.id, proposedBy: "system" });
   await rejectMembership(ctx, b.id, new Date(NOW).toISOString());
 
-  const loadItems = async (ids: string[]) =>
-    (await Promise.all(ids.map((id) => getItem(ctx, id)))).filter((x): x is MemoryItem => !!x);
-  const tl = await threadTimeline(ctx, thread.id, loadItems);
+  const tl = await timelineFor(thread.id);
   assert.equal(tl!.entries.length, 1);
   assert.equal(tl!.entries[0].item.displayText, "Accepted item.");
 });

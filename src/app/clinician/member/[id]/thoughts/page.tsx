@@ -12,9 +12,10 @@ import { thoughtsSurfaceAvailable } from "@/lib/clinical/thoughts-flags";
 import {
   listThoughts, getThought, currentTranscript, transcriptVersions,
 } from "@/lib/clinical/thought-store";
-import { listItemsForThought, itemsByIds } from "@/lib/clinical/memory-store";
+import { listItemsForThought, itemsByIds, approvedMemory } from "@/lib/clinical/memory-store";
+import { ClinicalMemoryPanel } from "@/components/clinical/ClinicalMemoryPanel";
 import { runExtraction } from "@/lib/clinical/extraction";
-import { listThreads, membershipsForPerson } from "@/lib/clinical/thread-store";
+import { listThreads, membershipsForPerson, buildTimelines } from "@/lib/clinical/thread-store";
 import { scoreThread } from "@/lib/clinical/thread-match";
 import { ThreadSuggestions } from "@/components/clinical/ThreadSuggestions";
 import { ThreadTimeline } from "@/components/clinical/ThreadTimeline";
@@ -80,26 +81,35 @@ async function buildThreadView(
   // and a guard that only narrowed null would leave the undefined in the type.
   const keep = <T,>(x: T | null | undefined): x is T => !!x;
 
+  // Which themes each item is already filed under, so the memory panel does not
+  // offer to file something where it already is.
+  const labelsByItem = new Map<string, string[]>();
+  for (const m of memberships) {
+    if (m.status !== "accepted") continue;
+    const thread = threadById.get(m.threadId);
+    if (!thread) continue;
+    labelsByItem.set(m.memoryItemId, [...(labelsByItem.get(m.memoryItemId) ?? []), thread.canonicalLabel]);
+  }
+
   return {
+    labelsByItem,
+    threadLabels: threads.map((t) => t.canonicalLabel),
     pending: memberships.filter((m) => m.status === "proposed").map(asSuggestion).filter(keep),
     refused: memberships.filter((m) => m.status === "rejected").map(asSuggestion).filter(keep),
-    timelines: threads.map((thread) => ({
-      threadId: thread.id,
-      label: thread.canonicalLabel,
-      threadType: thread.threadType,
-      entries: memberships
-        .filter((m) => m.threadId === thread.id && m.status === "accepted")
-        .map((m) => itemById.get(m.memoryItemId))
-        .filter(keep)
-        .sort((a, b) => a.createdAt.localeCompare(b.createdAt))
-        .map((i) => ({
-          itemId: i.id,
-          displayText: i.displayText,
-          statementClass: i.statementClass,
-          itemType: i.itemType,
-          thoughtId: i.sourceThoughtId,
-          createdAt: i.createdAt,
-        })),
+    // One implementation of "which items are on this thread, in what order",
+    // shared with the tests rather than reimplemented here.
+    timelines: buildTimelines(threads, memberships, items).map((t) => ({
+      threadId: t.thread.id,
+      label: t.thread.canonicalLabel,
+      threadType: t.thread.threadType,
+      entries: t.entries.map(({ item: i }) => ({
+        itemId: i.id,
+        displayText: i.displayText,
+        statementClass: i.statementClass,
+        itemType: i.itemType,
+        thoughtId: i.sourceThoughtId,
+        createdAt: i.createdAt,
+      })),
     })),
   };
 }
@@ -131,6 +141,7 @@ export default async function MemberThoughtsPage({
 
   const available = thoughtsSurfaceAvailable("CLINICIAN_THOUGHTS_CAPTURE");
   const threadsAvailable = thoughtsSurfaceAvailable("CLINICIAN_THREADS");
+  const extractionAvailable = thoughtsSurfaceAvailable("CLINICIAN_THOUGHTS_EXTRACTION");
   const thoughts = available ? await listThoughts(ctx, id) : [];
 
   const threadView = threadsAvailable
@@ -139,8 +150,28 @@ export default async function MemberThoughtsPage({
         await listThreads(ctx, id, "active"),
         (ms) => itemsByIds(ctx, ms),
       )
-    : Promise.resolve({ pending: [], refused: [], timelines: [] });
-  const { pending, refused, timelines } = await threadView;
+    : Promise.resolve({
+        labelsByItem: new Map<string, string[]>(), threadLabels: [] as string[],
+        pending: [], refused: [], timelines: [],
+      });
+  const { labelsByItem, threadLabels, pending, refused, timelines } = await threadView;
+
+  // The kept items — §5's layer 2, and the thing Phase 2 produces. Read here
+  // rather than inside the panel so the page makes exactly one pass over this
+  // person's memory for both the panel and the themes above it.
+  const keptItems = extractionAvailable
+    ? (await approvedMemory(ctx, id)).map((i) => ({
+        id: i.id,
+        displayText: i.displayText,
+        statementClass: i.statementClass,
+        itemType: i.itemType,
+        normalizedLabel: i.normalizedLabel,
+        approvedAt: i.approvedAt,
+        sourceThoughtId: i.sourceThoughtId,
+        threadLabels: labelsByItem.get(i.id) ?? [],
+        supersedesId: i.supersedesId,
+      }))
+    : [];
 
   // Counted up front rather than inside the row: a query per rendered row is
   // how a list that is fine at five thoughts is unusable at two hundred.
@@ -288,6 +319,20 @@ export default async function MemberThoughtsPage({
               </ul>
             )}
           </Panel>
+
+          {extractionAvailable && (
+            <Panel
+              title="Kept items"
+              className="mt-6"
+              footnote="What you decided was true, in the form it was kept. This is the record; the transcript above is what was heard."
+            >
+              <ClinicalMemoryPanel
+                personId={id}
+                items={keptItems}
+                existingThreadLabels={threadLabels}
+              />
+            </Panel>
+          )}
 
           {threadsAvailable && (
             <>

@@ -335,32 +335,42 @@ export interface ThreadTimeline {
 }
 
 /**
- * A thread and its accepted evidence, oldest first.
+ * Threads and their accepted evidence, oldest first.
  *
- * Carries the ITEMS, not a summary of them. §Phase 3's third line of done is
+ * PURE, AND TAKES THE ROWS RATHER THAN FETCHING THEM. Two reasons, and the
+ * second is why this was rewritten. Building one timeline per thread with its
+ * own query turns a page with twenty themes into twenty round trips; the caller
+ * already has to read the memberships and items once for the rest of the
+ * surface, so it passes them in.
+ *
+ * The first version was an async single-thread reader, and the page did not use
+ * it — it grew its own copy of the same grouping inline. Two implementations of
+ * "which items are on this thread, in what order" is one more than the number
+ * that can be trusted to agree, so there is one, and the tests exercise the one
+ * the screen actually renders.
+ *
+ * Carries the ITEMS, not a summary of them. Phase 3's third line of done is
  * "thread evidence always opens source", and each item already knows its
- * thought and its transcript span — so the caller can offer the drill-down
- * without a second query, and a caller that renders only the labels has made
- * that choice visibly rather than been forced into it.
+ * thought and its transcript span — so a caller that renders only labels has
+ * made that choice visibly rather than been forced into it.
  */
-export async function threadTimeline(
-  ctx: TenantContext,
-  threadId: string,
-  loadItems: (ids: string[]) => Promise<MemoryItem[]>
-): Promise<ThreadTimeline | null> {
-  const thread = await getThread(ctx, threadId);
-  if (!thread) return null;
-  const accepted = await membershipsFor(ctx, threadId, "accepted");
-  const items = await loadItems(accepted.map((m) => m.memoryItemId));
-  const byId = new Map(items.map((i) => [i.id, i]));
-  const entries: ThreadTimelineEntry[] = [];
-  for (const m of accepted) {
-    const item = byId.get(m.memoryItemId);
-    // An accepted membership whose item is gone is not rendered as a blank row.
-    // It should not happen — items are never deleted — and if it does, showing
-    // a gap in a clinical pattern is worse than showing a shorter one.
-    if (item) entries.push({ membership: m, item });
-  }
-  entries.sort((a, b) => a.item.createdAt.localeCompare(b.item.createdAt));
-  return { thread, entries };
+export function buildTimelines(
+  threads: Thread[],
+  memberships: Membership[],
+  items: MemoryItem[]
+): ThreadTimeline[] {
+  const itemById = new Map(items.map((i) => [i.id, i]));
+  return threads.map((thread) => {
+    const entries: ThreadTimelineEntry[] = [];
+    for (const m of memberships) {
+      if (m.threadId !== thread.id || m.status !== "accepted") continue;
+      const item = itemById.get(m.memoryItemId);
+      // An accepted membership whose item is missing is not rendered as a blank
+      // row. It should not happen — items are never deleted — and if it does, a
+      // shorter pattern is better than a gap in one.
+      if (item) entries.push({ membership: m, item });
+    }
+    entries.sort((a, b) => a.item.createdAt.localeCompare(b.item.createdAt));
+    return { thread, entries };
+  });
 }

@@ -301,6 +301,48 @@ export async function saveThoughtsAction(formData: FormData): Promise<ActionResu
   }
 }
 
+/** Correct an approved item (§16).
+ *
+ *  A CORRECTION, NOT AN EDIT. The prior item is superseded and stays readable;
+ *  the replacement carries the same statement class and the same citation. What
+ *  cannot be changed here is what KIND of claim it is — turning an observation
+ *  into a hypothesis is not a wording fix, it is a different item, and it goes
+ *  through rejection and re-approval where it is visible. */
+export async function correctMemoryItemAction(formData: FormData): Promise<ActionResult> {
+  if (!thoughtsSurfaceAvailable("CLINICIAN_THOUGHTS_EXTRACTION")) {
+    return { ok: false, error: "Organizing thoughts is not enabled in this environment." };
+  }
+  const { ctx, clinicianId } = await clinicianContext();
+  const priorItemId = String(formData.get("itemId") ?? "");
+  const displayText = String(formData.get("displayText") ?? "").trim().slice(0, 1000);
+  const reason = String(formData.get("reason") ?? "").trim().slice(0, 500) || null;
+  if (!priorItemId || !displayText) return { ok: false, error: "A correction needs the new wording." };
+
+  const { supersedeItem, NotACandidateError } = await import("./memory-store");
+  const { recordItemCorrected } = await import("./thoughts");
+  try {
+    const { prior, replacement } = await supersedeItem(ctx, {
+      priorItemId, displayText, at: new Date().toISOString(),
+    });
+    await recordItemCorrected({
+      priorItemId: prior.id, replacementItemId: replacement.id,
+      tenantId: ctx.tenantId, personId: prior.personId,
+      reason, correctedBy: clinicianId,
+    });
+    await audit({
+      actorId: clinicianId, actorRole: "clinician", family: "clinical",
+      type: "clinical_memory_item_corrected", target: replacement.id,
+      // The act and the link, never the words.
+      detail: { personId: prior.personId, priorItemId: prior.id, hasReason: !!reason },
+    });
+    revalidatePath(`/clinician/member/${prior.personId}/thoughts`);
+    return { ok: true };
+  } catch (e) {
+    if (e instanceof NotACandidateError) return { ok: false, error: e.message };
+    throw e;
+  }
+}
+
 export async function discardThoughtAction(formData: FormData): Promise<ActionResult> {
   if (!thoughtsSurfaceAvailable("CLINICIAN_THOUGHTS_CAPTURE")) return unavailable();
   const { ctx, clinicianId } = await clinicianContext();
