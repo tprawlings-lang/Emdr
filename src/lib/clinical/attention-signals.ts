@@ -424,6 +424,87 @@ async function recordSignalEvent(
   });
 }
 
+/**
+ * Withdraw open signals whose condition no longer holds.
+ *
+ * THE MISSING HALF OF A PROVIDER'S CONTRACT, and its absence is invisible: a
+ * person who stopped checking in for three weeks and then started again keeps
+ * an "engagement gap" row forever, because nothing ever asked the provider
+ * whether it still meant it. The queue slowly fills with concerns that were
+ * true once, and a clinician learns that the rows are not current.
+ *
+ * §20 names the rule for the case where the evidence goes away: "keep row only
+ * if remaining authorized evidence supports it; otherwise update/withdraw per
+ * provider policy." This is that withdrawal.
+ *
+ * ONLY FOR PROVIDERS THAT ACTUALLY RAN. `ranProviders` is the list, and passing
+ * it is not a convenience — a provider that THREW has not said anything about
+ * its signals, and treating its silence as "the condition cleared" would let one
+ * failing provider quietly resolve every concern it owns. That is the §20
+ * partial-coverage trap from the other direction, and it fails silently in the
+ * dangerous direction.
+ *
+ * A WITHDRAWAL IS NOT A CLINICIAN'S RESOLUTION. The state is `resolved` because
+ * that is the vocabulary, but the event says the provider withdrew it and
+ * carries no clinician id — so an audit can always tell a concern somebody
+ * decided about from one that simply stopped being true.
+ */
+export async function withdrawStaleSignals(
+  ctx: TenantContext,
+  args: {
+    personId: string;
+    /** Providers whose evaluation completed. A provider that failed is absent,
+     *  and its signals are left exactly as they were. */
+    ranProviders: string[];
+    /** The dedupe keys those providers emitted this time. */
+    stillPresent: Set<string>;
+    evidenceAt: string;
+  }
+): Promise<string[]> {
+  if (args.ranProviders.length === 0) return [];
+  const ran = new Set(args.ranProviders);
+  const open = await listSignalsForPerson(ctx, args.personId);
+  const withdrawn: string[] = [];
+
+  for (const signal of open) {
+    if (!ran.has(signal.sourceFeature)) continue;
+    if (args.stillPresent.has(signal.dedupeKey)) continue;
+
+    await repo(ctx).update(
+      "clinical_attention_signals",
+      {
+        state: "resolved",
+        change_text: "No longer observed in the current evidence.",
+        updated_at: nowStamp(),
+      },
+      "id = ?", [signal.id]
+    );
+    await appendEventSafe({
+      personId: args.personId,
+      tenantId: ctx.tenantId,
+      type: "attention_signal.state_changed",
+      // NO ACTOR. Nobody decided this; the condition stopped holding. An
+      // actorId here would put a clinician's name on a judgement they never
+      // made.
+      actorId: null,
+      actorType: "system",
+      occurredAt: args.evidenceAt,
+      payload: {
+        signalId: signal.id,
+        from: signal.state,
+        to: "resolved",
+        withdrawnByProvider: signal.sourceFeature,
+        dismissReason: null,
+        note: null,
+        evidenceAt: args.evidenceAt,
+        sourceSurface: "provider_reconciliation",
+      },
+    });
+    withdrawn.push(signal.id);
+  }
+  return withdrawn;
+}
+
 // ---------------------------------------------------------------------------
 // Lifecycle (§12)
 // ---------------------------------------------------------------------------

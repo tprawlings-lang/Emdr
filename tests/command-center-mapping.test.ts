@@ -31,8 +31,8 @@ import fs from "node:fs";
 
 import { getDb } from "../src/lib/db";
 import {
-  buildWorkQueue, uiGroupFor, UI_GROUP_LABEL,
-  type WorkGroup, type UiGroup,
+  buildWorkQueue, uiGroupFor, UI_GROUP_LABEL, collapseWithCaseloadRows,
+  type WorkGroup, type UiGroup, type WorkItem,
 } from "../src/lib/clinical/work-queue";
 import {
   commandCenterFlagEnabled, commandCenterSurfaceAvailable,
@@ -237,4 +237,135 @@ test("coverage is reported rather than inferred from a shorter list", async () =
     assert.ok(f.providerId && f.reason);
     assert.ok(f.reason.length < 60, "a coverage reason is a class of failure, not a message");
   }
+});
+
+
+// ---------------------------------------------------------------------------
+// One person, one concern, one row (§11)
+// ---------------------------------------------------------------------------
+//
+// The duplicate this guards against is a real one, seen on the first render:
+// "Omar Bergström — No check-in for 22 days" from the caseload model, and
+// directly beneath it "Omar Bergström — No check-in for 22 days. Their last one
+// was 2026-08-13" from the engagement-gap provider. Same person, same fact, two
+// rows, two Contact buttons.
+
+test("a person never has two rows for the same concern in the same bucket", async () => {
+  const before = process.env.CLINICAL_ATTENTION_SIGNALS;
+  try {
+    process.env.CLINICAL_ATTENTION_SIGNALS = "1";
+    const q = await queue();
+    const seen = new Map<string, string[]>();
+    for (const i of q.items) {
+      const ui = uiGroupFor(i.group);
+      if (!ui) continue;
+      const key = `${i.personId}::${ui}`;
+      seen.set(key, [...(seen.get(key) ?? []), i.id]);
+    }
+    for (const [key, ids] of seen) {
+      assert.equal(
+        ids.length, 1,
+        `${key} has ${ids.length} rows: ${ids.join(", ")} — §11 collapses same-person same-reason`
+      );
+    }
+  } finally {
+    if (before === undefined) delete process.env.CLINICAL_ATTENTION_SIGNALS;
+    else process.env.CLINICAL_ATTENTION_SIGNALS = before;
+  }
+});
+
+/** A work item, built by hand so the rule is tested rather than the seed. */
+function anItem(over: Partial<WorkItem> & { id: string }): WorkItem {
+  return {
+    group: "waiting_member", band: "watch", personId: "p1", personName: "Omar",
+    reason: "No check-in for 22 days", detail: null, resolvedAt: null, change: null,
+    evidenceAt: "2026-08-13 00:00:00", ownerId: null, ownerName: null,
+    dueAt: null, overdue: false, eventCount: 1, action: "contact",
+    actionable: true, blockedReason: null, safetyAuthority: false,
+    signalId: null, supportFacts: [], lastContactDays: 22,
+    ...over,
+  };
+}
+
+test("a caseload row and a signal about the same person and bucket become one row", () => {
+  const existing = [anItem({ id: "person:p1", overdue: true, eventCount: 2 })];
+  const signals = [anItem({
+    id: "signal:s1", signalId: "s1",
+    reason: "No check-in for 22 days. Their last one was 2026-08-13.",
+    supportFacts: ["An observed gap, not a prediction."],
+  })];
+
+  const survivors = collapseWithCaseloadRows(existing, signals);
+  assert.equal(survivors.length, 1);
+  assert.equal(existing.length, 0, "the caseload row is removed from the list being built");
+
+  const [row] = survivors;
+  assert.equal(row.signalId, "s1", "the row that can open its evidence survives");
+  assert.ok(
+    row.supportFacts.includes("No check-in for 22 days"),
+    "nothing the caseload said is lost"
+  );
+  assert.ok(row.supportFacts.length <= 3, "§4 caps at three");
+  assert.equal(row.eventCount, 3, "the collapse preserves the event count");
+  assert.equal(row.overdue, true, "and never softens a deadline");
+});
+
+test("a signal and a caseload concern in different buckets stay two rows", () => {
+  const existing = [anItem({ id: "person:p1", group: "needs_action" })];
+  const signals = [anItem({ id: "signal:s1", signalId: "s1", group: "waiting_member" })];
+  const survivors = collapseWithCaseloadRows(existing, signals);
+  assert.equal(survivors.length, 1);
+  assert.equal(existing.length, 1, "two different pieces of work stay two rows");
+});
+
+// SAME person, SAME bucket, and the alert row still survives. A safety
+// obligation is not a duplicate of a review signal even when they concern the
+// same person at the same moment — §9's whole point is that the two are
+// different kinds of thing — so only caseload-derived rows are absorbable.
+test("an alert row is never absorbed, even for the same person and bucket", () => {
+  const existing: WorkItem[] = [anItem({ id: "alert:x", safetyAuthority: true })];
+  const signals = [anItem({ id: "signal:s1", signalId: "s1" })];
+  const survivors = collapseWithCaseloadRows(existing, signals);
+  assert.equal(survivors.length, 1);
+  assert.equal(survivors[0].supportFacts.length, 0, "it absorbed nothing");
+  assert.equal(existing.length, 1, "safety keeps its own row");
+  assert.equal(existing[0].id, "alert:x");
+});
+
+test("a signal about a person with no row of any kind is untouched", () => {
+  const existing: WorkItem[] = [anItem({ id: "person:p2", personId: "p2" })];
+  const signals = [anItem({ id: "signal:s1", signalId: "s1" })];
+  const survivors = collapseWithCaseloadRows(existing, signals);
+  assert.equal(survivors.length, 1);
+  assert.equal(existing.length, 1, "another person's row is not theirs to absorb");
+});
+
+// The rule is only worth having if it is wired in. The fixture caseload raises
+// no signals, so the integration test above passes either way — this is what
+// catches a merge that pushed the signal rows straight in.
+test("the merge routes its rows through the collapse", () => {
+  const src = fs.readFileSync("src/lib/clinical/work-queue.ts", "utf8");
+  assert.ok(
+    /items\.push\(\.\.\.collapseWithCaseloadRows\(items, merged\.items\)\)/.test(src),
+    "signal rows must not be pushed into the queue without passing the collapse"
+  );
+});
+
+test("the collapse keeps the row that can open its evidence", () => {
+  const src = fs.readFileSync("src/lib/clinical/work-queue.ts", "utf8");
+  const fn = src.slice(
+    src.indexOf("function collapseWithCaseloadRows"),
+    src.indexOf("\nasync function mergeAttentionSignals")
+  );
+  assert.ok(fn.length > 0);
+  // The signal row is the one pushed; the caseload row is the one absorbed.
+  assert.ok(fn.includes("survivors.push"), "the signal row survives");
+  assert.ok(
+    fn.includes("caseloadRow.reason"),
+    "and nothing the caseload said is lost — its reason becomes a supporting fact"
+  );
+  assert.ok(
+    fn.includes("row.overdue || caseloadRow.overdue"),
+    "a collapse must never soften a deadline"
+  );
 });

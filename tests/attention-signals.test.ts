@@ -34,6 +34,7 @@ import {
   BAND_LABEL, DISMISS_REASON_LABEL, isOpenState,
   upsertSignal, listSignalsForPerson, listOpenSignals, getSignal, evidenceForSignal,
   acknowledgeSignal, setSignalState, recordCareAction, careActionsForPerson,
+  withdrawStaleSignals,
   CARE_ACTIONS, AttentionSignalError,
   type AttentionSignalCandidate,
 } from "../src/lib/clinical/attention-signals";
@@ -406,4 +407,93 @@ test("a signal needs a statement and a known band", async () => {
     }),
     AttentionSignalError
   );
+});
+
+
+// ---------------------------------------------------------------------------
+// Withdrawal (§20)
+// ---------------------------------------------------------------------------
+//
+// The missing half of a provider's contract, and its absence is invisible: a
+// person who stopped checking in for three weeks and then started again keeps
+// an "engagement gap" row forever, because nothing ever asked the provider
+// whether it still meant it.
+
+test("a provider that no longer raises a concern withdraws it", async () => {
+  const person = "pat-atn-w";
+  db.prepare("INSERT OR IGNORE INTO persons (id, tenant_id, display_name, provenance) VALUES (?, ?, 'W', 'fabricated')")
+    .run(person, T.tenant);
+  await upsertSignal(ctx, {
+    personId: person, sourceFeature: "engagement-gap-provider",
+    candidate: aCandidate({ dedupeKey: "engagement:gap", type: "engagement_gap" }),
+  });
+  assert.equal((await listSignalsForPerson(ctx, person)).length, 1);
+
+  const withdrawn = await withdrawStaleSignals(ctx, {
+    personId: person,
+    ranProviders: ["engagement-gap-provider"],
+    stillPresent: new Set<string>(),
+    evidenceAt: "2026-09-20T00:00:00.000Z",
+  });
+  assert.equal(withdrawn.length, 1);
+  assert.deepEqual(await listSignalsForPerson(ctx, person), [], "the row is no longer open work");
+
+  const events = await readEvents({ personId: person, types: ["attention_signal.state_changed"] });
+  const last = events[events.length - 1];
+  assert.equal(last.payload.to, "resolved");
+  assert.equal(last.payload.withdrawnByProvider, "engagement-gap-provider");
+  assert.equal(
+    last.actor_id, null,
+    "nobody decided this — an actor id would put a clinician's name on a judgement they never made"
+  );
+  assert.equal(last.actor_type, "system");
+});
+
+// The §20 partial-coverage trap from the other direction, and the dangerous
+// one: silence from a provider that FAILED is not "the condition cleared".
+test("a provider that failed withdraws nothing", async () => {
+  const person = "pat-atn-w2";
+  db.prepare("INSERT OR IGNORE INTO persons (id, tenant_id, display_name, provenance) VALUES (?, ?, 'W2', 'fabricated')")
+    .run(person, T.tenant);
+  await upsertSignal(ctx, {
+    personId: person, sourceFeature: "engagement-gap-provider",
+    candidate: aCandidate({ dedupeKey: "engagement:gap", type: "engagement_gap" }),
+  });
+
+  const withdrawn = await withdrawStaleSignals(ctx, {
+    personId: person,
+    // The provider threw, so it is absent from `ran`.
+    ranProviders: [],
+    stillPresent: new Set<string>(),
+    evidenceAt: "2026-09-20T00:00:00.000Z",
+  });
+  assert.deepEqual(withdrawn, []);
+  assert.equal(
+    (await listSignalsForPerson(ctx, person)).length, 1,
+    "one failing provider must not quietly resolve every concern it owns"
+  );
+});
+
+test("a provider withdraws only its own signals", async () => {
+  const person = "pat-atn-w3";
+  db.prepare("INSERT OR IGNORE INTO persons (id, tenant_id, display_name, provenance) VALUES (?, ?, 'W3', 'fabricated')")
+    .run(person, T.tenant);
+  await upsertSignal(ctx, {
+    personId: person, sourceFeature: "engagement-gap-provider",
+    candidate: aCandidate({ dedupeKey: "engagement:gap" }),
+  });
+  await upsertSignal(ctx, {
+    personId: person, sourceFeature: "return-to-life-provider",
+    candidate: aCandidate({ dedupeKey: "goal:g1:stall" }),
+  });
+
+  await withdrawStaleSignals(ctx, {
+    personId: person,
+    ranProviders: ["engagement-gap-provider"],
+    stillPresent: new Set<string>(),
+    evidenceAt: "2026-09-20T00:00:00.000Z",
+  });
+  const left = await listSignalsForPerson(ctx, person);
+  assert.equal(left.length, 1);
+  assert.equal(left[0].sourceFeature, "return-to-life-provider", "another provider's concern is not its to close");
 });

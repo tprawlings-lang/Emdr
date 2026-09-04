@@ -139,6 +139,10 @@ export interface WorkItem {
    *  never padded, because a fact invented to fill a slot is the failure §4's
    *  "never an unexplained score" is guarding against, one level down. */
   supportFacts: string[];
+  /** §4: "last meaningful clinician contact". Null when there has been none,
+   *  which renders as its own state — a person nobody has contacted yet and a
+   *  person contacted today must not look the same. */
+  lastContactDays: number | null;
 }
 
 export interface WorkQueue {
@@ -320,6 +324,75 @@ const BAND_FOR_ATTENTION: Record<AttentionBand, PriorityBand> = {
   watch: "watch",
 };
 
+/**
+ * One person, one concern, one row (§11).
+ *
+ * THE DUPLICATE THIS EXISTS TO KILL is a real one and it looked like this on
+ * the first render: "Omar Bergström — No check-in for 22 days" from the caseload
+ * model, and directly beneath it "Omar Bergström — No check-in for 22 days.
+ * Their last one was 2026-08-13" from the engagement-gap provider. Same person,
+ * same fact, two rows, two Contact buttons. §11: "duplicate same-person
+ * same-reason signals collapse and preserve evidence/event count."
+ *
+ * THE SIGNAL WINS, and not arbitrarily: a caseload row is a band and a
+ * sentence, while a signal has a lineage, evidence a clinician can open, a
+ * policy version, limitations and a lifecycle they can act on. Dropping the
+ * richer row to keep the plainer one would be collapsing in the wrong
+ * direction.
+ *
+ * NOTHING THE CASELOAD SAID IS LOST. Its reasons fold into the surviving row's
+ * supporting facts, which is what §4's "maximum three short facts" is for — so
+ * a clinician sees the caseload's own read of the person on the same row,
+ * rather than on a second one.
+ *
+ * A person with a signal in one bucket and a caseload concern in another keeps
+ * both rows. Those are two different pieces of work, and merging them would be
+ * the opposite mistake.
+ *
+ * Exported so it can be tested directly. A test that had to construct a fixture
+ * person with both a caseload band and a live provider signal would be testing
+ * the seed as much as the rule, and would pass when the seed changed shape.
+ */
+export function collapseWithCaseloadRows(existing: WorkItem[], signalRows: WorkItem[]): WorkItem[] {
+  const byPersonGroup = new Map<string, WorkItem>();
+  for (const item of existing) {
+    if (!item.id.startsWith("person:")) continue;
+    byPersonGroup.set(`${item.personId}::${uiGroupFor(item.group) ?? item.group}`, item);
+  }
+
+  const survivors: WorkItem[] = [];
+  const absorbed = new Set<string>();
+  for (const row of signalRows) {
+    const key = `${row.personId}::${uiGroupFor(row.group) ?? row.group}`;
+    const caseloadRow = byPersonGroup.get(key);
+    if (!caseloadRow) {
+      survivors.push(row);
+      continue;
+    }
+    absorbed.add(caseloadRow.id);
+    survivors.push({
+      ...row,
+      supportFacts: [
+        // The caseload's headline reason first: it is the thing the clinician
+        // would otherwise have read on the row that just disappeared.
+        caseloadRow.reason,
+        ...row.supportFacts,
+      ].slice(0, 3),
+      eventCount: row.eventCount + caseloadRow.eventCount,
+      // The worse of the two deadlines, so a collapse can never soften one.
+      overdue: row.overdue || caseloadRow.overdue,
+    });
+  }
+
+  // Remove the absorbed caseload rows in place. `existing` is the array the
+  // caller is about to push onto, so this has to mutate rather than return a
+  // filtered copy.
+  for (let i = existing.length - 1; i >= 0; i--) {
+    if (absorbed.has(existing[i].id)) existing.splice(i, 1);
+  }
+  return survivors;
+}
+
 async function mergeAttentionSignals(args: {
   tenantId: string;
   clinicianId: string;
@@ -332,7 +405,7 @@ async function mergeAttentionSignals(args: {
   coverage: { ran: string[]; failed: Array<{ providerId: string; reason: string }> };
   truncated: boolean;
 }> {
-  const { listOpenSignals, upsertSignal } = await import("./attention-signals");
+  const { listOpenSignals, upsertSignal, withdrawStaleSignals } = await import("./attention-signals");
   const { evaluateAll } = await import("./attention-providers/registry");
   // Importing the module is what registers the providers. Done here rather than
   // at the top of the file so a deployment with the flag off never loads them.
@@ -362,6 +435,16 @@ async function mergeAttentionSignals(args: {
         ownerPersonId: row.primaryClinicianId,
       });
     }
+    // And the other half: concerns these providers used to raise and no longer
+    // do. Without this the queue accumulates things that were true once, and a
+    // clinician learns the rows are not current — which is worse than not
+    // having them.
+    await withdrawStaleSignals(ctx, {
+      personId: row.personId,
+      ranProviders: result.coverage.ran,
+      stillPresent: new Set(result.candidates.map((c) => c.candidate.dedupeKey)),
+      evidenceAt: evidenceCutoff,
+    });
   }
 
   // Read for EVERYONE on the caseload, refreshed or not.
@@ -404,6 +487,7 @@ async function mergeAttentionSignals(args: {
       // §4 caps at three, and the limitations are what an honest row says about
       // itself — how much evidence, and what the evidence cannot support.
       supportFacts: signal.limitations.slice(0, 3),
+      lastContactDays: row.daysSinceContact,
     });
   }
 
@@ -506,6 +590,7 @@ export async function buildWorkQueue(args: {
       safetyAuthority: true,
       signalId: null,
       supportFacts: g.alerts.length > 1 ? [`${g.alerts.length} events collapsed into this row`] : [],
+      lastContactDays: row?.daysSinceContact ?? null,
     });
   }
 
@@ -540,6 +625,7 @@ export async function buildWorkQueue(args: {
       // §4 caps supporting facts at three. The caseload's own reasons are
       // already plain sentences, so they travel as they are.
       supportFacts: r.reasons.slice(1, 4),
+      lastContactDays: r.daysSinceContact,
     });
   }
 
@@ -589,6 +675,7 @@ export async function buildWorkQueue(args: {
           safetyAuthority: false,
           signalId: null,
           supportFacts: f.label ? [f.label] : [],
+          lastContactDays: row.daysSinceContact,
         });
       }
     } catch (err) {
@@ -622,7 +709,7 @@ export async function buildWorkQueue(args: {
         changeFor,
         now,
       });
-      items.push(...merged.items);
+      items.push(...collapseWithCaseloadRows(items, merged.items));
       coverage.providersRan = merged.coverage.ran;
       coverage.providersFailed = merged.coverage.failed;
       coverage.truncated = merged.truncated;
