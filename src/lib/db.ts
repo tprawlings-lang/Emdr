@@ -8,6 +8,7 @@ import { seedOrgData, ORG_TENANT_ID } from "./demo-org-seed";
 import { seedPayerData, PAYER_TENANT_ID } from "./demo-payer-seed";
 import { seedPopulationData, seedOperationalFeeds, orgTenantId } from "./demo-population-seed";
 import { seedReviewConsole } from "./demo-review-seed";
+import { seedClinicianThoughts } from "./demo-thoughts-seed";
 import {
   generatePopulationHistory, backfillPlanVersions, backfillFunctionMeasure,
 } from "./demo-population-generator";
@@ -1954,6 +1955,9 @@ export function populationChain(db: Database.Database) {
   // one. Its own existence check makes it free on the boots where it has
   // nothing to do.
   seedReviewConsole(db, PLATFORM_TENANT_ID);
+  // After the review console for no reason other than order-of-reading; it has
+  // its own existence check and depends only on the demo persons.
+  seedClinicianThoughts(db, PLATFORM_TENANT_ID);
   // The reserved tail, LIVED rather than written: the last fortnight of every
   // person's history goes through the check-in routing rule and the safety
   // gate engine, so the window every metric and every planning rule reads is

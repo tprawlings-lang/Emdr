@@ -186,6 +186,27 @@ hash, row count and suppressed-cell count.
 
 ## Walking Clinician Thoughts
 
+Sign in as the clinician and open **Alex Rivera → Thoughts**. The record is already populated:
+three recorded thoughts, thirteen kept items, two themes, and one connection decision still
+waiting. All of it is fabricated, and every transcript says so in its own text.
+
+**Kept items** is the clinical record — what the clinician decided was true. Every one of the
+four statement classes is present, because they are the point: *you observed this*, *the
+patient said this*, *you were wondering*, *you were unsure*. The two candidates the extractor
+got wrong were rejected and are not there.
+
+**Themes** shows the two shapes a theme can take. *sleep* has evidence under it. *her sister*
+carries only a hypothesis and an uncertainty, so it says so at the top — nothing under it has
+been recorded as observed. Each entry links back to the thought it came from.
+
+**One connection is waiting** on Connect / Not related, and one was refused. The refused one is
+behind *previously not related*: the matcher will not offer it again, and the only way back is
+a clinician deliberately reopening it.
+
+### Recording something new
+
+
+
 Sign in as the clinician, open any member, and go to **Thoughts**. Press Record, speak for a
 few seconds, stop. No microphone content is used — a fabricated transcript is chosen from the
 recording's bytes, and every one of them says so in its own text.
