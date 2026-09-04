@@ -1689,6 +1689,91 @@ export const SCHEMA_SQL = `
   CREATE INDEX IF NOT EXISTS idx_care_actions_clinician
     ON between_visit_care_actions(tenant_id, clinician_person_id, completed_at);
 
+  -- Personalized Recovery Trajectory (expansion handoff 04 §5).
+  --
+  -- ONE ROW PER DOMAIN, NEVER ONE PER PERSON. §1: "do not replace that chart
+  -- with one composite recovery score", and a table with a single state column
+  -- keyed by person would be that score with a different name. Sleep can be
+  -- improving while function reverses; §4 requires the disagreement be
+  -- preserved, and it is preserved here by there being two rows.
+  --
+  -- domain_key is what distinguishes series inside a domain type: a goal id for
+  -- function, an instrument id for a measure, the domain's own name where there
+  -- is only one. It is part of the UNIQUE key, so two goals cannot collapse
+  -- into one function verdict.
+  --
+  -- policy_version AND evidence_cutoff are both in the UNIQUE key, which is
+  -- §13's "trajectory state is reproducible from evidence, cutoff, and policy
+  -- version" made structural. Recomputing the same cutoff under the same rules
+  -- lands on the same row; changing a threshold writes a NEW row beside the old
+  -- one rather than restating history under rules it was not computed under.
+  --
+  -- The windows are stored as JSON rather than as columns because what a window
+  -- IS belongs to the policy that computed it. A schema with median and iqr
+  -- columns would have to change every time the engine learned to report
+  -- something else about a window, and old rows would acquire empty columns
+  -- that read as absent values rather than as questions nobody asked yet.
+  CREATE TABLE IF NOT EXISTS recovery_trajectory_snapshots (
+    id TEXT PRIMARY KEY,
+    tenant_id TEXT NOT NULL REFERENCES tenants(id),
+    person_id TEXT NOT NULL REFERENCES persons(id),
+    domain_type TEXT NOT NULL,
+    domain_key TEXT NOT NULL,
+    state TEXT NOT NULL CHECK (state IN (
+      'insufficient_data','improving','stable','slowing','stalled','reversing'
+    )),
+    policy_version TEXT NOT NULL,
+    evidence_cutoff TEXT NOT NULL,
+    current_window_json TEXT NOT NULL,
+    comparison_window_json TEXT,
+    explanation_json TEXT NOT NULL,
+    limitations_json TEXT NOT NULL DEFAULT '[]',
+    computed_at TEXT NOT NULL DEFAULT (datetime('now')),
+    UNIQUE(tenant_id, person_id, domain_type, domain_key, policy_version, evidence_cutoff)
+  );
+
+  -- What a state was computed from, in the order cited. §13 again: a state
+  -- nobody can open is an assertion, and §12's Phase 3 definition of done is
+  -- the single sentence "every state opens evidence".
+  --
+  -- tenant_id is here even though §5's sketch omits it, for the same reason it
+  -- is on the fingerprint evidence table: ADR 0011 requires every durable
+  -- patient record to carry the tenant, and a join table reachable only through
+  -- a scoped parent is still a table an unscoped query can read directly.
+  CREATE TABLE IF NOT EXISTS recovery_trajectory_evidence (
+    tenant_id TEXT NOT NULL REFERENCES tenants(id),
+    snapshot_id TEXT NOT NULL REFERENCES recovery_trajectory_snapshots(id),
+    evidence_type TEXT NOT NULL,
+    evidence_id TEXT NOT NULL,
+    rank INTEGER NOT NULL,
+    PRIMARY KEY(snapshot_id, evidence_type, evidence_id)
+  );
+
+  -- What a clinician made of a state.
+  --
+  -- A DISAGREEMENT IS A ROW, NOT A DELETION. §13 of handoff 05 states the
+  -- shared rule outright: "clinician disagreement is recorded and does not
+  -- erase system evidence." A clinician who thinks the sleep lane is misreading
+  -- a shift-work pattern is adding what Steady did not know; removing the state
+  -- would also remove the record that Steady had been reading it that way for
+  -- six weeks, which is the part worth auditing.
+  CREATE TABLE IF NOT EXISTS recovery_trajectory_reviews (
+    id TEXT PRIMARY KEY,
+    tenant_id TEXT NOT NULL REFERENCES tenants(id),
+    person_id TEXT NOT NULL REFERENCES persons(id),
+    snapshot_id TEXT NOT NULL REFERENCES recovery_trajectory_snapshots(id),
+    clinician_person_id TEXT NOT NULL REFERENCES persons(id),
+    review_state TEXT NOT NULL CHECK (review_state IN (
+      'reviewed','agreed','disagreed','needs_context'
+    )),
+    note TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+  CREATE INDEX IF NOT EXISTS idx_trajectory_snapshots_person
+    ON recovery_trajectory_snapshots(tenant_id, person_id, evidence_cutoff);
+  CREATE INDEX IF NOT EXISTS idx_trajectory_reviews_snapshot
+    ON recovery_trajectory_reviews(tenant_id, snapshot_id, created_at);
+
   -- Longitudinal threads.
   CREATE TABLE IF NOT EXISTS clinical_threads (
     id TEXT PRIMARY KEY,
@@ -2076,6 +2161,11 @@ export const TENANT_SCOPED_TABLES = [
   "clinical_attention_signal_evidence",
   "between_visit_care_actions",
   "tenant_feature_flags",
+  // Recovery trajectory. Domain states, their evidence, and what a clinician
+  // made of them — every one of them a statement about one person's course.
+  "recovery_trajectory_snapshots",
+  "recovery_trajectory_evidence",
+  "recovery_trajectory_reviews",
   "return_to_life_goals",
   "return_to_life_goal_levels",
   "return_to_life_observations",

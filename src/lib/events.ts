@@ -225,6 +225,29 @@ export const EVENT_TYPES = {
   "attention_signal.reopened": 1,
   "between_visit_care.action_recorded": 1,
   "command_center.summary_generated": 1,
+
+  // Personalized Recovery Trajectory (expansion handoff 04 §11).
+  //
+  // FOUR TYPES, AND THE SPLIT IS THE POINT. A single "trajectory changed" event
+  // could not tell a recomputation that produced the same state from a state
+  // that actually moved, and §8 turns exactly that distinction into whether a
+  // clinician gets a work item — "do not emit work for every stable domain."
+  //
+  // `deviation_proposed` and `deviation_resolved` bracket a period during which
+  // Steady was reading a domain as having changed course. Both ends are needed:
+  // a deviation that quietly stops being computed leaves a record in which
+  // something was wrong and then nothing was said, which reads as unresolved
+  // forever.
+  //
+  // NONE OF THESE IS A SAFETY EVENT and none carries a prediction. A trajectory
+  // state is a statement about observations already recorded, which is what
+  // makes it something a clinician can open and disagree with — and
+  // `reviewed` is where that disagreement lands, beside the state rather than
+  // on top of it.
+  "trajectory.snapshot_computed": 1,
+  "trajectory.deviation_proposed": 1,
+  "trajectory.deviation_resolved": 1,
+  "trajectory.reviewed": 1,
 } as const;
 
 export type EventType = keyof typeof EVENT_TYPES;

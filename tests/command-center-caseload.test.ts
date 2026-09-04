@@ -174,16 +174,48 @@ test("a person under the response threshold reads insufficient, not neutral", as
 });
 
 // §20 again: a blank in a trajectory column reads as flat.
-test("the unbuilt columns say they are unbuilt, in words", async () => {
+test("the unbuilt column says it is unbuilt, in words", async () => {
   const state = await buildCaseloadState({ clinicianId: T.clinician, tenantId: T.tenant });
   for (const row of state.rows) {
-    assert.equal(row.trajectory.present, false);
     assert.equal(row.load.present, false);
-    assert.ok(/not built yet/i.test(row.trajectory.note));
+    assert.ok(/not built yet/i.test(row.load.note));
+  }
+});
+
+// Handoff 04 filled the trajectory column, and §20's rule is what has to
+// survive the filling: an EMPTY cell in a built column still must not read as
+// a flat course. These fixtures have no comparable observations, so every cell
+// is absent — and the absence has to say it is about the record.
+test("an empty trajectory cell says nothing about the course", async () => {
+  const state = await buildCaseloadState({ clinicianId: T.clinician, tenantId: T.tenant });
+  for (const row of state.rows) {
+    if (row.trajectory.present) continue;
     assert.ok(
-      /absent feature, not a flat trajectory/i.test(row.trajectory.note),
-      "the note must say what the absence does NOT mean"
+      row.trajectory.note.length > 20,
+      `a cell must say why in words, not blank: "${row.trajectory.note}"`
     );
+    assert.ok(
+      /not enough|no domain|gap in the reading|read as not enough/i.test(row.trajectory.note),
+      `the note must name what is missing: "${row.trajectory.note}"`
+    );
+    assert.ok(
+      !/\bstable\b|\bflat\b|holding steady|on track|no change/i.test(row.trajectory.note),
+      `an empty cell stated a course: "${row.trajectory.note}"`
+    );
+  }
+});
+
+// §6 and §23's hardest rule, now that a fourth column exists: no composite.
+// The cell reports ONE domain and names it, so "reversing" is never a claim
+// about a person with no way to ask which reading moved.
+test("a present trajectory cell names the domain it came from", async () => {
+  const state = await buildCaseloadState({ clinicianId: T.clinician, tenantId: T.tenant });
+  for (const row of state.rows) {
+    if (!row.trajectory.present) continue;
+    assert.ok(row.trajectory.domainLabel.length > 0, "a state with no domain is a composite score");
+    assert.ok(row.trajectory.note.length > 0, "§6: every label opens its calculation");
+    assert.ok(typeof row.trajectory.otherMoved === "number",
+      "the cell must say how many other domains moved, so it is not read as the whole picture");
   }
 });
 

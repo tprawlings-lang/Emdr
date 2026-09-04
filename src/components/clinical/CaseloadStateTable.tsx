@@ -3,6 +3,7 @@ import type { CaseloadState, CaseloadStateRow } from "@/lib/clinical/caseload-st
 import {
   FUNCTION_LABEL, RESPONSE_LABEL, FUNCTION_WINDOW_DAYS,
 } from "@/lib/clinical/caseload-state";
+import type { TrajectoryState } from "@/lib/clinical/trajectory-policy";
 import { PriorityBadge } from "./primitives";
 
 // The caseload clinical-state table (expansion handoff 03 §6; Phase 4).
@@ -25,9 +26,15 @@ import { PriorityBadge } from "./primitives";
 // read. The sort is the caseload model's band, decided on the server (§6:
 // "user filters do not rewrite server clinical priority semantics").
 //
-// THE UNBUILT COLUMNS SAY SO. Trajectory and Load render "Not computed" with a
-// reason, never an empty cell — a blank in a trajectory column reads as flat,
-// which is a clinical claim nobody made.
+// AN EMPTY CELL SAYS SO. Load is not built and renders "Not computed" with a
+// reason; a trajectory cell with nothing to report does the same. Never a blank
+// — a blank in a trajectory column reads as flat, which is a clinical claim
+// nobody made.
+//
+// AND THE TRAJECTORY CELL NAMES ITS DOMAIN. The state is one domain's, not the
+// person's, so the cell prints which one. "Moving the other way" on its own is
+// a verdict about somebody; "Moving the other way — Sleep quality" is a
+// description of a reading, and a reader can go and look at it.
 
 function StateCell({
   label, tone = "neutral",
@@ -52,6 +59,15 @@ function functionTone(row: CaseloadStateRow): "neutral" | "settled" | "watch" | 
   if (row.functionState === "not_set" || row.functionState === "no_evidence") return "absent";
   if (row.functionState === "improving") return "settled";
   if (row.functionState === "lost_ground") return "watch";
+  return "neutral";
+}
+
+/** The trajectory states, toned. `stable` is deliberately neutral rather than
+ *  settled: handoff 04 §3 says stable must not read as "not improving", and it
+ *  must not read as good news either — it is a state in its own right. */
+function trajectoryTone(state: TrajectoryState): "neutral" | "settled" | "watch" | "absent" {
+  if (state === "improving") return "settled";
+  if (state === "reversing" || state === "slowing" || state === "stalled") return "watch";
   return "neutral";
 }
 
@@ -110,7 +126,21 @@ export function CaseloadStateTable({ state }: { state: CaseloadState }) {
                   <StateCell label={FUNCTION_LABEL[r.functionState]} tone={functionTone(r)} />
                 </td>
                 <td className="px-4 py-3">
-                  <StateCell label="Not computed" tone="absent" />
+                  {r.trajectory.present ? (
+                    <>
+                      <StateCell label={r.trajectory.label} tone={trajectoryTone(r.trajectory.state)} />
+                      {/* The domain, always, and on its own line so it cannot be
+                          skimmed past. A state without its domain is a verdict. */}
+                      <span className="mt-1 block text-xs text-olive">{r.trajectory.domainLabel}</span>
+                      {r.trajectory.otherMoved > 0 && (
+                        <span className="block text-xs text-olive">
+                          +{r.trajectory.otherMoved} other domain{r.trajectory.otherMoved === 1 ? "" : "s"} moved
+                        </span>
+                      )}
+                    </>
+                  ) : (
+                    <StateCell label="Not computed" tone="absent" />
+                  )}
                 </td>
                 <td className="px-4 py-3">
                   <StateCell label={RESPONSE_LABEL[r.responseState]} tone={responseTone(r)} />
@@ -177,8 +207,36 @@ export function CaseloadStateTable({ state }: { state: CaseloadState }) {
               </div>
 
               <div>
-                <p className="font-medium text-app-ink">Trajectory and load</p>
+                <p className="font-medium text-app-ink">
+                  Trajectory —{" "}
+                  {r.trajectory.present
+                    ? `${r.trajectory.label}, in ${r.trajectory.domainLabel}`
+                    : "not computed"}
+                </p>
                 <p className="measure text-olive">{r.trajectory.note}</p>
+                {r.trajectory.present && (
+                  <>
+                    <p className="measure text-olive">
+                      One domain, on its own scale, against this person&rsquo;s own earlier windows.
+                      {r.trajectory.otherMoved > 0
+                        ? ` ${r.trajectory.otherMoved} other domain${r.trajectory.otherMoved === 1 ? "" : "s"} also moved — this cell is a selection, not the whole picture.`
+                        : " No other domain changed course in the same period."}
+                    </p>
+                    <p className="text-olive">
+                      Computed under policy {state.columnVersions.trajectory}. A description of
+                      readings, never a prediction.
+                    </p>
+                    <p className="mt-1">
+                      <Link href={`/clinician/member/${r.personId}/trajectory`} className="underline">
+                        Open the trajectory
+                      </Link>
+                    </p>
+                  </>
+                )}
+              </div>
+
+              <div>
+                <p className="font-medium text-app-ink">Load and readiness</p>
                 <p className="measure text-olive">{r.load.note}</p>
               </div>
 

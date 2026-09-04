@@ -99,7 +99,7 @@ function inputs(over: Partial<PrepInputs> = {}): PrepInputs {
       withheld: { count: 0, reason: "" }, policyVersion: "p", asOf: null,
     },
     memory: [], followUps: [], threads: [], threadEntries: [], goals: [], notes: [],
-    responses: [], now: NOW,
+    responses: [], trajectory: [], now: NOW,
     ...over,
   };
 }

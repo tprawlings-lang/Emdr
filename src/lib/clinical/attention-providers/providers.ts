@@ -209,3 +209,20 @@ export const ENGAGEMENT_GAP_PROVIDER: AttentionSignalProvider = registerProvider
 /** Re-exported so the response provider's policy version is greppable from the
  *  registry side as well as from the fingerprint side. */
 export { RESPONSE_POLICY };
+
+// ---------------------------------------------------------------------------
+// Providers that ship in their own files
+// ---------------------------------------------------------------------------
+//
+// §10's promise is that "later providers plug into the registry without
+// changing work-queue semantics", and handoffs 04 and 05 are the first to cash
+// it. Each lives beside the engine it wraps rather than in this file, because a
+// provider is a thin adapter over a subsystem and the subsystem is where the
+// judgement is.
+//
+// They are RE-EXPORTED FROM HERE rather than imported separately by every
+// caller, so the one thing that registers providers stays one thing: the work
+// queue, the review console and the contract test all import this module, and
+// a provider that some of them loaded and others did not would produce a queue
+// whose contents depended on which screen asked.
+export { RECOVERY_TRAJECTORY_PROVIDER, CORROBORATION_THRESHOLD, selectDeviations } from "./recovery-trajectory";

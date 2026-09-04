@@ -29,13 +29,17 @@
 // see — the drawer shows what the subsystems would have shown, gathered in one
 // place.
 //
-// A NOTE ON SECTIONS THAT DO NOT EXIST YET. Recovery Trajectory (handoff 04)
-// and Therapeutic Load (handoff 05) are modelled here as `unavailable` with a
-// stated reason, which is §5's "Recovery / Load Context appears after Handoffs
-// 04 and 05". Modelling them now rather than omitting them means those handoffs
-// fill a slot instead of changing this contract — and, more importantly, the
-// clinician sees "not built yet" rather than nothing, which are different
-// statements about a person's record.
+// A NOTE ON THE SECTIONS THAT DID NOT EXIST YET. Recovery Trajectory (handoff
+// 04) and Therapeutic Load (handoff 05) were modelled here as `unavailable`
+// with a stated reason, which is §5's "Recovery / Load Context appears after
+// Handoffs 04 and 05". Modelling them rather than omitting them meant those
+// handoffs filled a slot instead of changing this contract — and it meant that
+// while they were unbuilt the clinician read "not built yet" rather than
+// nothing, which are different statements about a person's record.
+//
+// Recovery Trajectory now fills its slot. The shape did not have to change:
+// `Section<T>` already had `insufficient_evidence` as a first-class outcome,
+// which is exactly what a trajectory over a thin record produces.
 
 import crypto from "node:crypto";
 
@@ -55,6 +59,11 @@ import { itemsByIds } from "./memory-store";
 import { openFollowUps } from "./followups";
 import { thoughtsSurfaceAvailable } from "./thoughts-flags";
 import { commandCenterSurfaceAvailable } from "./command-center-flags";
+import {
+  computeTrajectory, trajectoryContext, trajectoryLine, isDeviation, TRAJECTORY_POLICY,
+  type TrajectoryContext,
+} from "./recovery-trajectory";
+
 
 export const COMMAND_CONTEXT_VERSION = "command-context.1.0.0";
 
@@ -155,6 +164,26 @@ export interface ThreadSummary {
   evidence: EvidenceRef[];
 }
 
+/**
+ * §5's Recovery Context, from handoff 04.
+ *
+ * `domains` carries every domain that reached a state, not just the ones that
+ * moved — a clinician reading a reversal needs to see the lanes that did NOT
+ * move as much as the one that did, and a section that showed only the
+ * findings would make every open look like bad news.
+ *
+ * `line` is handoff 04 §8's sentence: names the domains and the window, grades
+ * nobody.
+ */
+export interface RecoveryTrajectorySection {
+  line: string | null;
+  domains: TrajectoryContext[];
+  /** The domains whose course has changed, as a count, so the header can say
+   *  how much of the section is a finding. */
+  deviationCount: number;
+  policyVersion: string;
+}
+
 export interface FollowUpSummary {
   itemId: string;
   text: string;
@@ -173,12 +202,13 @@ export interface CommandContext {
     contextVersion: string;
     clinicalPolicyVersion: string;
     responsePolicyVersion: string;
+    trajectoryPolicyVersion: string;
   };
   whyHere: Section<WhyHereSection>;
   returnToLife: Section<{ goals: GoalSummary[] }>;
   responseFingerprint: Section<{ interventions: ResponseSummaryRow[]; withheldCount: number }>;
   activeThreads: Section<{ threads: ThreadSummary[] }>;
-  recoveryTrajectory: SectionMissing;
+  recoveryTrajectory: Section<RecoveryTrajectorySection>;
   therapeuticLoad: SectionMissing;
   followUps: Section<{ items: FollowUpSummary[] }>;
   actionHistory: Section<{ actions: CareActionRecord[] }>;
@@ -385,6 +415,43 @@ async function activeThreadsFor(
   return { present: true, threads: summaries };
 }
 
+/**
+ * Recovery trajectory (handoff 04 §8, §9).
+ *
+ * THE SECTION GOES THROUGH THE ENGINE'S OWN READER, like every other adapter
+ * here: no thresholds are applied in this file and no state is recomputed. What
+ * this adds is the drawer's own distinction between "nothing to say" and
+ * "nothing to say YET" — a person with three check-ins produces
+ * `insufficient_evidence`, and a person with a full record and a quiet course
+ * produces a present section whose domains all read as holding steady. Those
+ * two look identical if a section collapses both to an empty list.
+ */
+async function recoveryTrajectoryFor(
+  ctx: TenantContext, personId: string, cutoff: string
+): Promise<Section<RecoveryTrajectorySection>> {
+  const set = await computeTrajectory(ctx, personId, { asOf: cutoff });
+  const domains = trajectoryContext(set);
+  if (set.snapshots.length === 0) {
+    return missing(
+      "none_recorded",
+      "Nothing has been recorded for this person that a trajectory could be computed from — no check-ins, no scored measures, no goal observations."
+    );
+  }
+  if (domains.length === 0) {
+    return missing(
+      "insufficient_evidence",
+      `${set.snapshots.length} domain${set.snapshots.length === 1 ? " has" : "s have"} readings, none with enough comparable observations to compare windows yet. This says the record is thin, not that the course is flat.`
+    );
+  }
+  return {
+    present: true,
+    line: trajectoryLine(set),
+    domains,
+    deviationCount: domains.filter((d) => isDeviation(d.state)).length,
+    policyVersion: set.policyVersion,
+  };
+}
+
 async function followUpsFor(
   ctx: TenantContext, personId: string, cutoff: string
 ): Promise<Section<{ items: FollowUpSummary[] }>> {
@@ -449,6 +516,7 @@ export function commandContextCacheKey(args: {
     COMMAND_CONTEXT_VERSION,
     CLINICAL_POLICY_VERSION,
     RESPONSE_POLICY.version,
+    TRAJECTORY_POLICY.version,
   ].join("|");
   return crypto.createHash("sha256").update(material).digest("hex").slice(0, 24);
 }
@@ -494,8 +562,10 @@ export async function buildCommandContext(
     }
   }
 
-  const [whyHere, returnToLife, responseFingerprint, activeThreads, followUps, actionHistory] =
-    await Promise.all([
+  const [
+    whyHere, returnToLife, responseFingerprint, activeThreads,
+    recoveryTrajectory, followUps, actionHistory,
+  ] = await Promise.all([
       section("whyHere", () => whyHereFor(ctx, args.personId, signalId),
         "The signal behind this row could not be loaded just now."),
       section("returnToLife", () => returnToLifeFor(ctx, args.personId, evidenceCutoff),
@@ -504,6 +574,8 @@ export async function buildCommandContext(
         "Observed responses could not be loaded just now."),
       section("activeThreads", () => activeThreadsFor(ctx, args.personId),
         "Threads could not be loaded just now."),
+      section("recoveryTrajectory", () => recoveryTrajectoryFor(ctx, args.personId, evidenceCutoff),
+        "Recovery trajectory could not be computed just now. This is a failure to read, not a flat trajectory."),
       section("followUps", () => followUpsFor(ctx, args.personId, evidenceCutoff),
         "Follow-ups could not be loaded just now."),
       section("actionHistory", () => actionHistoryFor(ctx, args.personId),
@@ -520,19 +592,17 @@ export async function buildCommandContext(
       contextVersion: COMMAND_CONTEXT_VERSION,
       clinicalPolicyVersion: CLINICAL_POLICY_VERSION,
       responsePolicyVersion: RESPONSE_POLICY.version,
+      trajectoryPolicyVersion: TRAJECTORY_POLICY.version,
     },
     whyHere,
     returnToLife,
     responseFingerprint,
     activeThreads,
-    // §5: "Recovery / Load Context appears after Handoffs 04 and 05." Modelled
-    // rather than omitted, so those handoffs fill a slot instead of changing
-    // this contract — and so the clinician reads "not built yet" instead of
-    // nothing, which are different statements about a person's record.
-    recoveryTrajectory: missing(
-      "unavailable",
-      "Recovery trajectory is not built yet. Nothing here says this person's trajectory is flat — it says Steady is not computing one."
-    ),
+    recoveryTrajectory,
+    // §5: "Recovery / Load Context appears after Handoffs 04 and 05." Still
+    // modelled rather than omitted, so handoff 05 fills a slot instead of
+    // changing this contract — and so the clinician reads "not built yet"
+    // instead of nothing, which are different statements about a record.
     therapeuticLoad: missing(
       "unavailable",
       "Therapeutic load and readiness are not built yet. This is an absent feature, not a judgement that the current load is fine."

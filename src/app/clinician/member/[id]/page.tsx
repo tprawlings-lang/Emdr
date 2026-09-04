@@ -18,6 +18,8 @@ import {
   ResponseFingerprintCard, type FingerprintCardRow,
 } from "@/components/clinical/ResponseFingerprintCard";
 import { computeFingerprints, displayable } from "@/lib/clinical/response-fingerprint";
+import { computeTrajectory, trajectoryLine } from "@/lib/clinical/recovery-trajectory";
+import { RecoveryTrajectoryCard, type TrajectoryCardRow } from "@/components/clinical/RecoveryTrajectoryCard";
 import { CLASS_LABEL } from "@/lib/clinical/intervention-vocabulary";
 import { goalProjection } from "@/lib/clinical/return-goal-projection";
 import type { TenantContext } from "@/lib/repository";
@@ -123,6 +125,29 @@ export default async function PersonOverviewPage({
   // synced here. The overview is a reading surface, and a page that rebuilt the
   // instance timeline on every clinician glance would make a read into a write.
   const fingerprints = await computeFingerprints(ctx, id);
+  // The trajectory card (§9). Guarded on its own: the overview must survive one
+  // subsystem being unreadable, and a person's record page going blank is a far
+  // worse failure than a missing card.
+  let trajectoryRows: TrajectoryCardRow[] = [];
+  let trajectorySentence: string | null = null;
+  let trajectoryPolicyVersion = "";
+  try {
+    const set = await computeTrajectory(ctx, id);
+    trajectorySentence = trajectoryLine(set);
+    trajectoryPolicyVersion = set.policyVersion;
+    trajectoryRows = set.snapshots
+      .filter((s) => s.state !== "insufficient_data")
+      .map((s) => ({
+        domainType: s.domainType,
+        domainKey: s.domainKey,
+        label: s.label,
+        state: s.state,
+        headline: s.classification.explanation[0] ?? "",
+        limitations: s.classification.limitations,
+      }));
+  } catch (err) {
+    console.error("member overview: trajectory failed:", err instanceof Error ? err.name : "unknown");
+  }
   const shown = displayable(fingerprints);
   const withheldFingerprints = fingerprints.length - shown.length;
   const fingerprintRows: FingerprintCardRow[] = shown.slice(0, 3).map((f) => ({
@@ -213,6 +238,25 @@ export default async function PersonOverviewPage({
             personId={id}
             rows={fingerprintRows}
             withheldCount={withheldFingerprints}
+          />
+        </div>
+      )}
+
+      {/* Recovery trajectory (handoff 04 §9's "compact trajectory card with
+          domain badges and a longitudinal chart link"). After the responses,
+          because it is the layer above them: it reads the measures, the goals
+          and the session record and says whether the course has changed.
+          Rendered only when a domain reached a state — an empty card on every
+          overview teaches a clinician to stop reading the space, and there is a
+          screen that explains the emptiness properly when they want it. */}
+      {trajectoryRows.length > 0 && (
+        <div className="mt-6">
+          <RecoveryTrajectoryCard
+            personId={id}
+            rows={trajectoryRows}
+            line={trajectorySentence}
+            policyVersion={trajectoryPolicyVersion}
+            emptyNote={null}
           />
         </div>
       )}
