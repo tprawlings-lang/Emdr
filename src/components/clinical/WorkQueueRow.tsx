@@ -29,6 +29,7 @@
 import Link from "next/link";
 import type { WorkItem } from "@/lib/clinical/work-queue";
 import { PriorityBadge, FreshnessLabel, OwnerChip, DueLabel, relativeAge } from "./primitives";
+import { AttentionSignalDrawer } from "./AttentionSignalDrawer";
 
 const ACTION_LABEL: Record<WorkItem["action"], string> = {
   review: "Review",
@@ -38,13 +39,21 @@ const ACTION_LABEL: Record<WorkItem["action"], string> = {
 };
 
 export function WorkQueueRow({
-  item, now, hidePerson = false,
+  item, now, hidePerson = false, drawer = false,
 }: {
   item: WorkItem;
   now: string;
   /** Set on a person's own record, where repeating their name in every row is
    *  noise rather than identity. */
   hidePerson?: boolean;
+  /** Whether the quick review drawer is available (expansion handoff 03 §5).
+   *
+   *  A SECOND CONTROL, NEVER A SECOND PRIMARY ACTION. §5: "the drawer may
+   *  expose secondary actions, but the queue row retains exactly one primary
+   *  action." So the primary button below is unchanged and this sits beside it
+   *  as a quieter affordance — opening a review is not deciding anything, and
+   *  §12 requires that opening it change nothing at all. */
+  drawer?: boolean;
 }) {
   const href = `/clinician/member/${item.personId}`;
 
@@ -133,7 +142,14 @@ export function WorkQueueRow({
           </div>
         </div>
 
-        <div className="shrink-0 self-center">
+        <div className="flex shrink-0 items-center gap-2 self-center">
+          {drawer && (
+            <AttentionSignalDrawer
+              personId={item.personId}
+              personName={item.personName}
+              signalId={item.signalId}
+            />
+          )}
           {item.actionable && item.action !== "none" ? (
             <Link
               href={href}
