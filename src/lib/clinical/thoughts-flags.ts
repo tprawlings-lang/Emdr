@@ -53,7 +53,8 @@ export const THOUGHTS_FLAGS = Object.keys(FLAGS) as ThoughtsFlag[];
  *  has an extractor, a contract that refuses what §9.2 forbids, candidate items
  *  and an atomic save, so the surface has something to show.
  *
- *  Threads joined on the same terms when Phase 3 landed. The phases after it
+ *  Threads joined when Phase 3 landed, and Session Prep when Phase 4 did, on
+ *  the same terms each time. The phases after it
  *  are still absent, for the same reason they always were.
  *
  *  `EMDR_..._CAPTURE=0` forces it off even in demo, which is how the refusal
@@ -64,6 +65,7 @@ const DEMO_ENABLED: ReadonlySet<ThoughtsFlag> = new Set([
   "CLINICIAN_THOUGHTS_CAPTURE",
   "CLINICIAN_THOUGHTS_EXTRACTION",
   "CLINICIAN_THREADS",
+  "CLINICIAN_SESSION_PREP",
 ]);
 
 /** Off unless explicitly set to "1", except where demo enables it above.

@@ -63,7 +63,9 @@ test("extraction is on in demo now that the phase behind it exists", () => {
   // Phase 3 landed after this test was written, so the example of an unbuilt
   // phase moved on to Phase 4. The authoritative built/unbuilt list is in
   // clinician-thoughts-phase0.test.ts; this only checks the phase it needs.
-  assert.equal(thoughtsFlagEnabled("CLINICIAN_SESSION_PREP"), false, "Phase 4 is not built");
+  // The example of an unbuilt phase moves on as phases land. The authoritative
+  // built/unbuilt list is in clinician-thoughts-phase0.test.ts.
+  assert.equal(thoughtsFlagEnabled("CLINICIAN_PATIENT_ASK"), false, "Phase 5 is not built");
 });
 
 test("the cards render the statement class before the sentence", () => {
