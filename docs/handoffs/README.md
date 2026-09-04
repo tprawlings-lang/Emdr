@@ -47,7 +47,7 @@ filename prefix, not the number.
 | # | Handoff | Adds | Status |
 |---|---|---|---|
 | 00 | [Execution overview](00_Steady_Clinical_Intelligence_Expansion_Execution_Overview.pdf) | The dependency map, the repository foundations each feature must extend rather than duplicate, and eight cross-feature invariants | Read |
-| 01 | [Return-to-Life Goals](01_Steady_Return_to_Life_Goals_Engineering_Handoff.pdf) | Functional goals and observable progress ladders — the outcome layer | **Not started** |
+| 01 | [Return-to-Life Goals](01_Steady_Return_to_Life_Goals_Engineering_Handoff.pdf) | Functional goals and observable progress ladders — the outcome layer | **Done** — all four phases. Projection `return-goal-projection.1.0.0` is the interface handoffs 02 and 04 consume |
 | 02 | [Treatment Response Fingerprint](02_Steady_Treatment_Response_Fingerprint_Engineering_Handoff.pdf) | Evidence-linked patterns of how one person responds to an intervention in a context | **Not started** |
 | 03 | [Between-Visit Care Command Center](03_Steady_Between_Visit_Care_Command_Center_Engineering_Handoff.pdf) | One clinician action surface for non-safety attention signals | **Not started** |
 | 04 | [Personalized Recovery Trajectory](04_Steady_Personalized_Recovery_Trajectory_Engineering_Handoff.pdf) | Per-domain trajectories and descriptive deviation detection | **Not started** |

@@ -438,3 +438,188 @@ test("the goal line says what the person can do, not a number", async () => {
     "§9: plain language — a brief that printed 'level 0' tells a clinician nothing they can act on");
   assert.ok(!/level [+-]?\d/i.test(line));
 });
+
+// ---------------------------------------------------------------------------
+// Phase 3 — AI assistance
+// ---------------------------------------------------------------------------
+
+test("the three goal tasks are registered with the boundaries §7 gives them", async () => {
+  const { getTask } = await import("../src/lib/ai-gateway/registry");
+  const ladder = getTask("return_goal.draft_ladder");
+  const match = getTask("return_goal.match_evidence");
+  const summary = getTask("return_goal.summarize_progress");
+  assert.ok(ladder && match && summary);
+  // The drafter refuses rather than falling back: there is no deterministic way
+  // to write five observable rungs for an arbitrary life goal, and a template
+  // would be a ladder nobody could recognise themselves in.
+  assert.equal(ladder.fallback, "refuse");
+  assert.equal(match.fallback, "deterministic");
+  assert.equal(summary.fallback, "deterministic");
+});
+
+test("a ladder draft is refused unless all five levels come back usable", async () => {
+  const { parseLadder } = await import("../src/lib/clinical/return-goal-intelligence");
+  assert.equal(parseLadder("not json"), null);
+  assert.equal(parseLadder('{"levels":[{"level":0,"description":"Only one."}]}'), null,
+    "a partial ladder is not one a person can correct — it is one they must finish while believing it was drafted");
+  assert.equal(parseLadder('{"levels":[{"level":-2,"description":""},{"level":-1,"description":"a"},{"level":0,"description":"b"},{"level":1,"description":"c"},{"level":2,"description":"d"}]}'), null,
+    "an empty rung is not a rung");
+  const good = parseLadder(JSON.stringify({
+    levels: [
+      { level: -2, description: "a" }, { level: -1, description: "b" },
+      { level: 0, description: "c" }, { level: 1, description: "d" }, { level: 2, description: "e" },
+    ],
+  }));
+  assert.ok(good);
+  assert.deepEqual(good.map((r) => r.level), [-2, -1, 0, 1, 2]);
+});
+
+test("a ladder draft is always marked model-drafted", async () => {
+  const { draftLadder } = await import("../src/lib/clinical/return-goal-intelligence");
+  const draft = await draftLadder(ctx, {
+    personId: T.patient, title: "Drive on the freeway",
+    patientStatement: "I want to drive to work again.", domain: "mobility_travel",
+  });
+  // No provider is configured in tests, so this is the refusal path — and the
+  // flag is on it either way, because §12's rule is about what the wording IS,
+  // not about whether the call succeeded.
+  assert.equal(draft.modelDrafted, true);
+  assert.equal(draft.ok, false);
+  assert.ok(draft.reason.length > 0, "a refusal has to say what the person can do instead");
+  assert.match(draft.reason, /yourself/i);
+});
+
+test("a progress statement with no observation is refused", async () => {
+  const { validateProgress } = await import("../src/lib/clinical/return-goal-intelligence");
+  const r = validateProgress([{ text: "She is doing much better.", observationIds: [] }], []);
+  assert.equal(r.statements.length, 0);
+  assert.match(r.omitted[0].reason, /no observation cited/);
+});
+
+test("a progress statement citing a proposed observation is refused", async () => {
+  const { validateProgress } = await import("../src/lib/clinical/return-goal-intelligence");
+  const g = await anActiveGoal();
+  const proposed = await recordObservation(ctx, {
+    goalId: g.id, personId: T.patient, observedLevel: 2,
+    evidenceClass: "model_candidate", sourceType: "x", sourceId: "y", occurredAt: NOW,
+  });
+  const r = validateProgress(
+    [{ text: "Reached the target.", observationIds: [proposed.id] }],
+    [proposed]
+  );
+  assert.equal(r.statements.length, 0,
+    "a model candidate must not reach a summary before a person has accepted it");
+  assert.match(r.omitted[0].reason, /not accepted/);
+});
+
+test("the deterministic summary cites every statement and claims nothing extra", async () => {
+  const { summarizeProgress } = await import("../src/lib/clinical/return-goal-intelligence");
+  const { recordGoalCheckin, recordClinicianObservation } = await import("../src/lib/clinical/return-goal-evidence");
+  const g = await anActiveGoal();
+  await recordGoalCheckin(ctx, {
+    goalId: g.id, personId: T.patient, level: -2, at: "2026-06-01T09:00:00.000Z", checkinId: "p1",
+  });
+  await recordClinicianObservation(ctx, {
+    goalId: g.id, personId: T.patient, level: 0, at: "2026-08-01T09:00:00.000Z", sourceId: "n1",
+  });
+  const summary = summarizeProgress(g, await ladderFor(ctx, g.id), await observationsFor(ctx, g.id));
+
+  assert.ok(summary.statements.length >= 2);
+  for (const s of summary.statements) {
+    assert.ok(s.observationIds.length > 0, "§7: every statement cites accepted observation ids");
+  }
+  const all = summary.statements.map((s) => s.text).join(" ");
+  // §1: "achievement is not cure." The summary describes the record, not the
+  // person — no improvement, no recovery, no cause.
+  assert.ok(!/improv|recover|better|remission|because|due to/i.test(all),
+    `summary made a claim beyond the record: ${all}`);
+  // And the two sources stay separate even in a count of them.
+  assert.match(all, /patient reported/);
+  assert.match(all, /clinician observed/);
+});
+
+// ---------------------------------------------------------------------------
+// Phase 4 — the downstream contract
+// ---------------------------------------------------------------------------
+
+test("the projection carries a version and the level series", async () => {
+  const { goalProjection, GOAL_PROJECTION_VERSION } = await import("../src/lib/clinical/return-goal-projection");
+  const { recordGoalCheckin } = await import("../src/lib/clinical/return-goal-evidence");
+  const g = await anActiveGoal();
+  await recordGoalCheckin(ctx, {
+    goalId: g.id, personId: T.patient, level: -1, at: "2026-07-01T09:00:00.000Z", checkinId: "a1",
+  });
+  await recordGoalCheckin(ctx, {
+    goalId: g.id, personId: T.patient, level: 0, at: "2026-08-01T09:00:00.000Z", checkinId: "a2",
+  });
+
+  const set = await goalProjection(ctx, T.patient);
+  assert.equal(set.version, GOAL_PROJECTION_VERSION);
+  const p = set.goals.find((x) => x.goalId === g.id);
+  assert.ok(p);
+  // A series, not a current value: an engine handed only currentLevel would
+  // have to keep its own history, and then there would be two.
+  assert.equal(p.levels.length, 2);
+  assert.ok(p.levels[0].occurredAt < p.levels[1].occurredAt, "oldest first");
+  assert.equal(p.targetDescription, "Completes a normal grocery trip alone.");
+});
+
+test("the projection excludes proposals, rejections and the patient's words", async () => {
+  const { goalProjection } = await import("../src/lib/clinical/return-goal-projection");
+  const g = await anActiveGoal();
+  await recordObservation(ctx, {
+    goalId: g.id, personId: T.patient, observedLevel: 2,
+    evidenceClass: "model_candidate", sourceType: "x", sourceId: "y", occurredAt: NOW,
+  });
+  const set = await goalProjection(ctx, T.patient);
+  const p = set.goals.find((x) => x.goalId === g.id)!;
+
+  assert.equal(p.levels.length, 0,
+    "a fingerprint built over model candidates is a pattern derived from guesses nobody accepted");
+  assert.equal(p.pendingCount, 1, "but a consumer can tell 'no evidence' from 'evidence nobody looked at'");
+
+  // §12: goal titles and why-it-matters must not travel to general telemetry.
+  const blob = JSON.stringify(set);
+  assert.ok(!blob.includes("I want my independence back"), "why-it-matters reached the projection");
+  assert.ok(!blob.includes("I want to shop without needing someone"), "the patient statement reached the projection");
+});
+
+test("a stall signal fires on silence, and a reversal only on a direction", async () => {
+  const { goalProjection, goalSignals } = await import("../src/lib/clinical/return-goal-projection");
+  const { recordGoalCheckin } = await import("../src/lib/clinical/return-goal-evidence");
+
+  const quiet = await anActiveGoal();
+  await recordGoalCheckin(ctx, {
+    goalId: quiet.id, personId: T.patient, level: 0, at: "2026-05-01T09:00:00.000Z", checkinId: "q1",
+  });
+
+  const dipped = await anActiveGoal();
+  for (const [level, day] of [[0, "01"], [-1, "10"], [0, "20"]] as const) {
+    await recordGoalCheckin(ctx, {
+      goalId: dipped.id, personId: T.patient, level,
+      at: `2026-09-${day}T09:00:00.000Z`, checkinId: `d${day}`,
+    });
+  }
+
+  const reversed = await anActiveGoal();
+  for (const [level, day] of [[1, "01"], [0, "10"], [-1, "20"]] as const) {
+    await recordGoalCheckin(ctx, {
+      goalId: reversed.id, personId: T.patient, level,
+      at: `2026-09-${day}T09:00:00.000Z`, checkinId: `r${day}`,
+    });
+  }
+
+  const set = await goalProjection(ctx, T.patient);
+  const signals = goalSignals(set, new Date("2026-09-25T10:00:00.000Z"), 42);
+  const kinds = new Map(signals.map((s) => [s.goalId + s.kind, s]));
+
+  assert.ok(kinds.has(quiet.id + "stall"));
+  assert.ok(kinds.has(reversed.id + "reversal"));
+  // A single lower reading is an ordinary bad week. Alerting on it would be
+  // alerting on the normal shape of recovery.
+  assert.ok(!kinds.has(dipped.id + "reversal"), "a dip that recovered is not a reversal");
+
+  for (const s of signals) {
+    assert.ok(s.reason.length > 0, "a signal with no stated reason is an alert nobody can act on");
+  }
+});
