@@ -206,6 +206,7 @@ const BUILT: ThoughtsFlag[] = [
   "CLINICIAN_THOUGHTS_CAPTURE",
   "CLINICIAN_THOUGHTS_EXTRACTION",
   "CLINICIAN_THREADS",
+  "CLINICIAN_SESSION_PREP",
 ];
 
 test("demo enables exactly the phases that are built", () => {
@@ -272,7 +273,7 @@ test("a flag is read at call time, not at module load", () => {
   // A flag that is NOT demo-enabled, so "unset" genuinely means off here. It
   // was CLINICIAN_THREADS until Phase 3 landed and turned that one on in demo,
   // at which point this test was asserting the opposite of what it meant.
-  const f: ThoughtsFlag = "CLINICIAN_SESSION_PREP";
+  const f: ThoughtsFlag = "CLINICIAN_PATIENT_ASK";
   delete process.env[f];
   assert.equal(thoughtsFlagEnabled(f), false);
   process.env[f] = "1";

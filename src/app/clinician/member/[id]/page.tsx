@@ -12,6 +12,9 @@ import { gateDecisionsFor, groupGateDecisions, overrideAllowed } from "@/lib/cli
 import { gateOverrideAction } from "@/lib/clinical/actions";
 import { GateReviewDrawer } from "@/components/clinical/GateReviewDrawer";
 import { PersonShell } from "@/components/clinical/PersonShell";
+import { SessionPrepPanel } from "@/components/clinical/SessionPrepPanel";
+import { buildSessionPrep } from "@/lib/clinical/session-prep";
+import { thoughtsSurfaceAvailable } from "@/lib/clinical/thoughts-flags";
 import { loadPersonHeader } from "@/lib/clinical/person-header";
 import { MODULES } from "@/lib/modules";
 import { WorkQueueRow } from "@/components/clinical/WorkQueueRow";
@@ -89,6 +92,16 @@ export default async function PersonOverviewPage({
   // symptom and function. It sits above active work because "have they been
   // here" changes how everything below it reads.
   const engagement = await buildEngagement(id, tenantId);
+
+  // Session Prep (§11). Behind its own flag, and its failure never takes the
+  // overview down: a brief is an aid to the record, and a record that will not
+  // load because its summary threw is a worse trade than a page with no brief.
+  const sessionPrep = thoughtsSurfaceAvailable("CLINICIAN_SESSION_PREP")
+    ? await buildSessionPrep({ tenantId, personId: clinician.id }, id).catch((err) => {
+        console.error("session prep failed (non-fatal):", err);
+        return null;
+      })
+    : null;
   const head = mine[0] ?? null;
 
   return (
@@ -113,6 +126,16 @@ export default async function PersonOverviewPage({
         <p className="mt-4 rounded-2xl border border-state-support/40 bg-state-support-bg/50 px-4 py-3 text-sm text-ground">
           {error}
         </p>
+      )}
+
+      {/* Session Prep (§11) sits at the TOP of the overview and above "since
+          your last review", because it is what a clinician reads in the minute
+          before a session — placing it below the record would mean scrolling
+          past the record to reach the thing that summarises it. */}
+      {sessionPrep && (
+        <div className="mt-6">
+          <SessionPrepPanel prep={sessionPrep} personId={id} />
+        </div>
       )}
 
       <div className="mt-6 grid gap-6 lg:grid-cols-[1fr_18rem]">

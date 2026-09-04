@@ -159,6 +159,28 @@ export const THREAD_MATCH = registerTask({
   fallback: "deterministic",
 });
 
+export const SESSION_PREP_COMPOSE = registerTask({
+  id: "clinician.session_prep.compose",
+  version: "1.0.0",
+  // §9's table: "Create concise pre-session brief from authorized evidence",
+  // output "sectioned prep with evidence IDs per claim", human gate "no fact
+  // promotion, source drill-down required".
+  //
+  // OPTIONAL, AND THE BRIEF IS COMPLETE WITHOUT IT. §11 asks for generation
+  // "mainly for concise wording and synthesis", not for the noticing — so the
+  // assembler produces every section deterministically and this task, when a
+  // deployment enables it, can only reword what the assembler already found and
+  // already cited. It cannot introduce a claim, because the claim validator
+  // runs after it against the same authorized evidence set and drops anything
+  // that cites outside it.
+  purpose: "Rewords an already-assembled, already-cited session brief. Cannot introduce a claim or a citation.",
+  model: process.env.EMDR_SESSION_PREP_MODEL ?? "claude-opus-4-8",
+  maxTokens: 1200,
+  phi: "protected-in-hashed-provenance",
+  // The deterministic brief IS the fallback, and it is what ships today.
+  fallback: "deterministic",
+});
+
 export const SESSION_REPHRASE = registerTask({
   id: "session.rephrase",
   version: "1.0.0",
