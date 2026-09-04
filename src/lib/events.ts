@@ -158,6 +158,21 @@ export const EVENT_TYPES = {
   "clinical_thread.connection_proposed": 1,
   "clinical_thread.connection_accepted": 1,
   "clinical_thread.connection_rejected": 1,
+  // Return-to-Life goals (expansion handoff 01 §6).
+  //
+  // level_changed is its OWN event and carries the observation that caused it.
+  // §3: "goal level changes are evidence events. Do not overwrite the current
+  // level without preserving the observation that caused the change." A replay
+  // that saw only the new level could rebuild the number and not the reason,
+  // and the reason is the clinically meaningful half.
+  "return_goal.created": 1,
+  "return_goal.ladder_set": 1,
+  "return_goal.confirmed": 1,
+  "return_goal.observation_recorded": 1,
+  "return_goal.level_changed": 1,
+  "return_goal.revised": 1,
+  "return_goal.completed": 1,
+  "return_goal.archived": 1,
 } as const;
 
 export type EventType = keyof typeof EVENT_TYPES;
