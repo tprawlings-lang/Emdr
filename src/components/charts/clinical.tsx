@@ -104,8 +104,11 @@ export function SmallMultiples({
   annotations?: Annotation[];
 }) {
   const W = 320;
-  const H = 72;
-  const PAD = 8;
+  // Taller than it was. The plot area now has to hold a visible ceiling as well
+  // as the readings, and at 72 the line and the ceiling sat on top of each
+  // other for any instrument a person scores high on.
+  const H = 84;
+  const PAD = 10;
 
   const t = (d: string) => Date.parse(`${d}T00:00:00Z`);
   const start = t(from);
@@ -155,6 +158,17 @@ export function SmallMultiples({
               // dropped: an instrument that was never taken and one that was
               // taken and is flat are different facts.
               <p className="mt-1 text-sm text-olive">No reading in this window.</p>
+            ) : pts.length === 1 ? (
+              // ONE READING IS NOT A TREND, so it is not drawn as one. A single
+              // dot in an empty plot area reads as a broken chart — and it is
+              // the COMMON case here, not an edge one: most instruments in this
+              // record have been taken once. The number is the chart.
+              <p className="mt-1 text-sm text-ground">
+                <span className="font-medium">{first.value}</span>
+                <span className="text-olive">
+                  {" "}on {first.date} · one reading, so there is no trend to read yet
+                </span>
+              </p>
             ) : (
               <>
                 <svg
@@ -164,8 +178,16 @@ export function SmallMultiples({
                   aria-label={`${s.label}: ${pts.length} reading${pts.length === 1 ? "" : "s"} from ${
                     first.value} on ${first.date} to ${last.value} on ${last.date}, out of ${s.max}.`}
                 >
+                  {/* Floor and ceiling. Without them a line simply sits
+                      somewhere: 22 out of 27 and 22 out of 80 draw at
+                      completely different heights and neither says which. The
+                      instrument's range is named beside the title; these two
+                      lines are where that range actually is. Recessive, because
+                      the readings are the subject. */}
                   <line x1={PAD} y1={H - PAD} x2={W - PAD} y2={H - PAD}
                     stroke="var(--color-ground)" strokeOpacity="0.15" strokeWidth="1" />
+                  <line x1={PAD} y1={PAD} x2={W - PAD} y2={PAD}
+                    stroke="var(--color-ground)" strokeOpacity="0.08" strokeWidth="1" />
                   {/* The care events, at their dates, on every panel — which is
                       what the shared axis makes possible and what reading down
                       the panels is for. */}
@@ -188,11 +210,44 @@ export function SmallMultiples({
                   ))}
                 </svg>
 
-                {/* The readings in text, which is the accessible representation
-                    rather than a description of one. */}
+                {/* TWO VALUES, NOT EVERY VALUE. A number beside every point is
+                    chaos and goes unread; the ends are what a reader wants from
+                    a trend, and the rest are a keystroke away below. This
+                    replaced a run-on list of every reading, which at eight
+                    readings wrapped to three lines under a chart 84 units
+                    tall. */}
                 <p className="mt-1 text-xs text-ground">
-                  {pts.map((p) => `${p.value} (${p.date})`).join(" · ")}
+                  <span className="text-olive">First</span> {first.value} on {first.date}
+                  {" · "}
+                  <span className="text-olive">Latest</span> {last.value} on {last.date}
                 </p>
+
+                {/* Every reading, still in the DOM and still the values
+                    themselves rather than a description of them — so there is
+                    no second copy to drift — but folded away instead of poured
+                    over the panel. */}
+                <details className="mt-1">
+                  <summary className="cursor-pointer text-xs text-olive">
+                    All {pts.length} readings
+                  </summary>
+                  <table className="mt-1 text-xs text-ground">
+                    <caption className="sr-only">{s.label} readings, {s.unit}</caption>
+                    <thead>
+                      <tr>
+                        <th scope="col" className="pr-4 text-left font-normal text-olive">Date</th>
+                        <th scope="col" className="text-left font-normal text-olive">Reading</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {pts.map((p) => (
+                        <tr key={p.date}>
+                          <td className="pr-4">{p.date}</td>
+                          <td>{p.value}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </details>
               </>
             )}
           </div>

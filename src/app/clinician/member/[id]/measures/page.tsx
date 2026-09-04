@@ -100,6 +100,10 @@ export default async function MemberDetailPage({
 
   // The shared window: the whole span of readings on file, so every panel is
   // drawn against the same dates.
+  // Whether anything has been repeated at all. Everything the figure claims —
+  // its title, its summary, its footnote — turns on this, because a record with
+  // no repeated instrument has no trend and should not be framed as having one.
+  const anyTrend = measureSeries.some((m) => m.points.length > 1);
   const allDates = measureSeries.flatMap((m) => m.points.map((p) => p.date)).sort();
   const windowFrom = allDates[0] ?? member.created_at.slice(0, 10);
   const windowTo = allDates[allDates.length - 1] ?? windowFrom;
@@ -186,7 +190,12 @@ export default async function MemberDetailPage({
 
       {measureSeries.length > 0 && (
         <section className="mt-8">
-          <h2 className="type-display text-2xl font-medium">Outcome trends</h2>
+          {/* The heading follows the data. "Outcome trends" over a record where
+              every instrument was taken once promises a reading the page cannot
+              give, and that is the majority of records here. */}
+          <h2 className="type-display text-2xl font-medium">
+            {anyTrend ? "Outcome trends" : "Measures on file"}
+          </h2>
           {/* ALIGNED SMALL MULTIPLES, one panel per instrument on one shared
               date axis.
 
@@ -203,9 +212,16 @@ export default async function MemberDetailPage({
               Scales stay separate: a PHQ-9 and a PCL-5 do not share a y axis. */}
           <div className="mt-3 rounded-3xl border border-ground/10 bg-linen p-5 shadow-soft">
             <ClinicalFigure
-              title="Validated measures over time"
-              summary={`${measureSeries.length} instrument${measureSeries.length === 1 ? "" : "s"} on file, each on its own scale and all on one date axis from ${windowFrom} to ${windowTo}.`}
-              footnote={`Readings taken, joined in order — no fitted line and no value between two readings. Each panel is scaled to its own instrument, so the panels are read down the dates rather than across the heights.${
+              title={anyTrend ? "Validated measures over time" : "Validated measures on file"}
+              summary={
+                anyTrend
+                  ? `${measureSeries.length} instrument${measureSeries.length === 1 ? "" : "s"} on file, each on its own scale and all on one date axis from ${windowFrom} to ${windowTo}.`
+                  // A record where nothing has been repeated has no trend to
+                  // show, and a figure titled "over time" spanning one day
+                  // promises one. Most records here are in this state.
+                  : `${measureSeries.length} instrument${measureSeries.length === 1 ? "" : "s"} on file, each taken once. Nothing has been repeated yet, so there is no change to read.`
+              }
+              footnote={`${anyTrend ? "Readings taken, joined in order — no fitted line and no value between two readings. Each panel is scaled to its own instrument, so the panels are read down the dates rather than across the heights." : "Each panel is scaled to its instrument's full range. A single reading is shown as a number rather than plotted, because one point is not a trend."}${
                 planMarks.length > 0 ? ` ${planMarks.length} plan version${planMarks.length === 1 ? "" : "s"} on record.` : ""
               }`}
             >
