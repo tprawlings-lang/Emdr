@@ -12,6 +12,8 @@ import {
   type DismissReason, type CareAction,
 } from "./attention-signals";
 import { buildCommandContext, type CommandContext } from "./command-context";
+import { composeCommandSummary, type SummaryOutcome } from "./command-summary";
+import { commandCenterSurfaceAvailable } from "./command-center-flags";
 
 // Server actions for the Quick Review Drawer (expansion handoff 03 §12, §13).
 //
@@ -62,6 +64,31 @@ export async function loadCommandContext(
   } catch {
     // A drawer that fails to load must not take the queue behind it down.
     return null;
+  }
+}
+
+/**
+ * The optional cross-system sentence (§8, §16), fetched SEPARATELY from the
+ * context.
+ *
+ * Two calls rather than one, and the split is the point: the drawer renders
+ * everything deterministic first and asks for the sentence after. §20: "AI
+ * summary failed → render deterministic reason/support facts. Never hide the
+ * work item." A single call would make the whole drawer wait on a model, and a
+ * slow model would look like a slow record.
+ */
+export async function loadCommandSummary(
+  personId: string, signalId: string | null
+): Promise<SummaryOutcome> {
+  if (!commandCenterSurfaceAvailable("CLINICAL_COMMAND_CENTER_AI_SUMMARY")) {
+    return { rendered: false, reason: "Steady is not composing summaries in this environment." };
+  }
+  const { ctx } = await clinicianContext();
+  try {
+    const context = await buildCommandContext(ctx, { personId, signalId });
+    return await composeCommandSummary(ctx, context);
+  } catch {
+    return { rendered: false, reason: "The summary could not be composed just now." };
   }
 }
 

@@ -319,3 +319,31 @@ export const RESPONSE_MATCH_CONTEXT = registerTask({
   phi: "protected-in-hashed-provenance",
   fallback: "deterministic",
 });
+
+// --- Between-Visit Care Command Center (expansion handoff 03 §16). ----------
+//
+// ONE TASK, AND IT IS OPTIONAL IN THE STRONGEST SENSE. §16: "no AI task is
+// required to decide whether a work item exists", and "no AI task decides queue
+// position, urgency, safety state, due date, owner, or next action."
+//
+// Everything a Command Center row asserts is computed before this task is
+// invoked, and stays on the row whether or not it answers. What the model may
+// do is join facts from several subsystems into one sentence a clinician can
+// read in the time they have — and even that is checked clause by clause
+// against the evidence the deterministic services selected, with anything
+// uncited dropped and the whole sentence withheld if the remainder would
+// mislead.
+//
+// So `fallback: "deterministic"` here is not a degradation path. It is the
+// product: the row's own reason and support facts are what ships, and this adds
+// a sentence on top when it can be verified.
+export const COMMAND_CENTER_SUMMARIZE = registerTask({
+  id: "clinician.command_center.summarize",
+  version: "1.0.0",
+  purpose: "Joins already-computed facts about one person into one short evidence-linked sentence. Cannot create, rank, or re-band a work item.",
+  model: process.env.EMDR_COMMAND_SUMMARY_MODEL ?? "claude-opus-4-8",
+  maxTokens: 800,
+  phi: "protected-in-hashed-provenance",
+  // The deterministic row IS the fallback, and it is what ships today.
+  fallback: "deterministic",
+});
