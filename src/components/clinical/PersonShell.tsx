@@ -37,6 +37,11 @@ export interface PersonHeader {
 const SCREENS: Array<{ slug: string; label: string; layer: RailSlug }> = [
   { slug: "", label: "Overview", layer: "overview" },
   { slug: "/measures", label: "Measures", layer: "progress" },
+  // Return-to-Life goals (expansion handoff 01 §9). Under progress, beside the
+  // measures, because that is the comparison it exists to invite: a symptom
+  // score and what a person can actually do again are both progress and they
+  // are not the same progress.
+  { slug: "/goals", label: "Life goals", layer: "progress" },
   { slug: "/sessions", label: "Sessions", layer: "progress" },
   { slug: "/safety", label: "Safety", layer: "actions" },
   // §17.1: "Place Record Thoughts in the existing action rail/header region so

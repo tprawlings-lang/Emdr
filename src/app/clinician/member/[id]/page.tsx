@@ -13,6 +13,10 @@ import { gateOverrideAction } from "@/lib/clinical/actions";
 import { GateReviewDrawer } from "@/components/clinical/GateReviewDrawer";
 import { PersonShell } from "@/components/clinical/PersonShell";
 import { SessionPrepPanel } from "@/components/clinical/SessionPrepPanel";
+import { ReturnToLifeCard, type GoalCardRow } from "@/components/clinical/ReturnToLifeCard";
+import { goalProjection } from "@/lib/clinical/return-goal-projection";
+import type { TenantContext } from "@/lib/repository";
+import { listGoals } from "@/lib/clinical/return-to-life";
 import { buildSessionPrep } from "@/lib/clinical/session-prep";
 import { thoughtsSurfaceAvailable } from "@/lib/clinical/thoughts-flags";
 import { loadPersonHeader } from "@/lib/clinical/person-header";
@@ -93,6 +97,45 @@ export default async function PersonOverviewPage({
   // here" changes how everything below it reads.
   const engagement = await buildEngagement(id, tenantId);
 
+  const ctx: TenantContext = { tenantId, personId: clinician.id };
+
+  // The projection deliberately carries no patient-authored text (§12), so the
+  // card's titles are read from the store. Two reads rather than widening the
+  // projection: a downstream engine must not receive these strings.
+  const goalTitles = new Map(
+    (await listGoals(ctx, id, ["active"])).map((g) => [g.id, g.title])
+  );
+
+  // Return-to-Life goals (expansion handoff 01 §9): the compact card. Read
+  // through the projection rather than the store, so the overview and the
+  // downstream engines see the same shape — and so a card cannot accidentally
+  // render a proposed observation as a level.
+  const goalSet = await goalProjection(ctx, id, { statuses: ["active"] }).catch((err) => {
+    console.error("goal projection failed (non-fatal):", err);
+    return null;
+  });
+  const goalRows: GoalCardRow[] = (goalSet?.goals ?? []).map((g) => {
+    const latest = g.levels[g.levels.length - 1] ?? null;
+    const prior = g.levels.length >= 2 ? g.levels[g.levels.length - 2] : null;
+    return {
+      goalId: g.goalId,
+      title: goalTitles.get(g.goalId) ?? "This goal",
+      domain: g.domain,
+      currentLevel: g.currentLevel,
+      currentDescription: latest ? g.targetDescription : null,
+      latest: latest ? { occurredAt: latest.occurredAt, evidenceClass: latest.evidenceClass as never } : null,
+      pendingCount: g.pendingCount,
+      changeSinceReview:
+        prior && latest
+          ? latest.level === prior.level
+            ? "no change since the previous reading"
+            : latest.level > prior.level
+              ? "moved up since the previous reading"
+              : "moved down since the previous reading"
+          : null,
+    };
+  });
+
   // Session Prep (§11). Behind its own flag, and its failure never takes the
   // overview down: a brief is an aid to the record, and a record that will not
   // load because its summary threw is a worse trade than a page with no brief.
@@ -132,6 +175,12 @@ export default async function PersonOverviewPage({
           your last review", because it is what a clinician reads in the minute
           before a session — placing it below the record would mean scrolling
           past the record to reach the thing that summarises it. */}
+      {goalRows.length > 0 && (
+        <div className="mt-6">
+          <ReturnToLifeCard personId={id} goals={goalRows} />
+        </div>
+      )}
+
       {sessionPrep && (
         <div className="mt-6">
           <SessionPrepPanel prep={sessionPrep} personId={id} />

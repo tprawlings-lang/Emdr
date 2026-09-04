@@ -40,75 +40,22 @@ import { repo, type TenantContext } from "../repository";
 import { ulid } from "../ids";
 import { encryptField, decryptField } from "../crypto";
 
-export const GOAL_LEVELS = [-2, -1, 0, 1, 2] as const;
-export type GoalLevel = (typeof GOAL_LEVELS)[number];
+// The vocabulary lives in its own module so a client component can import it
+// without pulling this file's database dependencies into the browser bundle.
+// Re-exported here so every existing server-side caller keeps one import.
+export {
+  GOAL_LEVELS, GOAL_DOMAINS, DOMAIN_LABEL, EVIDENCE_LABEL, LEVEL_LABEL,
+  BASELINE_NOTE, COMPLETION_NOTE,
+} from "./return-to-life-vocabulary";
+export type {
+  GoalLevel, GoalStatus, GoalDomain, EvidenceClass, ObservationStatus, GoalLadderRung,
+} from "./return-to-life-vocabulary";
 
-export type GoalStatus = "draft" | "active" | "paused" | "completed" | "archived";
-
-/** §5's taxonomy. `other` is patient-defined and last, because §5's note is
- *  "never force a goal into an incorrect category" — a closed list with no
- *  escape does exactly that. */
-export type GoalDomain =
-  | "daily_living" | "sleep" | "work_school" | "relationships"
-  | "mobility_travel" | "self_care" | "community_recreation" | "other";
-
-export const GOAL_DOMAINS: GoalDomain[] = [
-  "daily_living", "sleep", "work_school", "relationships",
-  "mobility_travel", "self_care", "community_recreation", "other",
-];
-
-export const DOMAIN_LABEL: Record<GoalDomain, string> = {
-  daily_living: "Daily living",
-  sleep: "Sleep",
-  work_school: "Work or school",
-  relationships: "Relationships",
-  mobility_travel: "Getting around",
-  self_care: "Looking after yourself",
-  community_recreation: "Community and recreation",
-  other: "Something else",
-};
-
-/** §10's four classes. */
-export type EvidenceClass =
-  | "patient_reported" | "clinician_observed" | "system_measured" | "model_candidate";
-
-/** What each class means, in the words a surface should use. Exported so the
- *  clinician view and the patient view cannot describe the same class
- *  differently — which is how "the patient said so" quietly becomes "it was
- *  observed". */
-export const EVIDENCE_LABEL: Record<EvidenceClass, string> = {
-  patient_reported: "They told us",
-  clinician_observed: "You saw this",
-  system_measured: "Steady measured it",
-  model_candidate: "Steady suggests this may be related",
-};
-
-export type ObservationStatus = "proposed" | "accepted" | "rejected";
-
-/** §3's ladder copy, in plain language. §9: "show levels in plain language, not
- *  clinical scoring language." A patient should never have to learn what -2
- *  means to understand their own goal. */
-export const LEVEL_LABEL: Record<GoalLevel, string> = {
-  [-2]: "Where you are now",
-  [-1]: "A real step",
-  [0]: "What you are aiming for",
-  [1]: "Beyond that",
-  [2]: "Well beyond that",
-};
-
-/** §3: "baseline is descriptive, not a judgement." Said once, here, so every
- *  surface says it the same way. */
-export const BASELINE_NOTE =
-  "Where you are now is a starting point, not a failure. It is what the ladder is measured from.";
-
-/** §1: "achievement is not cure." */
-export const COMPLETION_NOTE =
-  "Reaching a goal means this part of life changed. It is not a statement about symptoms, diagnosis, or what caused the change.";
-
-export interface GoalLadderRung {
-  level: GoalLevel;
-  description: string;
-}
+import {
+  GOAL_LEVELS,
+  type GoalLevel, type GoalStatus, type GoalDomain,
+  type EvidenceClass, type ObservationStatus, type GoalLadderRung,
+} from "./return-to-life-vocabulary";
 
 export interface Goal {
   id: string;
