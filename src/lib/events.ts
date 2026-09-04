@@ -197,6 +197,34 @@ export const EVENT_TYPES = {
   "response_fingerprint.snapshot_computed": 1,
   "response_fingerprint.pattern_reviewed": 1,
   "response_fingerprint.pattern_corrected": 1,
+
+  // Between-Visit Care Command Center (expansion handoff 03 §17).
+  //
+  // `opened` and `updated` are separate types and that is the lineage rule made
+  // durable. §12: "if a signal changes materially while open, update the row
+  // and expose new-since-review rather than creating duplicates." A ledger with
+  // one "signal" type could not tell a clinician's second look at the same
+  // concern from a second concern.
+  //
+  // `acknowledged` is its own type because §12 is explicit that "opening a row
+  // or drawer does not silently acknowledge it". Acknowledgement is a
+  // clinician's act, and an act nobody recorded is an act nobody can audit.
+  //
+  // NONE OF THESE CARRIES A SAFETY STATE. The cross-feature invariant is that
+  // "safety authority stays deterministic" — these events record review-worthy
+  // work and its lifecycle, and the safety engine's own events remain the only
+  // place a safety obligation begins or ends.
+  //
+  // No patient text travels: statements are on the row a scoped reader can
+  // open, and §18 forbids "patient text, Companion text, goal names, thread
+  // names, or clinical labels in external analytics".
+  "attention_signal.opened": 1,
+  "attention_signal.updated": 1,
+  "attention_signal.acknowledged": 1,
+  "attention_signal.state_changed": 1,
+  "attention_signal.reopened": 1,
+  "between_visit_care.action_recorded": 1,
+  "command_center.summary_generated": 1,
 } as const;
 
 export type EventType = keyof typeof EVENT_TYPES;

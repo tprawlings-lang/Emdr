@@ -10,6 +10,21 @@
 // One action, not three. A row offering review, contact and open has not
 // decided what it is asking for, and the clinician pays for that indecision on
 // every row they scan.
+//
+// EXPANSION HANDOFF 03 §4 ADDS THREE THINGS AND ONE RULE.
+//
+// The rule first: "a row is not a mini chart. The clinician understands the
+// reason without opening it; scores, history, full evidence, and extra actions
+// belong in the drawer." So what follows is deliberately small — a safety
+// label, at most three short facts, and how long since anyone made contact.
+//
+// THE SAFETY LABEL IS THE IMPORTANT ONE. §2: "safety remains visibly labeled as
+// safety. Non-safety review_now cannot masquerade as safety." An attention
+// signal and a safety obligation can sit in the same bucket, which is right —
+// hiding a review-worthy concern a section lower because it is not safety helps
+// nobody — and it is only right because the row says which it is. The label
+// reads from `safetyAuthority`, never from the band, because the band is
+// exactly what the two share.
 
 import Link from "next/link";
 import type { WorkItem } from "@/lib/clinical/work-queue";
@@ -57,9 +72,28 @@ export function WorkQueueRow({
             )}
           </div>
 
+          {/* Not colour alone (§19): the word "Safety" is the signal, and the
+              chip is only its dressing. */}
+          {item.safetyAuthority && (
+            <span className="mt-0.5 inline-block rounded-full bg-state-support/15 px-2 py-0.5 text-xs font-semibold uppercase tracking-wide text-state-support">
+              Safety
+            </span>
+          )}
+
           <p className={hidePerson ? "text-sm font-medium text-ground" : "mt-0.5 text-sm text-ground/90"}>
             {item.reason}
           </p>
+
+          {/* §4: "maximum three short facts." The cap is in the projection, and
+              the slice here is a second guard rather than a first — a row that
+              grew a fourth fact would be a row on its way to becoming a chart. */}
+          {item.supportFacts.length > 0 && (
+            <ul className="measure mt-1 space-y-0.5">
+              {item.supportFacts.slice(0, 3).map((f, n) => (
+                <li key={n} className="text-xs text-olive">{f}</li>
+              ))}
+            </ul>
+          )}
           {/* The underlying event text. Carries the scoring specifics a
               clinician needs when acting — allowed on a clinician surface — but
               it is not the headline, because a raw key does not tell anyone at
@@ -76,6 +110,16 @@ export function WorkQueueRow({
             </span>
             <FreshnessLabel evidenceAt={item.evidenceAt} now={now} />
             <OwnerChip name={item.ownerName} />
+            {/* §4's "last meaningful clinician contact". Null is its own
+                state: somebody nobody has contacted yet and somebody contacted
+                this morning must not read the same. */}
+            <span className="text-xs text-olive">
+              {item.lastContactDays === null
+                ? "No contact recorded"
+                : item.lastContactDays === 0
+                  ? "Contacted today"
+                  : `Last contact ${item.lastContactDays}d ago`}
+            </span>
             {/* A resolved item's deadline is history. Rendering a countdown
                 against a past due time produced "Due in just now", which is
                 both wrong and meaningless. */}

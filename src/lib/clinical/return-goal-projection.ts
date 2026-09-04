@@ -80,7 +80,7 @@ export interface GoalProjectionSet {
 export async function goalProjection(
   ctx: TenantContext,
   personId: string,
-  opts: { statuses?: string[]; now?: Date } = {}
+  opts: { statuses?: string[]; now?: Date; asOf?: string } = {}
 ): Promise<GoalProjectionSet> {
   const now = opts.now ?? new Date();
   const statuses = (opts.statuses ?? ["active", "completed"]) as Parameters<typeof listGoals>[2];
@@ -88,7 +88,13 @@ export async function goalProjection(
 
   const projections: GoalProjection[] = [];
   for (const goal of goals) {
-    const observations = await observationsFor(ctx, goal.id);
+    // `asOf` is the evidence cutoff, and it filters the OBSERVATIONS rather
+    // than only setting the clock. A projection that moved its clock back but
+    // still folded every observation would report the level a goal reached
+    // later as the level it had then — future data wearing a historical date,
+    // which is the exact leak the cross-feature invariant names.
+    const all = await observationsFor(ctx, goal.id);
+    const observations = opts.asOf ? all.filter((o) => o.occurredAt <= opts.asOf!) : all;
     const rungs = await ladderFor(ctx, goal.id);
     const accepted = observations
       .filter((o) => o.status === "accepted" && o.observedLevel !== null)
