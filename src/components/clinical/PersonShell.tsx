@@ -48,6 +48,12 @@ const SCREENS: Array<{ slug: string; label: string; layer: RailSlug }> = [
   // actually been exposed to" — is read alongside the measures and the goals,
   // not consulted like a document.
   { slug: "/responses", label: "Responses", layer: "progress" },
+  // Recovery trajectory (expansion handoff 04 §9). Under progress, last of the
+  // four, because it is the layer ABOVE the others: it reads the measures, the
+  // goals and the session record and says whether the course has changed. A
+  // clinician arrives here after looking at what it is built from, not instead
+  // of looking.
+  { slug: "/trajectory", label: "Trajectory", layer: "progress" },
   { slug: "/safety", label: "Safety", layer: "actions" },
   // §17.1: "Place Record Thoughts in the existing action rail/header region so
   // it is available without scrolling into the formal record." Recording a

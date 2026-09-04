@@ -25,9 +25,12 @@
 //   both must be distinguishable from a person who is not moving.
 //
 //   "Trajectory comes from Handoff 04 and uses descriptive states, not a
-//   universal recovery score." Not built. Modelled as unavailable rather than
-//   omitted, so the column reads "not computed" instead of blank — a blank cell
-//   in a trajectory column reads as "flat".
+//   universal recovery score." Built, and the constraint survived: the cell
+//   holds ONE domain's state and names which domain it is, rather than a
+//   summary across domains. A cell that read "declining" without saying in what
+//   would be the composite score arriving one column to the right — and a
+//   person can be reversing in sleep while their life goals move, which §4 of
+//   handoff 04 requires be preserved rather than netted off.
 //
 //   "Response... must show supportive/mixed/insufficient evidence honestly."
 //   Mapped from §6 of handoff 02's five pattern states, which already enforce
@@ -49,6 +52,10 @@ import { listGoals, observationsFor } from "./return-to-life";
 import { computeFingerprints, displayable } from "./response-fingerprint";
 import { RESPONSE_POLICY } from "./response-fingerprint-policy";
 import { GOAL_PROJECTION_VERSION } from "./return-goal-projection";
+import {
+  computeTrajectory, TRAJECTORY_POLICY, STATE_LABEL,
+  type TrajectoryState, type TrajectorySnapshot,
+} from "./recovery-trajectory";
 
 export const CASELOAD_STATE_VERSION = "caseload-state.1.0.0";
 
@@ -86,6 +93,28 @@ export interface ColumnAbsent {
   note: string;
 }
 
+/**
+ * §6's trajectory column, from handoff 04.
+ *
+ * ONE DOMAIN, NAMED. The cell reports the most concerning state among the
+ * domains that may reach a clinician's attention and says which domain it came
+ * from, because "reversing" on its own is a claim about a person and
+ * "reversing — sleep quality" is a claim about a reading. `otherMoved` counts
+ * the domains that also moved, so a reader can see that the cell is a selection
+ * from several rather than the whole picture.
+ */
+export interface TrajectoryColumn {
+  present: true;
+  state: TrajectoryState;
+  label: string;
+  /** Which domain the state came from, in words. */
+  domainLabel: string;
+  /** How many OTHER signal-eligible domains also changed course. */
+  otherMoved: number;
+  note: string;
+  evidenceAt: string;
+}
+
 export interface CaseloadStateRow {
   personId: string;
   displayName: string;
@@ -107,7 +136,7 @@ export interface CaseloadStateRow {
   responseDetail: string;
   responseEvidenceCount: number;
 
-  trajectory: ColumnAbsent;
+  trajectory: TrajectoryColumn | ColumnAbsent;
   load: ColumnAbsent;
 
   lastContactDays: number | null;
@@ -121,7 +150,7 @@ export interface CaseloadState {
   stateVersion: string;
   /** The versions each column was computed under, so a reader can tell which
    *  rules produced which cell (§6: "calculation window, limitations"). */
-  columnVersions: { function: string; response: string };
+  columnVersions: { function: string; response: string; trajectory: string };
   model: string;
 }
 
@@ -155,6 +184,34 @@ export function functionStateFrom(
   if (last > first) return "improving";
   if (last < first) return "lost_ground";
   return "little_change";
+}
+
+/**
+ * Which domain's state speaks for the row.
+ *
+ * ORDER IS A CLINICAL JUDGEMENT AND IT IS NOT AN AVERAGE. Reversing outranks
+ * slowing outranks a stall, because those are the states that ask a clinician
+ * to look; improving outranks stable so a person whose course is moving reads
+ * as moving. `insufficient_data` is last and, when it is all there is, the
+ * column is absent rather than present-and-empty — the picture never gets
+ * filled in with the least informative thing available.
+ *
+ * The row also carries how many OTHER domains moved, so this selection cannot
+ * be read as the whole picture.
+ */
+const CONCERN_ORDER: TrajectoryState[] = [
+  "reversing", "slowing", "stalled", "improving", "stable", "insufficient_data",
+];
+
+export function mostConcerning(snapshots: TrajectorySnapshot[]): TrajectorySnapshot | null {
+  const ranked = [...snapshots]
+    .filter((s) => s.state !== "insufficient_data")
+    .sort(
+      (a, b) =>
+        CONCERN_ORDER.indexOf(a.state) - CONCERN_ORDER.indexOf(b.state) ||
+        a.label.localeCompare(b.label)
+    );
+  return ranked[0] ?? null;
 }
 
 /**
@@ -273,6 +330,46 @@ export async function buildCaseloadState(args: {
       }
     }
 
+    // ── Trajectory (§6, from handoff 04) ──────────────────────────────────
+    //
+    // Guarded on its own, because the trajectory engine reads the whole event
+    // spine and a caseload row that failed to render would take the function
+    // and response columns down with it — leaving a screen that looks like a
+    // short caseload rather than a broken one.
+    let trajectory: TrajectoryColumn | ColumnAbsent = {
+      present: false,
+      note: "Not computed for this person just now. This is a gap in the reading, not a flat trajectory.",
+    };
+    try {
+      const set = await computeTrajectory(ctx, person.personId, { asOf: cutoff });
+      const eligible = set.snapshots.filter((s) => s.signalEligible);
+      const chosen = mostConcerning(eligible);
+      if (!chosen) {
+        trajectory = {
+          present: false,
+          note:
+            eligible.length === 0
+              ? "No domain has enough comparable observations yet."
+              : "Every domain read as not enough to compare.",
+        };
+      } else {
+        const alsoMoved = eligible.filter(
+          (s) => s !== chosen && s.state !== "insufficient_data" && s.state !== "stable"
+        ).length;
+        trajectory = {
+          present: true,
+          state: chosen.state,
+          label: STATE_LABEL[chosen.state],
+          domainLabel: chosen.label,
+          otherMoved: alsoMoved,
+          note: chosen.classification.explanation[0] ?? "",
+          evidenceAt: chosen.evidenceCutoff,
+        };
+      }
+    } catch (err) {
+      console.error("caseload state: trajectory failed:", err instanceof Error ? err.name : "unknown");
+    }
+
     rows.push({
       personId: person.personId,
       displayName: person.displayName,
@@ -286,10 +383,7 @@ export async function buildCaseloadState(args: {
       responseState,
       responseDetail,
       responseEvidenceCount: shown.reduce((n, f) => n + f.supportCount, 0),
-      trajectory: {
-        present: false,
-        note: "Not computed — recovery trajectory is not built yet. This is an absent feature, not a flat trajectory.",
-      },
+      trajectory,
       load: {
         present: false,
         note: "Not computed — therapeutic load and readiness are not built yet.",
@@ -314,7 +408,11 @@ export async function buildCaseloadState(args: {
     computedAt: now.toISOString().replace("T", " ").slice(0, 19),
     policyVersion: policy.version,
     stateVersion: CASELOAD_STATE_VERSION,
-    columnVersions: { function: GOAL_PROJECTION_VERSION, response: RESPONSE_POLICY.version },
+    columnVersions: {
+      function: GOAL_PROJECTION_VERSION,
+      response: RESPONSE_POLICY.version,
+      trajectory: TRAJECTORY_POLICY.version,
+    },
     model: caseload.model,
   };
 }

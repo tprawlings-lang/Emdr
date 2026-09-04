@@ -37,8 +37,11 @@ const DETERMINISTIC_ORDER: PrepSection[] = [
   // Observed responses third (expansion handoff 02 §9): the goals say what the
   // session is for, and this says what has and has not tended to follow the
   // work — read together, before the follow-ups the clinician set themselves.
-  "last_session", "life_goals", "observed_responses", "revisit", "between_visit",
-  "active_threads",
+  // Changes and trends fourth (expansion handoff 04 §9): after what the work
+  // is for and what has followed it, so a domain that moved is read against
+  // what was being worked on rather than as a free-standing verdict.
+  "last_session", "life_goals", "observed_responses", "changes_and_trends",
+  "revisit", "between_visit", "active_threads",
 ];
 
 export function SessionPrepPanel({

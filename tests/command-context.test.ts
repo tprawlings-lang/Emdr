@@ -95,8 +95,16 @@ test("the four reasons for absence are not interchangeable", async () => {
   const c = await buildCommandContext(ctx, { personId: T.empty });
   assert.equal(reasonOf(c.returnToLife), "none_recorded", "this person has no goals");
   assert.equal(
-    reasonOf(c.recoveryTrajectory), "unavailable",
+    reasonOf(c.therapeuticLoad), "unavailable",
     "the feature is not built — that is not a statement about the person"
+  );
+  // Recovery trajectory IS built now, so its absence for this person must be a
+  // statement about the record rather than about the feature. That is the
+  // distinction the enum exists for, and the section moving from `unavailable`
+  // to `none_recorded` without either word changing meaning is the check.
+  assert.equal(
+    reasonOf(c.recoveryTrajectory), "none_recorded",
+    "nothing has been recorded that a trajectory could be computed from"
   );
   assert.equal(reasonOf(c.whyHere), "none_recorded", "the row came from somewhere else");
 });
@@ -104,7 +112,7 @@ test("the four reasons for absence are not interchangeable", async () => {
 // §20's exact case: an absent downstream feature must not read as a flat one.
 test("an unbuilt subsystem says it is unbuilt, in words", async () => {
   const c = await buildCommandContext(ctx, { personId: T.empty });
-  for (const s of [c.recoveryTrajectory, c.therapeuticLoad]) {
+  for (const s of [c.therapeuticLoad]) {
     assert.equal(s.reason, "unavailable");
     assert.ok(
       /not built yet/i.test(s.note),
@@ -115,6 +123,25 @@ test("an unbuilt subsystem says it is unbuilt, in words", async () => {
       "and the note must say what the absence does NOT mean"
     );
   }
+});
+
+// Handoff 04 filled the recovery-trajectory slot, and the thing to check is
+// that filling it did not flatten the distinction the slot was holding open.
+// A person with nothing recorded and a person with a thin record produce the
+// same empty section and mean different things, and neither of them means the
+// course is flat.
+test("a built trajectory still tells 'nothing recorded' from 'not enough yet'", async () => {
+  const c = await buildCommandContext(ctx, { personId: T.empty });
+  assert.equal(c.recoveryTrajectory.present, false);
+  const s = c.recoveryTrajectory as SectionMissing;
+  assert.equal(s.reason, "none_recorded");
+  assert.ok(
+    /no check-ins|nothing has been recorded/i.test(s.note),
+    `the note must name what is missing: ${s.note}`
+  );
+  // And it must not have acquired a verdict on the way. "Stable" and "flat" are
+  // the two words an empty trajectory section must never produce.
+  assert.ok(!/\bstable\b|\bflat\b|on track/i.test(s.note), `an empty section stated a course: ${s.note}`);
 });
 
 test("insufficient evidence is not the same as nothing recorded", async () => {

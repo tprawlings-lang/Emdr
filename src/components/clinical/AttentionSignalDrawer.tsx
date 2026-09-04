@@ -7,6 +7,9 @@ import {
   correctCareActionAction,
 } from "@/lib/clinical/attention-actions";
 import type { CommandContext, SectionMissing } from "@/lib/clinical/command-context";
+// Labels only, from the client-safe policy module — importing the engine would
+// pull better-sqlite3 into the browser bundle.
+import { stateLabelFor } from "@/lib/clinical/trajectory-policy";
 import type { SummaryOutcome } from "@/lib/clinical/command-summary";
 // The VOCABULARY module, not the store. This runs in the browser and the store
 // reaches better-sqlite3; the build refuses that, correctly, and refused this
@@ -493,12 +496,52 @@ function ActiveThreads({ context }: { context: CommandContext }) {
   );
 }
 
+/**
+ * §5's Recovery / Load Context.
+ *
+ * EVERY DOMAIN IS LISTED, not only the ones that moved. A section that showed
+ * findings alone would make every open read as bad news and would hide the
+ * disagreement handoff 04 §4 requires be preserved — a person can be reversing
+ * in sleep while their life goals move, and both halves belong on the screen at
+ * once. The lanes that are holding steady are the context that makes the one
+ * that moved legible.
+ *
+ * AND NOTHING HERE IS A SCORE. Each row carries the domain's own state word and
+ * the sentence the engine wrote about that domain's own scale. There is no
+ * ranking across rows and no combined figure — those would be the composite
+ * recovery score handoff 04 §1 refuses, arriving inside a drawer.
+ */
 function RecoveryAndLoad({ context }: { context: CommandContext }) {
+  const t = context.recoveryTrajectory;
   return (
     <section>
       <SectionHeading>Recovery and load</SectionHeading>
-      <div className="mt-2 space-y-1">
-        <MissingNote section={context.recoveryTrajectory} />
+      <div className="mt-2 space-y-2">
+        {!t.present ? (
+          <MissingNote section={t} />
+        ) : (
+          <>
+            {t.line ? <p className="measure text-sm text-app-ink">{t.line}</p> : null}
+            <ul className="space-y-1">
+              {t.domains.map((d) => (
+                <li key={`${d.domainType}:${d.domainKey}`} className="measure text-sm text-app-ink">
+                  <span className="font-medium">{d.label}</span>{" "}
+                  <span className="text-xs text-olive">— {stateLabelFor(d.domainType, d.state)}</span>
+                  <span className="block text-xs text-olive">{d.headline}</span>
+                  {d.limitations.map((lim) => (
+                    <span key={lim} className="block text-xs text-olive">{lim}</span>
+                  ))}
+                </li>
+              ))}
+            </ul>
+            <p className="text-xs text-olive">
+              {/* The one sentence that must survive any wording review. */}
+              Each domain is read on its own scale and against this person&rsquo;s own earlier
+              windows. Nothing here is combined into a single figure, and none of it is a
+              prediction. Computed under {t.policyVersion}.
+            </p>
+          </>
+        )}
         <MissingNote section={context.therapeuticLoad} />
       </div>
     </section>

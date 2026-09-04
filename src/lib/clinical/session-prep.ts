@@ -40,6 +40,9 @@ import { listThoughts, currentTranscript } from "./thought-store";
 import { RETRIEVAL_POLICY_VERSION } from "./retrieval-policy";
 import { responseContextFor, type ResponseContext } from "./response-fingerprint";
 import { RESPONSE_POLICY } from "./response-fingerprint-policy";
+import {
+  computeTrajectory, trajectoryContext, TRAJECTORY_POLICY, type TrajectoryContext,
+} from "./recovery-trajectory";
 import type { TenantContext } from "../repository";
 
 export const SESSION_PREP_VERSION = "session-prep.1.0.0";
@@ -49,6 +52,7 @@ export type PrepSection =
   | "last_session"
   | "life_goals"
   | "observed_responses"
+  | "changes_and_trends"
   | "revisit"
   | "between_visit"
   | "active_threads"
@@ -67,6 +71,13 @@ export const SECTION_TITLE: Record<PrepSection, string> = {
   // evidence". Third, after the goals: the goals say what the session is for,
   // and this says what has and has not tended to follow the work.
   observed_responses: "What has tended to settle them, and what to watch",
+  // Added by expansion handoff 04 §9, which asks Session Prep's "Changes and
+  // Trends section" to "say which domains moved, stalled, or reversed, with
+  // evidence and comparison window". Fourth: after what the work is for and
+  // what has followed it, before the clinician's own follow-ups. Every line in
+  // it names one domain — a section that summarised across them would be the
+  // composite score §1 refuses, arriving in a paragraph.
+  changes_and_trends: "Changes and trends",
   revisit: "You wanted to revisit",
   between_visit: "Between-visit changes",
   active_threads: "Active threads",
@@ -198,6 +209,11 @@ export interface PrepInputs {
    *  a second implementation of §6's thresholds, and the two would eventually
    *  disagree about what counts as enough evidence. */
   responses: ResponseContext[];
+  /** Domain states from the recovery-trajectory engine, not recomputed here.
+   *  A brief that applied its own thresholds would be a second implementation
+   *  of §4's policy, and the two would eventually disagree about the same
+   *  person in the same week. */
+  trajectory: TrajectoryContext[];
   memory: MemoryItem[];
   followUps: FollowUp[];
   threads: Thread[];
@@ -214,7 +230,7 @@ export interface PrepInputs {
  * database.
  */
 export function assemble(inputs: PrepInputs): PrepClaim[] {
-  const { timeline, followUps, threadEntries, goals, notes, responses, now } = inputs;
+  const { timeline, followUps, threadEntries, goals, notes, responses, trajectory, now } = inputs;
   const claims: PrepClaim[] = [];
   const nowIso = now.toISOString();
 
@@ -287,6 +303,31 @@ export function assemble(inputs: PrepInputs): PrepClaim[] {
       section: "observed_responses",
       text: r.toWatch ? `Watch: ${r.text}` : r.text,
       citations: r.citations,
+      origin: "deterministic",
+    });
+  }
+
+  // --- Changes and trends (expansion handoff 04 §9). -----------------------
+  //
+  // ONE LINE PER DOMAIN, each naming its own domain and carrying its own
+  // evidence. §9 asks for "which domains moved, stalled, or reversed, with
+  // evidence and comparison window", and the plural is the constraint: a single
+  // sentence about "the trajectory" would have to net a reversal in sleep
+  // against movement on a goal, which is the composite score §1 refuses.
+  //
+  // AND ONLY THE DOMAINS THAT MOVED. A brief is read in about a minute; the
+  // lanes holding steady are on the trajectory screen, where there is room to
+  // read them as the context they are. What belongs in a brief is what changed.
+  for (const t of trajectory) {
+    if (t.evidenceIds.length === 0) continue;
+    if (t.state === "stable" || t.state === "insufficient_data") continue;
+    claims.push({
+      section: "changes_and_trends",
+      // The engine's own state word, never a rephrasing. §3's display rules
+      // live with the states, and a brief that reworded them would be the one
+      // place "stable" quietly became "not improving".
+      text: `${t.label}: ${t.stateLabel.toLowerCase()}. ${t.headline}`,
+      citations: t.evidenceIds,
       origin: "deterministic",
     });
   }
@@ -469,6 +510,15 @@ export async function buildSessionPrep(
   // Computed over the same cutoff as everything else in the brief, so a brief
   // and the screen it links to describe the same evidence.
   const responses = await responseContextFor(ctx, personId, { asOf: evidenceCutoff });
+  // Domain states over the same cutoff, so the brief and the trajectory screen
+  // describe the same evidence. Guarded: a trajectory engine that failed must
+  // cost the brief one section, not the whole brief.
+  let trajectory: TrajectoryContext[] = [];
+  try {
+    trajectory = trajectoryContext(await computeTrajectory(ctx, personId, { asOf: evidenceCutoff }));
+  } catch (err) {
+    console.error("session prep: trajectory failed:", err instanceof Error ? err.name : "unknown");
+  }
 
   // The clinician's own saved notes. Only SAVED ones: a thought still in review
   // is a draft of a judgement, and putting one in a brief would show a
@@ -507,19 +557,24 @@ export async function buildSessionPrep(
     // claim — which is the behaviour that makes "every pattern opens evidence"
     // true in the brief as well as on the screen.
     ...responses.flatMap((r) => r.citations),
+    // Trajectory evidence is ledger events, goal observations and post-session
+    // checks — evidence like any other, and a trends line citing something
+    // outside this set is withheld exactly like any other uncited claim.
+    ...trajectory.flatMap((t) => t.evidenceIds),
     // A note cites its own thought, which the clinician is by definition
     // authorized to read — it is theirs.
     ...notes.map((n) => n.thoughtId),
   ]);
 
   const produced = assemble({
-    timeline, memory, followUps, threads, threadEntries, goals, notes, responses, now,
+    timeline, memory, followUps, threads, threadEntries, goals, notes, responses,
+    trajectory, now,
   });
   const { kept, omitted } = validateClaims(produced, authorized);
 
   const sections: Record<PrepSection, PrepClaim[]> = {
-    last_session: [], life_goals: [], observed_responses: [], revisit: [],
-    between_visit: [], active_threads: [], steady_noticed: [],
+    last_session: [], life_goals: [], observed_responses: [], changes_and_trends: [],
+    revisit: [], between_visit: [], active_threads: [], steady_noticed: [],
   };
   for (const c of kept) sections[c.section].push(c);
 
@@ -573,6 +628,9 @@ export function prepCacheKey(args: {
     // them, and a cached brief composed under the old thresholds looks exactly
     // like one composed under the new.
     RESPONSE_POLICY.version,
+    // And the trajectory policy, for the same reason again: change what counts
+    // as a meaningful move and the Changes and Trends section changes with it.
+    TRAJECTORY_POLICY.version,
   ].join("|");
   return crypto.createHash("sha256").update(material).digest("hex").slice(0, 24);
 }

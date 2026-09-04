@@ -107,6 +107,14 @@ export const DEMO_DATA_TABLES = [
   "between_visit_care_actions",
   "clinical_attention_signal_evidence",
   "clinical_attention_signals",
+  // Trajectory reviews and evidence both point at snapshots, and a snapshot
+  // points at the person. Cleared before the goal and event rows they cite, for
+  // the same reason as the rest of this list: a reset that left a domain state
+  // behind would leave the environment holding a clinical reading of somebody
+  // who no longer exists.
+  "recovery_trajectory_reviews",
+  "recovery_trajectory_evidence",
+  "recovery_trajectory_snapshots",
   // Fingerprint evidence points at snapshots; observations point at instances;
   // instances point at definitions. Cleared innermost-first.
   "response_fingerprint_evidence",

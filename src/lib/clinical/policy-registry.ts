@@ -38,6 +38,7 @@ import { COMMAND_SUMMARY_VERSION } from "./command-summary";
 import { CASELOAD_STATE_VERSION } from "./caseload-state";
 import { ACTIVITY_VERSION } from "./recent-activity";
 import { ENGAGEMENT_POLICY_VERSION } from "./attention-providers/providers";
+import { TRAJECTORY_POLICY } from "./trajectory-policy";
 
 export interface RegisteredPolicy {
   /** Stable key, for a screen that wants to name one. */
@@ -87,6 +88,14 @@ export const POLICY_REGISTRY: RegisteredPolicy[] = [
     version: RESPONSE_POLICY.version,
     decides: "How many comparable exposures a pattern needs, and how strata and limitations are computed.",
     module: "src/lib/clinical/response-fingerprint-policy.ts",
+  },
+  {
+    id: "recovery_trajectory",
+    label: "Recovery trajectory",
+    version: TRAJECTORY_POLICY.version,
+    decides:
+      "What counts as meaningful movement in each domain, on that domain's own scale, and how many observations a window needs before Steady compares it with anything.",
+    module: "src/lib/clinical/trajectory-policy.ts",
   },
   {
     id: "engagement_gap",
