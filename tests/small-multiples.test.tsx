@@ -138,24 +138,66 @@ test("each panel keeps its own scale — a PHQ-9 and a PCL-5 do not share a y ax
     `18 of 27 drew at ${phqFirst} and 52 of 80 at ${pclFirst} — the panels are sharing a scale`);
 });
 
-test("an instrument taken once keeps its panel and draws no line through nothing", () => {
+test("an instrument taken once is shown as a reading, not as a trend", () => {
+  // It used to draw the one reading as a dot in an otherwise empty plot area,
+  // which is honest and reads as a broken chart — and it is the COMMON case in
+  // this record rather than an edge one: most instruments have been taken once.
+  // So the number is the chart. The panel still keeps its place, because an
+  // instrument never taken and one taken once are different facts.
   const once: MeasureSeries[] = [{ ...TWO[1], points: [{ date: "2026-03-01", value: 52 }] }];
   const html = renderToStaticMarkup(<SmallMultiples series={once} from={FROM} to={TO} />);
-  assert.equal(marks(html).length, 1);
+
+  assert.match(html, /PCL-5/, "the panel is still there");
+  assert.match(html, /52/, "and so is the reading");
   assert.doesNotMatch(html, /<polyline/,
     "a single reading was joined to itself — a trend drawn from one point");
+  assert.match(html, /no trend to read yet/,
+    "one reading has to say it is one reading; a lone value beside a scale implies a position on it");
 });
 
-test("the readings are in the text, not only in the picture", () => {
-  // §29.1's accessibility rule. The values ARE the accessible representation
-  // rather than a description of one, so there is no second copy to drift.
+test("every reading is in the text, not only in the picture", () => {
+  // §29.1's accessibility rule, and it still holds: the values ARE the
+  // accessible representation rather than a description of one, so there is no
+  // second copy to drift. What changed is the presentation — they were a
+  // run-on list under every panel, which at eight readings wrapped to three
+  // lines under a chart 84 units tall and went unread. They are now a table,
+  // folded away. Present, reachable, and not poured over the drawing.
   const html = renderToStaticMarkup(<SmallMultiples series={TWO} from={FROM} to={TO} />);
   for (const p of TWO[0].points) {
-    assert.ok(html.includes(`${p.value} (${p.date})`),
-      `the reading ${p.value} on ${p.date} is only in the drawing`);
+    assert.ok(
+      html.includes(`<td class="pr-4">${p.date}</td><td>${p.value}</td>`),
+      `the reading ${p.value} on ${p.date} is only in the drawing`
+    );
   }
+  assert.match(html, /All \d+ readings/, "and the values are reachable rather than buried");
   assert.match(html, /lower is better/,
     "direction is not stated, so a falling line could be read either way");
+});
+
+test("the plot labels the ends and not every point", () => {
+  // "Never a number on every point" — a value beside each dot is chaos and goes
+  // unread. The ends are what a reader wants from a trend; the rest are one
+  // keystroke away.
+  const html = renderToStaticMarkup(<SmallMultiples series={TWO} from={FROM} to={TO} />);
+  const summaryLine = html.slice(html.indexOf("First"), html.indexOf("All "));
+  const first = TWO[0].points[0];
+  const last = TWO[0].points[TWO[0].points.length - 1];
+  assert.ok(summaryLine.includes(String(first.value)));
+  assert.ok(summaryLine.includes(String(last.value)));
+  // The middle reading is not labelled on the plot.
+  const middle = TWO[0].points[1];
+  assert.ok(!summaryLine.includes(`${middle.value} on ${middle.date}`),
+    "a middle reading is labelled beside the plot, which is how endpoint labels stop working");
+});
+
+test("the plot area shows its floor and ceiling", () => {
+  // 22 out of 27 and 22 out of 80 draw at completely different heights, and a
+  // line sitting somewhere in an unmarked box says neither. The instrument's
+  // range is named beside the title; these are where that range is.
+  const html = renderToStaticMarkup(<SmallMultiples series={TWO} from={FROM} to={TO} />);
+  const rules = [...html.matchAll(/<line[^>]*stroke-opacity="0\.(15|08)"/g)];
+  assert.ok(rules.length >= 2 * TWO.length,
+    "each panel needs a floor and a ceiling for its height to mean anything");
 });
 
 test("no fitted line, no projection, no score", () => {
