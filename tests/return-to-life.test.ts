@@ -317,3 +317,124 @@ test("every domain in §5's taxonomy is available, including patient-defined", (
   // escape does exactly that.
   assert.ok(GOAL_DOMAINS.includes("other"));
 });
+
+// ---------------------------------------------------------------------------
+// Phase 2 — evidence capture, and Session Prep
+// ---------------------------------------------------------------------------
+
+test("the three inlets keep their sources distinct", async () => {
+  const {
+    recordGoalCheckin, recordClinicianObservation, proposeModelEvidence,
+  } = await import("../src/lib/clinical/return-goal-evidence");
+  const g = await anActiveGoal();
+
+  const patient = await recordGoalCheckin(ctx, {
+    goalId: g.id, personId: T.patient, level: -1, at: "2026-08-01T09:00:00.000Z", checkinId: "chk1",
+  });
+  const clinician = await recordClinicianObservation(ctx, {
+    goalId: g.id, personId: T.patient, level: 0, at: "2026-08-10T09:00:00.000Z", sourceId: "note1",
+  });
+  const model = await proposeModelEvidence(ctx, {
+    goalId: g.id, personId: T.patient, level: 2,
+    sourceType: "thought_item", sourceId: "item1", at: "2026-08-20T09:00:00.000Z",
+  });
+
+  // §14: patient report and clinician observation display differently, which
+  // requires them to BE different in the record first.
+  assert.equal(patient.evidenceClass, "patient_reported");
+  assert.equal(clinician.evidenceClass, "clinician_observed");
+  assert.equal(model.evidenceClass, "model_candidate");
+  assert.equal(patient.status, "accepted", "a patient's report is the report, not a proposal");
+  assert.equal(clinician.status, "accepted");
+  assert.equal(model.status, "proposed");
+
+  // And the model's guess has not moved anything.
+  const { current } = await refreshLevel(ctx, g.id, NOW);
+  assert.equal(current, 0, "the clinician's observation is the latest accepted one");
+});
+
+test("proposing model evidence does not even touch the level", async () => {
+  const fs = await import("node:fs");
+  const src = fs.readFileSync("src/lib/clinical/return-goal-evidence.ts", "utf8");
+  const fn = src.slice(
+    src.indexOf("export async function proposeModelEvidence"),
+    src.indexOf("async function emitAndRefresh")
+  );
+  // Comments stripped first: the function's own comment says "Deliberately NO
+  // refreshLevel", which a naive match reads as a call. A guard that cannot
+  // tell code from prose about the code is checking the wrong thing.
+  const code = fn.replace(/\/\/[^\n]*/g, "").replace(/\/\*[\s\S]*?\*\//g, "");
+  assert.ok(!/refreshLevel\s*\(/.test(code),
+    "a refresh here would be harmless today and exactly the line somebody later 'fixes' into an auto-accept");
+});
+
+test("Session Prep shows what moved, what stalled, and what is waiting", async () => {
+  const { goalContextFor, STALL_DAYS } = await import("../src/lib/clinical/return-goal-evidence");
+  const {
+    recordGoalCheckin, proposeModelEvidence,
+  } = await import("../src/lib/clinical/return-goal-evidence");
+
+  const moved = await anActiveGoal();
+  await recordGoalCheckin(ctx, {
+    goalId: moved.id, personId: T.patient, level: 0,
+    at: "2026-09-01T09:00:00.000Z", checkinId: "m1",
+  });
+
+  const stalled = await anActiveGoal();
+  await recordGoalCheckin(ctx, {
+    goalId: stalled.id, personId: T.patient, level: -1,
+    at: "2026-05-01T09:00:00.000Z", checkinId: "s1",
+  });
+
+  const waiting = await anActiveGoal();
+  await proposeModelEvidence(ctx, {
+    goalId: waiting.id, personId: T.patient, level: 1,
+    sourceType: "thought_item", sourceId: "w1", at: "2026-09-02T09:00:00.000Z",
+  });
+
+  const ctxs = await goalContextFor(ctx, T.patient, {
+    since: "2026-08-01T00:00:00.000Z", now: new Date("2026-09-04T10:00:00.000Z"),
+  });
+  const byId = new Map(ctxs.map((c) => [c.goal.id, c]));
+
+  assert.equal(byId.get(moved.id)?.movement, "moved");
+  assert.equal(byId.get(stalled.id)?.movement, "stalled");
+  assert.ok((byId.get(stalled.id)?.quietDays ?? 0) >= STALL_DAYS);
+  // Something waiting on the clinician outranks describing a state they cannot
+  // yet act on.
+  assert.equal(byId.get(waiting.id)?.movement, "awaiting_review");
+  assert.equal(byId.get(waiting.id)?.pendingCount, 1);
+
+  // Every line cites the observations behind it.
+  for (const c of ctxs) {
+    if (c.citations.length === 0) continue;
+    assert.ok(c.citations.every((id) => typeof id === "string" && id.length > 0));
+  }
+});
+
+test("a goal with no evidence is not described as stalled progress", async () => {
+  const { goalContextFor, goalLine } = await import("../src/lib/clinical/return-goal-evidence");
+  const fresh = await anActiveGoal();
+  const ctxs = await goalContextFor(ctx, T.patient, { now: new Date(NOW) });
+  const c = ctxs.find((x) => x.goal.id === fresh.id);
+  assert.ok(c);
+  assert.equal(c.quietDays, null);
+  // Nothing has had a chance to move. Saying "no progress in 42 days" would
+  // blame a person for a ladder nobody has used yet.
+  assert.match(goalLine(c), /nothing recorded against this yet/i);
+  assert.equal(c.citations.length, 0);
+});
+
+test("the goal line says what the person can do, not a number", async () => {
+  const { goalContextFor, goalLine, recordGoalCheckin } = await import("../src/lib/clinical/return-goal-evidence");
+  const g = await anActiveGoal();
+  await recordGoalCheckin(ctx, {
+    goalId: g.id, personId: T.patient, level: 0, at: "2026-09-01T09:00:00.000Z", checkinId: "x1",
+  });
+  const c = (await goalContextFor(ctx, T.patient, { now: new Date(NOW) }))
+    .find((x) => x.goal.id === g.id)!;
+  const line = goalLine(c);
+  assert.match(line, /Completes a normal grocery trip alone/,
+    "§9: plain language — a brief that printed 'level 0' tells a clinician nothing they can act on");
+  assert.ok(!/level [+-]?\d/i.test(line));
+});

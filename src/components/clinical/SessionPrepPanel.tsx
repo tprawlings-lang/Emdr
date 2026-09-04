@@ -31,7 +31,10 @@ const CLASS_NOTE: Record<string, string> = {
 };
 
 const DETERMINISTIC_ORDER: PrepSection[] = [
-  "last_session", "revisit", "between_visit", "active_threads",
+  // Life goals second: what a person can do again is what the session is for,
+  // and a brief that led with the record and buried the goal would have the
+  // emphasis backwards.
+  "last_session", "life_goals", "revisit", "between_visit", "active_threads",
 ];
 
 export function SessionPrepPanel({

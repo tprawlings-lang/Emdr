@@ -35,6 +35,7 @@ import { approvedMemory, type MemoryItem } from "./memory-store";
 import { listThreads, membershipsForPerson, buildTimelines, type Thread } from "./thread-store";
 import { itemsByIds } from "./memory-store";
 import { openFollowUps, type FollowUp } from "./followups";
+import { goalContextFor, goalLine, type GoalContext } from "./return-goal-evidence";
 import { RETRIEVAL_POLICY_VERSION } from "./retrieval-policy";
 import type { TenantContext } from "../repository";
 
@@ -43,6 +44,7 @@ export const SESSION_PREP_VERSION = "session-prep.1.0.0";
 /** §11's five sections, in §11's order. */
 export type PrepSection =
   | "last_session"
+  | "life_goals"
   | "revisit"
   | "between_visit"
   | "active_threads"
@@ -50,6 +52,12 @@ export type PrepSection =
 
 export const SECTION_TITLE: Record<PrepSection, string> = {
   last_session: "Last session",
+  // Added by expansion handoff 01 §9, which asks Session Prep for a "Life
+  // goals" section showing what moved, stalled, or has new evidence since the
+  // last encounter. A sixth section against §11's five: the later handoff
+  // controls, and it sits second because what a person can do again is the
+  // thing the session is for.
+  life_goals: "Life goals",
   revisit: "You wanted to revisit",
   between_visit: "Between-visit changes",
   active_threads: "Active threads",
@@ -166,6 +174,11 @@ function lastSessionEntry(timeline: Timeline): TimelineEntry | null {
 
 export interface PrepInputs {
   timeline: Timeline;
+  /** Active goals with what has happened to them since the last encounter.
+   *  Assembled by the goal adapter rather than derived here — a Session Prep
+   *  that computed goal movement itself would be a second implementation of
+   *  the level fold. */
+  goals: GoalContext[];
   memory: MemoryItem[];
   followUps: FollowUp[];
   threads: Thread[];
@@ -182,7 +195,7 @@ export interface PrepInputs {
  * database.
  */
 export function assemble(inputs: PrepInputs): PrepClaim[] {
-  const { timeline, followUps, threadEntries, now } = inputs;
+  const { timeline, followUps, threadEntries, goals, now } = inputs;
   const claims: PrepClaim[] = [];
   const nowIso = now.toISOString();
 
@@ -197,6 +210,21 @@ export function assemble(inputs: PrepInputs): PrepClaim[] {
           ? `Last session was today. ${last.headline}`
           : `Last session was ${days} day${days === 1 ? "" : "s"} ago. ${last.headline}`,
       citations: [last.eventId],
+      origin: "deterministic",
+    });
+  }
+
+  // --- Life goals (expansion handoff 01 §9). -------------------------------
+  for (const g of goals) {
+    // A goal with nothing behind it cites nothing, and an uncited claim is
+    // withheld by the validator below. So it is skipped here rather than
+    // produced and dropped — the omission list is for defects, not for
+    // routine emptiness.
+    if (g.citations.length === 0) continue;
+    claims.push({
+      section: "life_goals",
+      text: goalLine(g),
+      citations: g.citations,
       origin: "deterministic",
     });
   }
@@ -370,6 +398,12 @@ export async function buildSessionPrep(
     listThreads(ctx, personId, "active"),
     membershipsForPerson(ctx, personId),
   ]);
+  // After the timeline, because the last session is what "since the last
+  // encounter" means and the timeline is where it is found.
+  const lastSessionAt = timeline.entries
+    .filter((e) => SESSION_TYPES.has(e.type))
+    .sort((a, b) => b.occurredAt.localeCompare(a.occurredAt))[0]?.occurredAt ?? null;
+  const goals = await goalContextFor(ctx, personId, { since: lastSessionAt, now });
   const threadItems = await itemsByIds(ctx, memberships.map((m) => m.memoryItemId));
   const threadEntries = buildTimelines(threads, memberships, threadItems);
 
@@ -381,13 +415,18 @@ export async function buildSessionPrep(
     ...memory.map((m) => m.id),
     ...threadItems.map((i) => i.id),
     ...followUps.map((f) => f.itemId),
+    // Goal observations are evidence like any other, and a goal line that
+    // cited one outside this set would be withheld exactly like any other
+    // uncited claim.
+    ...goals.flatMap((g) => g.citations),
   ]);
 
-  const produced = assemble({ timeline, memory, followUps, threads, threadEntries, now });
+  const produced = assemble({ timeline, memory, followUps, threads, threadEntries, goals, now });
   const { kept, omitted } = validateClaims(produced, authorized);
 
   const sections: Record<PrepSection, PrepClaim[]> = {
-    last_session: [], revisit: [], between_visit: [], active_threads: [], steady_noticed: [],
+    last_session: [], life_goals: [], revisit: [], between_visit: [],
+    active_threads: [], steady_noticed: [],
   };
   for (const c of kept) sections[c.section].push(c);
 
