@@ -1552,6 +1552,7 @@ function migrate(db: Database.Database) {
   // project sitting in a CHECK constraint, so it goes. Existing `admin` rows
   // become `organization`, which is what the one seeded account actually was.
   widenRoleCheck(db);
+  widenThoughtStatusCheck(db);
 
   // ── Tenancy backfill (ADR 0011 steps 1–2) ────────────────────────────────
   // Every durable record carries a tenant, not just the ones where it seems
@@ -1959,6 +1960,87 @@ function widenRoleCheck(db: Database.Database) {
           `role migration would orphan ${broken.length} row(s); rolled back`,
         );
       }
+    })();
+  } finally {
+    db.pragma("foreign_keys = ON");
+  }
+}
+
+/**
+ * Widen clinician_thoughts' status CHECK to admit `review_transcript_only`.
+ *
+ * THE BUG THIS FIXES STRANDS A CLINICIAN'S WORDS. §8.1's state machine sends a
+ * thought whose transcript succeeded and whose organization failed to
+ * `review_transcript_only`, and §17.4 writes the copy for it — "Your transcript
+ * is safe. Steady could not organize it yet." The schema in this file has
+ * always listed that state. A database CREATED BEFORE IT WAS ADDED has not,
+ * because CREATE TABLE IF NOT EXISTS is a no-op on an existing table and SQLite
+ * cannot alter a CHECK in place.
+ *
+ * So on any such database the transition throws, the caller's catch swallows
+ * it, and the thought sits in `processing` behind a spinner forever — which is
+ * the precise outcome the state was added to prevent. It is invisible in demo
+ * because the fixture extractor always succeeds; it appears the moment a real
+ * transcript is organized, or a clinician types a note.
+ *
+ * Same shape as `widenRoleCheck` above, and for the same reason: a CHECK
+ * constraint can only be changed by rebuilding the table.
+ */
+function widenThoughtStatusCheck(db: Database.Database) {
+  const row = db.prepare(
+    "SELECT sql FROM sqlite_master WHERE type='table' AND name = 'clinician_thoughts'"
+  ).get() as { sql: string } | undefined;
+  const sql = row?.sql ?? "";
+  // Its presence is the migration's own idempotence check, exactly as
+  // "demo_admin" is for the role widening.
+  if (sql === "" || sql.includes("review_transcript_only")) return;
+
+  db.pragma("foreign_keys = OFF");
+  try {
+    db.transaction(() => {
+      db.exec(`
+        CREATE TABLE clinician_thoughts_rebuild (
+          id TEXT PRIMARY KEY,
+          tenant_id TEXT NOT NULL REFERENCES tenants(id),
+          person_id TEXT NOT NULL REFERENCES persons(id),
+          clinician_person_id TEXT NOT NULL REFERENCES persons(id),
+          status TEXT NOT NULL CHECK (
+            status IN (
+              'capturing','processing','review','review_transcript_only',
+              'saved','discarded','failed'
+            )
+          ),
+          audio_storage_key TEXT,
+          audio_retention_policy TEXT NOT NULL DEFAULT 'delete_after_verified_transcript',
+          audio_deleted_at TEXT,
+          current_transcript_id TEXT,
+          source_session_id TEXT,
+          recorded_at TEXT NOT NULL,
+          saved_at TEXT,
+          created_at TEXT NOT NULL DEFAULT (datetime('now')),
+          updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+        );
+      `);
+      // Only the columns present on both sides, so a database from before any
+      // later ensureColumn still migrates.
+      const cols = (db.prepare("PRAGMA table_info(clinician_thoughts)").all() as { name: string }[])
+        .map((c) => c.name);
+      const shared = [
+        "id", "tenant_id", "person_id", "clinician_person_id", "status",
+        "audio_storage_key", "audio_retention_policy", "audio_deleted_at",
+        "current_transcript_id", "source_session_id", "recorded_at", "saved_at",
+        "created_at", "updated_at",
+      ].filter((c) => cols.includes(c));
+      db.exec(
+        `INSERT INTO clinician_thoughts_rebuild (${shared.join(", ")}) ` +
+        `SELECT ${shared.join(", ")} FROM clinician_thoughts`
+      );
+      db.exec("DROP TABLE clinician_thoughts");
+      db.exec("ALTER TABLE clinician_thoughts_rebuild RENAME TO clinician_thoughts");
+      db.exec(`
+        CREATE INDEX IF NOT EXISTS idx_thoughts_person_time
+          ON clinician_thoughts(tenant_id, person_id, recorded_at DESC);
+      `);
     })();
   } finally {
     db.pragma("foreign_keys = ON");

@@ -201,10 +201,17 @@ export async function transitionThought(
   return (await getThought(ctx, id))!;
 }
 
-/** Recording finished and the audio is stored. */
+/** Capture finished.
+ *
+ *  `audioStorageKey` is NULLABLE, and the null case is a typed thought rather
+ *  than a failure: a clinician who wrote their note instead of speaking it has
+ *  captured nothing to store. The column has always been nullable; this
+ *  signature was narrower than the schema, which meant the typed path could not
+ *  be expressed without either lying about a key or bypassing the state
+ *  machine. */
 export async function finalizeCapture(
   ctx: TenantContext,
-  args: { thoughtId: string; audioStorageKey: string; durationMs: number }
+  args: { thoughtId: string; audioStorageKey: string | null; durationMs: number }
 ): Promise<Thought> {
   const clinician = actingClinician(ctx);
   const thought = await transitionThought(ctx, args.thoughtId, "done", {

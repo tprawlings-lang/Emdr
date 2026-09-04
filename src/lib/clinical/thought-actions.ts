@@ -195,6 +195,61 @@ export async function saveThoughtAction(formData: FormData): Promise<ActionResul
   }
 }
 
+/**
+ * Write a thought instead of speaking it.
+ *
+ * WHY THIS EXISTS. §3.1 specifies a recording screen and the whole feature is
+ * audio-first, which is right for the case it was designed for — a clinician
+ * with ninety seconds between sessions who would rather talk than type. It is
+ * wrong as the ONLY door. A clinician who declines the microphone permission,
+ * works somewhere they cannot speak aloud about a patient, uses a device
+ * without a working recorder, or simply prefers to type, currently has nowhere
+ * to put a session note at all — and the whole downstream chain, memory,
+ * threads, follow-ups and Session Prep, is fed from thoughts. Audio-only means
+ * that chain is unreachable for them.
+ *
+ * IT IS THE SAME PIPELINE, NOT A PARALLEL ONE. The schema already allows this:
+ * `audio_storage_key` is nullable and a transcript may be `created_by`
+ * 'clinician', which is how corrections are already stored. So a typed thought
+ * is a thought with no audio whose first transcript version came from the
+ * person rather than a service. Everything after that point — extraction,
+ * candidate review, Save Thoughts, threads, follow-ups — runs unchanged,
+ * because none of it ever cared where the text came from.
+ *
+ * The distinction is preserved rather than blurred: `created_by` says
+ * 'clinician', so a reader can always tell a typed note from a transcription,
+ * and nothing later can present one as the other.
+ */
+export async function writeThoughtAction(formData: FormData): Promise<ActionResult> {
+  if (!thoughtsSurfaceAvailable("CLINICIAN_THOUGHTS_CAPTURE")) return unavailable();
+  const { ctx, clinicianId } = await clinicianContext();
+  const personId = String(formData.get("personId") ?? "");
+  const text = String(formData.get("text") ?? "").trim().slice(0, 20_000);
+  if (!personId) return { ok: false, error: "That patient is no longer available." };
+  if (!text) return { ok: false, error: "Nothing was written, so nothing has been saved." };
+
+  const thought = await beginThought(ctx, { personId });
+  // No audio, and a duration of zero rather than a fabricated one: §18's
+  // telemetry row records capture duration, and inventing one for a typed note
+  // would put a number in that column that describes nothing.
+  await finalizeCapture(ctx, { thoughtId: thought.id, audioStorageKey: null, durationMs: 0 });
+  await addTranscript(ctx, {
+    thoughtId: thought.id,
+    text,
+    provider: null,
+    createdBy: "clinician",
+  });
+
+  await audit({
+    actorId: clinicianId, actorRole: "clinician", family: "clinical",
+    type: "clinician_thought_written", target: thought.id,
+    // The act and its size, never the words (§18).
+    detail: { personId, chars: text.length, source: "typed" },
+  });
+  revalidatePath(`/clinician/member/${personId}/thoughts`);
+  return { ok: true, thoughtId: thought.id };
+}
+
 /** Organize a transcript into candidate items (§9, Phase 2).
  *
  *  BEHIND ITS OWN FLAG, not capture's. §22's phase order: extraction requires

@@ -24,6 +24,19 @@
 
 import { appendEventSafe } from "../events";
 
+/** Every state the machine can produce, as VALUES.
+ *
+ *  The type above is erased at build time, so nothing could check it against
+ *  what a deployed database will actually accept. A thought reached a state the
+ *  table's CHECK constraint refused, the write threw, and the thought sat in
+ *  `processing` behind a spinner — a mismatch that a type cannot catch because
+ *  one side of it is a string in a schema. This list is what the drift guard
+ *  compares. */
+export const THOUGHT_STATUSES = [
+  "capturing", "processing", "review", "review_transcript_only",
+  "saved", "discarded", "failed",
+] as const;
+
 export type ThoughtStatus =
   /** Recording, in the browser. Nothing has been uploaded. */
   | "capturing"

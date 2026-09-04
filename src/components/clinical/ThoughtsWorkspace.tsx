@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { ThoughtRecorder } from "./ThoughtRecorder";
+import { ThoughtWriter } from "./ThoughtWriter";
 import { ThoughtReview, type ReviewTranscript } from "./ThoughtReview";
 import type { CandidateCard } from "./ThoughtItemCards";
 
@@ -45,6 +46,7 @@ export function ThoughtsWorkspace({
   return (
     <div className="space-y-4">
       {stage.kind === "recording" && (
+        <>
         <ThoughtRecorder
           personId={personId}
           personName={personName}
@@ -70,6 +72,29 @@ export function ThoughtsWorkspace({
             setStage({ kind: "review", thoughtId: result.thoughtId, ...loaded });
           }}
         />
+        {/* The second door. Offered beside the recorder rather than behind a
+            setting, because the clinician who needs it needs it right now —
+            they have just declined a microphone prompt, or they are somewhere
+            they cannot speak. A path you have to go and enable is one they will
+            not find in the ninety seconds they have. */}
+        <ThoughtWriter
+          personId={personId}
+          personName={personName}
+          onWritten={async (thoughtId) => {
+            setStage({ kind: "processing" });
+            const loaded = await loadTranscript(thoughtId);
+            if (!loaded) {
+              setStage({
+                kind: "failed",
+                message: "Your note is safe, but it could not be loaded for review.",
+                retryable: true,
+              });
+              return;
+            }
+            setStage({ kind: "review", thoughtId, ...loaded });
+          }}
+        />
+        </>
       )}
 
       {stage.kind === "processing" && (

@@ -36,6 +36,7 @@ import { listThreads, membershipsForPerson, buildTimelines, type Thread } from "
 import { itemsByIds } from "./memory-store";
 import { openFollowUps, type FollowUp } from "./followups";
 import { goalContextFor, goalLine, type GoalContext } from "./return-goal-evidence";
+import { listThoughts, currentTranscript } from "./thought-store";
 import { RETRIEVAL_POLICY_VERSION } from "./retrieval-policy";
 import type { TenantContext } from "../repository";
 
@@ -174,6 +175,11 @@ function lastSessionEntry(timeline: Timeline): TimelineEntry | null {
 
 export interface PrepInputs {
   timeline: Timeline;
+  /** The clinician's own saved notes, newest first, with the text they wrote or
+   *  corrected. The most useful thing in a pre-session brief is what the person
+   *  reading it thought last time, in their own words — a machine headline
+   *  saying "session completed, SUDS 3 to 1" is true and is not that. */
+  notes: Array<{ thoughtId: string; text: string; recordedAt: string; typed: boolean }>;
   /** Active goals with what has happened to them since the last encounter.
    *  Assembled by the goal adapter rather than derived here — a Session Prep
    *  that computed goal movement itself would be a second implementation of
@@ -195,7 +201,7 @@ export interface PrepInputs {
  * database.
  */
 export function assemble(inputs: PrepInputs): PrepClaim[] {
-  const { timeline, followUps, threadEntries, goals, now } = inputs;
+  const { timeline, followUps, threadEntries, goals, notes, now } = inputs;
   const claims: PrepClaim[] = [];
   const nowIso = now.toISOString();
 
@@ -211,6 +217,32 @@ export function assemble(inputs: PrepInputs): PrepClaim[] {
           : `Last session was ${days} day${days === 1 ? "" : "s"} ago. ${last.headline}`,
       citations: [last.eventId],
       origin: "deterministic",
+    });
+  }
+
+  // The clinician's own words about last time, under Last session and directly
+  // after the machine line. Quoted rather than summarised: this is the one
+  // place in the brief where paraphrasing would lose the thing that makes it
+  // worth reading.
+  //
+  // ONE note, the newest. §11 caps the brief at about a minute and a list of
+  // every note ever written is a record, not a brief; the Thoughts page is
+  // where the rest of them live.
+  const newestNote = notes[0];
+  if (newestNote) {
+    const trimmed = newestNote.text.length > 400
+      ? `${newestNote.text.slice(0, 400).trimEnd()}…`
+      : newestNote.text;
+    claims.push({
+      section: "last_session",
+      text: `Your note: “${trimmed}”`,
+      // Cited to the thought it came from, so the brief can open it.
+      citations: [newestNote.thoughtId],
+      origin: "deterministic",
+      // A written note and a transcribed one are not the same provenance, and
+      // the brief says which — everything else in this feature is careful about
+      // that and a summary is not the place to stop being.
+      statementClass: "clinician_observation",
     });
   }
 
@@ -404,6 +436,24 @@ export async function buildSessionPrep(
     .filter((e) => SESSION_TYPES.has(e.type))
     .sort((a, b) => b.occurredAt.localeCompare(a.occurredAt))[0]?.occurredAt ?? null;
   const goals = await goalContextFor(ctx, personId, { since: lastSessionAt, now });
+
+  // The clinician's own saved notes. Only SAVED ones: a thought still in review
+  // is a draft of a judgement, and putting one in a brief would show a
+  // clinician their own unfinished thinking as though they had settled it.
+  const savedThoughts = (await listThoughts(ctx, personId, 10))
+    .filter((t) => t.status === "saved");
+  const notes: PrepInputs["notes"] = [];
+  for (const t of savedThoughts) {
+    const transcript = await currentTranscript(ctx, t);
+    if (!transcript) continue;
+    notes.push({
+      thoughtId: t.id,
+      text: transcript.text,
+      recordedAt: t.recordedAt,
+      typed: transcript.createdBy === "clinician" && transcript.version === 1,
+    });
+  }
+  notes.sort((a, b) => b.recordedAt.localeCompare(a.recordedAt));
   const threadItems = await itemsByIds(ctx, memberships.map((m) => m.memoryItemId));
   const threadEntries = buildTimelines(threads, memberships, threadItems);
 
@@ -419,9 +469,12 @@ export async function buildSessionPrep(
     // cited one outside this set would be withheld exactly like any other
     // uncited claim.
     ...goals.flatMap((g) => g.citations),
+    // A note cites its own thought, which the clinician is by definition
+    // authorized to read — it is theirs.
+    ...notes.map((n) => n.thoughtId),
   ]);
 
-  const produced = assemble({ timeline, memory, followUps, threads, threadEntries, goals, now });
+  const produced = assemble({ timeline, memory, followUps, threads, threadEntries, goals, notes, now });
   const { kept, omitted } = validateClaims(produced, authorized);
 
   const sections: Record<PrepSection, PrepClaim[]> = {
