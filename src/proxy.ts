@@ -14,20 +14,45 @@ import { NextRequest, NextResponse } from "next/server";
 // File convention: this is Next.js 16's `proxy` (the renamed `middleware`
 // convention; see https://nextjs.org/docs/messages/middleware-to-proxy). Same
 // per-request behavior — only the file + function names changed.
-export function proxy(request: NextRequest) {
-  const nonce = btoa(crypto.randomUUID());
-  const csp = [
+// THE DEVELOPMENT RELAXATION, AND WHY IT IS NARROW.
+//
+// React's development build calls eval() to reconstruct component stacks, and
+// Next's dev server opens a websocket for hot reload. Under the production
+// policy both are blocked with no visible error: the page renders, hydration
+// never completes, and every "use client" component on the site is inert —
+// buttons that do nothing, forms that never open. That is a silent failure mode
+// which costs a developer an afternoon before they suspect the header, and it
+// makes the one thing a browser is for — driving the app — impossible locally.
+//
+// So development adds exactly two things: 'unsafe-eval' to script-src and the
+// dev websocket to connect-src. Nothing else moves. `isDev` is computed from
+// NODE_ENV, which `next build` sets to "production" and cannot be talked out
+// of, and a test asserts the production policy contains neither — because the
+// only thing worse than a blocked dev environment is a relaxation that follows
+// the build out the door.
+const isDev = process.env.NODE_ENV !== "production";
+
+/** The policy for one response. Exported so a test can read the production
+ *  string directly rather than inferring it from a running server — a policy
+ *  nobody can assert is a policy that drifts. */
+export function contentSecurityPolicy(nonce: string, dev = isDev): string {
+  return [
     "default-src 'self'",
-    `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'`,
+    `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'${dev ? " 'unsafe-eval'" : ""}`,
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' data:",
     "font-src 'self'",
-    "connect-src 'self'",
+    `connect-src 'self'${dev ? " ws: wss:" : ""}`,
     "object-src 'none'",
     "base-uri 'self'",
     "form-action 'self'",
     "frame-ancestors 'none'",
   ].join("; ");
+}
+
+export function proxy(request: NextRequest) {
+  const nonce = btoa(crypto.randomUUID());
+  const csp = contentSecurityPolicy(nonce);
 
   const requestHeaders = new Headers(request.headers);
   requestHeaders.set("x-nonce", nonce);
