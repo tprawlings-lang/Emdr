@@ -14,6 +14,11 @@ import { GateReviewDrawer } from "@/components/clinical/GateReviewDrawer";
 import { PersonShell } from "@/components/clinical/PersonShell";
 import { SessionPrepPanel } from "@/components/clinical/SessionPrepPanel";
 import { ReturnToLifeCard, type GoalCardRow } from "@/components/clinical/ReturnToLifeCard";
+import {
+  ResponseFingerprintCard, type FingerprintCardRow,
+} from "@/components/clinical/ResponseFingerprintCard";
+import { computeFingerprints, displayable } from "@/lib/clinical/response-fingerprint";
+import { CLASS_LABEL } from "@/lib/clinical/intervention-vocabulary";
 import { goalProjection } from "@/lib/clinical/return-goal-projection";
 import type { TenantContext } from "@/lib/repository";
 import { listGoals } from "@/lib/clinical/return-to-life";
@@ -114,6 +119,22 @@ export default async function PersonOverviewPage({
     console.error("goal projection failed (non-fatal):", err);
     return null;
   });
+  // The fingerprint is computed from evidence already on file; nothing is
+  // synced here. The overview is a reading surface, and a page that rebuilt the
+  // instance timeline on every clinician glance would make a read into a write.
+  const fingerprints = await computeFingerprints(ctx, id);
+  const shown = displayable(fingerprints);
+  const withheldFingerprints = fingerprints.length - shown.length;
+  const fingerprintRows: FingerprintCardRow[] = shown.slice(0, 3).map((f) => ({
+    definitionId: f.definition.id,
+    displayName: f.definition.displayName,
+    classLabel: CLASS_LABEL[f.definition.interventionClass],
+    patternState: f.patternState,
+    supportCount: f.supportCount,
+    missingFollowupCount: f.missingFollowupCount,
+    mixedCount: f.mixedCount,
+  }));
+
   const goalRows: GoalCardRow[] = (goalSet?.goals ?? []).map((g) => {
     const latest = g.levels[g.levels.length - 1] ?? null;
     const prior = g.levels.length >= 2 ? g.levels[g.levels.length - 2] : null;
@@ -178,6 +199,21 @@ export default async function PersonOverviewPage({
       {goalRows.length > 0 && (
         <div className="mt-6">
           <ReturnToLifeCard personId={id} goals={goalRows} />
+        </div>
+      )}
+
+      {/* Observed responses (§9). Beside the life goals rather than under the
+          record, because the question it answers — what has tended to help this
+          person — is read before a session, not looked up during one. It is
+          rendered only when there is something to say: an empty card on every
+          overview teaches a clinician to stop reading the space. */}
+      {(fingerprintRows.length > 0 || withheldFingerprints > 0) && (
+        <div className="mt-6">
+          <ResponseFingerprintCard
+            personId={id}
+            rows={fingerprintRows}
+            withheldCount={withheldFingerprints}
+          />
         </div>
       )}
 

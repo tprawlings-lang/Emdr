@@ -34,7 +34,11 @@ const DETERMINISTIC_ORDER: PrepSection[] = [
   // Life goals second: what a person can do again is what the session is for,
   // and a brief that led with the record and buried the goal would have the
   // emphasis backwards.
-  "last_session", "life_goals", "revisit", "between_visit", "active_threads",
+  // Observed responses third (expansion handoff 02 §9): the goals say what the
+  // session is for, and this says what has and has not tended to follow the
+  // work — read together, before the follow-ups the clinician set themselves.
+  "last_session", "life_goals", "observed_responses", "revisit", "between_visit",
+  "active_threads",
 ];
 
 export function SessionPrepPanel({

@@ -18,8 +18,12 @@ import {
 } from "@/lib/clinical/response-observations";
 import {
   describeObservation, missingWindowsFor, isMixed, isSettling, inWindowOrder,
-  MISSING_WINDOW_LABEL, EVIDENCE_LABEL,
+  MISSING_WINDOW_LABEL, EVIDENCE_LABEL, WINDOW_LABEL, OUTCOME_LABEL,
 } from "@/lib/clinical/response-vocabulary";
+import { computeFingerprints } from "@/lib/clinical/response-fingerprint";
+import {
+  PATTERN_STATE_LABEL, PATTERN_STATE_NOTE, RESPONSE_POLICY,
+} from "@/lib/clinical/response-fingerprint-policy";
 import type { TenantContext } from "@/lib/repository";
 
 export const dynamic = "force-dynamic";
@@ -128,6 +132,12 @@ export default async function MemberResponsesPage({
   const definitions = await listDefinitions(ctx);
   const instances = await listInstances(ctx, id);
   const observations = await observationsForPerson(ctx, id);
+  // Phase 3's deterministic aggregation, over the same evidence, at this
+  // instant. Not stored on a read: a snapshot is written when a clinician acts
+  // on a pattern, not every time one is rendered, or the snapshot table becomes
+  // a log of page views.
+  const fingerprints = await computeFingerprints(ctx, id);
+  const fingerprintByDefinition = new Map(fingerprints.map((f) => [f.definition.id, f]));
   const obsByInstance = new Map<string, typeof observations>();
   for (const o of observations) {
     const list = obsByInstance.get(o.instanceId) ?? [];
@@ -205,6 +215,98 @@ export default async function MemberResponsesPage({
                   <span className="text-xs text-olive">recorded by you</span>
                 )}
               </div>
+
+              {/* THE PATTERN, OR THE REASON THERE ISN'T ONE. §6's threshold is
+                  rendered as a sentence rather than as an absence: a clinician
+                  who sees nothing here cannot tell whether Steady found no
+                  pattern or was never asked. Below the threshold there is
+                  nothing to show because nothing was computed — and saying so
+                  is the honest form of showing it. */}
+              {(() => {
+                const f = fingerprintByDefinition.get(definition!.id);
+                if (!f) return null;
+                if (f.patternState === "insufficient_data") {
+                  return (
+                    <p className="measure mt-3 text-sm text-olive">
+                      {PATTERN_STATE_LABEL.insufficient_data} — {f.supportCount} of the{" "}
+                      {RESPONSE_POLICY.displayThreshold} comparable exposures a pattern needs.
+                      Nothing is summarised from this yet.
+                    </p>
+                  );
+                }
+                return (
+                  <div className="mt-3 rounded-xl bg-app-accent/25 px-4 py-3">
+                    <p className="text-sm font-medium text-app-ink">
+                      {PATTERN_STATE_LABEL[f.patternState]} — on {f.supportCount} recorded exposure
+                      {f.supportCount === 1 ? "" : "s"}
+                    </p>
+                    <p className="measure mt-1 text-xs text-olive">
+                      {PATTERN_STATE_NOTE[f.patternState]}
+                    </p>
+
+                    {f.windows.length > 0 && (
+                      <ul className="mt-2 space-y-0.5">
+                        {f.windows.map((w) => (
+                          <li key={`${w.windowType}-${w.outcomeType}`} className="measure text-xs text-ground">
+                            {/* The dimension is named only when the window
+                                carries more than one — "during it, during the
+                                encounter" is the same fact twice, and a line
+                                that repeats itself teaches the reader to skim
+                                the part that varies. */}
+                            {f.windows.filter((x) => x.windowType === w.windowType).length > 1
+                              ? `${OUTCOME_LABEL[w.outcomeType]}, ${WINDOW_LABEL[w.windowType]}`
+                              : WINDOW_LABEL[w.windowType].replace(/^./, (c) => c.toUpperCase())}
+                            :{" "}
+                            {w.medianChange === null
+                              ? `recorded on ${w.observedOn} of ${f.supportCount}`
+                              : `median change ${w.medianChange > 0 ? "+" : ""}${w.medianChange}` +
+                                (w.range && w.range.min !== w.range.max
+                                  ? ` (observed ${w.range.min} to ${w.range.max})`
+                                  : "") +
+                                `, on ${w.observedOn} of ${f.supportCount}`}
+                            {" · "}
+                            {w.towardSettled} toward settled, {w.awayFromSettled} away
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+
+                    {f.strata.length > 0 && (
+                      <ul className="mt-2 space-y-0.5">
+                        {f.strata.map((st) => (
+                          <li key={st.key} className="measure text-xs text-ground">
+                            When {st.label}: median change{" "}
+                            {st.medianChange === null ? "not recorded" : st.medianChange}, on{" "}
+                            {st.supportCount} exposure{st.supportCount === 1 ? "" : "s"}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+
+                    {f.limitations.length > 0 && (
+                      <ul className="mt-2 space-y-0.5">
+                        {f.limitations.map((l, n) => (
+                          <li key={n} className="measure text-xs text-olive">
+                            {l}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+
+                    {/* "Every pattern opens evidence." The exposures it was
+                        computed from are the list immediately below, and the
+                        count says so rather than leaving the reader to assume
+                        it was computed from something else. */}
+                    <p className="measure mt-2 text-xs text-olive">
+                      Computed from the {f.evidence.instanceIds.length} exposure
+                      {f.evidence.instanceIds.length === 1 ? "" : "s"} and{" "}
+                      {f.evidence.observationIds.length} observation
+                      {f.evidence.observationIds.length === 1 ? "" : "s"} listed below, under policy{" "}
+                      {f.policyVersion}.
+                    </p>
+                  </div>
+                );
+              })()}
 
               <ul className="mt-3 space-y-2">
                 {list.slice(0, 12).map((i) => {
