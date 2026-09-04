@@ -57,6 +57,10 @@ const DEMO_ENABLED = new Set<CommandCenterFlag>([
   // and an activity feed that is a feed rather than an event dump.
   "CLINICAL_COMMAND_CENTER_CASELOAD",
   "CLINICAL_COMMAND_CENTER_ACTIVITY",
+  // And this when Phase 5 did. The panel is useful with no provider configured
+  // — it says a sentence was withheld and why — which is exactly the state a
+  // clinical reviewer should be able to see and judge.
+  "CLINICAL_COMMAND_CENTER_AI_SUMMARY",
 ]);
 
 /**

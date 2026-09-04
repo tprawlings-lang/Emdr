@@ -3,9 +3,10 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import {
-  loadCommandContext, acknowledgeSignalAction, setSignalStateAction,
+  loadCommandContext, loadCommandSummary, acknowledgeSignalAction, setSignalStateAction,
 } from "@/lib/clinical/attention-actions";
 import type { CommandContext, SectionMissing } from "@/lib/clinical/command-context";
+import type { SummaryOutcome } from "@/lib/clinical/command-summary";
 // The VOCABULARY module, not the store. This runs in the browser and the store
 // reaches better-sqlite3; the build refuses that, correctly, and refused this
 // before the split.
@@ -69,6 +70,7 @@ export function AttentionSignalDrawer({
 }) {
   const [open, setOpen] = useState(false);
   const [context, setContext] = useState<CommandContext | null>(null);
+  const [summary, setSummary] = useState<SummaryOutcome | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -91,6 +93,11 @@ export function AttentionSignalDrawer({
         else setContext(c);
       })
       .finally(() => { if (!cancelled) setLoading(false); });
+    // Asked for separately, and after. §20: the deterministic drawer never
+    // waits on a model — a slow model would look like a slow record.
+    loadCommandSummary(personId, signalId)
+      .then((s) => { if (!cancelled) setSummary(s); })
+      .catch(() => { if (!cancelled) setSummary({ rendered: false, reason: "No summary." }); });
     return () => { cancelled = true; };
   }, [open, personId, signalId]);
 
@@ -266,6 +273,7 @@ export function AttentionSignalDrawer({
               />
             )}
 
+            <SteadyNoticed summary={summary} />
             <ReturnToLife context={context} />
             <ObservedResponses context={context} personId={personId} />
             <ActiveThreads context={context} />
@@ -327,6 +335,55 @@ function WhyHere({ context }: { context: CommandContext }) {
             {s.evidence.length === 0
               ? "No evidence records are attached to this signal."
               : `${s.evidence.length} evidence record${s.evidence.length === 1 ? "" : "s"} behind it (${s.evidence[0].evidenceType.replace(/_/g, " ")}).`}
+          </p>
+        </>
+      )}
+    </section>
+  );
+}
+
+/**
+ * Steady Noticed (§5).
+ *
+ * §5: "visually distinct and explicitly model-derived. Every material claim is
+ * evidence-linked." So the panel is bordered and labelled, every fact shows how
+ * many evidence records it cites, and the "why am I seeing this?" line is not a
+ * tooltip — §19: "no essential text is tooltip-only."
+ *
+ * WITHHOLDING IS SHOWN, NOT HIDDEN. §20: "AI summary failed → render
+ * deterministic reason/support facts. Never hide the work item." A clinician
+ * who sees nothing here cannot tell a quiet record from a refused sentence, and
+ * the refusal is often the more interesting fact — it means the model said
+ * something the evidence did not support.
+ */
+function SteadyNoticed({ summary }: { summary: SummaryOutcome | null }) {
+  if (!summary) return null;
+  return (
+    <section className="rounded-xl border border-ground/20 bg-app-accent/20 px-4 py-3">
+      <SectionHeading>Steady noticed</SectionHeading>
+      {!summary.rendered ? (
+        <p className="measure mt-2 text-xs text-olive">
+          <span aria-hidden>· </span>
+          {summary.reason} Everything else in this drawer is assembled from the record and is
+          unaffected.
+        </p>
+      ) : (
+        <>
+          <p className="measure mt-2 text-sm text-app-ink">{summary.summary.headline}</p>
+          <ul className="mt-1 space-y-0.5">
+            {summary.summary.supportingFacts.map((f, i) => (
+              <li key={i} className="measure text-xs text-ground">
+                {f.text}{" "}
+                <span className="text-olive">
+                  ({f.evidenceIds.length} evidence record{f.evidenceIds.length === 1 ? "" : "s"})
+                </span>
+              </li>
+            ))}
+          </ul>
+          <p className="measure mt-2 text-xs text-olive">
+            Why you are seeing this: Steady worded facts the sections above already established,
+            from {summary.summary.taskVersion}. It cannot change what this row says, who owns it,
+            when it is due, or how urgent it is. Association only — never a claim about cause.
           </p>
         </>
       )}
