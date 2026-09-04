@@ -103,6 +103,14 @@ export default async function CommandCenterPage({
         </EnvelopeView>
       </div>
 
+      {commandCenter && (
+        <p className="mt-8 text-sm">
+          <Link href="/clinician/caseload" className="underline">The whole caseload</Link>
+          {" · "}
+          <Link href="/clinician/activity" className="underline">Recent activity</Link>
+        </p>
+      )}
+
       <p className="mt-10 text-xs text-olive">
         Queue order is deterministic for a given policy version and evidence set. Duplicate
         events for one person and reason collapse into a single item with its event count.
@@ -178,10 +186,12 @@ function CommandCenterView({
                 Nothing on your caseload has open work under policy {queue.policyVersion}. That is
                 a statement about the current evidence, not about how anyone is doing.
               </p>
+              {/* §20: "still show Caseload and Recent Activity navigation."
+                  A clear day is not a dead end. */}
               <p className="mt-3 text-sm">
-                <Link href="/clinician/caseload" className="underline">
-                  Open your caseload
-                </Link>
+                <Link href="/clinician/caseload" className="underline">Open your caseload</Link>
+                {" · "}
+                <Link href="/clinician/activity" className="underline">Recent activity</Link>
               </p>
             </section>
           )}
@@ -210,8 +220,8 @@ function StablePanel({ queue }: { queue: WorkQueue }) {
         well — it is a statement that Steady is not suggesting anything today.
       </p>
       <p className="mt-3 text-sm">
-        <Link href="/clinician/caseload" className="underline">
-          Open the caseload to see them
+        <Link href="/clinician/caseload?filter=stable" className="underline">
+          Open the caseload filtered to them
         </Link>
       </p>
     </section>
