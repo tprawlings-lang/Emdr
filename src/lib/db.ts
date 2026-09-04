@@ -1558,6 +1558,106 @@ export const SCHEMA_SQL = `
     PRIMARY KEY(snapshot_id, evidence_type, evidence_id)
   );
 
+  -- Between-Visit Care Command Center (expansion handoff 03 §9).
+  --
+  -- A SEPARATE TABLE FROM alerts, and §9 says exactly why: "do not overload the
+  -- alerts table with every non-safety intelligence output. Safety alert
+  -- semantics must stay believable." An alerts table that also carries "her
+  -- grounding response has been mixed lately" is an alerts table a clinician
+  -- learns to skim, and the thing they skim past is the safety row.
+  --
+  -- So this holds review-worthiness and the alerts table keeps authority.
+  -- Nothing here can create a safety obligation; the work queue merges the two
+  -- and safety keeps its ordering.
+  --
+  -- STABLE IS NOT A ROW. §9: "Stable / No Action is a projection outcome...
+  -- Do not insert thousands of stable rows into the signal table." A person
+  -- with nothing to do about them is the ABSENCE of a signal, and storing that
+  -- absence would make the table grow with the caseload rather than with the
+  -- work.
+  CREATE TABLE IF NOT EXISTS clinical_attention_signals (
+    id TEXT PRIMARY KEY,
+    tenant_id TEXT NOT NULL REFERENCES tenants(id),
+    person_id TEXT NOT NULL REFERENCES persons(id),
+    signal_type TEXT NOT NULL,
+    source_feature TEXT NOT NULL,
+    -- The lineage key. §12: "if a signal changes materially while open, update
+    -- the row and expose new-since-review rather than creating duplicates."
+    -- UNIQUE per tenant and person is what makes that structural instead of
+    -- something each provider has to remember.
+    dedupe_key TEXT NOT NULL,
+    attention_band TEXT NOT NULL CHECK (attention_band IN (
+      'review_now','review_today','follow_up','watch'
+    )),
+    statement TEXT NOT NULL,
+    change_text TEXT,
+    state TEXT NOT NULL CHECK (state IN (
+      'open','acknowledged','waiting_member','waiting_staff','resolved','dismissed'
+    )),
+    owner_person_id TEXT REFERENCES persons(id),
+    due_at TEXT,
+    first_detected_at TEXT NOT NULL,
+    last_detected_at TEXT NOT NULL,
+    -- The cutoff the provider evaluated against, so a historical view can be
+    -- reconstructed without future-data leakage.
+    evidence_at TEXT NOT NULL,
+    policy_version TEXT NOT NULL,
+    limitations_json TEXT NOT NULL DEFAULT '[]',
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+    UNIQUE(tenant_id, person_id, dedupe_key)
+  );
+  CREATE INDEX IF NOT EXISTS idx_attention_owner_state
+    ON clinical_attention_signals(tenant_id, owner_person_id, state, attention_band, due_at);
+  CREATE INDEX IF NOT EXISTS idx_attention_person_state
+    ON clinical_attention_signals(tenant_id, person_id, state, last_detected_at);
+
+  -- What a signal rests on, in the order a reader should see it. §22's drawer
+  -- test: "every section source-backed". rank is stored rather than derived
+  -- because the provider knows which evidence is the reason and which is the
+  -- corroboration, and a re-sort at read time would lose that.
+  CREATE TABLE IF NOT EXISTS clinical_attention_signal_evidence (
+    tenant_id TEXT NOT NULL REFERENCES tenants(id),
+    signal_id TEXT NOT NULL REFERENCES clinical_attention_signals(id),
+    evidence_type TEXT NOT NULL,
+    evidence_id TEXT NOT NULL,
+    rank INTEGER NOT NULL,
+    PRIMARY KEY(signal_id, evidence_type, evidence_id)
+  );
+  CREATE INDEX IF NOT EXISTS idx_attention_evidence_rank
+    ON clinical_attention_signal_evidence(signal_id, rank);
+
+  -- The care-time ledger (§13).
+  --
+  -- completed_at is NOT NULL and started_at is nullable, which is the right way
+  -- round: an action that happened is the fact, and when the clinician began is
+  -- often unknown. §13 forbids counting "passive browser-open time as clinical
+  -- work", so duration is recorded only when something explicitly bounded it —
+  -- never inferred from how long a page was left open.
+  --
+  -- And §13: "do not mark time billable from Steady alone." There is no
+  -- billable column here, deliberately; a column would eventually be read as
+  -- an assertion.
+  CREATE TABLE IF NOT EXISTS between_visit_care_actions (
+    id TEXT PRIMARY KEY,
+    tenant_id TEXT NOT NULL REFERENCES tenants(id),
+    person_id TEXT NOT NULL REFERENCES persons(id),
+    clinician_person_id TEXT NOT NULL REFERENCES persons(id),
+    signal_id TEXT REFERENCES clinical_attention_signals(id),
+    action_type TEXT NOT NULL,
+    note TEXT,
+    started_at TEXT,
+    completed_at TEXT NOT NULL,
+    duration_seconds INTEGER,
+    outcome_state TEXT,
+    source_surface TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+  CREATE INDEX IF NOT EXISTS idx_care_actions_person
+    ON between_visit_care_actions(tenant_id, person_id, completed_at);
+  CREATE INDEX IF NOT EXISTS idx_care_actions_clinician
+    ON between_visit_care_actions(tenant_id, clinician_person_id, completed_at);
+
   -- Longitudinal threads.
   CREATE TABLE IF NOT EXISTS clinical_threads (
     id TEXT PRIMARY KEY,
@@ -1922,6 +2022,9 @@ export const TENANT_SCOPED_TABLES = [
   "intervention_response_observations",
   "response_fingerprint_snapshots",
   "response_fingerprint_evidence",
+  "clinical_attention_signals",
+  "clinical_attention_signal_evidence",
+  "between_visit_care_actions",
   "return_to_life_goals",
   "return_to_life_goal_levels",
   "return_to_life_observations",

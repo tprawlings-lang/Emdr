@@ -32,6 +32,8 @@ import {
   ready, empty, projectionFailed, policyUnavailable,
   type Envelope, type ProjectionMeta,
 } from "../presentation/envelope";
+import { commandCenterFlagEnabled } from "./command-center-flags";
+import type { AttentionBand } from "./attention-signals";
 
 /** §10.3's five groups, in the order they appear. Ordered by claim on the
  *  clinician's attention, not by volume. */
@@ -49,6 +51,38 @@ export const GROUP_LABEL: Record<WorkGroup, string> = {
   waiting_staff: "Waiting on staff or integration",
   recently_resolved: "Recently resolved",
 };
+
+/** §2 of expansion handoff 03: the four buckets a clinician reads.
+ *
+ *  The five machine groups above stay exactly as they are — "the underlying
+ *  work queue may retain more granular machine groups. The UI maps those groups
+ *  into four clinician-readable buckets." Waiting-on-member and
+ *  waiting-on-staff are one bucket to a clinician scanning their day and two
+ *  different dependencies to the code that has to name them, and collapsing the
+ *  machine groups to match the UI would lose the second.
+ *
+ *  Recently-resolved has NO bucket. §2: "recently resolved work belongs in
+ *  Recent Activity and patient history, not as a permanent front-page section."
+ *  Its absence here is the mapping. */
+export type UiGroup = "needs_attention" | "review_today" | "waiting";
+
+export const UI_GROUP_LABEL: Record<UiGroup, string> = {
+  needs_attention: "Needs attention",
+  review_today: "Review today",
+  waiting: "Waiting",
+};
+
+const UI_GROUP_FOR: Record<WorkGroup, UiGroup | null> = {
+  needs_action: "needs_attention",
+  review_today: "review_today",
+  waiting_member: "waiting",
+  waiting_staff: "waiting",
+  recently_resolved: null,
+};
+
+export function uiGroupFor(g: WorkGroup): UiGroup | null {
+  return UI_GROUP_FOR[g];
+}
 
 /** What a row may offer. Exactly one per row (§10.3: "One row action") — a row
  *  with three buttons is a row that has not decided what it is asking for. */
@@ -89,12 +123,47 @@ export interface WorkItem {
   /** Present when the action is blocked, so the row explains itself rather
    *  than showing a control that does nothing. */
   blockedReason: string | null;
+  /** §2 of expansion handoff 03: "safety remains visibly labeled as safety.
+   *  Non-safety review_now cannot masquerade as safety."
+   *
+   *  This is a FIELD and not a guess from the band, because the two are exactly
+   *  the thing that must not be confused: an attention signal can reach the
+   *  same bucket as a safety obligation, and only one of them carries safety
+   *  authority. A renderer that inferred it from the band would eventually
+   *  label a response-pattern row as safety. */
+  safetyAuthority: boolean;
+  /** The attention signal this row came from, when it came from one. Null for
+   *  alert-derived and caseload-derived rows. */
+  signalId: string | null;
+  /** Up to three short supporting facts (§4). Empty for rows that have none —
+   *  never padded, because a fact invented to fill a slot is the failure §4's
+   *  "never an unexplained score" is guarding against, one level down. */
+  supportFacts: string[];
 }
 
 export interface WorkQueue {
   items: WorkItem[];
   /** Counts by group, so the shape of the day is legible before the list. */
   groupCounts: Record<WorkGroup, number>;
+  /** §3's header strip: the four clinician-readable counts. */
+  uiCounts: Record<UiGroup, number>;
+  /**
+   * People on this clinician's authorized caseload with no open work under the
+   * current policy (§9's "Stable is not stored as a signal").
+   *
+   * A DERIVED NUMBER, computed by subtraction, and it is not a quality score.
+   * §23: "Stable means no current suggested action under policy, not healthy or
+   * low risk." Storing it would put a row in the signal table for every quiet
+   * person, so the table would grow with the caseload rather than with the
+   * work — and the number would then be a thing that could go stale.
+   */
+  stableCount: number;
+  /** Which people the stable count is made of, so clicking it can open a
+   *  filtered caseload rather than a number with nothing behind it. */
+  stablePersonIds: string[];
+  /** §20: "one provider failed → keep other work. Surface partial coverage."
+   *  Empty when every provider ran. */
+  coverage: { providersRan: string[]; providersFailed: Array<{ providerId: string; reason: string }>; truncated: boolean };
   policyVersion: string;
   /** When this projection ran. §8.3 requires computed_at on every projection;
    *  the client must not derive freshness from its own clock (§8.1). */
@@ -208,6 +277,146 @@ function groupForCaseload(r: CaseloadRow): WorkGroup {
   return "waiting_member";
 }
 
+// ---------------------------------------------------------------------------
+// Attention signals → work items (expansion handoff 03 §2, §11)
+// ---------------------------------------------------------------------------
+
+/** How many caseload members are re-evaluated on one queue build.
+ *
+ *  A cap, and it is honest about being one: a large caseload cannot have every
+ *  provider run against every member on every page load, and pretending
+ *  otherwise would make the clinician's home page the slowest screen in the
+ *  product. Members are refreshed in caseload-band order, so the people the
+ *  model is already most concerned about are the ones whose signals are
+ *  freshest, and `truncated` says when the cap bit.
+ *
+ *  Signals ALREADY STORED are read for everyone regardless — the cap limits
+ *  re-evaluation, never what the queue can show. A person beyond the cap whose
+ *  signal was raised yesterday still appears today. */
+const SIGNAL_REFRESH_LIMIT = 40;
+
+/** Which UI-facing machine group a band claims.
+ *
+ *  `review_now` maps to needs-action, WHICH IS THE SAME BUCKET AS A SAFETY
+ *  OBLIGATION, and that is deliberate and safe only because `safetyAuthority`
+ *  travels on the row. §2: "safety remains visibly labeled as safety; non-safety
+ *  review_now cannot masquerade as safety." Two rows, same bucket, different
+ *  label — which is what a clinician triaging actually needs, rather than a
+ *  review-worthy concern hidden a section lower because it is not safety. */
+const GROUP_FOR_BAND: Record<AttentionBand, WorkGroup> = {
+  review_now: "needs_action",
+  review_today: "review_today",
+  follow_up: "review_today",
+  watch: "waiting_staff",
+};
+
+/** The queue band a signal claims. Never "immediate": that band is the safety
+ *  engine's, and an attention signal that could reach it would be an attention
+ *  signal that could outrank a safety obligation. */
+const BAND_FOR_ATTENTION: Record<AttentionBand, PriorityBand> = {
+  review_now: "high",
+  review_today: "standard",
+  follow_up: "watch",
+  watch: "watch",
+};
+
+async function mergeAttentionSignals(args: {
+  tenantId: string;
+  clinicianId: string;
+  caseload: CaseloadRow[];
+  ownerNames: Map<string, string>;
+  changeFor: (personId: string, evidenceAt: string) => string | null;
+  now: Date;
+}): Promise<{
+  items: WorkItem[];
+  coverage: { ran: string[]; failed: Array<{ providerId: string; reason: string }> };
+  truncated: boolean;
+}> {
+  const { listOpenSignals, upsertSignal } = await import("./attention-signals");
+  const { evaluateAll } = await import("./attention-providers/registry");
+  // Importing the module is what registers the providers. Done here rather than
+  // at the top of the file so a deployment with the flag off never loads them.
+  await import("./attention-providers/providers");
+
+  const ctx = { tenantId: args.tenantId, personId: args.clinicianId };
+  const evidenceCutoff = args.now.toISOString();
+
+  const refreshOrder = [...args.caseload].sort(
+    (a, b) => BAND_ORDER.indexOf(a.band) - BAND_ORDER.indexOf(b.band) ||
+      a.personId.localeCompare(b.personId)
+  );
+  const toRefresh = refreshOrder.slice(0, SIGNAL_REFRESH_LIMIT);
+  const truncated = refreshOrder.length > toRefresh.length;
+
+  const ran = new Set<string>();
+  const failed = new Map<string, string>();
+  for (const row of toRefresh) {
+    const result = await evaluateAll({ ctx, personId: row.personId, evidenceCutoff });
+    for (const id of result.coverage.ran) ran.add(id);
+    for (const f of result.coverage.failed) failed.set(f.providerId, f.reason);
+    for (const { providerId, candidate } of result.candidates) {
+      await upsertSignal(ctx, {
+        personId: row.personId,
+        sourceFeature: providerId,
+        candidate,
+        ownerPersonId: row.primaryClinicianId,
+      });
+    }
+  }
+
+  // Read for EVERYONE on the caseload, refreshed or not.
+  const caseById = new Map(args.caseload.map((r) => [r.personId, r]));
+  const open = await listOpenSignals(ctx);
+  const items: WorkItem[] = [];
+  for (const signal of open) {
+    const row = caseById.get(signal.personId);
+    // Not on this clinician's caseload. The caseload model decides who they may
+    // see, and a signal is not a reason to widen it.
+    if (!row) continue;
+    const group = GROUP_FOR_BAND[signal.band];
+    items.push({
+      id: `signal:${signal.id}`,
+      group,
+      band: BAND_FOR_ATTENTION[signal.band],
+      personId: signal.personId,
+      personName: row.displayName,
+      reason: signal.statement,
+      detail: null,
+      resolvedAt: null,
+      change:
+        signal.changeText ??
+        (signal.state === "acknowledged" ? "You have reviewed this" : args.changeFor(signal.personId, signal.lastDetectedAt)),
+      evidenceAt: signal.lastDetectedAt,
+      ownerId: signal.ownerPersonId ?? row.primaryClinicianId,
+      ownerName: args.ownerNames.get(signal.ownerPersonId ?? row.primaryClinicianId ?? "") ?? null,
+      dueAt: signal.dueAt,
+      overdue: false,
+      eventCount: 1,
+      action: "review",
+      actionable: row.actionable,
+      blockedReason: row.actionable
+        ? null
+        : "Another clinician owns this person under the active caseload model.",
+      // NEVER TRUE HERE. This is the line §9 exists to protect: an attention
+      // signal is review-worthiness and the alerts table keeps authority.
+      safetyAuthority: false,
+      signalId: signal.id,
+      // §4 caps at three, and the limitations are what an honest row says about
+      // itself — how much evidence, and what the evidence cannot support.
+      supportFacts: signal.limitations.slice(0, 3),
+    });
+  }
+
+  return {
+    items,
+    coverage: {
+      ran: [...ran].sort(),
+      failed: [...failed].map(([providerId, reason]) => ({ providerId, reason })),
+    },
+    truncated,
+  };
+}
+
 export async function buildWorkQueue(args: {
   clinicianId: string;
   tenantId: string;
@@ -290,6 +499,13 @@ export async function buildWorkQueue(args: {
       action: a.status === "reviewed" ? "open" : "review",
       actionable,
       blockedReason: actionable ? null : "Another clinician owns this person under the active caseload model.",
+      // An alert IS the safety engine's output. This is the one source in the
+      // queue that carries safety authority, and saying so on the row is what
+      // keeps §2's "non-safety review_now cannot masquerade as safety" true
+      // when an attention signal lands in the same bucket beside it.
+      safetyAuthority: true,
+      signalId: null,
+      supportFacts: g.alerts.length > 1 ? [`${g.alerts.length} events collapsed into this row`] : [],
     });
   }
 
@@ -318,6 +534,12 @@ export async function buildWorkQueue(args: {
       action: r.actionable ? "contact" : "open",
       actionable: r.actionable,
       blockedReason: r.actionable ? null : "Another clinician owns this person under the active caseload model.",
+      // The caseload model bands people; it does not issue safety obligations.
+      safetyAuthority: false,
+      signalId: null,
+      // §4 caps supporting facts at three. The caseload's own reasons are
+      // already plain sentences, so they travel as they are.
+      supportFacts: r.reasons.slice(1, 4),
     });
   }
 
@@ -364,10 +586,49 @@ export async function buildWorkQueue(args: {
           action: "open",
           actionable: row.actionable,
           blockedReason: row.actionable ? null : "Another clinician owns this person under the active caseload model.",
+          safetyAuthority: false,
+          signalId: null,
+          supportFacts: f.label ? [f.label] : [],
         });
       }
     } catch (err) {
       console.error("follow-up queue rows failed (non-fatal):", err);
+    }
+  }
+
+  // ── Attention signals (expansion handoff 03, Phase 1) ────────────────────
+  //
+  // BEHIND ITS OWN FLAG, AND SKIPPED ENTIRELY WHEN IT IS OFF. Phase 1's
+  // definition of done is "existing queue unchanged when feature is off", and
+  // that has to mean the ORDER and the counts, not just the rendering — so the
+  // merge itself is inside the branch. With the flag off nothing below runs,
+  // `coverage` stays empty, and the queue is byte-identical to the one that
+  // shipped before this handoff.
+  //
+  // The failure is swallowed for the same reason the follow-ups' is: this is an
+  // addition to a clinician's day, and an addition that could take the whole
+  // queue down with it would be a worse trade than not having it. §20's rule
+  // is the same one from the other side — partial coverage, surfaced.
+  const coverage: WorkQueue["coverage"] = {
+    providersRan: [], providersFailed: [], truncated: false,
+  };
+  if (commandCenterFlagEnabled("CLINICAL_ATTENTION_SIGNALS")) {
+    try {
+      const merged = await mergeAttentionSignals({
+        tenantId: args.tenantId,
+        clinicianId: args.clinicianId,
+        caseload: caseload.rows,
+        ownerNames,
+        changeFor,
+        now,
+      });
+      items.push(...merged.items);
+      coverage.providersRan = merged.coverage.ran;
+      coverage.providersFailed = merged.coverage.failed;
+      coverage.truncated = merged.truncated;
+    } catch (err) {
+      console.error("attention signal merge failed (non-fatal):", err);
+      coverage.providersFailed = [{ providerId: "merge", reason: "unavailable" }];
     }
   }
 
@@ -396,6 +657,26 @@ export async function buildWorkQueue(args: {
   } as Record<WorkGroup, number>;
   for (const i of items) groupCounts[i.group] += 1;
 
+  const uiCounts: Record<UiGroup, number> = {
+    needs_attention: 0, review_today: 0, waiting: 0,
+  };
+  for (const i of items) {
+    const ui = uiGroupFor(i.group);
+    if (ui) uiCounts[ui] += 1;
+  }
+
+  // Stable = the authorized caseload minus everyone with open work. Computed
+  // from the items that are actually in the queue rather than from a second
+  // pass over the sources, so the four counts and the list can never disagree
+  // about the same person.
+  const withOpenWork = new Set(
+    items.filter((i) => i.group !== "recently_resolved").map((i) => i.personId)
+  );
+  const stablePersonIds = caseload.rows
+    .filter((r) => !withOpenWork.has(r.personId))
+    .map((r) => r.personId)
+    .sort();
+
   const newest = items.reduce<string | null>(
     (acc, i) => (acc === null || parseStamp(i.evidenceAt) > parseStamp(acc) ? i.evidenceAt : acc),
     null
@@ -404,6 +685,10 @@ export async function buildWorkQueue(args: {
   return {
     items,
     groupCounts,
+    uiCounts,
+    stableCount: stablePersonIds.length,
+    stablePersonIds,
+    coverage,
     policyVersion: policy.version,
     computedAt: stamp(now),
     newestEvidenceAt: newest,

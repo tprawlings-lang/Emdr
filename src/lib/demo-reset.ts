@@ -93,6 +93,11 @@ export const DEMO_DATA_TABLES = [
   // orphans — and listed at all because a reset that left a clinician's
   // recorded thoughts about fabricated patients behind would leave the
   // environment holding clinical text about people who no longer exist.
+  // Care actions point at signals, and signal evidence points at signals, so
+  // both clear before the signals themselves.
+  "between_visit_care_actions",
+  "clinical_attention_signal_evidence",
+  "clinical_attention_signals",
   // Fingerprint evidence points at snapshots; observations point at instances;
   // instances point at definitions. Cleared innermost-first.
   "response_fingerprint_evidence",
