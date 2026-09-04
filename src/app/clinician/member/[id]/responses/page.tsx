@@ -13,6 +13,13 @@ import {
   syncInterventionInstances, listDefinitions, listInstances,
 } from "@/lib/clinical/interventions";
 import { CLASS_LABEL } from "@/lib/clinical/intervention-vocabulary";
+import {
+  syncResponseObservations, observationsForPerson,
+} from "@/lib/clinical/response-observations";
+import {
+  describeObservation, missingWindowsFor, isMixed, isSettling, inWindowOrder,
+  MISSING_WINDOW_LABEL, EVIDENCE_LABEL,
+} from "@/lib/clinical/response-vocabulary";
 import type { TenantContext } from "@/lib/repository";
 
 export const dynamic = "force-dynamic";
@@ -42,6 +49,15 @@ export const metadata = { title: "Observed responses — Steady" };
 // and missing closes visible." A hard stop is an exposure that happened, and
 // hiding it here would quietly make the record a record of the sessions that
 // went well.
+//
+// PHASE 2 ADDS THE WINDOWS, AND STILL NOT A VERDICT. Each exposure now shows
+// what was observed in each named window, what disagreed with what, and what
+// nobody recorded. Phase 2's definition of done is "mixed and missing outcomes
+// remain visible", and this is where visible has to actually mean visible: a
+// mixed exposure is MARKED as mixed rather than shown as two rows a reader
+// might average, and a window with no observation is printed as a missing
+// window rather than omitted. An omitted row and a settled one look identical,
+// and only one of them is true.
 
 function dayOf(ts: string): string {
   return ts.slice(0, 10);
@@ -106,9 +122,18 @@ export default async function MemberResponsesPage({
   // source_id), so this converges rather than accumulating — which is what lets
   // the screen be current without a background job to fall behind.
   await syncInterventionInstances(ctx, id);
+  // Phase 2's windows, from the same sources, on the same read.
+  await syncResponseObservations(ctx, id);
 
   const definitions = await listDefinitions(ctx);
   const instances = await listInstances(ctx, id);
+  const observations = await observationsForPerson(ctx, id);
+  const obsByInstance = new Map<string, typeof observations>();
+  for (const o of observations) {
+    const list = obsByInstance.get(o.instanceId) ?? [];
+    list.push(o);
+    obsByInstance.set(o.instanceId, list);
+  }
   const byId = new Map(definitions.map((d) => [d.id, d]));
 
   // Grouped by intervention, ordered by how much evidence there is and then by
@@ -144,13 +169,13 @@ export default async function MemberResponsesPage({
     <PersonShell person={header} active="/responses" title="Observed responses">
       <Panel
         title="What this person has actually been exposed to"
-        footnote="A record of what happened, not of what worked. Counting exposures is the step before any pattern; nothing here says an intervention helped, and nothing will until there is enough evidence in enough separate windows to say it honestly."
+        footnote="A record of what happened and what followed it — never a claim that one caused the other. Windows are shown separately and are never combined: an exposure that settled someone in the room and left them worse the next day is mixed, and saying so is the honest answer. Where nobody recorded a follow-up, that is printed too; it is not recovery."
       >
         <p className="measure text-sm text-ground">
           Sessions, practices and anything you have recorded yourself, gathered into one list and
           counted. {instances.length === 0
             ? "Nothing has been recorded for this person yet."
-            : `${instances.length} exposure${instances.length === 1 ? "" : "s"} across ${groups.length} intervention${groups.length === 1 ? "" : "s"}.`}
+            : `${instances.length} exposure${instances.length === 1 ? "" : "s"} across ${groups.length} intervention${groups.length === 1 ? "" : "s"}, with ${observations.length} observation${observations.length === 1 ? "" : "s"} of what followed.`}
         </p>
         <div className="mt-4">
           <InterventionEntryForm personId={id} />
@@ -185,6 +210,9 @@ export default async function MemberResponsesPage({
                 {list.slice(0, 12).map((i) => {
                   const ctxLine = contextLine(i.context);
                   const dose = doseLine(i.dose);
+                  const obs = obsByInstance.get(i.id) ?? [];
+                  const missing = missingWindowsFor(i, obs);
+                  const mixed = isMixed(obs);
                   return (
                     <li key={i.id} className="border-t border-ground/10 pt-2 first:border-0 first:pt-0">
                       <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
@@ -209,6 +237,48 @@ export default async function MemberResponsesPage({
                         />
                       </div>
                       {ctxLine && <p className="measure mt-0.5 text-xs text-olive">{ctxLine}</p>}
+
+                      {mixed && (
+                        <p className="mt-1 text-xs font-medium text-app-ink">
+                          Mixed — the windows below did not agree, and they are not combined.
+                        </p>
+                      )}
+
+                      {obs.length > 0 && (
+                        <ul className="mt-1 space-y-0.5">
+                          {inWindowOrder(obs).map((o) => {
+                            const settling = isSettling(o.outcomeType, o.direction);
+                            {/* NOT an arrow. An arrow reads as "the number went
+                                down", and on sleep quality the number going up
+                                is the settled direction — so an arrow would
+                                call a good night a deterioration. The filled
+                                and hollow marks say "toward settled" and "away
+                                from settled", which is what the reader needs
+                                and what the raw reading beside them can be
+                                checked against. */}
+                            return (
+                              <li key={o.id} className="measure text-xs text-ground">
+                                <span aria-hidden className="text-olive">
+                                  {settling === true ? "◆ " : settling === false ? "◇ " : "· "}
+                                </span>
+                                <span className="sr-only">
+                                  {settling === true ? "toward settled: "
+                                    : settling === false ? "away from settled: "
+                                    : "recorded: "}
+                                </span>
+                                {describeObservation(o)}{" "}
+                                <span className="text-olive">({EVIDENCE_LABEL[o.evidenceClass]})</span>
+                              </li>
+                            );
+                          })}
+                        </ul>
+                      )}
+
+                      {missing.length > 0 && (
+                        <p className="measure mt-1 text-xs text-olive">
+                          Not followed up: {missing.map((w) => MISSING_WINDOW_LABEL[w]).join(", ")}.
+                        </p>
+                      )}
                     </li>
                   );
                 })}
