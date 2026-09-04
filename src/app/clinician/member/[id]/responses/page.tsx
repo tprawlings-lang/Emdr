@@ -24,6 +24,8 @@ import { computeFingerprints } from "@/lib/clinical/response-fingerprint";
 import {
   PATTERN_STATE_LABEL, PATTERN_STATE_NOTE, RESPONSE_POLICY,
 } from "@/lib/clinical/response-fingerprint-policy";
+import { summarizePattern } from "@/lib/clinical/response-intelligence";
+import { signalsFrom } from "@/lib/clinical/response-attention";
 import type { TenantContext } from "@/lib/repository";
 
 export const dynamic = "force-dynamic";
@@ -138,6 +140,21 @@ export default async function MemberResponsesPage({
   // a log of page views.
   const fingerprints = await computeFingerprints(ctx, id);
   const fingerprintByDefinition = new Map(fingerprints.map((f) => [f.definition.id, f]));
+
+  // The wording for each displayable pattern (§8). With no provider configured
+  // this returns the deterministic sentence, which is the point: the screen
+  // renders the same thing whether or not a model answered, and says which.
+  const wording = new Map<string, Awaited<ReturnType<typeof summarizePattern>>>();
+  for (const f of fingerprints) {
+    if (f.patternState === "insufficient_data") continue;
+    wording.set(f.definition.id, await summarizePattern(ctx, id, f));
+  }
+
+  // §11's non-safety attention signals. Computed from the same summaries, with
+  // no safety state read and none produced. Handoff 03 owns where these
+  // eventually go; showing them here is what makes the provider more than an
+  // unused interface.
+  const signals = signalsFrom(fingerprints, id);
   const obsByInstance = new Map<string, typeof observations>();
   for (const o of observations) {
     const list = obsByInstance.get(o.instanceId) ?? [];
@@ -192,6 +209,29 @@ export default async function MemberResponsesPage({
         </div>
       </Panel>
 
+      {signals.length > 0 && (
+        <Panel title="Worth reading before the next session" className="mt-6">
+          {/* NOT a safety alert, and it says so. The safety engine is
+              deterministic and separate; this is a pattern in a response
+              record, and conflating the two would let a descriptive statistic
+              wear the authority of a safety rule. */}
+          <p className="measure text-xs text-olive">
+            These are patterns in the record, not safety alerts. Safety stops are shown on the
+            safety screen and are decided by rules, not by this.
+          </p>
+          <ul className="mt-2 space-y-2">
+            {signals.map((sig) => (
+              <li key={sig.key} className="measure text-sm text-app-ink">
+                {sig.reason}{" "}
+                <span className="text-xs text-olive">
+                  ({sig.evidenceIds.length} exposure{sig.evidenceIds.length === 1 ? "" : "s"} below)
+                </span>
+              </li>
+            ))}
+          </ul>
+        </Panel>
+      )}
+
       {groups.length === 0 ? (
         <Panel title="Nothing yet" className="mt-6">
           <p className="measure text-sm text-ground">
@@ -243,6 +283,19 @@ export default async function MemberResponsesPage({
                     <p className="measure mt-1 text-xs text-olive">
                       {PATTERN_STATE_NOTE[f.patternState]}
                     </p>
+                    {(() => {
+                      // Only when a model actually reworded it. The
+                      // deterministic sentence is what the two lines above
+                      // already say, so rendering it again would show the same
+                      // fact three times and teach the reader to skip the block.
+                      const w = wording.get(f.definition.id);
+                      if (!w || w.origin !== "model") return null;
+                      return (
+                        <p className="measure mt-1 text-xs text-ground">
+                          {w.text} <span className="text-olive">(worded by Steady)</span>
+                        </p>
+                      );
+                    })()}
 
                     {f.windows.length > 0 && (
                       <ul className="mt-2 space-y-0.5">

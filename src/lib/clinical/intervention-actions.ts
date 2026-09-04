@@ -10,6 +10,7 @@ import {
   recordClinicianIntervention, confirmInstance, remapInstance, InterventionError,
 } from "./interventions";
 import { isInterventionClass } from "./intervention-vocabulary";
+import { proposeNormalization, type NormalizationCandidate } from "./response-intelligence";
 
 // Server actions for the intervention record (expansion handoff 02).
 //
@@ -122,4 +123,32 @@ export async function remapInstanceAction(
   });
   revalidatePath(`/clinician/member/${personId}/responses`);
   return { ok: true };
+}
+
+/**
+ * Which already-recorded interventions a clinician's wording might mean (§8).
+ *
+ * SUGGESTS AND NOTHING ELSE. §8 lets the normalizer "map clinician wording to
+ * candidate canonical intervention" and forbids it to "auto-create clinical
+ * intervention identity without review when ambiguous" — so this returns
+ * candidates and writes nothing at all. The clinician either picks one or types
+ * their own words, and either way a person made the decision.
+ *
+ * It exists because the alternative is silent: "cold water" and "Cold water at
+ * the sink" become two canonical keys, one person's evidence splits across two
+ * counts, and a five-exposure pattern quietly reads as two insufficient ones.
+ */
+export async function suggestNormalizationAction(
+  wording: string
+): Promise<{ ok: boolean; candidates: NormalizationCandidate[] }> {
+  const { ctx } = await clinicianContext();
+  const text = wording.trim();
+  if (text.length < 3) return { ok: true, candidates: [] };
+  try {
+    return { ok: true, candidates: await proposeNormalization(ctx, text) };
+  } catch {
+    // A suggestion that fails is a suggestion nobody sees, not an error a
+    // clinician has to dismiss before recording what they did.
+    return { ok: true, candidates: [] };
+  }
 }

@@ -242,3 +242,80 @@ export const SESSION_REPHRASE = registerTask({
   phi: "protected-in-hashed-provenance",
   fallback: "deterministic",
 });
+
+// --- Treatment Response Fingerprint (expansion handoff 02 §8). --------------
+//
+// Three tasks with three different hard boundaries, and §12's Phase 4
+// definition of done is a single sentence about all of them: "AI cannot change
+// statistics or causal semantics."
+//
+// The statistics are computed in response-fingerprint.ts from evidence rows,
+// under a named policy version, and are reproducible by hand from the listed
+// evidence. Nothing below is permitted to produce a number. That is not a
+// prompt instruction — a prompt instruction is a request — it is a property of
+// where the numbers come from: the summariser is handed an already-computed
+// summary and every deployment that enables it keeps the deterministic text as
+// the fallback, so the worst a model failure can do is leave the honest
+// sentence in place.
+
+export const RESPONSE_NORMALIZE_INTERVENTION = registerTask({
+  id: "response.normalize_intervention",
+  version: "1.0.0",
+  // §8's boundary: allowed to "map clinician wording to candidate canonical
+  // intervention"; not allowed to "auto-create clinical intervention identity
+  // without review when ambiguous."
+  //
+  // CANDIDATE is the whole word. A canonical key is the thing every count in
+  // this feature is grouped by, so a model that minted one would be deciding
+  // what counts as the same intervention — and two things wrongly called the
+  // same put a median over a mixture.
+  purpose: "Suggests which canonical intervention a clinician's wording may mean. Proposes only; a clinician confirms.",
+  model: process.env.EMDR_RESPONSE_NORMALIZE_MODEL ?? "claude-opus-4-8",
+  maxTokens: 500,
+  phi: "protected-in-hashed-provenance",
+  // The deterministic normalizer — a slug of the clinician's own words — is the
+  // fallback and is what runs today. It never merges two keys, which is the
+  // conservative direction: a duplicate definition is a clinician's to merge,
+  // and a wrong merge is evidence nobody can pull apart again.
+  fallback: "deterministic",
+});
+
+export const RESPONSE_SUMMARIZE_PATTERN = registerTask({
+  id: "response.summarize_pattern",
+  version: "1.0.0",
+  // §8's boundary: allowed to "render deterministic stats into concise language
+  // with evidence IDs"; not allowed to "recalculate stats, invent causal
+  // explanation, suppress adverse observations."
+  //
+  // ALL THREE OF THOSE ARE STRUCTURAL HERE, not asked for. It cannot recalculate
+  // because it is handed the computed summary and the fallback is the
+  // deterministic sentence. It cannot invent a causal explanation because §6's
+  // five pattern states are the only vocabulary the surface renders, and they
+  // are chosen by `patternStateFor` from counts. It cannot suppress an adverse
+  // observation because the adverse counts are on the summary the caller
+  // already has, and the screen prints them whether or not this task ran.
+  purpose: "Words a pattern the projection already computed. Cannot compute a number, explain a cause, or drop an adverse observation.",
+  model: process.env.EMDR_RESPONSE_SUMMARY_MODEL ?? "claude-opus-4-8",
+  maxTokens: 700,
+  phi: "protected-in-hashed-provenance",
+  // The deterministic sentence IS the fallback, and it is what ships today.
+  fallback: "deterministic",
+});
+
+export const RESPONSE_MATCH_CONTEXT = registerTask({
+  id: "response.match_context",
+  version: "1.0.0",
+  // §8's boundary: allowed to "suggest thread/goal context related to an
+  // instance"; not allowed to "assert that context caused response."
+  //
+  // Registered but not called in this deployment, on the same terms as
+  // clinician.thread.match: the functional adapter attaches goal observations
+  // by an explicit temporal window, which is reproducible and says exactly what
+  // it did. The entry exists so the boundary is versioned from the start rather
+  // than invented when someone enables it.
+  purpose: "Suggests goal or thread context around one exposure. A suggestion about relatedness, never about cause.",
+  model: process.env.EMDR_RESPONSE_CONTEXT_MODEL ?? "claude-opus-4-8",
+  maxTokens: 600,
+  phi: "protected-in-hashed-provenance",
+  fallback: "deterministic",
+});

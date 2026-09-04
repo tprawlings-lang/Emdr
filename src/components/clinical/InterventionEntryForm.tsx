@@ -3,6 +3,7 @@
 import { useState } from "react";
 import {
   recordInterventionAction, confirmInstanceAction, remapInstanceAction,
+  suggestNormalizationAction,
 } from "@/lib/clinical/intervention-actions";
 // The VOCABULARY module, not the store. This runs in the browser and the store
 // reaches better-sqlite3; the build refuses that, correctly.
@@ -29,6 +30,12 @@ export function InterventionEntryForm({ personId }: { personId: string }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState(false);
+  // Candidates for what the wording might already mean (§8). SHOWN, never
+  // applied: the clinician either recognises one and reuses their own earlier
+  // words, or ignores it. Nothing here changes what gets saved.
+  const [candidates, setCandidates] = useState<
+    Array<{ definitionId: string; displayName: string; reason: string }>
+  >([]);
 
   async function submit(form: FormData) {
     setBusy(true);
@@ -77,12 +84,32 @@ export function InterventionEntryForm({ personId }: { personId: string }) {
           required
           maxLength={160}
           placeholder="Cold water at the sink"
+          onBlur={async (e) => {
+            const r = await suggestNormalizationAction(e.currentTarget.value);
+            setCandidates(r.candidates);
+          }}
           className="mt-1 w-full rounded-xl border border-ground/20 bg-linen px-3 py-2 text-sm text-app-ink"
         />
         <span className="mt-1 block text-xs text-olive">
           Use the words you would use with a colleague. Steady keys on them so the same thing
           counts as the same thing next time.
         </span>
+        {candidates.length > 0 && (
+          <div className="mt-2 rounded-xl border border-ground/15 px-3 py-2">
+            <p className="text-xs text-olive">
+              You may already have recorded this. Reusing your own earlier wording keeps the
+              exposures counted together; typing something new records it as a different thing.
+            </p>
+            <ul className="mt-1 space-y-0.5">
+              {candidates.map((c) => (
+                <li key={c.definitionId} className="text-xs text-app-ink">
+                  {c.displayName}{" "}
+                  <span className="text-olive">— {c.reason}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
       </label>
 
       <fieldset>
