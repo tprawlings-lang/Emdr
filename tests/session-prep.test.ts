@@ -98,7 +98,7 @@ function inputs(over: Partial<PrepInputs> = {}): PrepInputs {
       personId: MEMBER, entries: [], laneCounts: {}, reconstructedCount: 0,
       withheld: { count: 0, reason: "" }, policyVersion: "p", asOf: null,
     },
-    memory: [], followUps: [], threads: [], threadEntries: [], goals: [], now: NOW,
+    memory: [], followUps: [], threads: [], threadEntries: [], goals: [], notes: [], now: NOW,
     ...over,
   };
 }
@@ -331,4 +331,52 @@ test("empty sections do not consume a line of the minute", () => {
   const panel = fs.readFileSync(path.join(process.cwd(), "src/components/clinical/SessionPrepPanel.tsx"), "utf8") as string;
   assert.ok(/filter\(\(s\) => prep\.sections\[s\]\.length > 0\)/.test(panel),
     "§11 caps the brief at about a minute; an empty heading costs attention and returns nothing");
+});
+
+// ---------------------------------------------------------------------------
+// The clinician's own note
+// ---------------------------------------------------------------------------
+
+test("the newest saved note is quoted in Last session", () => {
+  const claims = assemble(inputs({
+    notes: [
+      { thoughtId: "th-new", text: "She stayed with it today.", recordedAt: "2026-09-03T10:00:00.000Z", typed: true },
+      { thoughtId: "th-old", text: "Older note.", recordedAt: "2026-08-01T10:00:00.000Z", typed: false },
+    ],
+  }));
+  const last = claims.filter((c) => c.section === "last_session");
+  const note = last.find((c) => c.text.startsWith("Your note"));
+  assert.ok(note, "the most useful thing in a pre-session brief is what you thought last time");
+  assert.match(note.text, /She stayed with it today/);
+  assert.deepEqual(note.citations, ["th-new"], "cited to the thought, so the brief can open it");
+  // One note, not a list: §11 caps the brief at about a minute and every note
+  // ever written is a record rather than a brief.
+  assert.equal(last.filter((c) => c.text.startsWith("Your note")).length, 1);
+});
+
+test("a long note is trimmed rather than dropped", () => {
+  const long = "x".repeat(900);
+  const claims = assemble(inputs({
+    notes: [{ thoughtId: "th1", text: long, recordedAt: "2026-09-03T10:00:00.000Z", typed: true }],
+  }));
+  const note = claims.find((c) => c.text.startsWith("Your note"))!;
+  assert.ok(note.text.length < 500, "a brief that pastes a whole note is not a brief");
+  assert.match(note.text, /…/, "and it says it was trimmed rather than ending mid-word silently");
+});
+
+test("a note is quoted, never paraphrased", () => {
+  const claims = assemble(inputs({
+    notes: [{ thoughtId: "th1", text: "Not reading that as avoidance yet.", recordedAt: NOW.toISOString(), typed: true }],
+  }));
+  const note = claims.find((c) => c.text.startsWith("Your note"))!;
+  // This is the one place in the brief where paraphrasing would lose the thing
+  // that makes it worth reading — and where a hedge could quietly harden.
+  assert.match(note.text, /“Not reading that as avoidance yet\.”/);
+});
+
+test("only saved thoughts reach the brief", async () => {
+  const fs = await import("node:fs");
+  const src = fs.readFileSync("src/lib/clinical/session-prep.ts", "utf8");
+  assert.match(src, /filter\(\(t\) => t\.status === "saved"\)/,
+    "a thought still in review is a draft of a judgement; showing it back would present unfinished thinking as settled");
 });
