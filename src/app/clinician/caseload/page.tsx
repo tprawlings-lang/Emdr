@@ -9,16 +9,20 @@ import { activePolicy, policyBanner } from "@/lib/clinical-policy";
 import { closeAlertAction } from "@/lib/clinical/actions";
 import { NoteForm } from "@/components/clinical/NoteForm";
 import { PriorityBadge, OwnerChip, FreshnessLabel } from "@/components/clinical/primitives";
+import { CaseloadStateTable } from "@/components/clinical/CaseloadStateTable";
+import { buildCaseloadState } from "@/lib/clinical/caseload-state";
+import { buildWorkQueue } from "@/lib/clinical/work-queue";
+import { commandCenterSurfaceAvailable } from "@/lib/clinical/command-center-flags";
 
 export const dynamic = "force-dynamic";
 
 export default async function ClinicalConsole({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string }>;
+  searchParams: Promise<{ error?: string; filter?: string }>;
 }) {
   const clinician = await requireClinician();
-  const { error } = await searchParams;
+  const { error, filter } = await searchParams;
   const policy = activePolicy();
 
   const c = await data();
@@ -45,6 +49,25 @@ export default async function ClinicalConsole({
   const now = new Date().toISOString().replace("T", " ").slice(0, 19);
   const alerts = await alertQueue({ tenantId, policy });
   const overdue = overdueAlerts(alerts);
+
+  // The clinical-state view (expansion handoff 03 §6), behind its own flag.
+  const stateView = commandCenterSurfaceAvailable("CLINICAL_COMMAND_CENTER_CASELOAD");
+
+  // §3: "clicking [Stable] opens filtered Caseload." The stable population is
+  // TAKEN FROM THE QUEUE, not recomputed here — a second definition of "has no
+  // open work" is how the count on Today and the list on this page come to
+  // disagree about the same person.
+  let stablePersonIds: string[] | undefined;
+  if (stateView && filter === "stable") {
+    const queue = await buildWorkQueue({ clinicianId: clinician.id, tenantId, policy });
+    stablePersonIds = queue.stablePersonIds;
+  }
+
+  const caseloadState = stateView
+    ? await buildCaseloadState({
+        clinicianId: clinician.id, tenantId, policy, personIds: stablePersonIds,
+      })
+    : null;
 
   return (
     <ClinicianPage
@@ -153,6 +176,19 @@ export default async function ClinicalConsole({
           · model: {caseload.model}
         </p>
 
+        {caseloadState ? (
+          <>
+            {filter === "stable" && (
+              <p className="measure mt-3 rounded-xl border border-ground/15 px-3 py-2 text-sm text-ground">
+                Showing the {caseloadState.rows.length} {caseloadState.rows.length === 1 ? "person" : "people"}{" "}
+                with no suggested action under policy {policy.version}. That is not a statement
+                that they are well.{" "}
+                <Link href="/clinician/caseload" className="underline">Show everyone</Link>
+              </p>
+            )}
+            <CaseloadStateTable state={caseloadState} />
+          </>
+        ) : (
         <ul className="mt-4 space-y-3">
           {caseload.rows.map((r) => {
             const coverage = isCoverageAction(caseload.model, clinician.id, r.primaryClinicianId);
@@ -206,6 +242,7 @@ export default async function ClinicalConsole({
             );
           })}
         </ul>
+        )}
 
         <NoteForm surface="Caseload" returnTo="/clinician/caseload" defaultCategory="Caseload and prioritisation" />
       </section>

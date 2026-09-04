@@ -53,6 +53,10 @@ const DEMO_ENABLED = new Set<CommandCenterFlag>([
   // command-context service behind it and six sections that either show
   // something or say why they cannot.
   "CLINICAL_COMMAND_CENTER_DRAWER",
+  // And these when Phase 4 did: a clinical-state table with no composite score
+  // and an activity feed that is a feed rather than an event dump.
+  "CLINICAL_COMMAND_CENTER_CASELOAD",
+  "CLINICAL_COMMAND_CENTER_ACTIVITY",
 ]);
 
 /**
