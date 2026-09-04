@@ -38,6 +38,8 @@ import { openFollowUps, type FollowUp } from "./followups";
 import { goalContextFor, goalLine, type GoalContext } from "./return-goal-evidence";
 import { listThoughts, currentTranscript } from "./thought-store";
 import { RETRIEVAL_POLICY_VERSION } from "./retrieval-policy";
+import { responseContextFor, type ResponseContext } from "./response-fingerprint";
+import { RESPONSE_POLICY } from "./response-fingerprint-policy";
 import type { TenantContext } from "../repository";
 
 export const SESSION_PREP_VERSION = "session-prep.1.0.0";
@@ -46,6 +48,7 @@ export const SESSION_PREP_VERSION = "session-prep.1.0.0";
 export type PrepSection =
   | "last_session"
   | "life_goals"
+  | "observed_responses"
   | "revisit"
   | "between_visit"
   | "active_threads"
@@ -59,6 +62,11 @@ export const SECTION_TITLE: Record<PrepSection, string> = {
   // controls, and it sits second because what a person can do again is the
   // thing the session is for.
   life_goals: "Life goals",
+  // Added by expansion handoff 02 §9, which asks Session Prep for "what has
+  // tended to help / what to watch, using observed pattern language and
+  // evidence". Third, after the goals: the goals say what the session is for,
+  // and this says what has and has not tended to follow the work.
+  observed_responses: "What has tended to settle them, and what to watch",
   revisit: "You wanted to revisit",
   between_visit: "Between-visit changes",
   active_threads: "Active threads",
@@ -185,6 +193,11 @@ export interface PrepInputs {
    *  that computed goal movement itself would be a second implementation of
    *  the level fold. */
   goals: GoalContext[];
+  /** Displayable response fingerprints, from the projection rather than
+   *  recomputed here. A Session Prep that aggregated responses itself would be
+   *  a second implementation of §6's thresholds, and the two would eventually
+   *  disagree about what counts as enough evidence. */
+  responses: ResponseContext[];
   memory: MemoryItem[];
   followUps: FollowUp[];
   threads: Thread[];
@@ -201,7 +214,7 @@ export interface PrepInputs {
  * database.
  */
 export function assemble(inputs: PrepInputs): PrepClaim[] {
-  const { timeline, followUps, threadEntries, goals, notes, now } = inputs;
+  const { timeline, followUps, threadEntries, goals, notes, responses, now } = inputs;
   const claims: PrepClaim[] = [];
   const nowIso = now.toISOString();
 
@@ -257,6 +270,23 @@ export function assemble(inputs: PrepInputs): PrepClaim[] {
       section: "life_goals",
       text: goalLine(g),
       citations: g.citations,
+      origin: "deterministic",
+    });
+  }
+
+  // --- What has tended to settle them (expansion handoff 02 §9). -----------
+  //
+  // The wording is the projection's, not this file's. §6 bars "works",
+  // "effective treatment", "caused improvement" and "contraindicated", and the
+  // way to keep a summary from drifting into them is for the summary to have no
+  // wording of its own — `fingerprintLine` is the single place the sentence is
+  // built, and the detail screen renders the same states from the same table.
+  for (const r of responses) {
+    if (r.citations.length === 0) continue;
+    claims.push({
+      section: "observed_responses",
+      text: r.toWatch ? `Watch: ${r.text}` : r.text,
+      citations: r.citations,
       origin: "deterministic",
     });
   }
@@ -436,6 +466,9 @@ export async function buildSessionPrep(
     .filter((e) => SESSION_TYPES.has(e.type))
     .sort((a, b) => b.occurredAt.localeCompare(a.occurredAt))[0]?.occurredAt ?? null;
   const goals = await goalContextFor(ctx, personId, { since: lastSessionAt, now });
+  // Computed over the same cutoff as everything else in the brief, so a brief
+  // and the screen it links to describe the same evidence.
+  const responses = await responseContextFor(ctx, personId, { asOf: evidenceCutoff });
 
   // The clinician's own saved notes. Only SAVED ones: a thought still in review
   // is a draft of a judgement, and putting one in a brief would show a
@@ -469,17 +502,24 @@ export async function buildSessionPrep(
     // cited one outside this set would be withheld exactly like any other
     // uncited claim.
     ...goals.flatMap((g) => g.citations),
+    // Intervention instances are evidence like any other. A response line that
+    // cited one outside this set is withheld exactly like any other uncited
+    // claim — which is the behaviour that makes "every pattern opens evidence"
+    // true in the brief as well as on the screen.
+    ...responses.flatMap((r) => r.citations),
     // A note cites its own thought, which the clinician is by definition
     // authorized to read — it is theirs.
     ...notes.map((n) => n.thoughtId),
   ]);
 
-  const produced = assemble({ timeline, memory, followUps, threads, threadEntries, goals, notes, now });
+  const produced = assemble({
+    timeline, memory, followUps, threads, threadEntries, goals, notes, responses, now,
+  });
   const { kept, omitted } = validateClaims(produced, authorized);
 
   const sections: Record<PrepSection, PrepClaim[]> = {
-    last_session: [], life_goals: [], revisit: [], between_visit: [],
-    active_threads: [], steady_noticed: [],
+    last_session: [], life_goals: [], observed_responses: [], revisit: [],
+    between_visit: [], active_threads: [], steady_noticed: [],
   };
   for (const c of kept) sections[c.section].push(c);
 
@@ -528,6 +568,11 @@ export function prepCacheKey(args: {
     SESSION_PREP_VERSION,
     RETRIEVAL_POLICY_VERSION,
     args.clinicalPolicyVersion,
+    // The response policy is in the key for the same reason the clinical one
+    // is: change §6's thresholds and the brief's response lines change with
+    // them, and a cached brief composed under the old thresholds looks exactly
+    // like one composed under the new.
+    RESPONSE_POLICY.version,
   ].join("|");
   return crypto.createHash("sha256").update(material).digest("hex").slice(0, 24);
 }

@@ -98,7 +98,8 @@ function inputs(over: Partial<PrepInputs> = {}): PrepInputs {
       personId: MEMBER, entries: [], laneCounts: {}, reconstructedCount: 0,
       withheld: { count: 0, reason: "" }, policyVersion: "p", asOf: null,
     },
-    memory: [], followUps: [], threads: [], threadEntries: [], goals: [], notes: [], now: NOW,
+    memory: [], followUps: [], threads: [], threadEntries: [], goals: [], notes: [],
+    responses: [], now: NOW,
     ...over,
   };
 }
