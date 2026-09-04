@@ -117,3 +117,51 @@ test("the safety config version has exactly one definition", () => {
   assert.deepEqual(offenders, [],
     `these modules repeat the safety config version instead of importing SAFETY_CONFIG_VERSION: ${offenders.join(", ")}`);
 });
+
+// ---------------------------------------------------------------------------
+// The probe time is a probe time, not a render time
+// ---------------------------------------------------------------------------
+//
+// `checkedAt` is the one line on this page whose entire job is to be
+// trustworthy: it says when Steady last looked. It was being stamped with a
+// bare `new Date()` inside the render, and React renders a server component
+// more than once per request — the HTML pass and the RSC payload — so the two
+// passes disagreed by a second and the page hydrated with a mismatch on
+// exactly that line.
+//
+// The fix is to scope the probe to the request rather than to the render.
+// These guards check the shape of that rather than the timestamp: a test that
+// asserted two calls return the same string would pass by coincidence
+// whenever both landed inside one second, which is nearly always.
+
+test("the status probe is scoped to the request, not to the render pass", async () => {
+  const SRC = read("src/lib/site/service-status.ts");
+  const body = code(SRC);
+
+  // React's `cache` is what makes a probe run once per request across every
+  // render pass. Without it the timestamp is a render artefact.
+  assert.match(body, /import \{ cache \} from "react"/,
+    "service-status does not import React's cache()");
+  assert.match(body, /export const readServiceStatus = cache\(/,
+    "readServiceStatus is not wrapped in cache() — the probe would re-run per render pass");
+
+  // And the clock is read exactly once, inside the memoised probe. A second
+  // `new Date()` anywhere in the module would reintroduce the mismatch on
+  // whichever value it fed.
+  const clocks = body.match(/new Date\(\)|Date\.now\(\)/g) ?? [];
+  assert.equal(clocks.length, 1,
+    `service-status reads the clock ${clocks.length} times; the probe stamps one moment`);
+});
+
+test("the memoised probe still returns a real reading", async () => {
+  const mod = await import("../src/lib/site/service-status");
+  const status = await mod.readServiceStatus();
+
+  // Wrapping must not have turned the probe into a stub. Grounding and crisis
+  // are the two that must be present in every reading.
+  assert.ok(status.functions.length >= 3, "the probe returned almost nothing");
+  const always = status.functions.filter((f) => f.alwaysAvailable);
+  assert.equal(always.length, 2, "the two always-available functions are not both reported");
+  assert.match(status.checkedAt, /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/,
+    `checkedAt is not a stamped instant: ${status.checkedAt}`);
+});
