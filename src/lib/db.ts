@@ -1331,6 +1331,97 @@ export const SCHEMA_SQL = `
   CREATE INDEX IF NOT EXISTS idx_thought_saves_thought
     ON clinician_thought_saves(thought_id, created_at);
 
+  -- Return-to-Life goals (Clinical Intelligence Expansion, handoff 01 §4).
+  --
+  -- The functional outcome layer: what does this person want to be able to do
+  -- again, and is their real life expanding. Separate from symptom measures on
+  -- purpose — a PHQ-9 falling and a person going back into a grocery store are
+  -- different facts, and the second is the one the patient came for.
+  --
+  -- THE GOAL IS PATIENT-OWNED. patient_statement is their words and
+  -- why_it_matters is their reason; §1 is explicit that AI "can help draft
+  -- measurable wording but cannot choose what matters to the patient", and §12
+  -- adds that model-drafted language "must not be saved as patient-owned
+  -- language until confirmed". So a draft stays draft until a person confirms
+  -- it, and confirmed_by_person_id records who.
+  --
+  -- current_level IS A PROJECTION, NOT A SETTING. §3: "goal level changes are
+  -- evidence events. Do not overwrite the current level without preserving the
+  -- observation that caused the change." So every level this column ever held
+  -- has an accepted observation behind it, and the column is rebuilt from those
+  -- rather than written to directly.
+  CREATE TABLE IF NOT EXISTS return_to_life_goals (
+    id TEXT PRIMARY KEY,
+    tenant_id TEXT NOT NULL REFERENCES tenants(id),
+    person_id TEXT NOT NULL REFERENCES persons(id),
+    title TEXT NOT NULL,
+    -- The patient's own words. Encrypted: §12 says goal titles and
+    -- why-it-matters "may be highly sensitive".
+    patient_statement TEXT NOT NULL,
+    why_it_matters TEXT,
+    domain TEXT NOT NULL,
+    status TEXT NOT NULL CHECK (status IN ('draft','active','paused','completed','archived')),
+    created_by_person_id TEXT NOT NULL,
+    confirmed_by_person_id TEXT,
+    confirmed_at TEXT,
+    target_review_date TEXT,
+    current_level INTEGER CHECK (current_level BETWEEN -2 AND 2),
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+  CREATE INDEX IF NOT EXISTS idx_rtl_goal_person_status
+    ON return_to_life_goals(tenant_id, person_id, status);
+
+  -- The five-level ladder (§2). UNIQUE(goal_id, level) is the mechanism behind
+  -- "one dimension per goal": a ladder cannot acquire a sixth rung or two
+  -- descriptions of the same rung, so "sleep better, work full time, and stop
+  -- panic" cannot be crammed into one goal by adding levels.
+  CREATE TABLE IF NOT EXISTS return_to_life_goal_levels (
+    id TEXT PRIMARY KEY,
+    tenant_id TEXT NOT NULL REFERENCES tenants(id),
+    person_id TEXT NOT NULL REFERENCES persons(id),
+    goal_id TEXT NOT NULL REFERENCES return_to_life_goals(id),
+    level INTEGER NOT NULL CHECK (level BETWEEN -2 AND 2),
+    description TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    UNIQUE(goal_id, level)
+  );
+
+  -- Evidence about current function (§10).
+  --
+  -- evidence_class IS THE COLUMN THIS TABLE EXISTS FOR. §1: "progress can be
+  -- reported by the patient, observed by a clinician, or supported by system
+  -- evidence. These sources remain separate." A patient saying they managed the
+  -- shop, a clinician seeing them arrive having driven, and a check-in row that
+  -- happens to correlate are three different kinds of fact, and a schema that
+  -- stored only "level 0 reached" would make them interchangeable.
+  --
+  -- model_candidate is the fourth, and it is never accepted by anything but a
+  -- person: §7's hard boundary for the matcher is "proposes evidence only; no
+  -- automatic level change".
+  CREATE TABLE IF NOT EXISTS return_to_life_observations (
+    id TEXT PRIMARY KEY,
+    tenant_id TEXT NOT NULL REFERENCES tenants(id),
+    person_id TEXT NOT NULL REFERENCES persons(id),
+    goal_id TEXT NOT NULL REFERENCES return_to_life_goals(id),
+    observed_level INTEGER CHECK (observed_level BETWEEN -2 AND 2),
+    evidence_class TEXT NOT NULL CHECK (evidence_class IN (
+      'patient_reported','clinician_observed','system_measured','model_candidate'
+    )),
+    -- What kind of record this came from, and which one. Together they are the
+    -- drill-down: an observation nobody can trace back is an assertion.
+    source_type TEXT NOT NULL,
+    source_id TEXT NOT NULL,
+    occurred_at TEXT NOT NULL,
+    note TEXT,
+    status TEXT NOT NULL CHECK (status IN ('proposed','accepted','rejected')),
+    decided_by TEXT,
+    decided_at TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+  CREATE INDEX IF NOT EXISTS idx_rtl_obs_goal_time
+    ON return_to_life_observations(tenant_id, goal_id, occurred_at DESC);
+
   -- Longitudinal threads.
   CREATE TABLE IF NOT EXISTS clinical_threads (
     id TEXT PRIMARY KEY,
@@ -1686,6 +1777,11 @@ export const TENANT_SCOPED_TABLES = [
   // off this list, so a table missing from it is a table nothing is checking.
   "clinician_thoughts",
   "clinician_thought_transcripts",
+  // A person's functional goals, their ladder and the evidence behind them.
+  // As person-scoped as anything in the product.
+  "return_to_life_goals",
+  "return_to_life_goal_levels",
+  "return_to_life_observations",
   "clinician_thought_saves",
   "clinical_memory_items",
   "clinical_threads",

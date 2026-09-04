@@ -181,6 +181,53 @@ export const SESSION_PREP_COMPOSE = registerTask({
   fallback: "deterministic",
 });
 
+// --- Return-to-Life goals (expansion handoff 01 §7). ---------------------
+//
+// Three tasks with three different hard boundaries, and the boundaries are the
+// reason they are three entries rather than one "goals" task.
+
+export const GOAL_DRAFT_LADDER = registerTask({
+  id: "return_goal.draft_ladder",
+  version: "1.0.0",
+  // §7's boundary: "patient/clinician must review; do not choose goal or invent
+  // baseline." The model turns a sentence a person said into five observable
+  // rungs. It does not decide what matters to them, and it does not assert
+  // where they currently are — §3: "baseline is descriptive, not a judgement",
+  // and a model that guessed the baseline would be judging.
+  purpose: "Turns a patient's own goal statement into five proposed observable levels. Never chooses the goal or the baseline.",
+  model: process.env.EMDR_GOAL_LADDER_MODEL ?? "claude-opus-4-8",
+  maxTokens: 900,
+  phi: "protected-in-hashed-provenance",
+  // Refuse: there is no deterministic way to write five observable rungs for an
+  // arbitrary life goal, and inventing them would be the model choosing what
+  // the person is aiming for.
+  fallback: "refuse",
+});
+
+export const GOAL_MATCH_EVIDENCE = registerTask({
+  id: "return_goal.match_evidence",
+  version: "1.0.0",
+  // §7's boundary: "proposes evidence only; no automatic level change."
+  purpose: "Suggests authorized records that may relate to an active goal. Proposes only; a person accepts.",
+  model: process.env.EMDR_GOAL_MATCH_MODEL ?? "claude-opus-4-8",
+  maxTokens: 800,
+  phi: "protected-in-hashed-provenance",
+  // The deterministic matcher is the fallback and is what runs today.
+  fallback: "deterministic",
+});
+
+export const GOAL_SUMMARIZE_PROGRESS = registerTask({
+  id: "return_goal.summarize_progress",
+  version: "1.0.0",
+  // §7's boundary: "every statement cites accepted observation IDs." Enforced
+  // after the fact by the claim validator, not by asking the model nicely.
+  purpose: "Words progress that accepted observations already establish. Every statement cites observation ids.",
+  model: process.env.EMDR_GOAL_SUMMARY_MODEL ?? "claude-opus-4-8",
+  maxTokens: 600,
+  phi: "protected-in-hashed-provenance",
+  fallback: "deterministic",
+});
+
 export const SESSION_REPHRASE = registerTask({
   id: "session.rephrase",
   version: "1.0.0",

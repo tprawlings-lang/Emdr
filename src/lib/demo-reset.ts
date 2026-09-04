@@ -93,6 +93,10 @@ export const DEMO_DATA_TABLES = [
   // orphans — and listed at all because a reset that left a clinician's
   // recorded thoughts about fabricated patients behind would leave the
   // environment holding clinical text about people who no longer exist.
+  // Observations point at goals, and levels point at goals, so both clear first.
+  "return_to_life_observations",
+  "return_to_life_goal_levels",
+  "return_to_life_goals",
   "clinical_inference_evidence",
   "clinical_inferences",
   "clinical_thread_memberships",
