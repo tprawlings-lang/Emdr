@@ -59,6 +59,15 @@ export const PRESERVED_TABLES = [
   // refuses DELETE at the schema level, so listing it here is a statement of
   // intent rather than the mechanism.
   "policy_thresholds",
+  // Configuration, not fabricated data — and the same reasoning as the
+  // thresholds above. A per-tenant flag records that an organization decided
+  // something about their own environment, with a name and a reason attached;
+  // a reset that quietly returned every screen to the deployment default would
+  // be undoing that decision on their behalf, at the moment somebody was only
+  // trying to get back to a clean baseline. Appendix B says it from the other
+  // side: "turning off presentation does not delete signal, action, or evidence
+  // history" — and turning presentation back on is not the reset's to do either.
+  "tenant_feature_flags",
 ] as const;
 
 export const DEMO_DATA_TABLES = [

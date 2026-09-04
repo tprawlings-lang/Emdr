@@ -9,6 +9,14 @@ import { DEMO_SEED_VERSION } from "@/lib/demo-seed";
 import { DATASET_VERSION } from "@/lib/demo-population-manifest";
 import { RULE_VERSION, THRESHOLD_VERSION } from "@/lib/planning/policy";
 import { SAFETY_CONFIG_VERSION } from "@/lib/safety/governance";
+import { POLICY_REGISTRY } from "@/lib/clinical/policy-registry";
+import {
+  ALL_COMMAND_CENTER_FLAGS, commandCenterFlagEnabled,
+  commandCenterSurfaceAvailable, commandCenterFlagRequires,
+} from "@/lib/clinical/command-center-flags";
+import { registeredProviders } from "@/lib/clinical/attention-providers/registry";
+import "@/lib/clinical/attention-providers/providers";
+import { PROVIDER_CONTRACT_VERSION } from "@/lib/clinical/attention-providers/contract";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Service status — Steady Review" };
@@ -173,6 +181,100 @@ export default async function ReviewStatusPage() {
             The safety configuration is provisional and carries no clinician sign-off. Nothing
             on this page changes that.
           </p>
+        </Panel>
+
+        {/* The policy registry (expansion handoff 03, Phase 6).
+            By the end of the intelligence series a single Command Center row
+            can rest on ten independently versioned rules, and a clinician
+            asking "under what rules was this decided?" would otherwise have to
+            be told ten separate answers by ten separate screens. This is the
+            one place the whole set is enumerable. */}
+        <Panel
+          title="Clinical intelligence policies"
+          footnote="Each version is the owning module's own constant, not a copy kept here — a registry holding its own would be one more thing to keep in sync, and the first to go stale."
+        >
+          <p className="measure text-sm text-ground">
+            Every versioned rule a Command Center row can rest on. A pattern, a brief or an
+            acknowledgement records the versions it was made under, and these are what those
+            strings refer to.
+          </p>
+          <dl className="mt-3">
+            {POLICY_REGISTRY.map((policy) => (
+              <div key={policy.id} className="border-b border-ground/5 py-2">
+                <div className="flex flex-wrap items-baseline justify-between gap-2">
+                  <dt className="text-sm text-ground">{policy.label}</dt>
+                  <dd className="font-mono text-xs text-ground">{policy.version}</dd>
+                </div>
+                <p className="measure text-xs text-olive">{policy.decides}</p>
+                <p className="font-mono text-[11px] text-olive">{policy.module}</p>
+              </div>
+            ))}
+          </dl>
+        </Panel>
+
+        {/* The provider registry and its published contract (§10, Phase 6).
+            A reviewer asking "what can raise a work item, and under what
+            rules?" would otherwise have to read the code. The contract is the
+            promise handoffs 04 and 05 are written against; a provider that
+            breaks it fails the build, and this is where a reviewer can see the
+            set that currently passes. */}
+        <Panel
+          title="Attention providers"
+          footnote={`Governed by ${PROVIDER_CONTRACT_VERSION}. A provider may raise review-worthy work; only the safety engine creates safety authority, and no provider decides queue position, owner, due date or next action.`}
+        >
+          <p className="measure text-sm text-ground">
+            Everything that can put a non-safety row on a clinician&rsquo;s Command Center. Each is
+            deterministic, versioned, and checked against the published contract by the test suite.
+          </p>
+          <dl className="mt-3">
+            {registeredProviders().map((provider) => (
+              <div key={provider.id} className="border-b border-ground/5 py-2">
+                <div className="flex flex-wrap items-baseline justify-between gap-2">
+                  <dt className="font-mono text-xs text-ground">{provider.id}</dt>
+                  <dd className="font-mono text-xs text-ground">{provider.version}</dd>
+                </div>
+                <p className="measure text-xs text-olive">{provider.purpose}</p>
+              </div>
+            ))}
+          </dl>
+          <p className="measure mt-3 text-xs text-olive">
+            Handoffs 04 and 05 add a recovery-trajectory provider and a therapeutic-load provider
+            to this list without changing anything about how the queue is ordered.
+          </p>
+        </Panel>
+
+        {/* Rollout state (Appendix B). A flag whose own switch is on but whose
+            phase is not available reads as broken rather than as not-finished,
+            so the dependency is shown beside the switch rather than left to be
+            inferred from a surface that quietly does not appear. */}
+        <Panel
+          title="Command Center rollout"
+          footnote="Turning a surface off does not delete signal, action or evidence history. A tenant may override any of these for their own environment; this column is the deployment-wide answer."
+        >
+          <dl className="mt-1">
+            {ALL_COMMAND_CENTER_FLAGS.map((flag) => {
+              const own = commandCenterFlagEnabled(flag);
+              const available = commandCenterSurfaceAvailable(flag);
+              const requires = commandCenterFlagRequires(flag);
+              return (
+                <div key={flag} className="border-b border-ground/5 py-2">
+                  <div className="flex flex-wrap items-baseline justify-between gap-2">
+                    <dt className="font-mono text-xs text-ground">{flag}</dt>
+                    {/* Not colour alone (§19): the word is the state. */}
+                    <dd className="text-xs text-olive">
+                      {available ? "available" : own ? "switched on, but blocked" : "off"}
+                    </dd>
+                  </div>
+                  {requires && (
+                    <p className="text-xs text-olive">
+                      Rests on <span className="font-mono">{requires}</span>
+                      {!available && own ? " — which is off, so this surface stays closed." : ""}
+                    </p>
+                  )}
+                </div>
+              );
+            })}
+          </dl>
         </Panel>
       </div>
     </ReviewPage>
