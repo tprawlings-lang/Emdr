@@ -54,6 +54,10 @@ const SCREENS: Array<{ slug: string; label: string; layer: RailSlug }> = [
   // clinician arrives here after looking at what it is built from, not instead
   // of looking.
   { slug: "/trajectory", label: "Trajectory", layer: "progress" },
+  // Load and readiness (expansion handoff 05 §8). Under actions rather than
+  // progress: it is not a record of what happened, it is a reading a clinician
+  // decides what to do with — and §8's six clinician actions live on it.
+  { slug: "/load", label: "Load", layer: "actions" },
   { slug: "/safety", label: "Safety", layer: "actions" },
   // §17.1: "Place Record Thoughts in the existing action rail/header region so
   // it is available without scrolling into the formal record." Recording a

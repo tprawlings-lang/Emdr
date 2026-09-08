@@ -43,6 +43,9 @@ import { RESPONSE_POLICY } from "./response-fingerprint-policy";
 import {
   computeTrajectory, trajectoryContext, TRAJECTORY_POLICY, type TrajectoryContext,
 } from "./recovery-trajectory";
+import {
+  computeTherapeuticLoad, loadContext, THERAPEUTIC_LOAD_POLICY, type LoadContext,
+} from "./therapeutic-load";
 import type { TenantContext } from "../repository";
 
 export const SESSION_PREP_VERSION = "session-prep.1.0.0";
@@ -53,6 +56,7 @@ export type PrepSection =
   | "life_goals"
   | "observed_responses"
   | "changes_and_trends"
+  | "load_recovery"
   | "revisit"
   | "between_visit"
   | "active_threads"
@@ -78,6 +82,12 @@ export const SECTION_TITLE: Record<PrepSection, string> = {
   // it names one domain — a section that summarised across them would be the
   // composite score §1 refuses, arriving in a paragraph.
   changes_and_trends: "Changes and trends",
+  // Added by expansion handoff 05 §8, which asks Session Prep for a "'Load &
+  // recovery' section with state, 2-4 evidence bullets, and Why am I seeing
+  // this?". Fifth, immediately after the trends: how much the work has been
+  // costing is read against what the work has been doing, and separating them
+  // would leave a clinician holding one without the other.
+  load_recovery: "Load and recovery",
   revisit: "You wanted to revisit",
   between_visit: "Between-visit changes",
   active_threads: "Active threads",
@@ -214,6 +224,11 @@ export interface PrepInputs {
    *  of §4's policy, and the two would eventually disagree about the same
    *  person in the same week. */
   trajectory: TrajectoryContext[];
+  /** The load reading, from the engine rather than recomputed here. A brief
+   *  that applied its own thresholds would be a second implementation of §6's
+   *  conservative policy, and a second implementation of a rule about when to
+   *  suggest more intensity is the last thing this product needs two of. */
+  load: LoadContext | null;
   memory: MemoryItem[];
   followUps: FollowUp[];
   threads: Thread[];
@@ -230,7 +245,9 @@ export interface PrepInputs {
  * database.
  */
 export function assemble(inputs: PrepInputs): PrepClaim[] {
-  const { timeline, followUps, threadEntries, goals, notes, responses, trajectory, now } = inputs;
+  const {
+    timeline, followUps, threadEntries, goals, notes, responses, trajectory, load, now,
+  } = inputs;
   const claims: PrepClaim[] = [];
   const nowIso = now.toISOString();
 
@@ -328,6 +345,37 @@ export function assemble(inputs: PrepInputs): PrepClaim[] {
       // place "stable" quietly became "not improving".
       text: `${t.label}: ${t.stateLabel.toLowerCase()}. ${t.headline}`,
       citations: t.evidenceIds,
+      origin: "deterministic",
+    });
+  }
+
+  // --- Load and recovery (expansion handoff 05 §8). ------------------------
+  //
+  // THE STATE, THEN AT MOST FOUR NAMED BULLETS, and no number anywhere. §13:
+  // "no readiness number is displayed without explanation; preferred design is
+  // categorical evidence-backed state." A brief is exactly where a figure would
+  // appear, because a figure is short.
+  //
+  // `insufficient_data` is skipped rather than printed: a brief read in a
+  // minute before a session has no room for "there is not enough to say", and
+  // the load screen says it properly when a clinician goes looking. What is
+  // NOT skipped is `blocked_by_safety` — a safety hold is the single most
+  // important thing that could be on this page.
+  if (load && load.state !== "insufficient_data") {
+    const bullets = load.bullets.slice(0, 3);
+    claims.push({
+      section: "load_recovery",
+      // The engine's own state word, never a rephrasing. §1's authority
+      // boundary lives in the difference between "evidence to review whether
+      // the next step fits" and "ready to progress", and a brief that reworded
+      // it is exactly where that difference would be lost.
+      text: load.blockedBySafety
+        ? `${load.stateLabel}. Access is decided on the safety screen; nothing here can change it.`
+        : `${load.stateLabel}.${bullets.length > 0 ? ` ${bullets.join(" ")}` : ""} Decision support — nothing has been unlocked, scheduled, or changed.`,
+      // Cited to the same evidence the trends section already carries, so the
+      // brief can open it. A load line with no citation is withheld by the
+      // validator exactly like any other uncited claim.
+      citations: trajectory.flatMap((t) => t.evidenceIds).slice(0, 4),
       origin: "deterministic",
     });
   }
@@ -519,6 +567,14 @@ export async function buildSessionPrep(
   } catch (err) {
     console.error("session prep: trajectory failed:", err instanceof Error ? err.name : "unknown");
   }
+  // Same discipline: a load engine that failed costs the brief one section,
+  // not the whole brief.
+  let load: LoadContext | null = null;
+  try {
+    load = loadContext(await computeTherapeuticLoad(ctx, personId, { asOf: evidenceCutoff }));
+  } catch (err) {
+    console.error("session prep: therapeutic load failed:", err instanceof Error ? err.name : "unknown");
+  }
 
   // The clinician's own saved notes. Only SAVED ones: a thought still in review
   // is a draft of a judgement, and putting one in a brief would show a
@@ -568,13 +624,14 @@ export async function buildSessionPrep(
 
   const produced = assemble({
     timeline, memory, followUps, threads, threadEntries, goals, notes, responses,
-    trajectory, now,
+    trajectory, load, now,
   });
   const { kept, omitted } = validateClaims(produced, authorized);
 
   const sections: Record<PrepSection, PrepClaim[]> = {
     last_session: [], life_goals: [], observed_responses: [], changes_and_trends: [],
-    revisit: [], between_visit: [], active_threads: [], steady_noticed: [],
+    load_recovery: [], revisit: [], between_visit: [], active_threads: [],
+    steady_noticed: [],
   };
   for (const c of kept) sections[c.section].push(c);
 
@@ -631,6 +688,7 @@ export function prepCacheKey(args: {
     // And the trajectory policy, for the same reason again: change what counts
     // as a meaningful move and the Changes and Trends section changes with it.
     TRAJECTORY_POLICY.version,
+    THERAPEUTIC_LOAD_POLICY.version,
   ].join("|");
   return crypto.createHash("sha256").update(material).digest("hex").slice(0, 24);
 }

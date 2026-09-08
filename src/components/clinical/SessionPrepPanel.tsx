@@ -40,8 +40,10 @@ const DETERMINISTIC_ORDER: PrepSection[] = [
   // Changes and trends fourth (expansion handoff 04 §9): after what the work
   // is for and what has followed it, so a domain that moved is read against
   // what was being worked on rather than as a free-standing verdict.
+  // Load and recovery fifth (expansion handoff 05 §8): how much the work has
+  // been costing, read directly after what the work has been doing.
   "last_session", "life_goals", "observed_responses", "changes_and_trends",
-  "revisit", "between_visit", "active_threads",
+  "load_recovery", "revisit", "between_visit", "active_threads",
 ];
 
 export function SessionPrepPanel({

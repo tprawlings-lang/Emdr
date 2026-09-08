@@ -173,13 +173,29 @@ test("a person under the response threshold reads insufficient, not neutral", as
   }
 });
 
-// §20 again: a blank in a trajectory column reads as flat.
-test("the unbuilt column says it is unbuilt, in words", async () => {
+// §20 again, now that both columns are built: a load cell with no
+// recommendation in it must never read as "no concerns". Whether it is absent
+// (nothing recorded) or present-and-blocked (the safety engine is holding
+// something), the one thing it must not do is reassure — a caseload table is
+// exactly where an absence gets skimmed as an all-clear.
+test("a load cell with no recommendation never reads as reassurance", async () => {
   const state = await buildCaseloadState({ clinicianId: T.clinician, tenantId: T.tenant });
+  assert.ok(state.rows.length > 0, "no rows, so this guard is vacuous");
   for (const row of state.rows) {
-    assert.equal(row.load.present, false);
-    assert.ok(/not built yet/i.test(row.load.note));
+    const words = row.load.present ? `${row.load.label} ${row.load.note}` : row.load.note;
+    assert.ok(words.length > 20, `the cell must say something in words: "${words}"`);
+    assert.ok(
+      !/no concerns|\btolerated\b|\bready\b|doing well|safe to (progress|continue)/i.test(words),
+      `a cell with no recommendation stated a reading: "${words}"`
+    );
+    if (row.load.present) {
+      // The only present state these fixtures can reach is the safety hold,
+      // and the cell must attribute it rather than claim it.
+      assert.equal(row.load.state, "blocked_by_safety", row.load.label);
+      assert.equal(row.load.blockedBySafety, true);
+    }
   }
+  assert.ok(state.columnVersions.load, "the load column carries no policy version");
 });
 
 // Handoff 04 filled the trajectory column, and §20's rule is what has to

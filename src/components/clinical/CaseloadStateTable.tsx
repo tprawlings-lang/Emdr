@@ -4,6 +4,7 @@ import {
   FUNCTION_LABEL, RESPONSE_LABEL, FUNCTION_WINDOW_DAYS,
 } from "@/lib/clinical/caseload-state";
 import type { TrajectoryState } from "@/lib/clinical/trajectory-policy";
+import type { LoadState } from "@/lib/clinical/therapeutic-load-policy";
 import { PriorityBadge } from "./primitives";
 
 // The caseload clinical-state table (expansion handoff 03 §6; Phase 4).
@@ -26,10 +27,16 @@ import { PriorityBadge } from "./primitives";
 // read. The sort is the caseload model's band, decided on the server (§6:
 // "user filters do not rewrite server clinical priority semantics").
 //
-// AN EMPTY CELL SAYS SO. Load is not built and renders "Not computed" with a
-// reason; a trajectory cell with nothing to report does the same. Never a blank
-// — a blank in a trajectory column reads as flat, which is a clinical claim
-// nobody made.
+// AN EMPTY CELL SAYS SO. A trajectory or load cell with nothing to report
+// renders "Not computed" with a reason. Never a blank — a blank in a trajectory
+// column reads as flat and a blank in a load column reads as "no concerns",
+// which are clinical claims nobody made.
+//
+// AND A SAFETY HOLD IS NOT A RECOMMENDATION. The load cell tones a
+// blocked-by-safety reading differently from the four states this feature
+// computes, because handoff 05 §1 is that a safety decision "can never" be
+// answered or overridden by a load reading — and a column that rendered them
+// alike would put them on the same footing at a glance.
 //
 // AND THE TRAJECTORY CELL NAMES ITS DOMAIN. The state is one domain's, not the
 // person's, so the cell prints which one. "Moving the other way" on its own is
@@ -68,6 +75,17 @@ function functionTone(row: CaseloadStateRow): "neutral" | "settled" | "watch" | 
 function trajectoryTone(state: TrajectoryState): "neutral" | "settled" | "watch" | "absent" {
   if (state === "improving") return "settled";
   if (state === "reversing" || state === "slowing" || state === "stalled") return "watch";
+  return "neutral";
+}
+
+/** The load states, toned. A safety hold gets `watch` and a badge of its own
+ *  wording; `maintain` is neutral because it is the ordinary case, and
+ *  `consider_progression` is `settled` rather than celebratory — it is an
+ *  invitation to read, not a verdict that somebody is ready. */
+function loadTone(state: LoadState): "neutral" | "settled" | "watch" | "absent" {
+  if (state === "blocked_by_safety" || state === "stabilize") return "watch";
+  if (state === "consider_progression") return "settled";
+  if (state === "insufficient_data") return "absent";
   return "neutral";
 }
 
@@ -146,7 +164,18 @@ export function CaseloadStateTable({ state }: { state: CaseloadState }) {
                   <StateCell label={RESPONSE_LABEL[r.responseState]} tone={responseTone(r)} />
                 </td>
                 <td className="px-4 py-3">
-                  <StateCell label="Not computed" tone="absent" />
+                  {r.load.present ? (
+                    <>
+                      <StateCell label={r.load.label} tone={loadTone(r.load.state)} />
+                      {r.load.blockedBySafety && (
+                        <span className="mt-1 block text-xs text-olive">
+                          Decided on the safety screen, not here
+                        </span>
+                      )}
+                    </>
+                  ) : (
+                    <StateCell label="Not computed" tone="absent" />
+                  )}
                 </td>
                 <td className="px-4 py-3 text-xs text-olive">
                   {/* Null is its own state. A person nobody has contacted and a
@@ -236,8 +265,25 @@ export function CaseloadStateTable({ state }: { state: CaseloadState }) {
               </div>
 
               <div>
-                <p className="font-medium text-app-ink">Load and readiness</p>
+                <p className="font-medium text-app-ink">
+                  Load and readiness — {r.load.present ? r.load.label : "not computed"}
+                </p>
                 <p className="measure text-olive">{r.load.note}</p>
+                {r.load.present && (
+                  <>
+                    <p className="measure text-olive">
+                      {r.load.blockedBySafety
+                        ? "The safety engine is holding something here. That decision is made by rules elsewhere; this column displays it and stops."
+                        : "Decision support. Nothing has been unlocked, scheduled, or changed, and access is decided by the safety engine on its own rules."}
+                    </p>
+                    <p className="text-olive">Computed under policy {state.columnVersions.load}.</p>
+                    <p className="mt-1">
+                      <Link href={`/clinician/member/${r.personId}/load`} className="underline">
+                        Open the load reading
+                      </Link>
+                    </p>
+                  </>
+                )}
               </div>
 
               <div>

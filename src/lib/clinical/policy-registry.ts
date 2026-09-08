@@ -39,6 +39,7 @@ import { CASELOAD_STATE_VERSION } from "./caseload-state";
 import { ACTIVITY_VERSION } from "./recent-activity";
 import { ENGAGEMENT_POLICY_VERSION } from "./attention-providers/providers";
 import { TRAJECTORY_POLICY } from "./trajectory-policy";
+import { THERAPEUTIC_LOAD_POLICY } from "./therapeutic-load-policy";
 
 export interface RegisteredPolicy {
   /** Stable key, for a screen that wants to name one. */
@@ -96,6 +97,14 @@ export const POLICY_REGISTRY: RegisteredPolicy[] = [
     decides:
       "What counts as meaningful movement in each domain, on that domain's own scale, and how many observations a window needs before Steady compares it with anything.",
     module: "src/lib/clinical/trajectory-policy.ts",
+  },
+  {
+    id: "therapeutic_load",
+    label: "Therapeutic load and readiness",
+    version: THERAPEUTIC_LOAD_POLICY.version,
+    decides:
+      "How much recovery evidence is needed before Steady says anything, what counts as repeated burden or established capacity, and every rule that rules out a progression suggestion. It never decides access — the safety engine does that.",
+    module: "src/lib/clinical/therapeutic-load-policy.ts",
   },
   {
     id: "engagement_gap",

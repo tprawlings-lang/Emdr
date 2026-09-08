@@ -226,3 +226,4 @@ export { RESPONSE_POLICY };
 // a provider that some of them loaded and others did not would produce a queue
 // whose contents depended on which screen asked.
 export { RECOVERY_TRAJECTORY_PROVIDER, CORROBORATION_THRESHOLD, selectDeviations } from "./recovery-trajectory";
+export { THERAPEUTIC_LOAD_PROVIDER, selectLoadSignals } from "./therapeutic-load";

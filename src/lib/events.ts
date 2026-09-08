@@ -248,6 +248,28 @@ export const EVENT_TYPES = {
   "trajectory.deviation_proposed": 1,
   "trajectory.deviation_resolved": 1,
   "trajectory.reviewed": 1,
+
+  // Therapeutic Load & Readiness (expansion handoff 05 §11).
+  //
+  // `recommendation_proposed` and `recommendation_changed` are separate from
+  // `snapshot_computed` for the reason §9 makes operational: "do not nag on
+  // every recomputation." A ledger with one event per computation could not
+  // tell a clinician-visible change from the hundredth time the same reading
+  // came back, and the Command Center provider needs exactly that distinction
+  // to avoid becoming a recurring notification about a state that has not
+  // moved since March.
+  //
+  // NONE OF THESE CHANGES ANYTHING. §13: "no system action autonomously
+  // changes treatment intensity, module access, or trauma-processing status."
+  // A snapshot records what was read, `clinician_reviewed` records what a human
+  // made of it, and neither is a decision the system acted on. A
+  // `blockedBySafety` snapshot in particular records the safety engine's
+  // decision being obeyed — the gate's own events remain the only place a
+  // safety state begins or ends.
+  "therapeutic_load.snapshot_computed": 1,
+  "therapeutic_load.recommendation_proposed": 1,
+  "therapeutic_load.recommendation_changed": 1,
+  "therapeutic_load.clinician_reviewed": 1,
 } as const;
 
 export type EventType = keyof typeof EVENT_TYPES;
