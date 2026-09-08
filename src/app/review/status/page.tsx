@@ -22,6 +22,7 @@ import {
   REGISTER_DATE, REGISTER_COMMIT, SOURCE_BASELINE, STATE_LABEL, STATE_NOTE,
   type CapabilityState,
 } from "@/lib/app/route-register";
+import { MEMBER_SCORE_EXCEPTION } from "@/lib/experience/member-projection";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Service status — Steady Review" };
@@ -289,6 +290,47 @@ export default async function ReviewStatusPage() {
               </ul>
             </>
           )}
+        </Panel>
+
+        {/* The member score boundary and its one exception.
+            §3's boundary is the strongest rule in handoff 09 and the one a
+            buyer will push on — §2.2's Finding 4: "as Steady moves toward
+            payers, health systems, and risk-bearing primary care, buyers will
+            ask for exactly the quantification the member surface forbids." So
+            the exception is on the reviewer's own screen, with the authority
+            behind it named, rather than recorded only in a file. */}
+        <Panel
+          title="What a member is never shown"
+          footnote="A member projection cannot carry a score, a band, a rule identifier, a threshold, a track name, a withheld count or a composite recovery figure — at any depth. Enforced by an allow-list rather than a deny-list: the question is not whether a field is forbidden, it is whether it was decided."
+        >
+          <p className="measure text-sm text-ground">
+            Every field a member surface may carry is written down, and a projection carrying
+            anything else fails the build. There is one exception, and it is settled rather than
+            outstanding.
+          </p>
+          <div className="mt-3 rounded-2xl border border-ground/10 bg-linen px-4 py-3">
+            <p className="text-sm font-medium text-app-ink">
+              {MEMBER_SCORE_EXCEPTION.route}{" "}
+              <span className="font-mono text-xs text-olive">{MEMBER_SCORE_EXCEPTION.projection}</span>
+            </p>
+            <p className="measure mt-1 text-xs text-olive">{MEMBER_SCORE_EXCEPTION.rationale}</p>
+            <dl className="mt-3 space-y-2">
+              {([
+                ["Its own projection", MEMBER_SCORE_EXCEPTION.ownProjection],
+                ["Its own contract test", MEMBER_SCORE_EXCEPTION.ownContractTest],
+                ["A recorded decision", MEMBER_SCORE_EXCEPTION.recordedClinicalDecision],
+              ] as const).map(([label, req]) => (
+                <div key={label}>
+                  <dt className="text-xs font-medium text-app-ink">
+                    {label} — {req.met ? "met" : "not met"}
+                    {"authority" in req && req.authority ? ` (${req.authority})` : ""}
+                  </dt>
+                  <dd className="measure text-xs text-olive">{req.evidence}</dd>
+                </div>
+              ))}
+            </dl>
+            <p className="measure mt-3 text-xs text-olive">{MEMBER_SCORE_EXCEPTION.ruling}</p>
+          </div>
         </Panel>
 
         {/* The reconciliation. Both governing documents carry status registers
