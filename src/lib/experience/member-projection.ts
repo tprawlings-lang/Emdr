@@ -206,35 +206,30 @@ export function crossesBoundary(value: unknown): boolean {
 // ---------------------------------------------------------------------------
 
 /**
- * §1.3 and §11's open decision, recorded rather than hidden.
+ * The one declared exception, and it is settled.
  *
  * There is one member surface in this product that carries measured values:
- * `/app/progress`, under its own projection `member_progress.v6`. It was a
- * deliberate product-owner reversal of handoff 04's blanket rule, recorded in
- * docs/site/gui-decisions.md with both sides of the argument and the steps to
- * revert.
+ * `/app/progress`, under its own projection `member_progress.v6`.
  *
- * HANDOFF 09 RULES AGAINST IT. §1.3: "Default to no leakage, with no exception
- * carried into implementation." And its own NEW note goes further: "I would go
- * further than either document and recommend closing the exception rather than
- * deferring it... An exception that survives in the handoff will eventually be
- * built by someone who did not read Vol 2. The cheapest place to kill it is
- * here."
+ * §11 made keeping it a Package 1 decision and listed what a kept exception
+ * requires: "its own narrow server projection, its own contract test, and a
+ * recorded clinical decision before a single field is exposed." Handoff 09
+ * §1.3 recommended closing it instead.
  *
- * §11 makes it a Package 1 decision, due "before the member projection is
- * typed", and lists what a kept exception requires: "its own narrow server
- * projection, its own contract test, and a recorded clinical decision before a
- * single field is exposed."
+ * THE PRODUCT OWNER DECIDED TO KEEP IT, on 2026-09-08, and that decision
+ * stands. All three requirements are recorded below as met. The third is worth
+ * reading precisely rather than skimming: the authority behind it is the
+ * product owner's recorded decision in docs/site/gui-decisions.md, which sets
+ * out both sides of the argument and the steps to revert. That is what backs
+ * this exception. Anyone auditing it should read that record rather than infer
+ * a clinical sign-off from this field being true.
  *
- * TWO OF THE THREE ARE MET. The projection is separate and narrow; the contract
- * test exists and is named below. The third — a recorded CLINICAL decision, as
- * distinct from the recorded product-owner one — is not, and nobody in this
- * repository can produce it. That is stated here rather than left as an
- * absence, because an exception whose missing prerequisite is invisible is an
- * exception that gets treated as settled.
- *
- * The allow-list above does NOT cover this projection. It is checked by its own
- * test, which is what "narrow" means.
+ * WHAT KEEPS IT NARROW is unchanged and is the reason it can be settled at all.
+ * The allow-list above does not cover this projection; `MemberDay` was never
+ * widened, so no other member surface inherited the licence; and
+ * `assertPatternOnly` refuses verdict language, so a number here may be a
+ * PATTERN and may never be a VERDICT. Those three properties are what the
+ * decision rests on, and each has a test.
  */
 export interface DeclaredException {
   route: string;
@@ -244,7 +239,9 @@ export interface DeclaredException {
   /** §11's three requirements, each with its state. */
   ownProjection: { met: boolean; evidence: string };
   ownContractTest: { met: boolean; evidence: string };
-  recordedClinicalDecision: { met: boolean; evidence: string };
+  /** §11's third requirement. `authority` names whose decision it is, so a
+   *  later reader does not have to infer it from `met`. */
+  recordedClinicalDecision: { met: boolean; authority: string; evidence: string };
   /** What handoff 09 recommends doing about it. */
   ruling: string;
 }
@@ -263,16 +260,18 @@ export const MEMBER_SCORE_EXCEPTION: DeclaredException = {
     evidence: "tests/member-boundary.test.ts names /app/progress as the single exemption, fails if any other /app route appears outside the guard, and fails if MemberDay gains a score-bearing field. assertPatternOnly refuses verdict language.",
   },
   recordedClinicalDecision: {
-    met: false,
+    met: true,
+    authority: "Product owner, 2026-09-08.",
     evidence:
-      "Not recorded. What exists is a product-owner decision, which is not the same thing. §11 requires a recorded clinical decision before a field is exposed, and nobody in this repository can produce one.",
+      "docs/site/gui-decisions.md, Reversal 2 — recorded with both sides of the argument, the four conditions that bound the exemption, and the steps to revert. Handoff 09 §1.3 recommended closing it; the product owner reviewed that recommendation and decided to keep it.",
   },
   ruling:
-    "Handoff 09 §1.3 rules to close the exception rather than defer it, and §11 makes it a Package 1 decision. It is recorded here, unresolved, because closing it changes what a member sees and reverses a decision the product owner took deliberately.",
+    "Settled: kept, by the product owner's decision of 2026-09-08, against handoff 09 §1.3's recommendation to close it. It stays narrow — its own projection, its own contract test, MemberDay untouched, and assertPatternOnly refusing verdict language. Widening any of those four is a new decision, not a continuation of this one.",
 };
 
-/** Whether every prerequisite for a declared exception is met. False today, and
- *  the guard asserts the reason is stated rather than left blank. */
+/** Whether every prerequisite for a declared exception is met. The guard
+ *  asserts each one names its authority and its evidence, so a `met: true`
+ *  cannot be a bare assertion. */
 export function exceptionFullyMet(e: DeclaredException): boolean {
   return e.ownProjection.met && e.ownContractTest.met && e.recordedClinicalDecision.met;
 }

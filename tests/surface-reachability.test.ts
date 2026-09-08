@@ -129,8 +129,6 @@ const OFF_SURFACE: Record<string, string> = {
     "Handoff 09 §9's view state — allowed filters and return position, stored apart from clinical drafts and cleared on tenant change. Package 2's queue is the first consumer, because §1.5's round-trip preservation is what needs it.",
   "src/lib/experience/evidence-panel.ts":
     "Handoff 09 §1.4's panel modes and their focus behaviour. Package 2 builds the evidence panel against it; the existing drawer keeps its current behaviour until then.",
-  "src/lib/experience/member-projection.ts":
-    "Handoff 09 §3's member allow-list. Package 3 (member activity shell) is where the projections start asserting against it; the existing source-scanning boundary in tests/member-boundary.test.ts is unchanged and still enforced meanwhile.",
   "src/lib/experience/role-home.ts":
     "Handoff 09 Package 1's RoleHomeProjection. Package 2 builds the Command Center home against it and Package 3 the member Today.",
   "src/lib/experience/support-dock.ts":

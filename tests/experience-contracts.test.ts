@@ -640,24 +640,73 @@ test("the allow-list carries no score-shaped name", () => {
   assert.deepEqual(numeric, ["approximateMinutes"], `unexplained numeric fields: ${numeric.join(", ")}`);
 });
 
-test("the one score exception is declared, with its unmet prerequisite named", () => {
-  // §11 makes closing it a Package 1 decision and lists what a kept exception
-  // requires. Two of the three are met; the third cannot be produced from this
-  // repository, and an exception whose missing prerequisite is invisible is one
-  // that gets treated as settled.
+test("the one score exception is settled, and every requirement names its authority", () => {
+  // §11 listed what a kept exception requires and the product owner decided to
+  // keep it. So the check is no longer "is anything unmet" — it is that a
+  // requirement marked met cannot be a bare assertion. Each one names the
+  // evidence, and the third names WHOSE decision it is, so a later reader does
+  // not infer a clinical sign-off from a boolean.
   const e = MEMBER_SCORE_EXCEPTION;
   assert.equal(e.route, "/app/progress");
-  assert.ok(e.ownProjection.met, "the exception has no separate projection");
-  assert.ok(e.ownContractTest.met, "the exception has no contract test");
-  assert.equal(e.recordedClinicalDecision.met, false);
+  assert.equal(exceptionFullyMet(e), true);
+  for (const [name, req] of [
+    ["own projection", e.ownProjection],
+    ["own contract test", e.ownContractTest],
+    ["recorded decision", e.recordedClinicalDecision],
+  ] as const) {
+    assert.equal(req.met, true, `${name} is not met`);
+    assert.ok(
+      req.evidence.length > 40,
+      `${name} is marked met with no evidence a reader could check: "${req.evidence}"`
+    );
+    assert.ok(
+      /src\/|tests\/|docs\//.test(req.evidence),
+      `${name} cites no file: "${req.evidence}"`
+    );
+  }
+  // The one that would be easiest to leave vague.
   assert.ok(
-    e.recordedClinicalDecision.evidence.length > 40,
-    "the unmet prerequisite has no explanation"
+    e.recordedClinicalDecision.authority.length > 5,
+    "the decision is marked recorded without naming whose decision it is"
   );
-  assert.equal(exceptionFullyMet(e), false);
-  assert.match(e.ruling, /§1\.3/, "the ruling against it is not recorded");
-  // And the shared allow-list does not cover it — that is what "narrow" means.
-  assert.ok(!MEMBER_ALLOWED_FIELDS.includes("totalScore"));
+  assert.match(e.recordedClinicalDecision.evidence, /gui-decisions/);
+  // And the ruling records that it was decided AGAINST a recommendation, so the
+  // next reader knows there was an argument rather than an oversight.
+  assert.match(e.ruling, /Settled/, "the ruling does not say the decision was taken");
+  assert.match(e.ruling, /§1\.3/, "the recommendation it was decided against is not recorded");
+});
+
+test("keeping the exception did not widen it", () => {
+  // The four properties the decision rests on. §11's requirements are met by
+  // these staying true, so they are checked here rather than assumed: widening
+  // any of them is a new decision, not a continuation of this one.
+  const e = MEMBER_SCORE_EXCEPTION;
+
+  // 1. The shared allow-list does not cover the exception's fields. That is
+  //    what "narrow" means.
+  for (const scoreField of ["totalScore", "score", "band", "severity"]) {
+    assert.ok(
+      !MEMBER_ALLOWED_FIELDS.includes(scoreField),
+      `"${scoreField}" reached the shared member allow-list; the exception widened into the boundary`
+    );
+    assert.ok(
+      violations({ [scoreField]: 1 }).length > 0,
+      `"${scoreField}" now crosses the shared member boundary`
+    );
+  }
+
+  // 2. It is one route, named, not a pattern a sibling could fall into.
+  assert.equal(e.route, "/app/progress");
+  assert.ok(!e.route.includes("*"), "the exception is a pattern rather than one route");
+
+  // 3. It has its own projection, and the name is recorded so a second surface
+  //    reusing it is visible in a diff.
+  assert.equal(e.projection, "member_progress.v6");
+
+  // 4. Its contract test is named, and it is the one that holds the bound.
+  assert.match(e.ownContractTest.evidence, /member-boundary\.test\.ts/);
+  assert.match(e.ownContractTest.evidence, /assertPatternOnly/,
+    "the guard that refuses verdict language is not recorded as part of what bounds this");
 });
 
 // ---------------------------------------------------------------------------
