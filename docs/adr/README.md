@@ -3,6 +3,12 @@
 Short records of the decisions that shape Steady. Each is immutable once
 accepted; supersede rather than edit.
 
+> **Status reconciled 2026-09-08 at commit `19576da`.** ADR 0012 was recorded here as
+> proposed and not implemented; it is implemented. The machine-checked reconciliation is
+> `RECONCILED` in [`../../src/lib/app/route-register.ts`](../../src/lib/app/route-register.ts).
+> Nothing else in this table changed: 0010 step 5 remains held, 0011's row-level security
+> remains dormant, and 0009 still awaits counsel.
+
 **Reading the Status column.** "Accepted" means *the decision is settled* — it does **not**
 mean the work is finished or the control is active. Where an ADR is accepted but only
 partly executed, the Status column says so and the ADR's own header states exactly what is
@@ -23,7 +29,7 @@ security is written and CI-tested and is **dormant** until that cutover happens.
 | [0009](0009-clinical-lane-reclassification.md) | Reclassify to the clinical/PHI lane; environment tiers govern un-gating | **Proposed — counsel not yet engaged** |
 | [0010](0010-event-sourced-longitudinal-spine.md) | Event-sourced longitudinal spine; current tables become projections | Accepted — **steps 1–4 shipped; step 5 held** |
 | [0011](0011-tenancy-and-person-account-separation.md) | Tenancy from day one; person identity separate from account | Accepted — **layer shipped; not yet on the request path** |
-| [0012](0012-ai-gateway.md) | All model calls route through a Steady AI Gateway | **Proposed — not implemented** |
+| [0012](0012-ai-gateway.md) | All model calls route through a Steady AI Gateway | Accepted — **implemented**; 13 registered tasks route through `src/lib/ai-gateway/` |
 | [0013](0013-event-authoritative-writes.md) | Event-authoritative writes: scope, atomicity, failure policy, rollback | **Proposed — the Step 5 specification; 10 gates** |
 
 ## Handoff A prerequisites
@@ -35,7 +41,9 @@ blocks a downstream requirement without a written ADR"). They are not independen
 - **0010 (event spine)** and **0011 (tenancy + person/account)** rewrite the same 29
   tables and should ship as **one migration** — doing them separately pays the cost twice.
 - **0012 (AI Gateway)** consumes both: it needs 0010 for provenance records and 0011 for
-  purpose-scoped, tenant-aware retrieval.
+  purpose-scoped, tenant-aware retrieval. It shipped ahead of 0010 step 5: every task is
+  registered with a version, a PHI policy and a deterministic fallback, and the Clinical
+  Intelligence Expansion's five features all route their model calls through it.
 
 Cost of delay is highest for 0011 — a tenancy retrofit after enterprise data exists is
 both expensive and a cross-tenant PHI risk.
