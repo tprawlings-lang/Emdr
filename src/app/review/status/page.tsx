@@ -17,6 +17,11 @@ import {
 import { registeredProviders } from "@/lib/clinical/attention-providers/registry";
 import "@/lib/clinical/attention-providers/providers";
 import { PROVIDER_CONTRACT_VERSION } from "@/lib/clinical/attention-providers/contract";
+import {
+  ROUTE_REGISTER, RECONCILED, PROMOTED_UNAVAILABLE, byState, stateCounts,
+  REGISTER_DATE, REGISTER_COMMIT, SOURCE_BASELINE, STATE_LABEL, STATE_NOTE,
+  type CapabilityState,
+} from "@/lib/app/route-register";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Service status — Steady Review" };
@@ -207,6 +212,103 @@ export default async function ReviewStatusPage() {
                 </div>
                 <p className="measure text-xs text-olive">{policy.decides}</p>
                 <p className="font-mono text-[11px] text-olive">{policy.module}</p>
+              </div>
+            ))}
+          </dl>
+        </Panel>
+
+        {/* The route register (handoff 09 Package 0).
+            §1.1 rules that unavailable capabilities are omitted from primary
+            navigation and that an honest capability notice stays "reachable
+            through a secondary product-status location". This screen is that
+            location, so the register is shown here rather than only living in
+            a file — a reviewer asking "what actually works?" should not have to
+            read 128 page components to find out, and neither should anybody
+            deciding what to build next. */}
+        <Panel
+          title="What actually works"
+          footnote={`Compiled ${REGISTER_DATE} against ${REGISTER_COMMIT.slice(0, 7)}. A test fails the build if a route exists without an entry, if an entry describes a route that does not, or if a route recorded as working has quietly become a capability notice — so this table cannot go stale without somebody being told.`}
+        >
+          <p className="measure text-sm text-ground">
+            Every route in the product, with what a person comes to it to do and whether it does
+            it. {ROUTE_REGISTER.length} routes.
+          </p>
+          <dl className="mt-3 grid gap-2 sm:grid-cols-2">
+            {(Object.entries(stateCounts()) as Array<[CapabilityState, number]>)
+              .filter(([, n]) => n > 0)
+              .map(([state, n]) => (
+                <div key={state} className="rounded-2xl border border-ground/10 bg-linen px-4 py-3">
+                  <div className="flex items-baseline justify-between gap-2">
+                    <dt className="text-sm font-medium text-app-ink">{STATE_LABEL[state]}</dt>
+                    <dd className="font-mono text-sm text-ground">{n}</dd>
+                  </div>
+                  <p className="measure mt-1 text-xs text-olive">{STATE_NOTE[state]}</p>
+                </div>
+              ))}
+          </dl>
+
+          {/* The capability-absent routes, named. These are the pages §1.1
+              keeps out of primary navigation, and this is where they stay
+              reachable. */}
+          <h3 className="mt-5 text-xs font-semibold uppercase tracking-wide text-olive">
+            Capabilities this build does not have
+          </h3>
+          <dl className="mt-2">
+            {byState("unavailable").map((r) => (
+              <div key={r.path} className="border-b border-ground/5 py-2">
+                <div className="flex flex-wrap items-baseline justify-between gap-2">
+                  <dt className="font-mono text-xs text-ground">{r.path}</dt>
+                  <dd className="text-xs text-olive">{r.audience}</dd>
+                </div>
+                <p className="measure text-xs text-app-ink">{r.job}</p>
+                <p className="measure text-xs text-olive">{r.evidence}</p>
+              </div>
+            ))}
+          </dl>
+
+          {PROMOTED_UNAVAILABLE.length > 0 && (
+            <>
+              <h3 className="mt-5 text-xs font-semibold uppercase tracking-wide text-olive">
+                Navigation still promotes these
+              </h3>
+              <p className="measure mt-1 text-xs text-olive">
+                {/* Recorded rather than repaired, on purpose: Package 0's exit
+                    evidence is "no product behavior change". A register that
+                    quietly fixed what it found could not be used to size the
+                    work. */}
+                A navigation item is a promise. These are recorded with the package that closes
+                each, and a new one fails the build rather than joining the list quietly.
+              </p>
+              <ul className="mt-2 space-y-2">
+                {PROMOTED_UNAVAILABLE.map((p) => (
+                  <li key={p.path} className="rounded-2xl border border-amber-200 bg-amber-50/40 px-4 py-3">
+                    <p className="font-mono text-xs text-ground">{p.promotedBy} &rarr; {p.path}</p>
+                    <p className="measure mt-1 text-xs text-olive">{p.due}</p>
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
+        </Panel>
+
+        {/* The reconciliation. Both governing documents carry status registers
+            that were accurate when written and are now two feature commits
+            stale, and both say so in their own words. This is the correction,
+            on the screen a reviewer already opens to check what is true. */}
+        <Panel
+          title="Where the governing documents disagree with the code"
+          footnote={`Both handoff 09 and the Astra product experience review were written against ${SOURCE_BASELINE.slice(0, 7)}. Neither claims to be current; both instruct an engineer to reconcile later commits before assigning work. This is that reconciliation, and the code is the authority.`}
+        >
+          <dl className="space-y-3">
+            {RECONCILED.map((r) => (
+              <div key={r.claim} className="rounded-2xl border border-ground/10 bg-linen px-4 py-3">
+                <dt className="measure text-sm text-olive">
+                  <span className="font-medium text-app-ink">Document says:</span> {r.claim}
+                </dt>
+                <dd className="measure mt-1 text-sm text-app-ink">
+                  <span className="font-medium">Actually:</span> {r.actual}
+                </dd>
+                <p className="mt-1 font-mono text-xs text-olive">{r.evidence}</p>
               </div>
             ))}
           </dl>

@@ -1,5 +1,19 @@
 # Handoffs — the build order
 
+> **Status as of 2026-09-08, at commit `19576da`.** Both handoff 09 and the Astra product
+> experience review were written against `0b1d15b`, and both carry registers that were
+> accurate at that commit. They are two feature commits stale on the Clinical Intelligence
+> Expansion: it is **complete**, not "not started", and Therapeutic Load & Readiness is
+> **built**, not deferred. The machine-checked version of this reconciliation lives in
+> [`src/lib/app/route-register.ts`](../../src/lib/app/route-register.ts) — `RECONCILED` —
+> where a test fails the build if it stops describing the product. Prefer it over any
+> status claim in a PDF, including the ones in this file.
+>
+> **Handoff 09 (Unified Product Experience)** now governs navigation, experience, visual
+> system and sequencing, superseding handoff 08 Rev 2 and the Astra review for those
+> decisions. It changes no safety authority, no clinical threshold, no tenancy boundary and
+> no release gate.
+
 These are the founder-authored specifications that drive the build, **numbered in the order
 they were issued and in the order they should be read.** Each one supersedes nothing; they
 layer. Where a later handoff contradicts an earlier one, the later wins and the difference
@@ -33,12 +47,12 @@ travels with the code.
 | 06 | [Web GUI, analytics and clinical presentation](06-web-gui-analytics-and-clinical-presentation.pdf) | **Supersedes 05 where they differ.** Part I reprints handoff 05; Part II is the coding annex — an 80-screen route atlas, the `ClinicianPatientProjection` contract, queue ordering, 20 page examples, 22 chart screens, the projection/API/component architecture, and a six-wave build order | **◐ In progress** — [`../site/gui-decisions.md`](../site/gui-decisions.md). **80 of 80 screens; 22 of 22 charts.** The screen atlas is complete. Remaining: the non-screen items in §§30–31 |
 | 07 | [Demo login, synthetic population and planning engine](07-demo-login-synthetic-population-and-planning-engine.pdf) | Role-selectable demo access for six roles, 240 fabricated longitudinal patients across the four U.S. Census regions, a versioned metric dictionary and cohort registry, seven deterministic planning rules with an eight-state review machine, fairness controls, a model-registry shell, five screens, twelve APIs and ten release gates | **◐ In progress** — **Waves 0–6 done** (demo identity, seed manifest, deterministic generator, role projections, metrics, planning rules). **Wave 7 (governance: fairness controls, audit screen, model-registry shell) is open**; Wave 8 is part-built — the demo clock exists, the control centre, nightly reset and scenario scripts do not. [`07-PLAN.md`](07-PLAN.md) |
 
-## A second program landed, and it is not in the table above
+## A second program landed, and it is complete
 
 The table above is the **original** series, 01–07. In September 2026 a second, separately
 numbered series was added to this folder: the **Clinical Intelligence Expansion**, five
 handoffs plus an execution overview, ordered by
-[`README_EXECUTION_ORDER.txt`](README_EXECUTION_ORDER.txt). It is **not started.**
+[`README_EXECUTION_ORDER.txt`](README_EXECUTION_ORDER.txt). **All five are done.**
 
 Its numbering restarts at 01, so `01_Steady_Return_to_Life_Goals...` and
 `01-platform-readiness...` are different documents from different programs. Read the
@@ -48,14 +62,16 @@ filename prefix, not the number.
 |---|---|---|---|
 | 00 | [Execution overview](00_Steady_Clinical_Intelligence_Expansion_Execution_Overview.pdf) | The dependency map, the repository foundations each feature must extend rather than duplicate, and eight cross-feature invariants | Read |
 | 01 | [Return-to-Life Goals](01_Steady_Return_to_Life_Goals_Engineering_Handoff.pdf) | Functional goals and observable progress ladders — the outcome layer | **Done** — all four phases. Projection `return-goal-projection.1.0.0` is the interface handoffs 02 and 04 consume |
-| 02 | [Treatment Response Fingerprint](02_Steady_Treatment_Response_Fingerprint_Engineering_Handoff.pdf) | Evidence-linked patterns of how one person responds to an intervention in a context | **Not started** |
-| 03 | [Between-Visit Care Command Center](03_Steady_Between_Visit_Care_Command_Center_Engineering_Handoff.pdf) | One clinician action surface for non-safety attention signals | **Not started** |
-| 04 | [Personalized Recovery Trajectory](04_Steady_Personalized_Recovery_Trajectory_Engineering_Handoff.pdf) | Per-domain trajectories and descriptive deviation detection | **Not started** |
-| 05 | [Therapeutic Load & Readiness](05_Steady_Therapeutic_Load_Readiness_Engineering_Handoff.pdf) | Stabilize / maintain / consider-progression decision support | **Not started** |
+| 02 | [Treatment Response Fingerprint](02_Steady_Treatment_Response_Fingerprint_Engineering_Handoff.pdf) | Evidence-linked patterns of how one person responds to an intervention in a context | **Done** — all four phases. Policy `response-fingerprint.1.0.0`; surface at `/clinician/member/[id]/responses` |
+| 03 | [Between-Visit Care Command Center](03_Steady_Between_Visit_Care_Command_Center_Engineering_Handoff.pdf) | One clinician action surface for non-safety attention signals | **Done** — all six phases. Provider contract `attention-provider-contract.1.0.0`; surfaces at `/clinician/today`, `/clinician/caseload`, `/clinician/activity` |
+| 04 | [Personalized Recovery Trajectory](04_Steady_Personalized_Recovery_Trajectory_Engineering_Handoff.pdf) | Per-domain trajectories and descriptive deviation detection | **Done** — all four phases. Policy `recovery-trajectory.1.0.0`; surface at `/clinician/member/[id]/trajectory` |
+| 05 | [Therapeutic Load & Readiness](05_Steady_Therapeutic_Load_Readiness_Engineering_Handoff.pdf) | Stabilize / maintain / consider-progression decision support | **Done** — all four phases. Policy `therapeutic-load.1.0.0`; surface at `/clinician/member/[id]/load`. **Its own clinical review, required by handoff 09 §10.1 before the states are exposed outside this environment, is outstanding** |
 
-**The order is load-bearing.** Document 00 states that later handoffs consume contracts
-created by earlier ones — 05 depends on all four before it. They are not independent
-features that can be picked off by interest.
+**The order was load-bearing and was followed.** Document 00 states that later handoffs
+consume contracts created by earlier ones — 05 depends on all four before it. Each was
+built on the one before: 02 consumes `return-goal-projection.1.0.0`, 03 consumes 02's
+pattern states, 04 consumes 01's goal observations and 02's recovery burden, and 05
+consumes all four plus the safety gate.
 
 **Its stated prerequisite is the Clinician Thoughts / Clinical Memory / Session Prep
 Specification v2.1** ([`Steady_Clinician_Thoughts_Engineering_Spec_v2_1.pdf`](Steady_Clinician_Thoughts_Engineering_Spec_v2_1.pdf)),
@@ -68,7 +84,7 @@ as "the common clinician-memory and evidence layer".
 | 2 | Structured organization — extraction, candidates, review cards, Save Thoughts | **Done** |
 | 3 | Threads and follow-ups | **Done** |
 | 4 | Session Prep | **Done** |
-| 5 | Ask Steady | Not started |
+| 5 | Ask Steady | Not started — the one remaining phase |
 
 Approved clinical memory exists as of Phase 2 and longitudinal threads as of Phase 3 —
 between them, the layer the expansion consumes. Handoff 02 (Treatment Response Fingerprint)

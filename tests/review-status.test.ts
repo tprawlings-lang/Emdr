@@ -58,8 +58,18 @@ test("no state word is written into the rendered rows", () => {
   //
   // Inside a row, though, a state word can only be hand-written: the probe's
   // own vocabulary arrives through `f.state` and `c.ok`.
-  const rows = [...BODY.matchAll(/\.map\(\(([\s\S]*?)\n\s*<\/ul>/g)].map((m) => m[1]);
-  assert.equal(rows.length, 2, "expected exactly the two probe-driven lists");
+  // Anchored to the two lists BY NAME rather than by counting `<ul>` maps in
+  // the file. The count version broke the first time an unrelated panel added
+  // a list, which is how a guard gets deleted instead of fixed: it has to
+  // survive the page growing, because the page will grow.
+  const rows = ["status.functions.map", "health.checks.map"].map((anchor) => {
+    const start = BODY.indexOf(anchor);
+    assert.ok(start > 0, `the probe-driven list ${anchor} is no longer on the page`);
+    const end = BODY.indexOf("</ul>", start);
+    assert.ok(end > start, `${anchor} does not render a list`);
+    return BODY.slice(start, end);
+  });
+  assert.equal(rows.length, 2);
   for (const region of rows) {
     // The state words themselves are not forbidden here: a row compares
     // against `f.state` to pick a glyph, which is the correct use of them.
