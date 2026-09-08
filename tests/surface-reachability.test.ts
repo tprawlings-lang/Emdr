@@ -103,6 +103,38 @@ const OFF_SURFACE: Record<string, string> = {
     "PRE-EXISTING GAP, not a decision. The action-response contract from handoff 06 §30.4 is defined and no surface imports it — the components build their own responses. Recorded here so it is visible rather than silently dead; closing it means routing the mutation surfaces through it.",
   "src/lib/presentation/contract.ts":
     "PRE-EXISTING GAP, same shape as action.ts above: the shared presentation contract from §8.2 is defined and unconsumed.",
+
+  // ---- Handoff 09 Package 1: the experience contracts -------------------
+  //
+  // NOT A GAP, AND NOT AN EXCUSE. Package 1's own instruction is "Ship behind
+  // a compatibility adapter with no visible change", and its exit evidence is
+  // three contract tests rather than a screen — because §10.1's first
+  // dependency rule is "Package 1 precedes every role-specific rebuild". A
+  // contract wired into a surface before it is settled is a contract that gets
+  // shaped by the first screen that consumes it.
+  //
+  // These entries are self-clearing: the companion guard below fails if a
+  // module listed here becomes reachable, so Package 2 cannot wire the
+  // clinician shell up without deleting the lines it consumes. That is the
+  // mechanism keeping this from becoming a permanent parking space.
+  "src/lib/experience/context.ts":
+    "Handoff 09 §9's ExperienceContext. Package 2 (clinician shell) is the first consumer; until then it is proven by tests/experience-contracts.test.ts rather than by a screen, per Package 1's 'no visible change'.",
+  "src/lib/experience/navigation.ts":
+    "Handoff 09 §9's NavigationManifest — the contract that enforces §1.1's omission of unavailable capabilities. Package 2 replaces the current rails with it; wiring it now would be the visible change Package 1 forbids.",
+  "src/lib/experience/command.ts":
+    "Handoff 09 §9's command input and result contracts, including the indeterminate outcome. Package 2 routes the clinician's separated actions through it; the existing action paths keep working unchanged until then.",
+  "src/lib/experience/task-state.ts":
+    "Handoff 09 §9's task-state vocabulary, kept separate from domain state so UI progress cannot become clinical state. Consumed by Package 2's forms and Package 3's member activity shell.",
+  "src/lib/experience/view-state.ts":
+    "Handoff 09 §9's view state — allowed filters and return position, stored apart from clinical drafts and cleared on tenant change. Package 2's queue is the first consumer, because §1.5's round-trip preservation is what needs it.",
+  "src/lib/experience/evidence-panel.ts":
+    "Handoff 09 §1.4's panel modes and their focus behaviour. Package 2 builds the evidence panel against it; the existing drawer keeps its current behaviour until then.",
+  "src/lib/experience/member-projection.ts":
+    "Handoff 09 §3's member allow-list. Package 3 (member activity shell) is where the projections start asserting against it; the existing source-scanning boundary in tests/member-boundary.test.ts is unchanged and still enforced meanwhile.",
+  "src/lib/experience/role-home.ts":
+    "Handoff 09 Package 1's RoleHomeProjection. Package 2 builds the Command Center home against it and Package 3 the member Today.",
+  "src/lib/experience/support-dock.ts":
+    "Handoff 09 §9's SupportDock. Package 3 renders it; declared in Package 1 so the rule that support takes no arguments and cannot be gated is settled before a screen is written against it.",
 };
 
 test("every lib module reaches a screen, or says why not", () => {
