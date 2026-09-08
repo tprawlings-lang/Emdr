@@ -37,9 +37,9 @@
 // while they were unbuilt the clinician read "not built yet" rather than
 // nothing, which are different statements about a person's record.
 //
-// Recovery Trajectory now fills its slot. The shape did not have to change:
-// `Section<T>` already had `insufficient_evidence` as a first-class outcome,
-// which is exactly what a trajectory over a thin record produces.
+// Both now fill their slots, and the shape did not have to change: `Section<T>`
+// already had `insufficient_evidence` as a first-class outcome, which is
+// exactly what either subsystem produces over a thin record.
 
 import crypto from "node:crypto";
 
@@ -63,6 +63,9 @@ import {
   computeTrajectory, trajectoryContext, trajectoryLine, isDeviation, TRAJECTORY_POLICY,
   type TrajectoryContext,
 } from "./recovery-trajectory";
+import {
+  computeTherapeuticLoad, loadContext, THERAPEUTIC_LOAD_POLICY, type LoadContext,
+} from "./therapeutic-load";
 
 
 export const COMMAND_CONTEXT_VERSION = "command-context.1.0.0";
@@ -184,6 +187,25 @@ export interface RecoveryTrajectorySection {
   policyVersion: string;
 }
 
+/**
+ * §5's Load Context, from handoff 05.
+ *
+ * `blockedBySafety` is a field rather than something a reader infers from the
+ * state word, because the drawer must be able to render that case differently:
+ * handoff 05 §1 says a blocked reading "displays that external constraint and
+ * stops", and a section that showed a safety hold in the same shape as a
+ * recommendation would be presenting them as two opinions of equal standing.
+ */
+export interface TherapeuticLoadSection {
+  state: LoadContext["state"];
+  stateLabel: string;
+  /** §8's "2-4 evidence bullets". */
+  bullets: string[];
+  limitations: string[];
+  blockedBySafety: boolean;
+  policyVersion: string;
+}
+
 export interface FollowUpSummary {
   itemId: string;
   text: string;
@@ -203,13 +225,14 @@ export interface CommandContext {
     clinicalPolicyVersion: string;
     responsePolicyVersion: string;
     trajectoryPolicyVersion: string;
+    loadPolicyVersion: string;
   };
   whyHere: Section<WhyHereSection>;
   returnToLife: Section<{ goals: GoalSummary[] }>;
   responseFingerprint: Section<{ interventions: ResponseSummaryRow[]; withheldCount: number }>;
   activeThreads: Section<{ threads: ThreadSummary[] }>;
   recoveryTrajectory: Section<RecoveryTrajectorySection>;
-  therapeuticLoad: SectionMissing;
+  therapeuticLoad: Section<TherapeuticLoadSection>;
   followUps: Section<{ items: FollowUpSummary[] }>;
   actionHistory: Section<{ actions: CareActionRecord[] }>;
   sessionPrepHref: string;
@@ -452,6 +475,41 @@ async function recoveryTrajectoryFor(
   };
 }
 
+/**
+ * Therapeutic load (handoff 05 §8).
+ *
+ * `insufficient_data` from the engine becomes `insufficient_evidence` here
+ * rather than a present-but-empty section, because those are different
+ * statements: one says Steady has not been given enough to read this person's
+ * recovery, and the other would say it read it and found nothing to report.
+ *
+ * A BLOCKED READING IS STILL A PRESENT SECTION. The clinician needs to see that
+ * the safety engine is holding something — §1's "displays that external
+ * constraint and stops" is a display requirement, and hiding it would leave the
+ * drawer silent about the most important thing on the screen.
+ */
+async function therapeuticLoadFor(
+  ctx: TenantContext, personId: string, cutoff: string
+): Promise<Section<TherapeuticLoadSection>> {
+  const snapshot = await computeTherapeuticLoad(ctx, personId, { asOf: cutoff });
+  const context = loadContext(snapshot);
+  if (snapshot.state === "insufficient_data") {
+    return missing(
+      "insufficient_evidence",
+      `${snapshot.explanation[0] ?? "There is not enough recorded about how this person recovers from the work."} Nothing here says the current load is fine.`
+    );
+  }
+  return {
+    present: true,
+    state: context.state,
+    stateLabel: context.stateLabel,
+    bullets: context.bullets,
+    limitations: context.limitations,
+    blockedBySafety: context.blockedBySafety,
+    policyVersion: context.policyVersion,
+  };
+}
+
 async function followUpsFor(
   ctx: TenantContext, personId: string, cutoff: string
 ): Promise<Section<{ items: FollowUpSummary[] }>> {
@@ -517,6 +575,7 @@ export function commandContextCacheKey(args: {
     CLINICAL_POLICY_VERSION,
     RESPONSE_POLICY.version,
     TRAJECTORY_POLICY.version,
+    THERAPEUTIC_LOAD_POLICY.version,
   ].join("|");
   return crypto.createHash("sha256").update(material).digest("hex").slice(0, 24);
 }
@@ -564,7 +623,7 @@ export async function buildCommandContext(
 
   const [
     whyHere, returnToLife, responseFingerprint, activeThreads,
-    recoveryTrajectory, followUps, actionHistory,
+    recoveryTrajectory, therapeuticLoad, followUps, actionHistory,
   ] = await Promise.all([
       section("whyHere", () => whyHereFor(ctx, args.personId, signalId),
         "The signal behind this row could not be loaded just now."),
@@ -576,6 +635,8 @@ export async function buildCommandContext(
         "Threads could not be loaded just now."),
       section("recoveryTrajectory", () => recoveryTrajectoryFor(ctx, args.personId, evidenceCutoff),
         "Recovery trajectory could not be computed just now. This is a failure to read, not a flat trajectory."),
+      section("therapeuticLoad", () => therapeuticLoadFor(ctx, args.personId, evidenceCutoff),
+        "The load and readiness reading could not be computed just now. This is a failure to read, not a judgement that the current load is fine."),
       section("followUps", () => followUpsFor(ctx, args.personId, evidenceCutoff),
         "Follow-ups could not be loaded just now."),
       section("actionHistory", () => actionHistoryFor(ctx, args.personId),
@@ -593,20 +654,14 @@ export async function buildCommandContext(
       clinicalPolicyVersion: CLINICAL_POLICY_VERSION,
       responsePolicyVersion: RESPONSE_POLICY.version,
       trajectoryPolicyVersion: TRAJECTORY_POLICY.version,
+      loadPolicyVersion: THERAPEUTIC_LOAD_POLICY.version,
     },
     whyHere,
     returnToLife,
     responseFingerprint,
     activeThreads,
     recoveryTrajectory,
-    // §5: "Recovery / Load Context appears after Handoffs 04 and 05." Still
-    // modelled rather than omitted, so handoff 05 fills a slot instead of
-    // changing this contract — and so the clinician reads "not built yet"
-    // instead of nothing, which are different statements about a record.
-    therapeuticLoad: missing(
-      "unavailable",
-      "Therapeutic load and readiness are not built yet. This is an absent feature, not a judgement that the current load is fine."
-    ),
+    therapeuticLoad,
     followUps,
     actionHistory,
     sessionPrepHref: `/clinician/member/${args.personId}`,

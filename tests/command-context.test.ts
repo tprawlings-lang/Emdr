@@ -80,7 +80,10 @@ test("a person with nothing recorded gets stated reasons, never blanks", async (
     ["followUps", c.followUps],
     ["actionHistory", c.actionHistory],
     ["recoveryTrajectory", c.recoveryTrajectory],
-    ["therapeuticLoad", c.therapeuticLoad],
+    // therapeuticLoad is deliberately not in this list: a person the safety
+    // gate is holding gets a PRESENT load section showing that constraint,
+    // which is handoff 05 §1's "displays that external constraint and stops".
+    // It has its own test below.
   ] as const) {
     assert.equal(section.present, false, `${name} should be absent`);
     const s = section as SectionMissing;
@@ -94,10 +97,6 @@ test("a person with nothing recorded gets stated reasons, never blanks", async (
 test("the four reasons for absence are not interchangeable", async () => {
   const c = await buildCommandContext(ctx, { personId: T.empty });
   assert.equal(reasonOf(c.returnToLife), "none_recorded", "this person has no goals");
-  assert.equal(
-    reasonOf(c.therapeuticLoad), "unavailable",
-    "the feature is not built — that is not a statement about the person"
-  );
   // Recovery trajectory IS built now, so its absence for this person must be a
   // statement about the record rather than about the feature. That is the
   // distinction the enum exists for, and the section moving from `unavailable`
@@ -109,18 +108,35 @@ test("the four reasons for absence are not interchangeable", async () => {
   assert.equal(reasonOf(c.whyHere), "none_recorded", "the row came from somewhere else");
 });
 
-// §20's exact case: an absent downstream feature must not read as a flat one.
-test("an unbuilt subsystem says it is unbuilt, in words", async () => {
+// §20's exact case, now that nothing in the drawer is unbuilt: a load section
+// with no recommendation in it must never read as "the load is fine". Whether
+// it is absent (nothing recorded) or present-and-blocked (the safety engine is
+// holding something), the one thing it must not do is reassure.
+test("a load section with no recommendation never reads as reassurance", async () => {
   const c = await buildCommandContext(ctx, { personId: T.empty });
-  for (const s of [c.therapeuticLoad]) {
-    assert.equal(s.reason, "unavailable");
-    assert.ok(
-      /not built yet/i.test(s.note),
-      "a clinician must be able to tell 'nothing computed' from 'nothing there'"
-    );
+  const load = c.therapeuticLoad;
+
+  const words = load.present
+    ? [load.stateLabel, ...load.bullets, ...load.limitations].join(" ")
+    : (load as SectionMissing).note;
+  assert.ok(words.length > 20, `the section must say something in words: "${words}"`);
+  assert.ok(
+    !/\btolerated\b|\bready\b|no concerns|safe to (progress|continue)|doing well/i.test(words),
+    `a section with no recommendation stated a reading: ${words}`
+  );
+
+  if (load.present) {
+    // The only present state a person with no record can reach is the safety
+    // hold, and it must be attributed to the safety engine rather than read as
+    // this feature's finding.
+    assert.equal(load.state, "blocked_by_safety", load.stateLabel);
+    assert.equal(load.blockedBySafety, true);
+  } else {
+    const s = load as SectionMissing;
+    assert.equal(s.reason, "insufficient_evidence");
     assert.ok(
       /not a judgement|Nothing here says/i.test(s.note),
-      "and the note must say what the absence does NOT mean"
+      `an absence must say what it does NOT mean: ${s.note}`
     );
   }
 });

@@ -20,6 +20,8 @@ import {
 import { computeFingerprints, displayable } from "@/lib/clinical/response-fingerprint";
 import { computeTrajectory, trajectoryLine } from "@/lib/clinical/recovery-trajectory";
 import { RecoveryTrajectoryCard, type TrajectoryCardRow } from "@/components/clinical/RecoveryTrajectoryCard";
+import { computeTherapeuticLoad, loadContext } from "@/lib/clinical/therapeutic-load";
+import { TherapeuticLoadCard } from "@/components/clinical/TherapeuticLoadCard";
 import { CLASS_LABEL } from "@/lib/clinical/intervention-vocabulary";
 import { goalProjection } from "@/lib/clinical/return-goal-projection";
 import type { TenantContext } from "@/lib/repository";
@@ -148,6 +150,38 @@ export default async function PersonOverviewPage({
   } catch (err) {
     console.error("member overview: trajectory failed:", err instanceof Error ? err.name : "unknown");
   }
+
+  // The load card (§8's "clinician-only card"). Guarded on its own, and
+  // rendered only when there is a reading — an empty card on every overview
+  // teaches a clinician to stop reading the space, and there is a screen that
+  // explains the emptiness properly when they want it.
+  let loadCard: {
+    state: Awaited<ReturnType<typeof computeTherapeuticLoad>>["state"];
+    bullets: Array<{ label: string; detail: string }>;
+    limitations: string[];
+    policyVersion: string;
+    safetyHeadline: string | null;
+    safeAlternative: string | null;
+  } | null = null;
+  try {
+    const snapshot = await computeTherapeuticLoad(ctx, id);
+    if (snapshot.state !== "insufficient_data") {
+      const context = loadContext(snapshot);
+      loadCard = {
+        state: snapshot.state,
+        bullets: context.bullets.map((b) => {
+          const [label, ...rest] = b.split(": ");
+          return { label, detail: rest.join(": ") };
+        }),
+        limitations: context.limitations.slice(0, 2),
+        policyVersion: snapshot.policyVersion,
+        safetyHeadline: snapshot.safetyConstraint?.headline ?? null,
+        safeAlternative: snapshot.safetyConstraint?.safeAlternative ?? null,
+      };
+    }
+  } catch (err) {
+    console.error("member overview: therapeutic load failed:", err instanceof Error ? err.name : "unknown");
+  }
   const shown = displayable(fingerprints);
   const withheldFingerprints = fingerprints.length - shown.length;
   const fingerprintRows: FingerprintCardRow[] = shown.slice(0, 3).map((f) => ({
@@ -257,6 +291,23 @@ export default async function PersonOverviewPage({
             line={trajectorySentence}
             policyVersion={trajectoryPolicyVersion}
             emptyNote={null}
+          />
+        </div>
+      )}
+
+      {/* Load and readiness (handoff 05 §8). After the trajectory, because it
+          reads the trajectory — and because a clinician should meet the course
+          before they meet a suggestion about how much more of it to do. */}
+      {loadCard && (
+        <div className="mt-6">
+          <TherapeuticLoadCard
+            personId={id}
+            state={loadCard.state}
+            bullets={loadCard.bullets}
+            limitations={loadCard.limitations}
+            policyVersion={loadCard.policyVersion}
+            safetyHeadline={loadCard.safetyHeadline}
+            safeAlternative={loadCard.safeAlternative}
           />
         </div>
       )}

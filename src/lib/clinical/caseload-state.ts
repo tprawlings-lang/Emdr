@@ -38,7 +38,11 @@
 //   a fact about the record and not about them.
 //
 //   "Load/Readiness... remains clinician decision support, not a treatment
-//   order." Also not built, also modelled rather than omitted.
+//   order." Built, and the cell says which of §3's five states it is. The
+//   constraint that survived the building is that a blocked reading looks
+//   different from a recommendation: a safety hold and "worth reviewing whether
+//   to reduce load" are not two opinions of equal standing, and a column that
+//   rendered them alike would present them as such.
 //
 // AND ONE ABOUT ORDER. §6: "default sort is current clinical need. User filters
 // do not rewrite server clinical priority semantics." The sort is the caseload
@@ -56,6 +60,10 @@ import {
   computeTrajectory, TRAJECTORY_POLICY, STATE_LABEL,
   type TrajectoryState, type TrajectorySnapshot,
 } from "./recovery-trajectory";
+import {
+  computeTherapeuticLoad, THERAPEUTIC_LOAD_POLICY, LOAD_STATE_LABEL,
+  type LoadState,
+} from "./therapeutic-load";
 
 export const CASELOAD_STATE_VERSION = "caseload-state.1.0.0";
 
@@ -115,6 +123,23 @@ export interface TrajectoryColumn {
   evidenceAt: string;
 }
 
+/**
+ * §6's Load/Readiness column, from handoff 05.
+ *
+ * `blockedBySafety` is its own field rather than something the reader infers
+ * from the label, so the table can render a safety hold differently from a
+ * recommendation. It is also why there is no numeric anything here: §13 of
+ * handoff 05 forbids a readiness number, and a caseload column is exactly where
+ * one would appear "just for sorting".
+ */
+export interface LoadColumn {
+  present: true;
+  state: LoadState;
+  label: string;
+  blockedBySafety: boolean;
+  note: string;
+}
+
 export interface CaseloadStateRow {
   personId: string;
   displayName: string;
@@ -137,7 +162,7 @@ export interface CaseloadStateRow {
   responseEvidenceCount: number;
 
   trajectory: TrajectoryColumn | ColumnAbsent;
-  load: ColumnAbsent;
+  load: LoadColumn | ColumnAbsent;
 
   lastContactDays: number | null;
   openAlerts: number;
@@ -150,7 +175,7 @@ export interface CaseloadState {
   stateVersion: string;
   /** The versions each column was computed under, so a reader can tell which
    *  rules produced which cell (§6: "calculation window, limitations"). */
-  columnVersions: { function: string; response: string; trajectory: string };
+  columnVersions: { function: string; response: string; trajectory: string; load: string };
   model: string;
 }
 
@@ -370,6 +395,39 @@ export async function buildCaseloadState(args: {
       console.error("caseload state: trajectory failed:", err instanceof Error ? err.name : "unknown");
     }
 
+    // ── Load and readiness (§6, from handoff 05) ─────────────────────────
+    //
+    // Guarded on its own like the trajectory column, and for the same reason:
+    // this one reads the safety gate for every module plus three other
+    // subsystems, so it is the most likely cell to fail and the least
+    // acceptable one to take a row down with it.
+    let load: LoadColumn | ColumnAbsent = {
+      present: false,
+      note: "Not computed for this person just now. This is a gap in the reading, not a judgement that the current load is fine.",
+    };
+    try {
+      const snapshot = await computeTherapeuticLoad(ctx, person.personId, { asOf: cutoff });
+      if (snapshot.state === "insufficient_data") {
+        load = {
+          present: false,
+          // NOT "no concerns". §7: "missing delayed follow-up prevents the
+          // system from assuming good recovery", and a caseload cell is exactly
+          // where an absence gets read as an all-clear.
+          note: snapshot.explanation[0] ?? "Not enough recorded about how this person recovers from the work.",
+        };
+      } else {
+        load = {
+          present: true,
+          state: snapshot.state,
+          label: LOAD_STATE_LABEL[snapshot.state],
+          blockedBySafety: snapshot.state === "blocked_by_safety",
+          note: snapshot.explanation[0] ?? "",
+        };
+      }
+    } catch (err) {
+      console.error("caseload state: load failed:", err instanceof Error ? err.name : "unknown");
+    }
+
     rows.push({
       personId: person.personId,
       displayName: person.displayName,
@@ -384,10 +442,7 @@ export async function buildCaseloadState(args: {
       responseDetail,
       responseEvidenceCount: shown.reduce((n, f) => n + f.supportCount, 0),
       trajectory,
-      load: {
-        present: false,
-        note: "Not computed — therapeutic load and readiness are not built yet.",
-      },
+      load,
       lastContactDays: person.daysSinceContact,
       openAlerts: person.openAlerts,
     });
@@ -412,6 +467,7 @@ export async function buildCaseloadState(args: {
       function: GOAL_PROJECTION_VERSION,
       response: RESPONSE_POLICY.version,
       trajectory: TRAJECTORY_POLICY.version,
+      load: THERAPEUTIC_LOAD_POLICY.version,
     },
     model: caseload.model,
   };

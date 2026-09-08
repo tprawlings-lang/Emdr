@@ -112,6 +112,11 @@ export const DEMO_DATA_TABLES = [
   // the same reason as the rest of this list: a reset that left a domain state
   // behind would leave the environment holding a clinical reading of somebody
   // who no longer exists.
+  // Load reviews and evidence both point at load snapshots; a load snapshot
+  // reads the trajectory, so it clears first.
+  "therapeutic_load_reviews",
+  "therapeutic_load_evidence",
+  "therapeutic_load_snapshots",
   "recovery_trajectory_reviews",
   "recovery_trajectory_evidence",
   "recovery_trajectory_snapshots",

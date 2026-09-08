@@ -10,6 +10,7 @@ import type { CommandContext, SectionMissing } from "@/lib/clinical/command-cont
 // Labels only, from the client-safe policy module — importing the engine would
 // pull better-sqlite3 into the browser bundle.
 import { stateLabelFor } from "@/lib/clinical/trajectory-policy";
+import { LOAD_STATE_NOTE } from "@/lib/clinical/therapeutic-load-policy";
 import type { SummaryOutcome } from "@/lib/clinical/command-summary";
 // The VOCABULARY module, not the store. This runs in the browser and the store
 // reaches better-sqlite3; the build refuses that, correctly, and refused this
@@ -542,7 +543,40 @@ function RecoveryAndLoad({ context }: { context: CommandContext }) {
             </p>
           </>
         )}
-        <MissingNote section={context.therapeuticLoad} />
+        {!context.therapeuticLoad.present ? (
+          <MissingNote section={context.therapeuticLoad} />
+        ) : (
+          <div
+            data-testid="drawer-load"
+            className={
+              // A safety hold does not render in the same shape as a
+              // recommendation. §1 of handoff 05: a blocked reading "displays
+              // that external constraint and stops", and showing the two alike
+              // would present them as two opinions of equal standing.
+              context.therapeuticLoad.blockedBySafety
+                ? "rounded-xl border border-rose-200 bg-rose-50/50 px-3 py-2"
+                : ""
+            }
+          >
+            <p className="measure text-sm text-app-ink">
+              <span className="font-medium">Load and readiness</span>{" "}
+              <span className="text-xs text-olive">— {context.therapeuticLoad.stateLabel}</span>
+            </p>
+            <p className="measure text-xs text-olive">
+              {LOAD_STATE_NOTE[context.therapeuticLoad.state]}
+            </p>
+            {context.therapeuticLoad.bullets.map((b) => (
+              <p key={b} className="measure text-xs text-olive">{b}</p>
+            ))}
+            {context.therapeuticLoad.limitations.map((l) => (
+              <p key={l} className="measure text-xs text-olive">{l}</p>
+            ))}
+            <p className="measure text-xs text-olive">
+              Decision support. Nothing has been unlocked, scheduled, or changed, and access is
+              decided by the safety engine on its own rules.
+            </p>
+          </div>
+        )}
       </div>
     </section>
   );

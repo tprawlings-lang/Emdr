@@ -1774,6 +1774,83 @@ export const SCHEMA_SQL = `
   CREATE INDEX IF NOT EXISTS idx_trajectory_reviews_snapshot
     ON recovery_trajectory_reviews(tenant_id, snapshot_id, created_at);
 
+  -- Therapeutic Load & Readiness (expansion handoff 05 §5).
+  --
+  -- ONE STATE PER PERSON PER CUTOFF, and unlike the trajectory table that is
+  -- correct here: this IS one recommendation, because it is one question. §3's
+  -- states answer "how much additional intensity appears prudent for a
+  -- clinician to consider", which does not decompose by domain the way a course
+  -- does. What keeps it from becoming a score is that the state is categorical
+  -- and the dimensions behind it are stored beside it, each opening its own
+  -- evidence (§13: "no readiness number is displayed without explanation").
+  --
+  -- safety_constraint_ref is a column and not a flag. §1: "if the safety engine
+  -- blocks an activity, Therapeutic Load displays that external constraint and
+  -- stops." A boolean would record THAT something was blocked; the reference
+  -- records WHICH decision, so a reader a year later can go and look at the
+  -- gate rather than take this table's word for it.
+  --
+  -- The dimensions are JSON for the same reason the trajectory windows are:
+  -- what a dimension is belongs to the policy that computed it, and a schema
+  -- with a column per dimension would give old rows empty columns that read as
+  -- absent findings rather than as questions nobody asked yet.
+  CREATE TABLE IF NOT EXISTS therapeutic_load_snapshots (
+    id TEXT PRIMARY KEY,
+    tenant_id TEXT NOT NULL REFERENCES tenants(id),
+    person_id TEXT NOT NULL REFERENCES persons(id),
+    state TEXT NOT NULL CHECK (state IN (
+      'blocked_by_safety','insufficient_data','stabilize','maintain','consider_progression'
+    )),
+    policy_version TEXT NOT NULL,
+    evidence_cutoff TEXT NOT NULL,
+    load_dimensions_json TEXT NOT NULL,
+    capacity_dimensions_json TEXT NOT NULL,
+    safety_constraint_ref TEXT,
+    explanation_json TEXT NOT NULL,
+    limitations_json TEXT NOT NULL DEFAULT '[]',
+    computed_at TEXT NOT NULL DEFAULT (datetime('now')),
+    UNIQUE(tenant_id, person_id, policy_version, evidence_cutoff)
+  );
+
+  -- What a recommendation was read from, and in what capacity.
+  --
+  -- ROLE IS THE COLUMN THAT MAKES THIS READABLE. §5 gives four:
+  -- load, capacity, constraint, context. A post-session check can appear as
+  -- load evidence for one dimension and capacity evidence for another, and a
+  -- table that stored the citation without saying which would leave a reader
+  -- unable to tell what any of it was doing there. The role is in the primary
+  -- key for exactly that reason.
+  CREATE TABLE IF NOT EXISTS therapeutic_load_evidence (
+    tenant_id TEXT NOT NULL REFERENCES tenants(id),
+    snapshot_id TEXT NOT NULL REFERENCES therapeutic_load_snapshots(id),
+    evidence_type TEXT NOT NULL,
+    evidence_id TEXT NOT NULL,
+    role TEXT NOT NULL CHECK (role IN ('load','capacity','constraint','context')),
+    PRIMARY KEY(snapshot_id, evidence_type, evidence_id, role)
+  );
+
+  -- What a clinician decided. §8's six actions, and every one of them records a
+  -- judgement rather than performing one: §13, "no system action autonomously
+  -- changes treatment intensity, module access, or trauma-processing status."
+  -- There is no column here that a gate, a plan or an unlock reads, and there
+  -- is deliberately no path from a row in this table to one.
+  CREATE TABLE IF NOT EXISTS therapeutic_load_reviews (
+    id TEXT PRIMARY KEY,
+    tenant_id TEXT NOT NULL REFERENCES tenants(id),
+    person_id TEXT NOT NULL REFERENCES persons(id),
+    snapshot_id TEXT NOT NULL REFERENCES therapeutic_load_snapshots(id),
+    clinician_person_id TEXT NOT NULL REFERENCES persons(id),
+    decision TEXT NOT NULL CHECK (decision IN (
+      'acknowledged','agree_stabilize','agree_maintain','review_progression','disagree','defer'
+    )),
+    note TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+  CREATE INDEX IF NOT EXISTS idx_load_snapshots_person
+    ON therapeutic_load_snapshots(tenant_id, person_id, evidence_cutoff);
+  CREATE INDEX IF NOT EXISTS idx_load_reviews_snapshot
+    ON therapeutic_load_reviews(tenant_id, snapshot_id, created_at);
+
   -- Longitudinal threads.
   CREATE TABLE IF NOT EXISTS clinical_threads (
     id TEXT PRIMARY KEY,
@@ -2166,6 +2243,12 @@ export const TENANT_SCOPED_TABLES = [
   "recovery_trajectory_snapshots",
   "recovery_trajectory_evidence",
   "recovery_trajectory_reviews",
+  // Therapeutic load. A recommendation about how much intensity a clinician
+  // might consider is as person-scoped as anything in the product, and the
+  // reviews carry a clinician's judgement about somebody by name.
+  "therapeutic_load_snapshots",
+  "therapeutic_load_evidence",
+  "therapeutic_load_reviews",
   "return_to_life_goals",
   "return_to_life_goal_levels",
   "return_to_life_observations",

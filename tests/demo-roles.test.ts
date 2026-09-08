@@ -65,7 +65,16 @@ test("`admin` is gone from the role model, the schema and every guard", () => {
   assert.ok(!(ROLES as readonly string[]).includes("admin"), "`admin` is still a role");
 
   const db = read("src/lib/db.ts");
-  const checks = [...db.matchAll(/role TEXT NOT NULL CHECK \(role IN \(([^)]*)\)\)/g)].map((m) => m[1]);
+  // Scoped to the CHECKs that constrain a PERSON'S role. `role` is an ordinary
+  // column name — therapeutic_load_evidence has one meaning what part a
+  // citation played (load, capacity, constraint, context) — and a guard that
+  // read every `role IN (...)` in the schema would fire on tables that have
+  // nothing to do with who somebody is. A user-role CHECK always admits
+  // 'clinician'; nothing else does, which is what makes this a reliable filter
+  // rather than a list to keep updating.
+  const checks = [...db.matchAll(/role TEXT NOT NULL CHECK \(role IN \(([^)]*)\)\)/g)]
+    .map((m) => m[1])
+    .filter((c) => /'clinician'/.test(c));
   assert.ok(checks.length >= 2, "the role CHECK constraints are not where this expects them");
   for (const c of checks) {
     assert.doesNotMatch(c, /'admin'/, `a CHECK constraint still admits 'admin': ${c}`);
