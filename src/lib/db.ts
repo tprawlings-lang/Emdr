@@ -1997,6 +1997,29 @@ export const SCHEMA_SQL = `
   );
   CREATE INDEX IF NOT EXISTS idx_retrieval_person
     ON clinical_retrieval_documents(tenant_id, person_id, source_type);
+
+  -- Telemetry signals (§31.7). NINE NAMED SIGNALS, and no person column.
+  --
+  -- There is deliberately no person_id and no free-text column on this table.
+  -- §31.7 gives every signal a privacy rule, and two of those rules are about
+  -- identity rather than content: permission_denied carries the actor's role
+  -- and a policy code and NO SUBJECT IDENTITY, because a denial log naming who
+  -- was being looked at leaks the existence §30.6 step 2 refuses to reveal.
+  -- A column that cannot hold a person is a stronger guarantee than a rule
+  -- saying not to fill one in.
+  --
+  -- The fields column is JSON, but only of values that passed the catalog's
+  -- kind check: codes, roles, references and numbers. A sentence cannot get in.
+  CREATE TABLE IF NOT EXISTS telemetry_signals (
+    id TEXT PRIMARY KEY,
+    tenant_id TEXT NOT NULL REFERENCES tenants(id),
+    signal TEXT NOT NULL,
+    actor_role TEXT,
+    fields TEXT NOT NULL DEFAULT '{}',
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+  CREATE INDEX IF NOT EXISTS idx_telemetry_signal
+    ON telemetry_signals(signal, created_at);
 `;
 
 function migrate(db: Database.Database) {

@@ -3,6 +3,7 @@ import { requireClinician } from "@/lib/auth";
 import { ClinicianPage } from "@/components/clinical/ClinicianPage";
 import { data } from "@/lib/data";
 import { activePolicy } from "@/lib/clinical-policy";
+import { noteSurfaceViewed } from "@/lib/telemetry/store";
 import {
   clinicianQueueProjection, inGroup, uiGroupFor,
   GROUP_LABEL, UI_GROUP_LABEL,
@@ -89,6 +90,10 @@ export default async function CommandCenterPage({
     clinicianId: clinician.id, tenantId, policy,
     correlationId: `queue-${clinician.id.slice(0, 8)}`,
   });
+
+  // §31.7: the screen was reached, and in which load state. Role and codes
+  // only — nothing about the clinician, and nothing about who is in the queue.
+  noteSurfaceViewed("clinician_queue", envelope, { tenantId, actorRole: clinician.role });
 
   const commandCenter = commandCenterSurfaceAvailable("CLINICAL_COMMAND_CENTER");
   // Phase 3's drawer, behind its own flag and everything it rests on.

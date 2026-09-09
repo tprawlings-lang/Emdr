@@ -7,6 +7,7 @@ import { MemberShell } from "@/components/experience/MemberShell";
 import { MemberTodayView } from "@/components/experience/MemberTodayView";
 import { ResumePrompt } from "@/components/experience/ResumePrompt";
 import { buildMemberToday } from "@/lib/member/today";
+import { noteSignal, noteSurfaceViewed } from "@/lib/telemetry/store";
 import { TodayDecision } from "@/components/member/TodayDecision";
 import { EnvelopeView } from "@/components/presentation/EnvelopeView";
 import Link from "next/link";
@@ -83,6 +84,20 @@ export default async function DashboardPage({
     const experience = experienceContextFor({ ...user, tenantId: tenant?.tenant_id ?? "" });
     const { view, resume } = await readMemberDay({ userId: user.id });
 
+    // §31.7: the screen was reached, and in which LOAD state.
+    //
+    // Two values, and deliberately not the day's own state. `readMemberDay`
+    // returns one of seven states, and five of them — narrow, stabilizing,
+    // paused, crisis, interrupted — are clinical facts about the person in
+    // front of the screen. A telemetry row carries no person, so recording one
+    // would not identify anybody; it would still be a member's safety state in
+    // an operational table, and §31.7 asks this field for the LOAD, which is
+    // whether the day assembled at all.
+    noteSignal("decision_surface_viewed", {
+      surface: "member_day",
+      loadState: view.state === "service_unavailable" ? "service_unavailable" : "ready",
+    }, { tenantId: tenant?.tenant_id, actorRole: user.role });
+
     return (
       <MemberShell
         navigation={navigationFor(experience)}
@@ -126,6 +141,11 @@ export default async function DashboardPage({
     userId: user.id,
     tenantId: tenantRow?.tenant_id ?? "",
   });
+  // §31.7: the screen was reached, and in which load state.
+  noteSurfaceViewed("member_today", todayEnvelope, {
+    tenantId: tenantRow?.tenant_id, actorRole: user.role,
+  });
+
   const history = await memberHistory(user.id, { days: 14 });
 
   // Precompute module access (checkModuleAccess is async now) so the JSX map

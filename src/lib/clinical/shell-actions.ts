@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { noteSignal } from "../telemetry/store";
 
 import { requireClinician } from "../auth";
 import { data } from "../data";
@@ -147,6 +148,8 @@ export async function recordContact(input: CommandInput<{ personId: string; note
       type: "contact_attempt_recorded", target: command.payload.personId,
       detail: { recordId, idempotencyKey: command.idempotencyKey },
     });
+    // §31.7: which action the row's hierarchy actually produced. Code only.
+    noteSignal("primary_action_selected", { actionCode: "record_contact" }, { actorRole: "clinician" });
     revalidatePath("/clinician/today");
     return confirmed({
       // Says what it is. Not "contacted", not "notified".
@@ -189,6 +192,8 @@ export async function assignWork(input: CommandInput<{ personId: string; ownerId
       type: "work_assigned", target: command.payload.personId,
       detail: { recordId, ownerId: command.payload.ownerId },
     });
+    // §31.7: which action the row's hierarchy actually produced. Code only.
+    noteSignal("primary_action_selected", { actionCode: "assign_work" }, { actorRole: "clinician" });
     revalidatePath("/clinician/today");
     return confirmed({
       summary: `Recorded ${command.payload.ownerName} as the owner. Nobody has been notified — there is no delivery path in this build.`,
@@ -252,6 +257,21 @@ export async function completeReview(input: CommandInput<{ personId: string; not
       type: "review_completed", target: command.payload.personId,
       detail: { recordId, signalId },
     });
+    // §31.7's two action signals, from the one place a review is completed.
+    //
+    // `queue_item_resolved` measures TIME TO ACCOUNTABLE ACTION, so the
+    // duration is from when the signal was first detected to now — not from
+    // when this request started, which would measure the form and not the
+    // queue. Its privacy rule allows a reason code, an owner role and a
+    // duration, and the signal type IS the reason code; the person, the note
+    // and the clinician stay out.
+    noteSignal("queue_item_resolved", {
+      reasonCode: signal.signalType,
+      ownerRole: "clinician",
+      durationMs: Math.max(0, Date.now() - Date.parse(signal.firstDetectedAt)),
+    }, { actorRole: "clinician" });
+    noteSignal("primary_action_selected", { actionCode: "complete_review" }, { actorRole: "clinician" });
+
     revalidatePath("/clinician/today");
     return confirmed({
       summary: "Recorded your review. The row is acknowledged and stays in the record.",

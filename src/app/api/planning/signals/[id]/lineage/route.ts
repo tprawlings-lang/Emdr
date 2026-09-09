@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth";
 import { audit } from "@/lib/audit";
+import { noteSignal } from "@/lib/telemetry/store";
 import { signalLineage } from "@/lib/planning/service";
 import { readableSignalTenants } from "@/lib/planning/scope";
 
@@ -35,5 +36,9 @@ export async function GET(
     actorId: user.id, actorRole: user.role, family: "security",
     type: "planning_lineage_viewed", target: id, detail: {},
   });
+  // §31.7's evidence_opened: "evidence type, not content". The TYPE is what
+  // was opened — a planning signal's lineage — and the signal's id stays out,
+  // because an id is a subject once somebody can look it up.
+  noteSignal("evidence_opened", { evidenceType: "planning_signal_lineage" }, { actorRole: user.role });
   return NextResponse.json(lineage);
 }
