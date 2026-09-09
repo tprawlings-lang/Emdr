@@ -17,7 +17,6 @@
 //   depend on a job having run.
 
 import { data } from "../data";
-import { newId } from "../db";
 import { audit } from "../audit";
 import { activePolicy, type ClinicalPolicy } from "../clinical-policy";
 

@@ -6,7 +6,7 @@
 // the line is already safe), never touching the session's stop rules.
 
 import { data } from "../data";
-import { newId, tenantForUser } from "../db";
+import { tenantForUser } from "../db";
 import { audit } from "../audit";
 import { rateLimit } from "../rate-limit";
 import { hasVoiceConsent, liveAvailableFor } from "../gating";
@@ -47,7 +47,6 @@ export async function grantVoice(userId: string) {
 }
 
 export async function withdrawVoice(userId: string) {
-  const c = await data();
   await withdrawConsent({ userId, scope: "voice_biometric" });
   await audit({ actorId: userId, actorRole: "member", family: "consent", type: "voice_consent_withdrawn", detail: { scope: "voice_biometric", via: "mobile" } });
   return voiceInfo(userId);

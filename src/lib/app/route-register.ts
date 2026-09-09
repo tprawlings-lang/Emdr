@@ -248,7 +248,7 @@ export const ROUTE_REGISTER: RouteEntry[] = [
   { path: "/clinician/member/[id]/session/[sid]", audience: "clinician", job: "Read one session in full.", workspace: "person_record", state: "working" },
   { path: "/clinician/member/[id]/responses", audience: "clinician", job: "See what this person has been exposed to and what was observed after.", workspace: "person_record", state: "working" },
   { path: "/clinician/member/[id]/trajectory", audience: "clinician", job: "See whether the course has changed, domain by domain.", workspace: "person_record", state: "working", evidence: "Expansion handoff 04, all four phases. RECONCILED: both source documents record this as not started at their baseline." },
-  { path: "/clinician/member/[id]/load", audience: "clinician", job: "See how much the work appears to be costing and what they recover from it with.", workspace: "person_record", state: "working", evidence: "Expansion handoff 05, all four phases. RECONCILED: both source documents record this as a deferred feature. §10.1 requires its own clinical review before the states are exposed to a clinician outside this environment — that review is outstanding." },
+  { path: "/clinician/member/[id]/load", audience: "clinician", job: "See how much the work appears to be costing and what they recover from it with.", workspace: "person_record", state: "working", evidence: "Expansion handoff 05, all four phases. RECONCILED: both source documents record this as a deferred feature. §10.1 requires its own clinical review before these states enter the clinician task queue — that review is outstanding, so the provider is held and this screen is the only place the states appear." },
   { path: "/clinician/member/[id]/safety", audience: "clinician", job: "See what the safety rules decided and what may be relaxed.", workspace: "person_record", state: "working" },
   { path: "/clinician/member/[id]/thoughts", audience: "clinician", job: "Record and organise their own thinking about this person.", workspace: "person_record", state: "working", evidence: "Clinician Thoughts phases 0-4. Phase 5 (Ask Steady) is not started — §12 carry-forward." },
   { path: "/clinician/member/[id]/plan", audience: "clinician", job: "Read and change the care plan.", workspace: "person_record", state: "working" },
@@ -338,8 +338,8 @@ export const RECONCILED: Reconciliation[] = [
   },
   {
     claim: "Therapeutic Load and Readiness: deferred feature (handoff 09 §12, Astra §11).",
-    actual: "Built to expansion handoff 05 and reachable at /clinician/member/[id]/load. Handoff 09 §10.1's requirement that it 'may plug into the clinician task-provider contract after its own clinical review' is met on the contract side — the provider passes the published conformance check — and the clinical review itself is outstanding.",
-    evidence: "src/lib/clinical/therapeutic-load.ts, attention-providers/therapeutic-load.ts, tests/therapeutic-load-*.test.ts.",
+    actual: "Built to expansion handoff 05 and reachable at /clinician/member/[id]/load. Handoff 09 §10.1's requirement that it 'may plug into the clinician task-provider contract after its own clinical review' is met on the contract side — the provider passes the published conformance check — but the clinical review itself has not happened, so the provider is HELD: it returns nothing and no Therapeutic Load state reaches a clinician's queue. The screen is unaffected, which is the point — a clinician may choose to read it; the product does not tell them to. The hold lifts when a review is recorded with a name and a place the evidence lives, and it is reported on /review/status.",
+    evidence: "src/lib/clinical/clinical-review-gate.ts, attention-providers/therapeutic-load.ts, tests/delivery-sequence.test.ts.",
   },
   {
     claim: "Personalized Recovery Trajectory: not started (handoff index).",

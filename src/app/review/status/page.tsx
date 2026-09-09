@@ -23,6 +23,7 @@ import {
   type CapabilityState,
 } from "@/lib/app/route-register";
 import { MEMBER_SCORE_EXCEPTION } from "@/lib/experience/member-projection";
+import { AWAITING_CLINICAL_REVIEW, mayEnterTaskQueue } from "@/lib/clinical/clinical-review-gate";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Service status — Steady Review" };
@@ -147,6 +148,31 @@ export default async function ReviewStatusPage() {
               Grounding
             </Link>
           </p>
+        </Panel>
+
+        {/* The rule is handoff 09 §10.1 — a feature may plug into the clinician
+            task-provider contract only after its own clinical review. The
+            reference stays in this comment; the footnote says the thing in the
+            reader's words, because tests/clinician-screens.test.ts holds every
+            surface to that and is right to. */}
+        <Panel
+          title="Held until a clinical review"
+          footnote="A feature can put work into a clinician's queue only after a clinical review says a clinician may act on what it reports. Listed here so an empty queue can be told apart from a broken one."
+        >
+          <p className="measure text-sm text-ground">
+            These features are built and their screens are reachable. What is held is narrower:
+            they do not put rows into a clinician&rsquo;s queue, because the review that
+            establishes a clinician may act on their readings has not been recorded. A review is
+            recorded here only with the name of who did it and where the evidence lives.
+          </p>
+          <ul className="mt-3 divide-y divide-ground/5">
+            {AWAITING_CLINICAL_REVIEW.filter((f) => !mayEnterTaskQueue(f.review)).map((f) => (
+              <li key={f.feature} className="py-2.5">
+                <p className="text-sm font-medium text-ground">{f.feature}</p>
+                <p className="measure mt-1 text-sm text-ground/70">{f.review.withholds}</p>
+              </li>
+            ))}
+          </ul>
         </Panel>
 
         <Panel

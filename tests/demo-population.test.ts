@@ -20,8 +20,7 @@ import test from "node:test";
 import fs from "node:fs";
 import path from "node:path";
 import {
-  MANIFEST, MANIFEST_EMAIL_LIKE, checkManifest, seedFor, DATASET_VERSION,
-} from "../src/lib/demo-population-manifest";
+  MANIFEST, MANIFEST_EMAIL_LIKE, checkManifest, seedFor, } from "../src/lib/demo-population-manifest";
 import { orgTenantId, armFor, tenantForRow, REGION_NAMES } from "../src/lib/demo-population-seed";
 import { getDb } from "../src/lib/db";
 import { data } from "../src/lib/data";

@@ -13,7 +13,7 @@ import {
   generatePopulationHistory, backfillPlanVersions, backfillFunctionMeasure,
 } from "./demo-population-generator";
 import { runAgents } from "./agents/runner";
-import { ulid, NIL_ULID, ulidFrom } from "./ids";
+import { NIL_ULID, ulidFrom } from "./ids";
 
 // Resolved lazily inside getDb() (not at module load) so EMDR_DATA_DIR is
 // honored even when set just before the first DB access — e.g. hermetic tests.

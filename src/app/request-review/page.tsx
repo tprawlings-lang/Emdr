@@ -21,8 +21,7 @@ const PATHS = [
 // public page. This is also the route /signup now redirects to — closing the
 // path that was letting real email addresses into a fabricated environment.
 export default function RequestReview({
-  searchParams,
-}: { searchParams: Promise<{ from?: string; path?: string }> }) {
+}: { searchParams?: Promise<{ from?: string; path?: string }> }) {
   return (
     <PublicPage
       eyebrow="Controlled access"

@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireClinician } from "@/lib/auth";
 import { data } from "@/lib/data";
@@ -6,7 +5,6 @@ import { MODULES } from "@/lib/modules";
 import { audit } from "@/lib/audit";
 import { scoreItq } from "@/lib/instruments";
 import { decryptField } from "@/lib/crypto";
-import { getProgramPlan } from "@/lib/program-plan";
 import { clinicianCloseModule, clinicianOpenModule } from "@/lib/actions";
 import { ClinicalFigure, SmallMultiples } from "@/components/charts/clinical";
 import { EVERYDAY_FUNCTION } from "@/lib/measures/house";
@@ -148,7 +146,6 @@ export default async function MemberDetailPage({
   const consents = await c.all("SELECT policy_version, scope, granted_at, revoked_at FROM consents WHERE user_id = ?", [id]) as { policy_version: string; scope: string; granted_at: string; revoked_at: string | null }[];
 
   const moduleName = (mid: string) => MODULES.find((m) => m.id === mid)?.name ?? mid;
-  const planRow = await getProgramPlan(member.id);
 
   // EVERY plan version, not only the current one. `program_plans` is
   // append-only — a revision is a new row — so the history is already there,

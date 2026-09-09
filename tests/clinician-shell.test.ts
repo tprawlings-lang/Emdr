@@ -34,7 +34,6 @@ import { navigationFor } from "../src/lib/experience/navigation";
 import { emptyViewState } from "../src/lib/experience/view-state";
 import {
   clinicianHome, CLINICIAN_ACTIONS, ACTION_LABEL, ACTION_NOTE,
-  type QueueRowView,
 } from "../src/lib/experience/clinician-home";
 import {
   EXPERIENCE_FLAGS, ALL_EXPERIENCE_FLAGS, experienceFlagEnabled, clinicianShellEnabled,

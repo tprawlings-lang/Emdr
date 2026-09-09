@@ -58,9 +58,9 @@ export type {
 } from "./attention-vocabulary";
 
 import {
-  ATTENTION_BANDS, OPEN_STATES, SIGNAL_STATES, CARE_ACTIONS, AttentionSignalError,
+  ATTENTION_BANDS, OPEN_STATES, CARE_ACTIONS, AttentionSignalError,
   toSignal, nowStamp, type SignalRow, type CareActionRecord,
-  type AttentionBand, type SignalState, type DismissReason, type CareAction,
+  type SignalState, type DismissReason, type CareAction,
   type AttentionSignal, type SignalEvidence, type AttentionSignalCandidate,
 } from "./attention-vocabulary";
 

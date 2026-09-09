@@ -26,7 +26,6 @@ import { provisionPerson, grantConsent, withdrawConsent } from "../src/lib/spine
 import { recordPracticeCompletion } from "../src/lib/practices";
 import { markLessonRead } from "../src/lib/lessons";
 import { submitCheckinMobile, startSessionMobile, finishSessionMobile } from "../src/lib/mobile/service";
-import { readEvents } from "../src/lib/events";
 import {
   verifyProjections, rebuildProjections, formatVerifyResult,
   PROJECTED_TABLES, dropShadowTables,

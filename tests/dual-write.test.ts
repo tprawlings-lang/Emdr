@@ -10,7 +10,7 @@ import { provisionPerson } from "../src/lib/spine";
 import { recordPracticeCompletion } from "../src/lib/practices";
 import { markLessonRead } from "../src/lib/lessons";
 import { writeMemory } from "../src/lib/companion";
-import { submitCheckinMobile, startSessionMobile } from "../src/lib/mobile/service";
+import { submitCheckinMobile } from "../src/lib/mobile/service";
 import { PLATFORM_TENANT_ID } from "../src/lib/db";
 
 const USER = "dw-user";

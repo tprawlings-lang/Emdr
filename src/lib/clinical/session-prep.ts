@@ -342,9 +342,10 @@ export function assemble(inputs: PrepInputs): PrepClaim[] {
     : undefined;
   const newestNote = attachedToLast ?? notes[0];
   if (newestNote) {
-    const trimmed = newestNote.text.length > 400
-      ? `${newestNote.text.slice(0, 400).trimEnd()}…`
-      : newestNote.text;
+    // The 400-character truncation lives in `noteLine` below. It was computed
+    // here too, into a variable nothing read — dead since the three wordings
+    // moved into that function, and the kind of leftover that makes a later
+    // reader look for a second truncation rule.
     claims.push({
       section: "last_session",
       // THREE WORDINGS, AND EACH ONE IS ONLY AS SPECIFIC AS THE EVIDENCE.

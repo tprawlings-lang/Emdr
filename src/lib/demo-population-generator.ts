@@ -7,7 +7,7 @@ import {
   MANIFEST, DATASET_VERSION, seedFor, type ManifestRow, type Archetype,
 } from "./demo-population-manifest";
 import { tenantForRow, clinicianPersonId } from "./demo-population-seed";
-import { accessProfileFor, type AccessProfile } from "./demo-population-disparity";
+import { accessProfileFor } from "./demo-population-disparity";
 import {
   CALENDAR_DAYS, MIN_MEASURES, PERSON_DAYS, demoEpoch, enrolmentDayFor, exposureDaysFor,
   generatedDaysFor, scaledRange,

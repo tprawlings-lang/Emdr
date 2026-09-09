@@ -8,10 +8,7 @@ import { buildPayerHeader } from "@/lib/intelligence/payer";
 import { resolvePayerTenant } from "@/lib/intelligence/scope";
 import { hasData } from "@/lib/presentation/envelope";
 import { ScopeStrip } from "@/components/aggregate/ScopeStrip";
-import {
-  defaultScope, scopeForRequest, currentPath, periodHref, PERIOD_OPTIONS,
-} from "@/lib/intelligence/aggregate-scope";
-import { headers } from "next/headers";
+import { defaultScope, scopeForRequest } from "@/lib/intelligence/aggregate-scope";
 
 // The payer console shell (§26's ten payer screens, §28's frame).
 
@@ -93,20 +90,17 @@ async function StandingHeader() {
 async function Scope() {
   const tenantId = await resolvePayerTenant();
   if (!tenantId) return null;
-  const [current, base, path, h] = await Promise.all([
+  const [current, base] = await Promise.all([
     // From the request, not from a page prop — see the note in src/proxy.ts.
     scopeForRequest(tenantId),
     defaultScope({ tenantId }),
-    currentPath(),
-    headers(),
   ]);
-  const search = h.get("x-search") ?? "";
-  const periods = PERIOD_OPTIONS.map((o) => ({
-    label: o.label,
-    days: o.days,
-    href: periodHref(path, search, o.days),
-    selected: current.period.label === o.label,
-  }));
+  // NO PERIOD CONTROL HERE, deliberately. The payer projections take no window,
+  // so a control would move a label and no number — the confidently-wrong
+  // screen Package 5 exists to prevent. The strip says so instead, in
+  // `governs` below. This computed the options and passed none of them, which
+  // lint caught and which reads as an unfinished thought rather than a
+  // decision.
   return (
     <ScopeStrip
       scope={current}

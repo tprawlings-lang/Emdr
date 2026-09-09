@@ -4,7 +4,7 @@ import { requireClinician } from "@/lib/auth";
 import { data } from "@/lib/data";
 import { PLATFORM_TENANT_ID } from "@/lib/db";
 import {
-  listNotes, summarise, PRIORITY_LABEL, STATUS_LABEL, toMarkdown,
+  listNotes, summarise, STATUS_LABEL, toMarkdown,
   type NotePriority, type NoteStatus,
 } from "@/lib/clinical/review-notes";
 import { setNoteStatusAction } from "@/lib/clinical/actions";
