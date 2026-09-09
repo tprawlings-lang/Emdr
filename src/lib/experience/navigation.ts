@@ -116,7 +116,11 @@ const REVIEWER_CORE: NavDestination[] = [
 
 const DEMO_ADMIN_CORE: NavDestination[] = [
   { href: "/admin/demo", label: "Environment", workspace: "demo_ops", capability: "operateTheDemoEnvironment" },
-  { href: "/demo", label: "Scenarios", workspace: "demo_ops", capability: "operateTheDemoEnvironment" },
+  // "Scenarios" now goes to the walkthrough launcher rather than to the review
+  // gateway, which is what the label always said and is not what it did:
+  // /demo is where a REVIEWER enters with an access code, and the register
+  // records it as that. Package 4 built the thing the word meant.
+  { href: "/demo/scenarios", label: "Scenarios", workspace: "demo_ops", capability: "operateTheDemoEnvironment" },
   { href: "/review/audit", label: "Audit", workspace: "review_console", capability: "operateTheDemoEnvironment" },
 ];
 

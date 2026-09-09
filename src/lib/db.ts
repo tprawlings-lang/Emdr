@@ -963,6 +963,54 @@ export const SCHEMA_SQL = `
     detail TEXT
   );
 
+  -- The outcome of the last reset ATTEMPT (handoff 09 §7.3, Package 4).
+  --
+  -- "A reset failure never displays ready." Until this table existed there was
+  -- nowhere for that fact to live: the reset action caught its own failure and
+  -- wrote an audit row, and the admin console then recomputed environment
+  -- health from the live database and drew whatever it found. A reset that
+  -- threw half-way could leave a database that happens to pass the manifest,
+  -- and the screen would say ready to a presenter whose rebuild did not
+  -- happen.
+  --
+  -- Singleton, like demo_clock and demo_repair: the environment has one last
+  -- reset, and a history of them belongs in the audit chain, which already has
+  -- it. Cleared by a successful reset, which is the point — the row can only
+  -- say "the last attempt failed" while that is still true.
+  CREATE TABLE IF NOT EXISTS demo_reset_log (
+    id INTEGER PRIMARY KEY CHECK (id = 1),
+    attempted_at TEXT NOT NULL,
+    status TEXT NOT NULL CHECK (status IN ('succeeded','failed')),
+    reason TEXT,
+    detail TEXT
+  );
+
+  -- The environment lock (handoff 09 §7.3, Package 4).
+  --
+  -- §7.3: "prevent a reset during another walkthrough unless an authorized
+  -- operator deliberately interrupts. An environment lock is sufficient for
+  -- the first implementation."
+  --
+  -- Sufficient is the operative word. Isolated per-scenario datasets are the
+  -- eventual answer and need their own scope approval; one lock on one shared
+  -- environment is what stops the specific failure this exists for, which is a
+  -- reset landing in the middle of somebody else's investor meeting.
+  --
+  -- Singleton for the same reason: there is one environment.
+  CREATE TABLE IF NOT EXISTS demo_environment_lock (
+    id INTEGER PRIMARY KEY CHECK (id = 1),
+    scenario_id TEXT NOT NULL,
+    scenario_version TEXT NOT NULL,
+    held_by TEXT NOT NULL,
+    held_by_name TEXT,
+    acquired_at TEXT NOT NULL,
+    -- Set when released or interrupted. A row with this null is a live
+    -- walkthrough; the row is kept afterwards so a presenter arriving on a
+    -- just-released environment can see what happened rather than a blank.
+    released_at TEXT,
+    released_reason TEXT
+  );
+
   CREATE TABLE IF NOT EXISTS demo_clock (
     id INTEGER PRIMARY KEY CHECK (id = 1),
     -- The instant the environment should be READ AS. Null means live: the
