@@ -927,9 +927,17 @@ the floor, dropping `ON CONFLICT DO NOTHING`, or letting agents write measures e
 build. The floor guard is behavioural rather than a source match, after a source-formatting
 assertion earlier in this build failed on a no-op refactor.
 
-**Still unbuilt in Wave 8:** the control centre's remaining four controls (reset with a typed
-reason, scenario injection, projection validation, QA export), the nightly reset, and p56's
-presenter scripts.
+**Still unbuilt in Wave 8 — re-checked 2026-09-09.** Handoff 09 Packages 4 and 5 built
+across this ground, so the list below is shorter than it was. What was closed, and by what:
+
+| Wave 8 item | State |
+|---|---|
+| Reset with a typed reason | **Built.** `/admin/demo` — and Package 4 added §7.3's scope statement before the control, plus refusal while another walkthrough holds the environment unless an operator deliberately interrupts |
+| p56's presenter scripts | **Built as guided walkthroughs.** Package 4 — a versioned scenario registry at `/demo/scenarios`, named stories that open real screens, with a deterministic preflight that refuses to start on an unfit environment |
+| Scenario injection | **Still unbuilt**, and now needs disambiguating: Package 4's scenarios are *presentation* scenarios — an order of screens and a set of claims. This one is a *data* scenario, an event bundle that changes what the fabricated population has been through. Building the first did not build the second, and `/admin/demo` says so on the screen |
+| Projection validation | **Still unbuilt** as a control. The comparison exists (`verifyProjections`) and the release console runs it on request; what is missing is the admin-side control and the expected hashes in the seed manifest |
+| QA export | **Still unbuilt.** Package 5 made export a job with a lifecycle and a rechecked download, so the remaining work is releasing the quality checks through that path rather than building an export |
+| Nightly reset | **Still unbuilt** |
 
 ### The deployed dataset, and the onboarding that makes it a demonstration
 

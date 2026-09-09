@@ -228,10 +228,31 @@ each side must see only its own — the specific probe a directory invites.
 | Two soft leaks in the Autopilot card — "your window looks steady", and the sentence explaining why the day was not adjusted | Rewriting clinical-adjacent copy |
 | Counsel review of the Demo Terms and Privacy Notice | Removes the "unreviewed" markings |
 | A real screen-reader pass | Zero serious/critical axe violations is not the same thing |
-| §6 session state machine | **Next build item** — see the README resume block |
+| §6 session state machine | **Largely built — re-checked 2026-09-09.** See the reconciliation below |
 
 **Not done and deliberately so:** §3's four-surface split names a member-controlled
 *referral export* that includes high-intensity trigger items excluded from self-guided use.
 That is a member-held artefact containing clinically sensitive content, and §10 Q3 asks
 whether it assembles passively or requires curation. It should not be built before that is
 answered.
+
+## §6 reconciled, 2026-09-09
+
+This document listed the §6 session state machine as **"Next build item"** and it had not
+been re-read since. Handoff 09 Packages 3–5 built across the same ground under a different
+vocabulary, so the entry was describing work that had partly happened. Checked line by line
+against the code:
+
+| §6 asks for | Where it is | State |
+|---|---|---|
+| `created → pre_session_check → authorized → set_active → post_set_reassessment → closure → completed` | `src/lib/safety/session.ts` — `SessionPhase` | **Built.** The domain machine is real and drives the gate |
+| The rendered flow | `src/components/SessionPlayer.tsx` — `intro / running / ground / sudpause / hardstop / finishing` | **Built**, under a player vocabulary that does not match the domain's names one-to-one. Not a defect; worth knowing before grepping for `set_active` in a component |
+| `technical_interruption → recovery`, "designed properly rather than as an edge case", respecting any safety state that fired before the drop | Handoff 09 Package 3 — `src/lib/experience/member-day.ts` (`interrupted`), `activity-shell.ts` (`resumeDecision`) | **Built.** Resume is refused when the gate has since closed, which is exactly §6's "respects any safety state that fired before the drop" |
+| Crisis reachable from every screen at a fixed position | Package 3 — `SupportDock`, fixed, no prop that can hide it | **Built** |
+| Stop and pause permanently visible, reachable without precision | Package 3 — `ActivityShell`, three exits, 44px targets, dock reserve measured at 320px | **Built** |
+
+**What is genuinely still open in §6** is narrower than the old entry implied: the explicit
+confirmation beat on `authorized → set_active` ("the member should have to actively step
+into the set, not slide into it"), and a check that `post_set_reassessment` never shows the
+member their previous answer. Both are single-screen questions inside `SessionPlayer`
+rather than a build item.

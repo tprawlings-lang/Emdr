@@ -9,6 +9,7 @@ import { audit } from "../audit";
 import { requireReviewer } from "../auth";
 import { isRole } from "../roles";
 import type { Decision, SubjectKind } from "./decisions";
+import { checkSubmission } from "./release-readiness";
 
 // Writes for the review decision record.
 //
@@ -127,6 +128,42 @@ export async function recordGateSignoff(formData: FormData) {
   if (!gate) redirect("/review/release");
   if (gate.evidenceClass === "attested" && decision === "approved" && !evidenceRef) {
     redirect("/review/release?error=evidence_required");
+  }
+
+  // Handoff 09 §7.1: "If evidence changes mid-review, reject the stale
+  // submission with a comparison and a review-again route, and explain which
+  // prior decisions reopened."
+  //
+  // THIS USED TO RECORD THE STALE DECISION RATHER THAN REFUSE IT. The form
+  // carries the fingerprint the page was rendered with, and the value went
+  // straight into the record — so a reviewer who opened the screen, went to a
+  // meeting and approved on return wrote an approval against evidence that had
+  // since moved. It did not read as approved afterwards, because the
+  // fingerprint no longer matched anything current, so the effect was a
+  // decision that silently did nothing. A reviewer who believes they have
+  // signed off and has not is worse off than one who was told to look again.
+  //
+  // RE-RESOLVED HERE RATHER THAN TRUSTED FROM THE FORM. The current
+  // fingerprint has to be computed on the server at the moment of the write;
+  // anything the browser sends is a claim about the past.
+  // Through the SAME pure function the screen renders its comparison with, so
+  // the refusal and the explanation cannot disagree about whether a submission
+  // is stale. An inline `current !== fingerprint` here would be a second
+  // implementation of the rule, testable only by reading it.
+  const current = await currentFingerprint(gateId);
+  const submission = checkSubmission({
+    submittedFingerprint: fingerprint,
+    currentFingerprint: current ?? fingerprint,
+    submittedFacts: {},
+    currentFacts: {},
+  });
+  if (current && submission.stale) {
+    await audit({
+      actorId: user.id, actorRole: user.role, family: "specialist_action",
+      type: "release_gate_signoff_stale", target: gateId,
+      detail: { submitted: fingerprint, current, decision },
+    });
+    redirect(`/review/release?stale=${encodeURIComponent(gateId)}&was=${encodeURIComponent(fingerprint)}`);
   }
 
   await record({
@@ -256,5 +293,49 @@ export async function requestResearchExport(formData: FormData) {
       redirect(`/review/research?refused=${encodeURIComponent(e.message)}`);
     }
     throw e;
+  }
+}
+
+/**
+ * The fingerprint a gate's evidence has right now.
+ *
+ * CHEAP EVIDENCE ONLY. `resolveEvidence` runs the on-demand projection-parity
+ * check only when the caller passes a result in, and this deliberately does
+ * not — so a sign-off does not rebuild the ledger, and the parity gate's
+ * fingerprint here is the "not run" one. That is correct: a reviewer approving
+ * parity did so against a result the PAGE resolved, and if the page had one
+ * and this does not, the two fingerprints differ and the submission is
+ * refused. Refusing a sign-off that cannot be re-verified is the safe
+ * direction.
+ *
+ * Returns null when the gate cannot be resolved at all, in which case the
+ * caller records rather than refuses — a comparison against nothing is not
+ * evidence that anything changed.
+ */
+async function currentFingerprint(gateId: string): Promise<string | null> {
+  try {
+    const { getDb } = await import("../db");
+    const { resolveEvidence, fingerprint: fp } = await import("./gates");
+    const { reviewableSurfaces, copyVersion } = await import("./clinical-copy");
+    const { decisionsAt } = await import("./decisions");
+
+    // The clinical-language gate's evidence is the other screen's decisions,
+    // so it has to be resolved the same way the page resolves it or the two
+    // will disagree about the fingerprint and every sign-off will be refused.
+    const surfaces = reviewableSurfaces();
+    const decisions = await decisionsAt("clinical_language", copyVersion());
+    const clinicalLanguage = {
+      total: surfaces.length,
+      approved: surfaces.filter((s) => decisions.get(s.id)?.decision === "approved").length,
+      blocked: surfaces.filter((s) => decisions.get(s.id)?.decision === "blocked").length,
+      changesRequested: surfaces.filter((s) => decisions.get(s.id)?.decision === "changes_requested").length,
+    };
+
+    const ev = resolveEvidence(getDb(), { clinicalLanguage }).get(gateId);
+    return ev ? fp(ev.facts) : null;
+  } catch {
+    // A gate whose evidence cannot be resolved is not a gate whose sign-off
+    // should be blocked by this check. The record path has its own guards.
+    return null;
   }
 }

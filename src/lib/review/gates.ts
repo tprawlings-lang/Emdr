@@ -32,6 +32,7 @@ import { runQualityChecks, qualitySummary } from "../demo-quality";
 import { replayScenarios } from "../safety/scenarios";
 import { SITE_CLAIMS_VERSION } from "../site/registry";
 import { SAFETY_CONFIG_VERSION } from "../safety/governance";
+import { dependencyFacts } from "./release-readiness";
 
 export type EvidenceClass = "measured" | "on_demand" | "attested";
 
@@ -156,16 +157,27 @@ export function fingerprint(facts: Record<string, string | number | boolean>): s
   return crypto.createHash("sha256").update(canonical).digest("hex").slice(0, 16);
 }
 
-/** An attested gate still needs a fingerprint, or its sign-off could never be
- *  invalidated. It is bound to the versions that define what was attested TO —
- *  so a safety-config or claims-registry bump reopens the attestation rather
- *  than carrying it silently forward. */
+/**
+ * An attested gate still needs a fingerprint, or its sign-off could never be
+ * invalidated. It is bound to the versions that define what was attested TO.
+ *
+ * PER GATE, NOT ONE SET FOR ALL THREE — and that is a correction. Every
+ * attestation used to be fingerprinted over {safetyConfigVersion,
+ * claimsVersion}, so publishing a corrected sentence in the public claims
+ * registry reopened the ACCESSIBILITY attestation, which is about keyboard and
+ * screen-reader paths and has nothing to do with claims copy. Handoff 09 §7.1:
+ * "Use explicit dependency fingerprints. A decorative token change must not
+ * reopen unrelated attestations."
+ *
+ * The cost of getting it wrong is not the extra click. An attestation that
+ * reopens for unrelated reasons trains its owner to re-approve without
+ * rereading, which is worse than not reopening at all.
+ *
+ * The declarations live in release-readiness.ts so a reader can see all three
+ * side by side and check that they differ.
+ */
 function attestedFacts(gateId: string): Record<string, string> {
-  return {
-    gate: gateId,
-    safetyConfigVersion: SAFETY_CONFIG_VERSION,
-    claimsVersion: SITE_CLAIMS_VERSION,
-  };
+  return dependencyFacts(gateId);
 }
 
 export interface ResolveOptions {
