@@ -664,15 +664,42 @@ single-tenant subset to be a subset *of*. Those cohorts arrive with Wave 7, wher
 small-cell and minimum-analysis-size questions a per-organization cohort immediately raises
 also get answered. Nine of p47's twelve routes remain unbuilt (G16).
 
-### Wave 7 — Governance
+### Wave 7 — Governance — **built 2026-09-09**
 **Spec: pp37–38, 43. Exit evidence: reviewers can block or retire output.**
 
-- Fairness controls (G12) and the audit screen (p43) — *"the screen must make it easier to
-  discover uneven access or harm, not easier to stereotype a group. Do not rank races,
-  assign grades to demographic groups, or use red and green labels on protected
-  identities."*
-- Model registry shell (G13), shadow-mode only.
-- p36's prohibition on race correction factors.
+- **Fairness controls (G12) and the audit screen (p43)** — `/review/fairness`, all nine of
+  p43's panels over the real 240-person population, comparable across preferred language,
+  ethnicity and race. p43's prohibition — *"the screen must make it easier to discover
+  uneven access or harm, not easier to stereotype a group. Do not rank races, assign grades
+  to demographic groups, or use red and green labels on protected identities"* — is the
+  hard part and is held as rules rather than intentions in
+  `src/lib/governance/fairness-audit.ts`: rows arrive in a **declared** order that never
+  consults the values (there is no comparator to change), a group carries exactly one tone,
+  and every difference is stated against the eligible population rather than against
+  another group. p37's controls each keep their own sentence, so a suppressed cell, an
+  unestimable rate and a policy refusal are three different silences rather than one blank.
+  The screen also proves it accounted for every recorded value — shown or withheld — because
+  a comparison that renders four groups and drops the fifth tells a reader the population
+  has four.
+- **Model registry shell (G13), shadow-mode only** — `/review/models`. The registry is empty
+  because this build runs no model, and the screen says which kind of empty that is. p38's
+  eleven fields are the conditions a first model would meet; `mayRun` is the predicate a
+  runner would have to call, written before any runner exists so the runner is written
+  against it rather than around it. The shadow-destination lists are exhaustive rather than
+  illustrative, so a surface added later is refused by default.
+- **p36's prohibition on race correction factors** — `appliesCorrection` distinguishes an
+  adjustment applied to a protected attribute (a defect) from grouping by one (the permitted
+  use, and what the whole audit is).
+
+**Exit evidence.** Six decisions, of which `block` and `retire` stop the output; a stopping
+decision requires the fairness reviewer who made it and the date. `tests/governance-wave7.test.ts`
+holds all of it — 21 guards, each verified by breaking what it guards.
+
+**What the audit found on the seeded population.** Follow-up completion by preferred
+language: English 79% (259/327), Spanish 65% (54/83), Mandarin 47% (63/135). That is a real
+access gap in the fabricated data and exactly the kind of thing the screen exists to
+surface — no decision has been recorded against it, which the screen reports as a state
+rather than as a blank.
 
 ### Wave 8 — Demo hardening — **the clock is built**
 **Spec: pp9, 29, 56. Exit evidence: cold-start rehearsal passes twice.**

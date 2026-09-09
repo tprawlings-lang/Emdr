@@ -30,6 +30,8 @@ export const REVIEW_SCREENS: Array<{ href: string; label: string; layer: RailSlu
   { href: "/review/status", label: "Service status", layer: "evidence" },
   { href: "/review/demo-data", label: "Demo data", layer: "evidence" },
   { href: "/review/research", label: "Research workspace", layer: "evidence" },
+  { href: "/review/fairness", label: "Fairness audit", layer: "evidence" },
+  { href: "/review/models", label: "Model registry", layer: "evidence" },
   { href: "/review/audit", label: "Audit trail", layer: "audit" },
   { href: "/review/lineage", label: "Lineage trace", layer: "audit" },
 ];
