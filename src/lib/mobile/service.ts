@@ -39,6 +39,7 @@ import { getSavedCalmPlace } from "../session-focus";
 import { shadowDecide } from "../safety/decide";
 import { generateProgramPlan } from "../program-plan";
 import { encryptField } from "../crypto";
+import { createAlert } from "../clinical/alert-create";
 
 // ---------- shared shapes (the mobile API contract) ----------
 
@@ -81,24 +82,6 @@ export interface GatingSnapshot {
   nextStep: string;                    // subscribe|consent|screener|...|ready
   todayCheckin: { date: string; action: string } | null;
   calmPlace: string | null;            // saved calm-place word, so the phone can restore it
-}
-
-// ---------- alerts (mirrors the private createAlert in lib/actions.ts) ----------
-
-async function createAlert(args: {
-  userId: string;
-  type: string;
-  severity: "urgent" | "high" | "moderate" | "info";
-  detail: string;
-}) {
-  const c = await data();
-  await c.run("INSERT INTO alerts (id, user_id, alert_type, severity, detail) VALUES (?, ?, ?, ?, ?)", [
-    newId(),
-    args.userId,
-    args.type,
-    args.severity,
-    args.detail,
-  ]);
 }
 
 // ---------- auth ----------
