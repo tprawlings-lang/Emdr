@@ -9,6 +9,7 @@ import { PersonShell } from "@/components/clinical/PersonShell";
 import { Panel, Note, WithNote, Callout } from "@/components/app/surfaces";
 import { ThoughtsWorkspace } from "@/components/clinical/ThoughtsWorkspace";
 import { thoughtsSurfaceAvailable } from "@/lib/clinical/thoughts-flags";
+import { AskSteady } from "@/components/clinical/AskSteady";
 import {
   listThoughts, transcriptVersions, sessionForPerson,
 } from "@/lib/clinical/thought-store";
@@ -143,6 +144,7 @@ export default async function MemberThoughtsPage({
   const available = thoughtsSurfaceAvailable("CLINICIAN_THOUGHTS_CAPTURE");
   const threadsAvailable = thoughtsSurfaceAvailable("CLINICIAN_THREADS");
   const extractionAvailable = thoughtsSurfaceAvailable("CLINICIAN_THOUGHTS_EXTRACTION");
+  const askAvailable = thoughtsSurfaceAvailable("CLINICIAN_PATIENT_ASK");
   const thoughts = available ? await listThoughts(ctx, id) : [];
 
   const threadView = threadsAvailable
@@ -216,6 +218,18 @@ export default async function MemberThoughtsPage({
         </Callout>
       ) : (
         <>
+          {/* §12 asks for the query box in "the patient workspace or
+              Thoughts/Threads view". It goes here, above the recorder, because
+              this is where the material it searches was written — a clinician
+              looking for what they wrote is already on this page, and a box on
+              the record overview would search the same records from further
+              away from them. */}
+          {askAvailable && (
+            <div className="mb-6">
+              <AskSteady personId={id} />
+            </div>
+          )}
+
           <WithNote
             note={
               <Note

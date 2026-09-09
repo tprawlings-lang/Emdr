@@ -186,6 +186,34 @@ export const SESSION_PREP_COMPOSE = registerTask({
 // Three tasks with three different hard boundaries, and the boundaries are the
 // reason they are three entries rather than one "goals" task.
 
+// --- Phase 5: Ask Steady (Thoughts spec §12, §10). ----------------------
+//
+// REGISTERED AND UNUSED, DELIBERATELY. The answer that ships is assembled
+// deterministically: every claim is a record the clinician may read, quoted,
+// citing itself. Nothing is generated, so nothing can be generated wrongly.
+//
+// This entry exists because §12's hardest rule is about what a generator would
+// do to the answer if one were added — "if evidence is insufficient or
+// conflicting, say so; DO NOT SMOOTH CONFLICTING HISTORY INTO ONE ANSWER" —
+// and smoothing is precisely what a fluent model does with two records that
+// disagree. Registering the task now fixes the boundary before anything is
+// behind it: it may reword an answer that has already been composed and
+// validated, and the validator runs again afterwards against the same
+// authorized evidence set, so it cannot introduce a claim or a citation. The
+// conflict detection happens in code, before composition, and a rewording pass
+// never sees a decision to make about it.
+export const PATIENT_QUERY_ANSWER = registerTask({
+  id: "clinician.patient_query.answer",
+  version: "1.0.0",
+  purpose:
+    "Rewords an already-composed, already-cited answer about one patient. Cannot introduce a claim, a citation, or reconcile two records that disagree.",
+  model: process.env.EMDR_ASK_MODEL ?? "claude-opus-4-8",
+  maxTokens: 900,
+  phi: "protected-in-hashed-provenance",
+  // The deterministic answer IS what ships today.
+  fallback: "deterministic",
+});
+
 export const GOAL_DRAFT_LADDER = registerTask({
   id: "return_goal.draft_ladder",
   version: "1.0.0",

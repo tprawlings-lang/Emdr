@@ -66,6 +66,11 @@ const DEMO_ENABLED: ReadonlySet<ThoughtsFlag> = new Set([
   "CLINICIAN_THOUGHTS_EXTRACTION",
   "CLINICIAN_THREADS",
   "CLINICIAN_SESSION_PREP",
+  // Ask Steady joined when Phase 5 landed, on the same terms as the four above:
+  // the surface has retrieval, an answer with its sources, and the
+  // conflicting-evidence behaviour §12 requires. Phase 6 is still absent, for
+  // the reason the phases after a built one always are.
+  "CLINICIAN_PATIENT_ASK",
 ]);
 
 /** Off unless explicitly set to "1", except where demo enables it above.
