@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { MemberDay, DayShape } from "@/lib/member/view";
 import { DAY_MESSAGE, horizonPosition } from "@/lib/member/view";
+import { HORIZON_REVIEW, mayShowToMember } from "@/lib/clinical/clinical-review-gate";
 
 // The member's day (Presentation Layer Handoff §4, §7, §8).
 //
@@ -35,11 +36,19 @@ import { DAY_MESSAGE, horizonPosition } from "@/lib/member/view";
  *  chart and violates Vol 2. There is no prop here that takes a date range, and
  *  that absence is the design rather than an oversight.
  *
- *  Open question the handoff raises and I have not resolved: whether any
- *  persistent state indicator reads as a covert score to a clinical reviewer.
- *  It is worth putting in front of one — the answer is a clinical judgement,
- *  not a design preference. */
+ *  HELD PENDING THAT REVIEW (§11, decided 2026-09-09). The open question above
+ *  was resolved by deciding how to carry it rather than by answering it: this
+ *  renders nothing until a moderated clinical review is recorded with a name
+ *  and an evidence location. §11's instruction is "remove it if it reads as a
+ *  covert score", and nobody here can say whether it does — a member seeing it
+ *  while that is unknown is the outcome the instruction rules out. The element
+ *  and its position maths stay whole and tested, so clearing the review is a
+ *  one-line change and so is removal.
+ *
+ *  The day's SHAPE is unaffected. It still decides what is offered and what is
+ *  said; what is withheld is only the persistent visual position. */
 export function Horizon({ shape }: { shape: DayShape }) {
+  if (!mayShowToMember(HORIZON_REVIEW)) return null;
   const at = horizonPosition(shape);
   return (
     <div

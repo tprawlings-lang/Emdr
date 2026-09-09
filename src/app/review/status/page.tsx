@@ -24,6 +24,7 @@ import {
 } from "@/lib/app/route-register";
 import { MEMBER_SCORE_EXCEPTION } from "@/lib/experience/member-projection";
 import { AWAITING_CLINICAL_REVIEW, mayEnterTaskQueue } from "@/lib/clinical/clinical-review-gate";
+import { SECTION_11_DECISIONS, stillOpen } from "@/lib/experience/open-decisions";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Service status — Steady Review" };
@@ -173,6 +174,34 @@ export default async function ReviewStatusPage() {
               </li>
             ))}
           </ul>
+        </Panel>
+
+        <Panel
+          title="Decisions that were the product owner's"
+          footnote="The live specification lists questions it deliberately refuses to answer for itself. This is what was decided, when, and where each answer lives as behaviour — so the next reader finds one list rather than four."
+        >
+          <p className="measure text-sm text-ground">
+            {stillOpen().length === 0
+              ? "All of them are answered. An answer here is a position somebody took on a date, not a fact the code discovered — and two of the four turned straight into behaviour, which is why each one names where it lives."
+              : `${stillOpen().length} of these are still open. Work that depends on them is not started.`}
+          </p>
+          <dl className="mt-3">
+            {SECTION_11_DECISIONS.map((d) => (
+              <div
+                key={d.id}
+                className="grid grid-cols-[1fr_auto] items-baseline gap-x-3 border-b border-ground/5 py-2.5"
+              >
+                <dt className="measure text-sm text-ground">{d.question}</dt>
+                <dd className="text-xs text-olive">
+                  {d.state === "decided" ? d.decidedOn : "open"}
+                </dd>
+                <dd className="col-span-2">
+                  <p className="measure mt-1 text-sm text-app-ink">{d.answer}</p>
+                  <p className="measure mt-1 font-mono text-[11px] text-olive">{d.where}</p>
+                </dd>
+              </div>
+            ))}
+          </dl>
         </Panel>
 
         <Panel

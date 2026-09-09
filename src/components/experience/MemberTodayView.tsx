@@ -43,6 +43,24 @@ export function MemberTodayView({ day }: { day: MemberDayView }) {
       {/* One orienting sentence. Not three. */}
       <p className="measure text-lg leading-relaxed text-ground">{day.orientingSentence}</p>
 
+      {/* §11's paused-state answer, and only on a paused day. It sits directly
+          under the orienting sentence rather than at the foot of the screen,
+          because "when does this lift" is the question a person on hold is
+          already asking — putting the answer below the tools makes them scroll
+          past the absence to find it.
+
+          Quieter than the sentence above it, and not a card. A bordered panel
+          would read as an alert about a problem, and the whole point is that
+          this is not one. */}
+      {day.reopens && (
+        <p data-testid="reopens" data-reopens-kind={day.reopens.kind} className="measure text-ground/80">
+          {day.reopens.sentence}
+          {day.reopens.at && (
+            <span className="mt-1 block text-olive">{onDay(day.reopens.at)}</span>
+          )}
+        </p>
+      )}
+
       {day.recommended ? (
         <section
           className={`rounded-3xl p-6 shadow-soft sm:p-7 ${

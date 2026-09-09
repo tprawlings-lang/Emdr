@@ -79,11 +79,59 @@ export const DAY_STATE_COPY: Record<DayState, string> = {
  *   diagnose connectivity." And it does not read as an empty day: an open day
  *   with nothing in it and a day Steady could not read are different sentences.
  */
+/**
+ * What ends a pause, said to the member (§11's paused-state retention).
+ *
+ * §11 flags this as the highest churn risk in the product: "A member under a
+ * 0–90 day exclusion faces weeks with no practice available." The paused day
+ * said processing was on hold and named a human, and said nothing at all about
+ * when it lifts — so a person facing weeks of it could not see an end, only an
+ * absence.
+ *
+ * DECIDED 2026-09-09: say when it lifts and what happens then. The hard part is
+ * saying it without leaking WHY, because the day model reads the gate's reasons
+ * to pick a shape and then discards them precisely so no surface can render one
+ * (§2: "if narrowing reads as 'you failed the check', you produce shame in a
+ * population where shame is the presenting problem").
+ *
+ * So there are three answers and no fourth, and which one applies is decided by
+ * what is actually knowable rather than by what would be reassuring:
+ *
+ *   `at`        — a real time the pause is next reconsidered, when one exists.
+ *                 The 24-hour pacing cooldowns have one.
+ *   `person`    — nothing expires on its own; a person reopens it. This is the
+ *                 honest answer for a clinical exclusion, and it is a better
+ *                 one than a date, because a date nobody is bound by is a
+ *                 promise the product cannot keep.
+ *   `unknown`   — the surface could not establish either. Says so plainly
+ *                 rather than implying the first or the second.
+ *
+ * None of the three names a reason, a criterion, or a threshold.
+ */
+export const REOPENS_KINDS = ["at", "person", "unknown"] as const;
+export type ReopensKind = (typeof REOPENS_KINDS)[number];
+
+export type Reopens =
+  | { kind: "at"; at: string }
+  | { kind: "person" }
+  | { kind: "unknown" };
+
+export const REOPENS_COPY: Record<ReopensKind, string> = {
+  at: "day.paused.reopens_at.v1",
+  person: "day.paused.reopens_person.v1",
+  unknown: "day.paused.reopens_unknown.v1",
+};
+
 export const DAY_STATE_MESSAGE: Record<string, string> = {
   "day.open.v1": "Everything is open today. Start wherever you like.",
   "day.narrow.v1": "Today is a grounding day. These are the practices for it.",
   "day.stabilizing.v1": "Today is for steadying. These practices are here whenever you want them.",
   "day.paused.v1": "Processing work is on hold for now. Grounding and support stay open, and someone can help you pick this back up.",
+  // §11's paused-state retention. Each says when it lifts and what happens
+  // then; none says why it started.
+  "day.paused.reopens_at.v1": "This opens again on its own. Nothing is required from you in the meantime, and grounding and support stay open until it does.",
+  "day.paused.reopens_person.v1": "This does not expire on a timer — your care team reopens it, and you can ask them about it whenever you want. Grounding and support stay open until then.",
+  "day.paused.reopens_unknown.v1": "Steady could not check when this reopens. Your care team can tell you, and grounding and support stay open either way.",
   "day.crisis.v1": "Support is what matters right now.",
   "day.interrupted.v1": "You were part-way through something. You can pick it up, or leave it — either is fine.",
   "day.service_unavailable.v1": "Steady cannot load your day right now. Grounding and support do not need it and are open below.",
@@ -183,11 +231,35 @@ export interface MemberDayView {
   /** §4.1: "Recent activity shown quietly. No streaks, no missed-day
    *  penalties, no progress percentages, no withheld-card counts." */
   recent: Array<{ kind: string; occurredAt: string }>;
+  /** §11's paused-state answer: when this lifts, and what happens then. Null on
+   *  every state but `paused` — a day that is not on hold has nothing to
+   *  reopen, and rendering the sentence anyway would invent a hold. */
+  reopens: { kind: ReopensKind; sentence: string; at: string | null } | null;
   groundHref: string;
   crisisHref: string;
   supportHref: string;
   schemaVersion: string;
   generatedAt: string;
+}
+
+/**
+ * The paused day's "when does this lift" line.
+ *
+ * ONLY ON A PAUSED DAY. A stabilizing day still has work available and a narrow
+ * one is not on hold; telling either that something will reopen describes a
+ * hold that is not happening.
+ */
+export function reopensLine(
+  state: DayState,
+  reopens: Reopens | null
+): { kind: ReopensKind; sentence: string; at: string | null } | null {
+  if (state !== "paused") return null;
+  const r = reopens ?? { kind: "unknown" as const };
+  return {
+    kind: r.kind,
+    sentence: DAY_STATE_MESSAGE[REOPENS_COPY[r.kind]],
+    at: r.kind === "at" ? r.at : null,
+  };
 }
 
 /** §4.2's member treatment, in one line per state, for the reader rather than
@@ -227,6 +299,10 @@ export function memberDayView(args: {
   /** An activity the member left unfinished, if the surface knows of one. */
   interrupted?: { activityId: string; title: string; resumeHref: string } | null;
   recent?: Array<{ kind: string; occurredAt: string }>;
+  /** When a paused day next reopens, where the caller can establish it
+   *  honestly. Omitted is not the same as `unknown` being wrong — it IS
+   *  unknown, and the copy says so rather than guessing. */
+  reopens?: Reopens | null;
   now: string;
 }): MemberDayView {
   const state = deriveState(args.day, args.interrupted ?? null);
@@ -251,6 +327,7 @@ export function memberDayView(args: {
       })),
     // Quietly, and never counted into a run.
     recent: (args.recent ?? []).slice(0, 3),
+    reopens: reopensLine(state, args.reopens ?? null),
     groundHref: "/app/ground",
     crisisHref: "/crisis",
     supportHref: "/crisis",
