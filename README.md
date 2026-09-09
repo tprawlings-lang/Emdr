@@ -13,50 +13,67 @@
 
 ---
 
-# ▶ RESUME HERE — session handoff, 2026-09-03
+# ▶ RESUME HERE — session handoff, 2026-09-09
 
 **This block is written for a fresh context window.** It is the shortest path from "I have
 just opened this repository" to "I am doing the next useful thing."
 
-**Handoff 06's screen atlas is complete — 80 of 80 screens, 22 of 22 charts.** The last
-four were the review console's deciding screens (`/review/access`, `/review/clinical`,
-`/review/release`, `/review/research`); what they needed and how the decision record works
-is in the **GUI launch** section immediately below. What remains of handoff 06 is the
-non-screen material in §§30–31.
+> **Prefer the register over this block.** [`src/lib/app/route-register.ts`](src/lib/app/route-register.ts)
+> is the machine-checked statement of what works: every route, its audience, its job, and
+> whether it is working, unavailable or a redirect — with a test that fails the build when
+> it stops describing the product. This block is prose and can go stale. It did: the
+> version before this one said the Clinical Intelligence Expansion "has not started" when
+> all five of its handoffs were complete, and did not mention handoff 09 at all.
 
-**Handoff 07 has started.** **Waves 1–5 are done**: six demo roles with one account and one
-password each and the organization/payer boundary enforced rather than commented; the
-240-profile population, 60 per U.S. Census region across eight demo organizations,
-transcribed from the handoff rather than generated; and six months of deterministic history
-for each of them — two independent resets produce the identical baseline hash, and replay
-rebuilds 19,736 events byte-identically with zero gaps; and six role projections over that
-one ledger, where the clinician's numbers and the organization's are checked to be equal
-rather than merely similar; and a ten-metric dictionary with a cohort registry, whose
-arithmetic is checked against hand calculations written out in the tests rather than against
-itself. **All demo logins are in
+**Handoff 09 (Unified Product Experience) is the live specification.** It governs
+navigation, experience, the visual system and sequencing, and supersedes handoff 08 Rev 2
+and the Astra review for those decisions. It changes no safety authority, no clinical
+threshold, no tenancy boundary and no release gate. Its work is organised as nine packages:
+
+| Package | What | State |
+|---|---|---|
+| 0 | Reconcile and freeze — the route register | **Done** |
+| 1 | Experience contracts | **Done** |
+| 2 | Clinician shell | **Done** |
+| 3 | Member activity shell and interruption states | **Done** |
+| 4 | Demo director and named scenarios | **Done** |
+| 5 | Aggregate scope and evidence | **Done** |
+| 6 | Reviewer decision flow and investor scenario | **Done** |
+| 7 | Cross-role quality | Open — §10 says it runs alongside every package and closes at the end, not as a cleanup sprint |
+| 8 | Validation and release | Open — **needs human participants**, four of five per audience |
+
+**The two earlier programs are complete.** Handoff 06's screen atlas is 80 of 80 screens and
+22 of 22 charts; what remains of it is the non-screen material in §§30–31. The **Clinical
+Intelligence Expansion** — return-to-life goals, treatment-response fingerprint,
+between-visit command centre, recovery trajectory, therapeutic load and readiness — is
+**done, all five handoffs**. Therapeutic Load's own clinical review, required by handoff 09
+§10.1 before its states are exposed outside this environment, is outstanding and cannot be
+closed in code.
+
+**Handoff 07 is at Wave 7.** Waves 0–6 are done: six demo roles with one account each and
+the organization/payer boundary enforced rather than commented; a 240-profile population,
+60 per U.S. Census region across eight demo organizations; six months of deterministic
+history where two independent resets produce the identical baseline hash; six role
+projections over one ledger; a ten-metric dictionary with a cohort registry; and the seven
+planning rules with their eight-state review machine. **All demo logins are in
 [`docs/demo/demo-logins.md`](docs/demo/demo-logins.md)** — start there to sign in as
-anyone. **Wave 6 (the seven planning rules and the eight-state review machine) is also
-done.** What is open is **Wave 7** — fairness controls, the audit screen and the
-model-registry shell — and the rest of **Wave 8**: the control centre, nightly reset and
-scenario scripts. The demo clock itself is built. The
-specification is
-[`docs/handoffs/07-demo-login-synthetic-population-and-planning-engine.pdf`](docs/handoffs/07-demo-login-synthetic-population-and-planning-engine.pdf)
-and the plan — including its Wave 0 gap list, the eleven subsystems it must **reuse rather
-than rebuild**, and five decisions the PDF leaves open — is
-[`docs/handoffs/07-PLAN.md`](docs/handoffs/07-PLAN.md). Read the plan before the PDF.
+anyone. Open: **Wave 7** — fairness controls, the audit screen and the model-registry
+shell. Wave 8's demo control centre and scenario scripts were largely built by handoff 09
+Package 4 and want re-checking against the PDF rather than rebuilding.
 
-**A second program is waiting and has not started.** `docs/handoffs/` now holds a separate
-five-handoff series, the **Clinical Intelligence Expansion** — return-to-life goals, a
-treatment-response fingerprint, a between-visit command centre, a recovery trajectory, and
-therapeutic load and readiness. Its numbering restarts at 01, so read filename prefixes
-rather than numbers. Its order is load-bearing and its stated prerequisite is the Clinician
-Thoughts spec v2.1. **Phases 0–4 of that spec are built** — capture, transcript,
-extraction, candidate items, the review cards, the atomic Save Thoughts command, and
+**The Clinician Thoughts spec v2.1 is at Phase 5.** Phases 0–4 are built — capture,
+transcript, extraction, candidate items, review cards, the atomic Save Thoughts command,
 longitudinal threads with their Connect / Not related decisions, and the evidence-bound
-Session Prep brief — so approved clinical memory, the threads over it and the pre-session
-brief that reads them all exist for the expansion to consume. Phase 5 (Ask Steady) is open. The folder also contains `future-platform-intelligence/`, which is marked
-**PARKED / DO NOT IMPLEMENT** — it is a future program, not scope. Status table for both is
-in [`docs/handoffs/README.md`](docs/handoffs/README.md).
+Session Prep brief. Notes now attach to the session they came from. **Phase 5 (Ask Steady)
+is the one remaining phase.**
+
+**`docs/handoffs/future-platform-intelligence/` is PARKED / DO NOT IMPLEMENT.** A future
+program, not scope.
+
+**Decisions that are the product owner's, not the build's.** Handoff 09 §11 lists them;
+four were due in Package 3 and are still open: the horizon indicator's moderated clinical
+review, AI companion placement, paused-state retention, and referral export assembly. The
+referral export is explicitly **not to be built** until the last of those is answered.
 
 ## Read these, in this order
 
@@ -66,13 +83,17 @@ is the index and states which are done.
 
 | Read | Why |
 |---|---|
-| 1. This block, then **GUI launch** below | Names the live job, what is left of it, and the page in the handoff that specifies each remaining item |
-| 2. **[Handoff 06, §24–§31 (pp. 37–101)](docs/handoffs/06-web-gui-analytics-and-clinical-presentation.pdf)** | **The live specification.** The coding annex. Section-to-page map is in GUI launch below |
+| 1. This block, then [`src/lib/app/route-register.ts`](src/lib/app/route-register.ts) | The live job, and the machine-checked statement of what actually works |
+| 2. **Handoff 09 (Unified Product Experience)** | **The live specification** for navigation, experience, the visual system and sequencing. §10 is the package order; §11 is the list of decisions that are the product owner's |
 | 3. [`docs/site/gui-decisions.md`](docs/site/gui-decisions.md) | Two deliberate reversals of handoff 04 and how to undo each. Read before changing a member or clinical surface |
-| 4. [`docs/site/presentation-layer.md`](docs/site/presentation-layer.md) | What handoff 04 produced and *why* each rule exists |
-| 5. [`docs/handoffs/07-PLAN.md`](docs/handoffs/07-PLAN.md) | **The next job after GUI launch.** Its Wave 0 gap list, what to reuse, and the decisions already made |
+| 4. **[Handoff 06, §24–§31](docs/handoffs/06-web-gui-analytics-and-clinical-presentation.pdf)** | The coding annex — screens and charts. Its atlas is complete; read it when working inside an existing screen |
+| 5. [`docs/site/presentation-layer.md`](docs/site/presentation-layer.md) | What handoff 04 produced and *why* each rule exists |
+| 6. [`docs/handoffs/07-PLAN.md`](docs/handoffs/07-PLAN.md) | Read before any demo-login, synthetic-population or planning work. Its Wave 0 gap list, what to reuse, and five decisions the PDF leaves open |
 
-Do not read the handoffs front to back. They layer, they are long, and only 06 is live.
+Do not read the handoffs front to back. They layer, they are long, and **09 is the live one**
+for anything about how the product presents itself. Where a later handoff contradicts an
+earlier one the later wins, and where either is stricter on safety, privacy, evidence or
+denominators the stricter one controls.
 
 **Open the drawn pages before writing a screen.** The first pass at handoff 06 was built
 from its text alone and did not resemble it. Pages 54–73 and 76–83 are the examples.
@@ -688,9 +709,23 @@ does not certify it. `tests/bls-visual.test.ts` holds all of the above, includin
 reversal did not enable autonomous reprocessing — `autonomousStimulationEnabled` is still
 `false`.
 
-## ▶ THE NEXT THING: §6, the session state machine
+## §6, the session state machine — reconciled 2026-09-09
 
-Everything else in the handoff is done. §6 is not started.
+This section was headed "▶ THE NEXT THING" and said §6 was not started. It had not been
+re-read since 2026-08-28, and handoff 09 Packages 3–5 built across the same ground under a
+different vocabulary. Re-checked line by line, **§6 is largely built**: the domain machine
+is `SessionPhase` in `src/lib/safety/session.ts`, the player renders it under its own phase
+names, and §6's `technical_interruption → recovery` — the part the section below calls out
+as the hardest — was built in Package 3 as the member day's `interrupted` state plus
+`resumeDecision`, which refuses a resume when the gate has since closed. That is exactly
+§6's "respects any safety state that fired before the drop".
+
+**What is genuinely still open** is two single-screen questions inside `SessionPlayer`: the
+explicit confirmation beat on `authorized → set_active`, and whether
+`post_set_reassessment` ever shows the member their previous answer. The full table is in
+[`docs/site/presentation-layer.md`](docs/site/presentation-layer.md).
+
+The scope evidence below is kept because its root-cause finding is still useful reading.
 
 **Scope evidence, gathered 2026-08-28.** The guided flow runs on neither the session reducer
 nor the safety engine — it re-derives its own state from raw profile fields. That is the
