@@ -2,6 +2,9 @@ import crypto from "crypto";
 import { data } from "@/lib/data";
 import { audit } from "@/lib/audit";
 import { SMALL_CELL } from "@/components/charts/aggregate";
+import {
+  supersedeEarlier, openDownloadWindow, EXPORT_STATES, type ExportState,
+} from "./export-job";
 
 // Governed export (§29.1's export rule, §30.4's POST /exports, §31.4's export
 // row).
@@ -208,6 +211,22 @@ export async function createExport(req: ExportRequest): Promise<ExportResult> {
     ],
   );
 
+  // Handoff 09 §6, Package 5: "Export is a job, not a button… expired, failed,
+  // and superseded outputs identified."
+  //
+  // ORDER MATTERS AND IT IS THIS WAY ROUND. The new row is written first, then
+  // earlier exports of the SAME filter are marked superseded, then the download
+  // window opens on the new one. Superseding first would leave a moment with no
+  // current export of that filter; opening the window first would leave a
+  // moment where two are downloadable and both claim to be current.
+  await supersedeEarlier({
+    tenantId: req.tenantId,
+    surface: req.surface,
+    filterHash,
+    newJobId: id,
+  });
+  await openDownloadWindow(id);
+
   return {
     id,
     filename: `steady-${req.surface.replace(/[^a-z0-9]+/gi, "-")}-${createdAt.slice(0, 10)}.csv`,
@@ -233,6 +252,13 @@ export interface ExportRecord {
   contentHash: string;
   createdAt: string;
   requestedByName: string | null;
+  /** Handoff 09 §6: expired, failed and superseded outputs are IDENTIFIED.
+   *  A history that renders every row alike tells a reviewer the wrong file
+   *  is the current one. */
+  state: ExportState;
+  expiresAt: string | null;
+  downloadCount: number;
+  lastDownloadedAt: string | null;
 }
 
 /** The export history for a tenant. This IS the audit surface for exports:
@@ -241,7 +267,8 @@ export async function listExports(tenantId: string, limit = 20): Promise<ExportR
   const c = await data();
   const rows = (await c.all(
     `SELECT e.id, e.purpose, e.surface, e.cohort_version, e.filter_hash, e.row_count,
-            e.suppressed_cells, e.content_hash, e.created_at, u.name AS requested_by_name
+            e.suppressed_cells, e.content_hash, e.created_at, u.name AS requested_by_name,
+            e.state, e.expires_at, e.download_count, e.last_downloaded_at
        FROM export_jobs e
        LEFT JOIN users u ON u.id = e.requested_by
       WHERE e.tenant_id = ?
@@ -260,6 +287,15 @@ export async function listExports(tenantId: string, limit = 20): Promise<ExportR
     contentHash: String(r.content_hash),
     createdAt: String(r.created_at),
     requestedByName: r.requested_by_name ? String(r.requested_by_name) : null,
+    // Defaulted rather than assumed: rows written before the lifecycle
+    // existed were created synchronously and succeeded, so "ready" is their
+    // true state — see the ensureColumn note in db.ts.
+    state: (EXPORT_STATES as readonly string[]).includes(String(r.state))
+      ? (String(r.state) as ExportState)
+      : "ready",
+    expiresAt: r.expires_at ? String(r.expires_at) : null,
+    downloadCount: Number(r.download_count ?? 0),
+    lastDownloadedAt: r.last_downloaded_at ? String(r.last_downloaded_at) : null,
   }));
 }
 

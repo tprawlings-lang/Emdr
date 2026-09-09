@@ -1,5 +1,6 @@
 import { Panel } from "@/components/app/surfaces";
 import type { ExportRecord } from "@/lib/intelligence/export";
+import { STATE_LABEL, STATE_NOTE } from "@/lib/intelligence/export-job";
 
 // The export control, shared by both aggregate consoles.
 //
@@ -121,13 +122,41 @@ export function ExportPanel({
             {history.map((h) => (
               <li key={h.id} className="py-3">
                 <div className="flex flex-wrap items-baseline justify-between gap-2">
-                  <span className="text-sm font-medium text-ground">{h.surface}</span>
+                  <span className="flex flex-wrap items-baseline gap-2">
+                    <span className="text-sm font-medium text-ground">{h.surface}</span>
+                    {/* Handoff 09 §6: "expired, failed, and superseded outputs
+                        identified." Three different reasons a file is not
+                        available, and a history that renders every row alike
+                        tells a reviewer the wrong file is the current one. */}
+                    <span
+                      className={`rounded-full px-2 py-0.5 text-xs font-medium ${
+                        h.state === "ready" || h.state === "downloaded"
+                          ? "bg-app-accent text-app-ink"
+                          : h.state === "failed"
+                            ? "bg-state-support-bg text-ground"
+                            : "bg-state-caution-bg text-ground"
+                      }`}
+                      title={STATE_NOTE[h.state]}
+                    >
+                      {STATE_LABEL[h.state]}
+                    </span>
+                  </span>
                   <span className="text-xs text-olive">{h.createdAt}</span>
                 </div>
                 <p className="measure mt-1 text-sm text-ground">{h.purpose}</p>
                 <p className="mt-1 font-mono text-xs text-olive">
                   {h.requestedByName ?? "unknown"} · filter {h.filterHash} · {h.rowCount} rows
                   {h.suppressedCells > 0 && ` · ${h.suppressedCells} suppressed`}
+                </p>
+                {/* Every download counted. §6: "Browser success is not a
+                    disclosure audit record" — so the count is the server's,
+                    and a file handed over four times is four disclosures. */}
+                <p className="mt-0.5 text-xs text-olive">
+                  {h.downloadCount === 0
+                    ? "Not downloaded"
+                    : `Downloaded ${h.downloadCount} ${h.downloadCount === 1 ? "time" : "times"}` +
+                      (h.lastDownloadedAt ? `, last on ${h.lastDownloadedAt.slice(0, 10)}` : "")}
+                  {h.state === "ready" && h.expiresAt && ` · downloadable until ${h.expiresAt.slice(0, 10)}`}
                 </p>
               </li>
             ))}

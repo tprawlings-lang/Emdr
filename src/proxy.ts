@@ -56,6 +56,24 @@ export function proxy(request: NextRequest) {
 
   const requestHeaders = new Headers(request.headers);
   requestHeaders.set("x-nonce", nonce);
+  // The request's own path and query, for server components that need them
+  // and are not pages (handoff 09 §6, Package 5).
+  //
+  // WHY THIS IS NOT A PAGE PROP. §6 requires the scope strip to be "carried
+  // into every drilldown" — organization, period and data freshness together,
+  // on every aggregate route. Next.js hands `searchParams` to pages only, so
+  // the alternative was threading a prop through twenty-three page components,
+  // and "carried into every drilldown" would then be true exactly as long as
+  // nobody adds a twenty-fourth. Reading it in the shell makes it a property
+  // of the frame.
+  //
+  // READ-ONLY AND NON-AUTHORITATIVE. Nothing decides access from these: the
+  // scope resolver takes the organization from the caller's resolved tenant
+  // and only ever reads the PERIOD from here, because a console that let a
+  // query parameter choose the population would be a cross-tenant read with a
+  // parameter for a key.
+  requestHeaders.set("x-pathname", request.nextUrl.pathname);
+  requestHeaders.set("x-search", request.nextUrl.search);
   // Setting the CSP on the *request* headers is what makes Next.js apply the
   // nonce to the scripts it renders.
   requestHeaders.set("content-security-policy", csp);
