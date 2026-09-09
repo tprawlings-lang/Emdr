@@ -1,6 +1,8 @@
 import { AppShell } from "@/components/app/AppShell";
 import { Panel, Note, WithNote, SummaryCards } from "@/components/app/surfaces";
 import { requireDemoAdmin } from "@/lib/auth";
+import { NewPatient } from "@/components/demo/NewPatient";
+import { assignableClinicians } from "@/lib/demo/new-patient-store";
 import { logout } from "@/lib/actions";
 import { DEMO_ROLES } from "@/lib/roles";
 import { data } from "@/lib/data";
@@ -156,6 +158,18 @@ export default async function AdminDemoPage() {
             </dl>
           </Panel>
         </WithNote>
+
+        {/* Creating a patient from nothing, which the seeded population cannot
+            do. The seed writes the OUTCOME of onboarding — the same cast, the
+            same history, every reset — so nobody in it has ever answered the
+            fitness screener, worked through 59 baseline items, or arrived in a
+            caseload as somebody new. */}
+        <Panel
+          title="Create a new patient"
+          footnote="A fabricated person, taken as far through onboarding as you choose, in this tenant — which is what puts them in the clinician's caseload. Everything is written through the same functions a member's own answers go through, so the result is a state the product can actually produce."
+        >
+          <NewPatient clinicians={await assignableClinicians()} />
+        </Panel>
 
         <Panel
           title="Data quality"
