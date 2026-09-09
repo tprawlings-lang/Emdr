@@ -118,7 +118,24 @@ export function ThoughtRecorder({
       setError("Steady could not reach your microphone. Check your browser's permissions.");
       setPhase("error");
     }
-  }, [personId]);
+    // `sourceSession?.id` IS IN HERE BECAUSE IT IS THE FAILURE MODE. The
+    // callback closes over the session it will attach the note to, and a
+    // dependency array missing it captures whichever session was in scope when
+    // the component first mounted. On a screen that can move between sessions
+    // — the session-response route does, via soft navigation — that means a
+    // note recorded after the move is stamped with the session before it. The
+    // server verifies the id against the PERSON, which is the same person, so
+    // nothing refuses it: the note is filed, correctly attributed to a human,
+    // and attached to the wrong session. Exactly the mislabel the whole
+    // session-linked-notes change exists to remove, reintroduced one layer up.
+    //
+    // THE WHOLE OBJECT, not `sourceSession?.id`. Naming the field is more
+    // precise and the React Compiler refuses it — it infers `sourceSession`
+    // and will not optimize a component whose manual dependencies are narrower
+    // than what it derived, because the two disagree about when the value
+    // changes. The prop arrives from a server component and is a fresh object
+    // each render either way, so nothing is lost.
+  }, [personId, sourceSession]);
 
   const pause = useCallback(() => {
     if (!recorderRef.current || phase !== "recording") return;

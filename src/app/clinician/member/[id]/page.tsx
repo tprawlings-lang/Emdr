@@ -32,7 +32,7 @@ import { loadPersonHeader } from "@/lib/clinical/person-header";
 import { MODULES } from "@/lib/modules";
 import { WorkQueueRow } from "@/components/clinical/WorkQueueRow";
 import {
-  PriorityBadge, FreshnessLabel, OwnerChip, ReviewBadge, EmptyState,
+  ReviewBadge, EmptyState,
 } from "@/components/clinical/primitives";
 
 // Person overview (GUI and Decision-Surface Handoff §10.4).
@@ -77,7 +77,7 @@ export default async function PersonOverviewPage({
   if (!personHeader) notFound();
 
   const policy = activePolicy();
-  const [queue, timeline, consent] = await Promise.all([
+  const [queue, timeline] = await Promise.all([
     buildWorkQueue({ clinicianId: clinician.id, tenantId, policy }),
     memberTimeline(person.id, { policy }),
     // Revoked consent must not read as consent, so revoked_at is filtered

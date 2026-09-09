@@ -1646,7 +1646,6 @@ export async function grantProcessingConsent(): Promise<void> {
 
 export async function revokeProcessingConsent(): Promise<void> {
   const user = await requireMember();
-  const c = await data();
   await spineWithdrawConsent({ userId: user.id, scope: "processing_session" });
   await audit({ actorId: user.id, actorRole: "member", family: "consent", type: "processing_consent_revoked", detail: { scope: "processing_session" } });
   revalidatePath("/app/settings/sessions");
@@ -1722,7 +1721,6 @@ export async function recordResourcingEvent(event: "start" | "stop" | "closed"):
 // active voice consents are revoked; the mic path stops being offered at once.
 export async function withdrawVoiceConsent(): Promise<void> {
   const user = await requireMember();
-  const c = await data();
   await spineWithdrawConsent({ userId: user.id, scope: "voice_biometric" });
   await audit({
     actorId: user.id,

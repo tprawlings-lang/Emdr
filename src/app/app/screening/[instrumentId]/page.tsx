@@ -2,7 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { requireMember } from "@/lib/auth";
 import { MemberPage } from "@/components/member/MemberPage";
-import { gatePosition, GATE_COPY, completedAnswers, clearProgress } from "@/lib/member/gate";
+import { gatePosition, GATE_COPY } from "@/lib/member/gate";
 import { answerGateItemAction, pauseGateAction } from "@/lib/member/gate-actions";
 import { finishGateAction } from "@/lib/member/gate-finish";
 import { buildMemberDay, DAY_MESSAGE } from "@/lib/member/view";

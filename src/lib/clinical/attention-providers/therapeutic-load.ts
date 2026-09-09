@@ -37,6 +37,7 @@ import {
   computeTherapeuticLoad, THERAPEUTIC_LOAD_POLICY,
   type LoadSnapshot,
 } from "../therapeutic-load";
+import { mayEnterTaskQueue, THERAPEUTIC_LOAD_REVIEW } from "../clinical-review-gate";
 
 /**
  * The two states that may become work, and the band each claims.
@@ -80,6 +81,23 @@ export const THERAPEUTIC_LOAD_PROVIDER: AttentionSignalProvider = registerProvid
   purpose:
     "Repeated recovery burden with thin evidence of tolerating it, or repeated favourable recovery worth a review. Never a safety state and never a treatment instruction.",
   async evaluate({ ctx, personId, evidenceCutoff }) {
+    // HELD UNTIL A CLINICAL REVIEW (handoff 09 §10.1). Therapeutic Load "may
+    // plug into the clinician task-provider contract AFTER its own clinical
+    // review" — the review that establishes a clinician may act on these
+    // readings. That review has not happened, and nothing in this repository
+    // records it. This provider was registered with no gate at all, so both
+    // states were reaching a clinician's queue as work while the ratifying
+    // review had not been done.
+    //
+    // The gate sits BEFORE the snapshot is computed: a held feature should not
+    // be doing the work either.
+    //
+    // The Load SCREEN is unaffected and deliberately so. §10.1 gates the
+    // task-provider contract — the thing that turns a reading into a row in
+    // somebody's queue — which is the difference between a clinician choosing
+    // to look and a clinician being told to.
+    if (!mayEnterTaskQueue(THERAPEUTIC_LOAD_REVIEW)) return [];
+
     const snapshot = await computeTherapeuticLoad(ctx, personId, { asOf: evidenceCutoff });
     return selectLoadSignals(snapshot);
   },

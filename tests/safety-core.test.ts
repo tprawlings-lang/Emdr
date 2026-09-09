@@ -6,7 +6,6 @@ import type { SafetyInputs } from "../src/lib/safety/types.ts";
 
 const NOW = 1_800_000_000_000; // fixed for determinism
 const HOUR = 3600 * 1000;
-const DAY = 24 * HOUR;
 
 // A fully-clear member: fresh safe check-in, steady track, nothing flagged.
 function clearInputs(): SafetyInputs {

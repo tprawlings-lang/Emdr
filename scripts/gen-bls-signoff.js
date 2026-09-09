@@ -10,7 +10,7 @@ const PAGE_W = 12240, PAGE_H = 15840;
 const CONTENT_W = 9360;
 const INK = "1F2933", MUTE = "5B6b7a", RULE = "9AA5B1";
 const HEADBG = "5A2A1F", HEADFG = "FFFFFF"; // warm clay for a distinct instrument
-const ZEBRA = "F5F0EC", FILLBLANK = "FFFDE7", REDBG = "FBE9E7";
+const ZEBRA = "F5F0EC", FILLBLANK = "FFFDE7";
 
 const REVIEWERS = [
   { name: "Rebecca Altschuler", title: "Licensed Psychologist", license: "Psychologist — PSY-005804 (Active, exp. 02/29/2028; no board actions)", juris: "Arizona (Phoenix)" },

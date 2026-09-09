@@ -2,7 +2,7 @@ const fs = require("fs");
 const {
   Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType,
   Table, TableRow, TableCell, WidthType, BorderStyle, ShadingType, PageBreak,
-  Header, Footer, PageNumber, LevelFormat,
+  Header, Footer, PageNumber,
 } = require("docx");
 
 const CFG_VERSION = "beta-clinrev-2026-07";
@@ -24,10 +24,6 @@ const ZEBRA = "F0F3F7", FILLBLANK = "FFFDE7", REDBG = "FBE9E7", AMBERBG = "FFF8E
 
 // ---- helpers -------------------------------------------------------------
 const noBorder = { style: BorderStyle.NONE, size: 0, color: "FFFFFF" };
-const cellBorders = () => {
-  const b = { style: BorderStyle.SINGLE, size: 4, color: RULE };
-  return { top: b, bottom: b, left: b, right: b };
-};
 function txt(text, o = {}) {
   return new TextRun({ text, font: "Calibri", size: o.size ?? 20, bold: o.bold, italics: o.italics, color: o.color ?? INK });
 }
@@ -67,12 +63,6 @@ function table(widths, rows) {
   });
 }
 const CHECK = "☐"; // ballot box
-function verdictRuns() {
-  return [
-    new TextRun({ text: CHECK + " Agree    ", font: "Calibri", size: 18 }),
-    new TextRun({ text: CHECK + " Needs-change", font: "Calibri", size: 18 }),
-  ];
-}
 function h(text, level) {
   return new Paragraph({
     heading: level, spacing: { before: 240, after: 120 },

@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { MemberPage } from "@/components/member/MemberPage";
 import { redirect } from "next/navigation";
 import { requireMember } from "@/lib/auth";

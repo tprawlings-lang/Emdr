@@ -40,7 +40,7 @@ import {
   TRANSITIONS, TRANSITION_LABEL,
   assertGrantsNothing, grantViolations, ScenarioError,
   begin, transition, resumable, position, stepsFor, shorterStory, actualMinutes,
-  type Scenario, type ScenarioProgress,
+  type ScenarioProgress,
 } from "../src/lib/experience/scenario";
 import { SCENARIOS, scenario, scenariosFor } from "../src/lib/demo/scenario-registry";
 import {
