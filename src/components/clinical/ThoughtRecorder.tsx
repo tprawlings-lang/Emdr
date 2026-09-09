@@ -43,11 +43,17 @@ function clock(ms: number): string {
 export function ThoughtRecorder({
   personId,
   personName,
+  sourceSession,
   onCaptured,
 }: {
   personId: string;
   /** Shown first, so a wrong-person error is caught before anything is said. */
   personName: string;
+  /** The session this note is about, when the surface is inside one. The
+   *  server verifies the id against the person before it is stored; the label
+   *  is shown here so the clinician can see what the note will be attached to
+   *  BEFORE they speak, which is the same reason the person's name is shown. */
+  sourceSession?: { id: string; label: string } | null;
   /** Called once the server has the recording. */
   onCaptured: (result: { ok: boolean; thoughtId?: string; error?: string; retryable?: boolean }) => void;
 }) {
@@ -90,7 +96,7 @@ export function ThoughtRecorder({
       // The server row is created BEFORE recording, so the upload has an id to
       // attach to and an interrupted session leaves a record of an attempt
       // rather than nothing at all.
-      const started = await startThoughtAction(personId);
+      const started = await startThoughtAction(personId, sourceSession?.id ?? null);
       if (!started.ok || !started.thoughtId) {
         stream.getTracks().forEach((t) => t.stop());
         setError(started.error ?? "Recording could not be started.");
@@ -190,6 +196,15 @@ export function ThoughtRecorder({
           not at all. */}
       <p className="text-sm text-olive">Recording a thought about</p>
       <p className="text-lg font-medium text-app-ink">{personName}</p>
+      {/* And WHICH SESSION, when the surface is inside one — before any
+          control, for the same reason the name is. A note attached to the wrong
+          session is a mislabel a clinician cannot see afterwards: the note
+          reads correctly and the heading above it does not. */}
+      {sourceSession && (
+        <p className="mt-0.5 text-sm text-olive">
+          Attached to {sourceSession.label}
+        </p>
+      )}
 
       <div className="mt-4 flex flex-wrap items-center gap-3">
         <span

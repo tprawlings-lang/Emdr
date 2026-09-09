@@ -24,9 +24,25 @@ import { openFollowUps } from "../src/lib/clinical/followups";
 import { FIXTURE_MARKER } from "../src/lib/clinical/transcription-fixture";
 import type { TenantContext } from "../src/lib/repository";
 
-getDb();
-const ctx: TenantContext = { tenantId: PLATFORM_TENANT_ID, personId: demoId(2) };
+const db = getDb();
 const MEMBER = demoId(0);
+
+/** The tenant the demo member actually lives in.
+ *
+ *  IT USED TO BE PLATFORM_TENANT_ID HERE AND IN THE SEED, and that is why this
+ *  file passed while the Thoughts page said "Nothing recorded yet" on a record
+ *  with three saved thoughts under it. The seed wrote to the platform tenant,
+ *  this test read from the platform tenant, and the product read from the
+ *  clinician's own — so the two halves agreed with each other and neither
+ *  agreed with the screen.
+ *
+ *  Read from the person rather than named, so the test asks the same question
+ *  the page asks. If a future seed writes to the wrong tenant again, this file
+ *  fails instead of agreeing with it. */
+const memberTenant =
+  (db.prepare("SELECT tenant_id FROM persons WHERE id = ?").get(MEMBER) as
+    | { tenant_id: string } | undefined)?.tenant_id ?? PLATFORM_TENANT_ID;
+const ctx: TenantContext = { tenantId: memberTenant, personId: demoId(2) };
 
 test("the demo member has recorded thoughts with transcripts", async () => {
   const thoughts = await listThoughts(ctx, MEMBER);
@@ -116,4 +132,48 @@ test("a follow-up reaches the clinician's queue", async () => {
   const open = await openFollowUps(ctx, { personId: MEMBER });
   assert.ok(open.length >= 1, "the follow-up feed has nothing to show");
   assert.ok(open.every((f) => f.text.length > 0));
+});
+
+test("the seeded thoughts are in the tenant the demo clinician signs in to", () => {
+  // THE GUARD THAT WAS MISSING. Everything else in this file reads with one
+  // context, so a seed and a test can share a wrong tenant indefinitely and
+  // both look correct. This compares the rows against the account a person
+  // actually uses: the demo clinician's own tenant, from the users table.
+  const clinician = db
+    .prepare("SELECT tenant_id FROM users WHERE email = ?")
+    .get("clinician.demo@steady.local") as { tenant_id: string } | undefined;
+  if (!clinician) return; // a database without the demo accounts has nothing to check
+
+  const tenants = new Set(
+    (db.prepare("SELECT DISTINCT tenant_id AS t FROM clinician_thoughts").all() as
+      Array<{ t: string }>).map((r) => r.t)
+  );
+  assert.ok(tenants.size > 0, "no thoughts were seeded at all");
+  for (const t of tenants) {
+    assert.equal(
+      t, clinician.tenant_id,
+      "a seeded thought is in a tenant the demo clinician cannot read, so the " +
+        "Thoughts page will say nothing was recorded"
+    );
+  }
+});
+
+test("the newest seeded note is attached to the member's latest session", () => {
+  // The session-linked-notes path, on the demo record rather than in a fixture.
+  // Without this the wording "About the … session" is reachable code nobody
+  // sees, which on this project is the same as not built.
+  const linked = db
+    .prepare(
+      `SELECT t.id, t.source_session_id, t.recorded_at
+         FROM clinician_thoughts t
+        WHERE t.person_id = ? AND t.source_session_id IS NOT NULL`
+    )
+    .all(MEMBER) as Array<{ id: string; source_session_id: string; recorded_at: string }>;
+  assert.equal(linked.length, 1, "exactly one seeded note should name a session");
+
+  // And the session it names is on this member's own record.
+  const owned = db
+    .prepare("SELECT 1 FROM therapy_sessions WHERE id = ? AND user_id = ?")
+    .get(linked[0].source_session_id, MEMBER);
+  assert.ok(owned, "the seeded note names a session that is not on this member's record");
 });

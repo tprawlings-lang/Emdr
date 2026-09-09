@@ -92,6 +92,26 @@ export function seedClinicianThoughts(db: Database.Database, tenantId: string): 
     .get(memberId, clinicianId) as { n: number };
   if (havePersons.n < 2) return;
 
+  // THE TENANT COMES FROM THE PERSON, NOT FROM THE CALLER, and that is a fix
+  // rather than a refactor. This seed was called with PLATFORM_TENANT_ID while
+  // the demo member and the demo clinician both live in an organisation tenant,
+  // so every row it wrote was scoped to a tenant nobody signs in to: the
+  // Thoughts page read `repo(ctx)` with the clinician's own tenant, matched
+  // nothing, and said "Nothing recorded yet" on a record with three saved
+  // thoughts under it. The whole feature has been invisible on the site since
+  // it shipped, and its own demo-seed test could not see it either — the test
+  // read with the platform tenant too, so both halves agreed with each other
+  // and neither agreed with the product.
+  //
+  // Found by opening the page after adding a session link to this seed and
+  // finding the link was not there. `tenantId` stays as the argument's job for
+  // a database with no persons table populated yet; where a person exists,
+  // their own tenant wins, because that is the only one a reader will be in.
+  const owner = db
+    .prepare("SELECT tenant_id FROM persons WHERE id = ?")
+    .get(memberId) as { tenant_id: string } | undefined;
+  const scope = owner?.tenant_id ?? tenantId;
+
   // Loaded at call time: the extraction fixture reaches the contract, which is
   // in the same import cycle that took the boot down twice already.
   /* eslint-disable @typescript-eslint/no-require-imports */
@@ -146,11 +166,11 @@ export function seedClinicianThoughts(db: Database.Database, tenantId: string): 
       const transcriptId = tId("transcript", rec.key);
 
       insThought.run(
-        thoughtId, tenantId, memberId, clinicianId,
+        thoughtId, scope, memberId, clinicianId,
         at(rec.day), transcriptId, at(rec.day), at(rec.day), at(rec.day), at(rec.day)
       );
       insTranscript.run(
-        transcriptId, tenantId, memberId, thoughtId, text, hashTranscript(text), at(rec.day)
+        transcriptId, scope, memberId, thoughtId, text, hashTranscript(text), at(rec.day)
       );
 
       const raw = fixtureExtraction(transcriptId, text);
@@ -170,7 +190,7 @@ export function seedClinicianThoughts(db: Database.Database, tenantId: string): 
           item.displayText === "Clinician assesses motivation as low.";
         const status = wrong ? "rejected" : "approved";
         insItem.run(
-          itemId, tenantId, memberId, thoughtId, transcriptId,
+          itemId, scope, memberId, thoughtId, transcriptId,
           JSON.stringify({
             ...(item.sourceStart !== null && item.sourceEnd !== null
               ? { start: item.sourceStart, end: item.sourceEnd }
@@ -189,9 +209,35 @@ export function seedClinicianThoughts(db: Database.Database, tenantId: string): 
       });
     }
 
+    // --- One note attached to the session it came from. ------------------
+    //
+    // WITHOUT THIS THE FEATURE IS INVISIBLE IN THE DEMO. `source_session_id`
+    // has existed since Phase 0 and nothing set it, so the Thoughts page's
+    // "About the …" line and Session Prep's "Your note from that session"
+    // wording would both be reachable code that a reviewer never sees. The
+    // standing rule on this project is that work which is not on the screen is
+    // not done, and a seed is part of the screen.
+    //
+    // The NEWEST recording, attached to the member's LATEST session, because
+    // that is the pair Session Prep reads: the brief's "Last session" section
+    // and the note about that session. It is also the arrangement that would
+    // have exposed the mislabel — a note attached to an older session while a
+    // newer one exists is the case the brief used to get wrong.
+    const latestSession = db
+      .prepare(
+        `SELECT id FROM therapy_sessions
+          WHERE user_id = ? ORDER BY started_at DESC LIMIT 1`
+      )
+      .get(memberId) as { id: string } | undefined;
+    if (latestSession) {
+      const newest = RECORDINGS.reduce((a, b) => (b.day > a.day ? b : a));
+      db.prepare("UPDATE clinician_thoughts SET source_session_id = ? WHERE id = ?")
+        .run(latestSession.id, tId("thought", newest.key));
+    }
+
     // --- One theme with evidence under it. -------------------------------
     const sleepThread = tId("thread", "sleep");
-    insThread.run(sleepThread, tenantId, memberId, encryptField("sleep"), at(300), at(340), at(300), at(340));
+    insThread.run(sleepThread, scope, memberId, encryptField("sleep"), at(300), at(340), at(300), at(340));
     for (const text of [
       "Sleep remains poor — around four hours.",
       "Follow up on sleep next session.",
@@ -199,7 +245,7 @@ export function seedClinicianThoughts(db: Database.Database, tenantId: string): 
       const item = byText.get(text);
       if (!item) continue;
       insMember.run(
-        tId("member", `sleep:${text}`), tenantId, memberId, sleepThread, item.id,
+        tId("member", `sleep:${text}`), scope, memberId, sleepThread, item.id,
         "accepted", "clinician", clinicianId, at(item.day), at(item.day)
       );
     }
@@ -210,12 +256,12 @@ export function seedClinicianThoughts(db: Database.Database, tenantId: string): 
     // deliberate: it is what makes the screen's "nothing here has been recorded
     // as observed" warning visible on a real theme rather than only in a test.
     const sisterThread = tId("thread", "sister");
-    insThread.run(sisterThread, tenantId, memberId, encryptField("her sister"), at(300), at(300), at(300), at(300));
+    insThread.run(sisterThread, scope, memberId, encryptField("her sister"), at(300), at(300), at(300), at(300));
 
     const held = byText.get("Holding back from naming the connection so as not to lead.");
     if (held) {
       insMember.run(
-        tId("member", "sister:held"), tenantId, memberId, sisterThread, held.id,
+        tId("member", "sister:held"), scope, memberId, sisterThread, held.id,
         "accepted", "clinician", clinicianId, at(held.day), at(held.day)
       );
     }
@@ -224,7 +270,7 @@ export function seedClinicianThoughts(db: Database.Database, tenantId: string): 
     const hypothesis = byText.get("Possible connection to the material about her sister. Not established.");
     if (hypothesis) {
       insMember.run(
-        tId("member", "sister:pending"), tenantId, memberId, sisterThread, hypothesis.id,
+        tId("member", "sister:pending"), scope, memberId, sisterThread, hypothesis.id,
         "proposed", "system", null, null, at(340)
       );
     }
@@ -234,7 +280,7 @@ export function seedClinicianThoughts(db: Database.Database, tenantId: string): 
     const distress = byText.get("Distress fell from about 7 to about 3 across the set — largest shift so far.");
     if (distress) {
       insMember.run(
-        tId("member", "sister:refused"), tenantId, memberId, sisterThread, distress.id,
+        tId("member", "sister:refused"), scope, memberId, sisterThread, distress.id,
         "rejected", "system", clinicianId, at(341), at(340)
       );
     }
