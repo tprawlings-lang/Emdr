@@ -25,6 +25,9 @@ import { subscriptionActive, startDemoSubscription } from "../billing";
 import { hasConsent, screeningComplete } from "../gating";
 import { getSavedCalmPlace } from "../session-focus";
 import { profileComplete } from "../profile";
+import {
+  createAlert as createClinicalAlert, raiseRiskItemAlert, type AlertSeverity,
+} from "../clinical/alert-create";
 
 // ---------- signup ----------
 
@@ -170,9 +173,13 @@ export async function submitMeasureMobile(
     await createAlert(userId, "symptom_worsening", "high",
       `${instrument.id} rose from ${previous.total_score} to ${total} since last measure.`);
   }
+  // A positive risk item raises the same urgent alert as every other submit
+  // path. This path cannot redirect — it answers a mobile client — so it
+  // returns `crisis: true` and the client routes. That is the honest
+  // difference between an API and a page, and it is why the guard in
+  // tests/screening-risk-routing.test.ts accepts either.
   if (riskFlags.length > 0) {
-    await createAlert(userId, "screening_risk_item", "urgent",
-      `${instrument.id}: ${riskFlags.join(", ")} (total ${total})`);
+    await raiseRiskItemAlert({ userId, instrumentId: instrument.id, riskFlags, total });
   }
   return { total, positive, riskFlags, crisis: riskFlags.length > 0 };
 }
@@ -477,8 +484,13 @@ export function profileCatalog() {
 }
 
 // local alert helper (mirrors createAlert in service.ts / actions.ts)
-async function createAlert(userId: string, type: string, severity: "urgent" | "high" | "moderate" | "info", detail: string) {
-  const c = await data();
-  await c.run("INSERT INTO alerts (id, user_id, alert_type, severity, detail) VALUES (?, ?, ?, ?, ?)",
-    [newId(), userId, type, severity, detail]);
+/** Positional wrapper over the one alert writer.
+ *
+ *  This file called an identical local copy with positional arguments — the
+ *  FOURTH copy of the same insert in the codebase. The copies are why the paced
+ *  screening gate ended up with no alert at all: a private writer is one a new
+ *  call site cannot use. The wrapper keeps this file's call style and puts the
+ *  insert in one place. */
+async function createAlert(userId: string, type: string, severity: AlertSeverity, detail: string) {
+  await createClinicalAlert({ userId, type, severity, detail });
 }

@@ -23,6 +23,7 @@ import { getModule } from "./modules";
 import { checkModuleAccess, evaluateCheckin, todayISO, liveAvailableFor } from "./gating";
 import { shadowDecide, decideAccess } from "./safety/decide";
 import { currentConsentVersion, currentTermsVersion } from "./policy";
+import { createAlert, raiseRiskItemAlert } from "./clinical/alert-create";
 import {
   ReadinessAnswers,
   computeReadiness,
@@ -54,22 +55,6 @@ import { rateLimit } from "./rate-limit";
 // Companion cost/abuse guard: model-backed messages per user per window.
 const COMPANION_MSG_LIMIT = Number(process.env.EMDR_COMPANION_RATE_LIMIT ?? 20);
 const COMPANION_WINDOW_MS = 60_000;
-
-async function createAlert(args: {
-  userId: string;
-  type: string;
-  severity: "urgent" | "high" | "moderate" | "info";
-  detail: string;
-}) {
-  const c = await data();
-  await c.run("INSERT INTO alerts (id, user_id, alert_type, severity, detail) VALUES (?, ?, ?, ?, ?)", [
-    newId(),
-    args.userId,
-    args.type,
-    args.severity,
-    args.detail,
-  ]);
-}
 
 // ---------- Identity ----------
 
@@ -432,11 +417,8 @@ export async function submitScreening(formData: FormData) {
   // Risk items (e.g., PHQ-9 item 9) never get an autonomous assessment —
   // they route to the crisis screen and queue same-day specialist review.
   if (riskFlags.length > 0) {
-    await createAlert({
-      userId: user.id,
-      type: "screening_risk_item",
-      severity: "urgent",
-      detail: `${instrument.id}: ${riskFlags.join(", ")} (total ${total})`,
+    await raiseRiskItemAlert({
+      userId: user.id, instrumentId: instrument.id, riskFlags, total,
     });
     redirect("/crisis?from=screening");
   }
