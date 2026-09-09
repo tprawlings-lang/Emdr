@@ -158,6 +158,17 @@ export const EVENT_TYPES = {
   "clinical_thread.connection_proposed": 1,
   "clinical_thread.connection_accepted": 1,
   "clinical_thread.connection_rejected": 1,
+  // Phase 5 — Ask Steady. §7's type, registered because Phase 5 emits it.
+  //
+  // THE QUESTION TEXT IS NOT IN THE PAYLOAD, on the same reasoning that keeps
+  // transcript text out of the events above: a clinician's question about a
+  // patient is free clinical text, and a question log is a second clinical
+  // record that nobody reviews and that retention policy has to reach. What is
+  // recorded is that an answer was produced, from which evidence ids, under
+  // which retrieval and answer versions — enough to replay what an answer
+  // rested on and to attribute a regression, and not enough to reconstruct what
+  // was asked.
+  "clinician_patient_query.answered": 1,
   // Return-to-Life goals (expansion handoff 01 §6).
   //
   // level_changed is its OWN event and carries the observation that caused it.

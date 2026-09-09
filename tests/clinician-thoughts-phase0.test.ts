@@ -207,6 +207,11 @@ const BUILT: ThoughtsFlag[] = [
   "CLINICIAN_THOUGHTS_EXTRACTION",
   "CLINICIAN_THREADS",
   "CLINICIAN_SESSION_PREP",
+  // Phase 5 landed 2026-09-09: authorized hybrid retrieval, an answer with its
+  // sources and claim-to-source mapping, and §12's conflicting-evidence
+  // behaviour. Added here because the phase exists, which is the only reason
+  // this list is ever added to.
+  "CLINICIAN_PATIENT_ASK",
 ];
 
 test("demo enables exactly the phases that are built", () => {
@@ -272,8 +277,13 @@ test("a flag is read at call time, not at module load", () => {
   // turned off without a redeploy. This codebase has shipped that bug before.
   // A flag that is NOT demo-enabled, so "unset" genuinely means off here. It
   // was CLINICIAN_THREADS until Phase 3 landed and turned that one on in demo,
-  // at which point this test was asserting the opposite of what it meant.
-  const f: ThoughtsFlag = "CLINICIAN_PATIENT_ASK";
+  // at which point this test was asserting the opposite of what it meant. It
+  // then became CLINICIAN_PATIENT_ASK, and Phase 5 landing did the same thing
+  // again — so it is now the note bridge, the one phase still unbuilt. The
+  // migration is the healthy behaviour of this test rather than a nuisance: it
+  // has to name a flag whose "off" is real, and the set of those shrinks by one
+  // every time a phase ships.
+  const f: ThoughtsFlag = "CLINICIAN_NOTE_BRIDGE";
   delete process.env[f];
   assert.equal(thoughtsFlagEnabled(f), false);
   process.env[f] = "1";
