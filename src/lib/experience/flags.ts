@@ -26,8 +26,8 @@ export const EXPERIENCE_FLAGS = {
   /** Package 2: the clinician shell. Navigation from the manifest, scannable
    *  rows, the evidence panel, and separated actions. */
   EXPERIENCE_CLINICIAN_SHELL: "EXPERIENCE_CLINICIAN_SHELL",
-  /** Package 3: the member activity shell, the support dock and the paced
-   *  gate. Declared here so the sequence is visible; not built. */
+  /** Package 3: the member day hierarchy, the active-session shell and the
+   *  support dock. */
   EXPERIENCE_MEMBER_SHELL: "EXPERIENCE_MEMBER_SHELL",
   /** Package 5: the aggregate scope strip and evidence flow. Not built. */
   EXPERIENCE_AGGREGATE_SHELL: "EXPERIENCE_AGGREGATE_SHELL",
@@ -47,9 +47,10 @@ export const ALL_EXPERIENCE_FLAGS = Object.keys(EXPERIENCE_FLAGS) as ExperienceF
  * messages to send a clinical reviewer.
  */
 const DEMO_ENABLED = new Set<ExperienceFlag>([
-  // Package 2 landed. The other three are declared above and deliberately
+  // Packages 2 and 3 landed. The other two are declared above and deliberately
   // absent from this set.
   "EXPERIENCE_CLINICIAN_SHELL",
+  "EXPERIENCE_MEMBER_SHELL",
 ]);
 
 function demoMode(): boolean {
@@ -75,4 +76,9 @@ export function experienceFlagEnabled(flag: ExperienceFlag): boolean {
 /** The clinician shell, asked by name so a call site reads as what it means. */
 export function clinicianShellEnabled(): boolean {
   return experienceFlagEnabled("EXPERIENCE_CLINICIAN_SHELL");
+}
+
+/** The member shell: Today's hierarchy, the active-session shell, the dock. */
+export function memberShellEnabled(): boolean {
+  return experienceFlagEnabled("EXPERIENCE_MEMBER_SHELL");
 }

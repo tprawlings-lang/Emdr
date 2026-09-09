@@ -81,6 +81,13 @@ export default function SosButton({ panel }: { panel: SosPanel }) {
       <button
         onClick={openPanel}
         aria-label="Open immediate support"
+        // Handoff 09 §1.6: no fixed element may obscure a focused control at
+        // 320 CSS pixels. This circle and the member support dock are both
+        // fixed to the bottom of the viewport, and at 320px this one sat on top
+        // of the dock's third entry. The rule that lifts it is in globals.css,
+        // keyed off this attribute and applied only on screens that mount a
+        // dock — so this button is unchanged everywhere else.
+        data-sos-button=""
         className="fixed bottom-5 right-5 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-ground text-sm font-bold text-white shadow-lg transition-transform hover:scale-105 focus:outline-none focus:ring-4 focus:ring-ground/30"
       >
         SOS
