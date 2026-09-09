@@ -303,7 +303,8 @@ export const ROUTE_REGISTER: RouteEntry[] = [
   // ---- Demo operations ----------------------------------------------------
   { path: "/demo", audience: "demo_admin", job: "Reach the demonstration environment as a chosen role.", workspace: "demo_ops", state: "working" },
   { path: "/demo/[path]", audience: "demo_admin", job: "Enter the environment at a specific screen.", workspace: "demo_ops", state: "working" },
-  { path: "/admin/demo", audience: "demo_admin", job: "See environment health and reset it safely.", workspace: "demo_ops", state: "working", evidence: "§7.3: leads with environment health and failed preflight. An environment lock and scenario registry are Package 4." },
+  { path: "/demo/scenarios", audience: "demo_admin", job: "Run a named walkthrough, and see whether the environment can serve it.", workspace: "demo_ops", state: "working", evidence: "Package 4. Launcher and progress guide over the scenario registry; refuses to start on a failed preflight or while another walkthrough holds the environment." },
+  { path: "/admin/demo", audience: "demo_admin", job: "See environment health and reset it safely.", workspace: "demo_ops", state: "working", evidence: "§7.3: leads with environment health and failed preflight, states reset scope before the control, and refuses a reset during another walkthrough unless deliberately interrupted." },
 ];
 
 // ---------------------------------------------------------------------------

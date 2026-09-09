@@ -11,6 +11,10 @@ import { runQualityChecks, qualitySummary } from "@/lib/demo-quality";
 import { MILESTONES, readClock } from "@/lib/demo-clock";
 import { advanceDemoClock } from "@/lib/demo-clock-actions";
 import { resetDemoEnvironment } from "@/lib/demo-reset-actions";
+import { environmentStatus } from "@/lib/demo/preflight";
+import { resetScope } from "@/lib/demo/environment-lock";
+import { EnvironmentHealth } from "@/components/demo/EnvironmentHealth";
+import Link from "next/link";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Demo administration — Steady" };
@@ -49,6 +53,12 @@ export default async function AdminDemoPage() {
   const scenarios = replayScenarios();
   const failing = scenarios.filter((s) => !s.pass).length;
 
+  // Handoff 09 §7.3: "Lead with environment health and failed preflight."
+  // Computed once and rendered at the top; the panels below stay because they
+  // are the detail behind it, not a second opinion about it.
+  const status = environmentStatus(getDb());
+  const scope = resetScope();
+
   // p29's data-quality manifest, computed NOW against the live database. A
   // manifest recorded at build time reports the state of the last good build,
   // which is the one thing a presenter does not need to know.
@@ -68,6 +78,20 @@ export default async function AdminDemoPage() {
       }
     >
       <div className="space-y-6">
+        {/* Handoff 09 §7.3, and the order is the instruction: environment
+            health and failed preflight FIRST. This panel used to sit below a
+            role warning, three summary cards and a safety row — so a presenter
+            checking whether they could start read four things before the one
+            that answers the question. */}
+        <EnvironmentHealth status={status} lock={scope.activeWalkthrough} />
+
+        <p className="text-sm text-olive">
+          <Link href="/demo/scenarios" className="text-state-info underline">
+            Guided walkthroughs
+          </Link>{" "}
+          run against this environment and refuse to start while it is not ready.
+        </p>
+
         <div
           role="note"
           className="rounded-2xl border border-state-support/50 bg-state-support-bg/50 px-5 py-4"
@@ -243,7 +267,62 @@ export default async function AdminDemoPage() {
             fabricated member data. Anything a person originated here is not rebuilt by this and
             is not fabricated data — the manifest reports how many such people exist above.
           </p>
+          {/* §7.3: "Before reset, show scope, active sessions, and effect."
+              Stated from `resetScope()` rather than written here, so the two
+              lists and the destructive call cannot describe different
+              operations. */}
+          <div className="mt-4 grid gap-4 sm:grid-cols-2">
+            <div className="rounded-2xl border border-ground/10 bg-app-surface px-4 py-3">
+              <p className="text-xs font-semibold uppercase tracking-wide text-olive">What goes</p>
+              <ul className="mt-1 list-disc space-y-1 pl-5 text-sm text-ground">
+                {scope.clears.map((x) => <li key={x}>{x}</li>)}
+              </ul>
+            </div>
+            <div className="rounded-2xl border border-ground/10 bg-app-surface px-4 py-3">
+              <p className="text-xs font-semibold uppercase tracking-wide text-olive">What survives</p>
+              <ul className="mt-1 list-disc space-y-1 pl-5 text-sm text-ground">
+                {scope.preserves.map((x) => <li key={x}>{x}</li>)}
+              </ul>
+            </div>
+          </div>
+
+          {scope.activeWalkthrough && (
+            <div role="alert" className="mt-4 rounded-2xl border border-state-support/60 bg-state-support-bg/50 px-4 py-3">
+              <p className="text-sm font-semibold text-ground">
+                A walkthrough is running right now.
+              </p>
+              <p className="measure mt-1 text-sm text-ground">
+                {scope.activeWalkthrough.heldByName ?? scope.activeWalkthrough.heldBy} started
+                &ldquo;{scope.activeWalkthrough.scenarioId}&rdquo;{" "}
+                {scope.activeWalkthrough.minutesHeld} minutes ago
+                {scope.activeWalkthrough.stale && ", which is long enough that they have probably finished"}.
+                Resetting now changes the dataset under their screen mid-sentence. This is
+                refused unless you deliberately interrupt, and the reason you give is recorded
+                where they will see it.
+              </p>
+            </div>
+          )}
+
           <form action={resetDemoEnvironment} className="mt-4 space-y-4">
+            {scope.activeWalkthrough && (
+              <>
+                <label className="flex items-start gap-2 text-sm">
+                  <input type="checkbox" name="interrupt" className="mt-1" />
+                  <span className="font-medium text-app-ink">
+                    Interrupt the walkthrough in progress
+                  </span>
+                </label>
+                <label className="block text-sm">
+                  <span className="font-medium text-app-ink">What to tell the other operator</span>
+                  <input
+                    name="interruptReason"
+                    minLength={4}
+                    placeholder="Dataset is failing the manifest — rebuilding before the 3pm session"
+                    className="mt-1 w-full rounded-xl border border-ground/20 bg-app-surface px-3 py-2 text-sm"
+                  />
+                </label>
+              </>
+            )}
             <label className="block text-sm">
               <span className="font-medium text-app-ink">Reason</span>
               <input
@@ -280,12 +359,15 @@ export default async function AdminDemoPage() {
               </div>
             ))}
           </dl>
+          {/* The self-referential version of this paragraph — "this used to say
+              the control was not exposed here yet" — was written and removed in
+              the same pass. A screen that narrates its own history is doing the
+              thing this panel exists to warn against; the note belongs in the
+              commit, which has it. */}
           <p className="measure mt-4 text-sm text-olive">
-            Resetting the dataset is available from the command line today —{" "}
-            <code className="font-mono text-xs">npm run demo -- reset</code> — which rebuilds
-            from seed and prints a baseline hash. It is not exposed here yet because p9 requires
-            a typed confirmation and a recorded reason, and a reset without a reason is the
-            &ldquo;hand-edit the demo&rdquo; failure under a different name.
+            The same rebuild runs from the command line —{" "}
+            <code className="font-mono text-xs">npm run demo -- reset</code> — through this
+            same path, so the two cannot produce subtly different datasets.
           </p>
         </Panel>
 
@@ -332,9 +414,18 @@ function Row({
  *  the gap is a piece of work rather than a mystery. */
 const PENDING: Array<{ control: string; behavior: string; needs: string }> = [
   {
-    control: "Inject scenario",
-    behavior: "Apply an approved, versioned event bundle such as a safety pause; reversible by reset.",
-    needs: "A versioned scenario bundle format.",
+    // DISAMBIGUATED because the word now means two things on this screen. The
+    // guided walkthroughs above are versioned PRESENTATION scenarios: an order
+    // of screens and a set of claims. This is a DATA scenario: an event bundle
+    // that changes what the fabricated population has been through. Building
+    // the first did not build the second, and a reader who assumed it had
+    // would go looking for a control that is not there.
+    control: "Inject data scenario",
+    behavior:
+      "Apply an approved, versioned event bundle such as a safety pause, changing what the " +
+      "fabricated population has been through; reversible by reset. Not the same as a guided " +
+      "walkthrough, which changes what a presenter shows rather than what the data says.",
+    needs: "A versioned event-bundle format, which the presentation scenario registry is not.",
   },
   {
     control: "Validate projections",

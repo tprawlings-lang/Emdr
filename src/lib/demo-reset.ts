@@ -78,6 +78,17 @@ export const DEMO_DATA_TABLES = [
   // fail the manifest for a fault that had just been fixed. The manifest reads
   // an absent row as "no attempt recorded", which is both true and passing.
   "demo_repair",
+  // CLEARED. A reset log row describes the previous attempt against a database
+  // that no longer exists, and a stale "failed" surviving a successful reset
+  // would keep the environment reading as unfit for a fault that had just been
+  // repaired. The successful reset writes its own row afterwards.
+  "demo_reset_log",
+  // CLEARED, and this one is worth stating from the other direction: a lock
+  // row survives its own walkthrough deliberately (see the schema note), but a
+  // reset ends the environment the walkthrough was running against. Leaving a
+  // held lock behind would block the next reset on a session that no longer
+  // has anything to hold.
+  "demo_environment_lock",
   // Planning first: a signal review points at its signal, and a signal is
   // derived entirely from the fabricated population it is about.
   //
