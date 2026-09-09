@@ -232,13 +232,16 @@ export default async function ReviewStatusPage() {
           </p>
           <dl className="mt-3">
             {POLICY_REGISTRY.map((policy) => (
-              <div key={policy.id} className="border-b border-ground/5 py-2">
-                <div className="flex flex-wrap items-baseline justify-between gap-2">
-                  <dt className="text-sm text-ground">{policy.label}</dt>
-                  <dd className="font-mono text-xs text-ground">{policy.version}</dd>
-                </div>
-                <p className="measure text-xs text-olive">{policy.decides}</p>
-                <p className="font-mono text-[11px] text-olive">{policy.module}</p>
+              <div
+                key={policy.id}
+                className="grid grid-cols-[1fr_auto] items-baseline gap-x-3 border-b border-ground/5 py-2"
+              >
+                <dt className="text-sm text-ground">{policy.label}</dt>
+                <dd className="font-mono text-xs text-ground">{policy.version}</dd>
+                <dd className="col-span-2">
+                  <p className="measure text-xs text-olive">{policy.decides}</p>
+                  <p className="font-mono text-[11px] text-olive">{policy.module}</p>
+                </dd>
               </div>
             ))}
           </dl>
@@ -264,12 +267,13 @@ export default async function ReviewStatusPage() {
             {(Object.entries(stateCounts()) as Array<[CapabilityState, number]>)
               .filter(([, n]) => n > 0)
               .map(([state, n]) => (
-                <div key={state} className="rounded-2xl border border-ground/10 bg-linen px-4 py-3">
-                  <div className="flex items-baseline justify-between gap-2">
-                    <dt className="text-sm font-medium text-app-ink">{STATE_LABEL[state]}</dt>
-                    <dd className="font-mono text-sm text-ground">{n}</dd>
-                  </div>
-                  <p className="measure mt-1 text-xs text-olive">{STATE_NOTE[state]}</p>
+                <div
+                  key={state}
+                  className="grid grid-cols-[1fr_auto] items-baseline gap-x-2 rounded-2xl border border-ground/10 bg-linen px-4 py-3"
+                >
+                  <dt className="text-sm font-medium text-app-ink">{STATE_LABEL[state]}</dt>
+                  <dd className="font-mono text-sm text-ground">{n}</dd>
+                  <dd className="measure col-span-2 mt-1 text-xs text-olive">{STATE_NOTE[state]}</dd>
                 </div>
               ))}
           </dl>
@@ -282,13 +286,16 @@ export default async function ReviewStatusPage() {
           </h3>
           <dl className="mt-2">
             {byState("unavailable").map((r) => (
-              <div key={r.path} className="border-b border-ground/5 py-2">
-                <div className="flex flex-wrap items-baseline justify-between gap-2">
-                  <dt className="font-mono text-xs text-ground">{r.path}</dt>
-                  <dd className="text-xs text-olive">{r.audience}</dd>
-                </div>
-                <p className="measure text-xs text-app-ink">{r.job}</p>
-                <p className="measure text-xs text-olive">{r.evidence}</p>
+              <div
+                key={r.path}
+                className="grid grid-cols-[1fr_auto] items-baseline gap-x-3 border-b border-ground/5 py-2"
+              >
+                <dt className="font-mono text-xs text-ground">{r.path}</dt>
+                <dd className="text-xs text-olive">{r.audience}</dd>
+                <dd className="col-span-2">
+                  <p className="measure text-xs text-app-ink">{r.job}</p>
+                  <p className="measure text-xs text-olive">{r.evidence}</p>
+                </dd>
               </div>
             ))}
           </dl>
@@ -376,7 +383,7 @@ export default async function ReviewStatusPage() {
                 <dd className="measure mt-1 text-sm text-app-ink">
                   <span className="font-medium">Actually:</span> {r.actual}
                 </dd>
-                <p className="mt-1 font-mono text-xs text-olive">{r.evidence}</p>
+                <dd className="mt-1 font-mono text-xs text-olive">{r.evidence}</dd>
               </div>
             ))}
           </dl>
@@ -398,12 +405,13 @@ export default async function ReviewStatusPage() {
           </p>
           <dl className="mt-3">
             {registeredProviders().map((provider) => (
-              <div key={provider.id} className="border-b border-ground/5 py-2">
-                <div className="flex flex-wrap items-baseline justify-between gap-2">
-                  <dt className="font-mono text-xs text-ground">{provider.id}</dt>
-                  <dd className="font-mono text-xs text-ground">{provider.version}</dd>
-                </div>
-                <p className="measure text-xs text-olive">{provider.purpose}</p>
+              <div
+                key={provider.id}
+                className="grid grid-cols-[1fr_auto] items-baseline gap-x-3 border-b border-ground/5 py-2"
+              >
+                <dt className="font-mono text-xs text-ground">{provider.id}</dt>
+                <dd className="font-mono text-xs text-ground">{provider.version}</dd>
+                <dd className="measure col-span-2 text-xs text-olive">{provider.purpose}</dd>
               </div>
             ))}
           </dl>
@@ -427,19 +435,20 @@ export default async function ReviewStatusPage() {
               const available = commandCenterSurfaceAvailable(flag);
               const requires = commandCenterFlagRequires(flag);
               return (
-                <div key={flag} className="border-b border-ground/5 py-2">
-                  <div className="flex flex-wrap items-baseline justify-between gap-2">
-                    <dt className="font-mono text-xs text-ground">{flag}</dt>
-                    {/* Not colour alone (§19): the word is the state. */}
-                    <dd className="text-xs text-olive">
-                      {available ? "available" : own ? "switched on, but blocked" : "off"}
-                    </dd>
-                  </div>
+                <div
+                  key={flag}
+                  className="grid grid-cols-[1fr_auto] items-baseline gap-x-3 border-b border-ground/5 py-2"
+                >
+                  <dt className="font-mono text-xs text-ground">{flag}</dt>
+                  {/* Not colour alone (§19): the word is the state. */}
+                  <dd className="text-xs text-olive">
+                    {available ? "available" : own ? "switched on, but blocked" : "off"}
+                  </dd>
                   {requires && (
-                    <p className="text-xs text-olive">
+                    <dd className="col-span-2 text-xs text-olive">
                       Rests on <span className="font-mono">{requires}</span>
                       {!available && own ? " — which is off, so this surface stays closed." : ""}
-                    </p>
+                    </dd>
                   )}
                 </div>
               );

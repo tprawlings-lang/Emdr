@@ -2,6 +2,7 @@ import Link from "next/link";
 import {
   BOUNDARY, STATUS_LABEL, STATUS_MEANING, type Capability, type CapabilityStatus,
 } from "@/lib/site/registry";
+import { MAIN_ID } from "@/lib/experience/quality";
 
 // Shared chrome and content components for the institutional site
 // (Redesign handoff §5, §6).
@@ -201,7 +202,7 @@ export function PublicPage({
   return (
     <>
       <PublicHeader />
-      <main className="mx-auto max-w-4xl px-6 py-12">
+      <main id={MAIN_ID} className="mx-auto max-w-4xl px-6 py-12">
         {eyebrow && (
           <p className="text-xs font-medium uppercase tracking-wide text-olive">{eyebrow}</p>
         )}

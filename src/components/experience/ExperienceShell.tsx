@@ -2,6 +2,7 @@ import Link from "next/link";
 import { DemoClockBadge } from "@/components/app/DemoClockBadge";
 import { logout } from "@/lib/actions";
 import type { NavigationManifest } from "@/lib/experience/navigation";
+import { MAIN_ID } from "@/lib/experience/quality";
 
 // The experience shell (handoff 09 §3, §8.2; Package 2).
 //
@@ -133,7 +134,7 @@ export function ExperienceShell({
               </div>
             </nav>
 
-            <main className="min-w-0 flex-1 px-4 py-6 sm:px-8 sm:py-8">
+            <main id={MAIN_ID} className="min-w-0 flex-1 px-4 py-6 sm:px-8 sm:py-8">
               <h1 className="type-display text-2xl font-medium text-ground sm:text-3xl">{title}</h1>
               {lede && <p className="measure mt-1.5 text-olive">{lede}</p>}
               <div className="mt-6">{children}</div>

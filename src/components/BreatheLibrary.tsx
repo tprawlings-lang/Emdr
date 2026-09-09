@@ -4,6 +4,7 @@ import Link from "next/link";
 import { completePractice } from "@/lib/actions";
 import type { Practice } from "@/lib/practices";
 import BreathePacer from "./BreathePacer";
+import { MAIN_ID } from "@/lib/experience/quality";
 
 export default function BreatheLibrary({ practices }: { practices: Practice[] }) {
   const [selected, setSelected] = useState<Practice | null>(null);
@@ -17,7 +18,7 @@ export default function BreatheLibrary({ practices }: { practices: Practice[] })
   // ── Player ──
   if (selected && !done) {
     return (
-      <main className="mx-auto flex min-h-[80vh] max-w-md flex-col items-center justify-center gap-8 px-6 py-12 text-center">
+      <main id={MAIN_ID} className="mx-auto flex min-h-[80vh] max-w-md flex-col items-center justify-center gap-8 px-6 py-12 text-center">
         <BreathePacer practice={selected} onDone={handleDone} />
         {selected.note && <p className="max-w-sm text-sm text-olive">{selected.note}</p>}
       </main>
@@ -25,7 +26,7 @@ export default function BreatheLibrary({ practices }: { practices: Practice[] })
   }
   if (selected && done) {
     return (
-      <main className="mx-auto flex min-h-[80vh] max-w-md flex-col items-center justify-center gap-6 px-6 py-12 text-center">
+      <main id={MAIN_ID} className="mx-auto flex min-h-[80vh] max-w-md flex-col items-center justify-center gap-6 px-6 py-12 text-center">
         <h1 className="type-display text-3xl font-medium">Nicely done</h1>
         <p className="text-olive">That&apos;s a small, real act of care. Your breath is always here to come back to.</p>
         <div className="flex flex-col gap-3">
@@ -49,7 +50,7 @@ export default function BreatheLibrary({ practices }: { practices: Practice[] })
 
   // ── Library ──
   return (
-    <main className="mx-auto max-w-xl px-6 py-12">
+    <main id={MAIN_ID} className="mx-auto max-w-xl px-6 py-12">
       <h1 className="type-display text-3xl font-medium">Breathe</h1>
       <p className="mt-2 text-olive">
         A few minutes of paced breathing to settle your system — before a session, or any time. Pick one that

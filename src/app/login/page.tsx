@@ -1,6 +1,7 @@
 import { login } from "@/lib/actions";
 import { SteadyMark, Wordmark } from "@/components/Brand";
 import { DEMO_ROLES } from "@/lib/roles";
+import { MAIN_ID } from "@/lib/experience/quality";
 
 // The demo role selector (handoff 07 §1.1, p5).
 //
@@ -26,7 +27,7 @@ export default async function LoginPage({
 }) {
   const { error } = await searchParams;
   return (
-    <main className="mx-auto max-w-md px-6 py-16">
+    <main id={MAIN_ID} className="mx-auto max-w-md px-6 py-16">
       <div className="flex items-center gap-3">
         <SteadyMark className="h-9 w-9 text-olive" />
         <Wordmark className="text-4xl" />

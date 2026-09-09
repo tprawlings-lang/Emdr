@@ -5,6 +5,7 @@ import { Inter, Literata } from "next/font/google";
 import "./globals.css";
 import SosMount from "@/components/SosMount";
 import { ReviewGuide } from "@/components/ReviewGuide";
+import { SkipLink } from "@/components/experience/SkipLink";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
 // §12.3's identity serif. Text-grade by design — see the note in globals.css.
@@ -39,6 +40,9 @@ export default function RootLayout({
   return (
     <html lang="en" className={`h-full antialiased ${inter.variable} ${literata.variable}`}>
       <body className="min-h-full flex flex-col bg-ivory font-sans text-ground">
+        {/* First in the DOM on purpose: a skip link that comes after the demo
+            banner and the review strip skips neither. */}
+        <SkipLink />
         {demo && (
           // Handoff §1 and §3: every surface carries this label, in these
           // words, and it is not dismissible.

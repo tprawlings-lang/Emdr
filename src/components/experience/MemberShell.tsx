@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { SupportDock } from "./SupportDock";
 import type { NavigationManifest } from "@/lib/experience/navigation";
+import { MAIN_ID } from "@/lib/experience/quality";
+import { logout } from "@/lib/actions";
 
 // The member shell (handoff 09 §3, §4.1, §8.2; Package 3).
 //
@@ -61,6 +63,23 @@ export function MemberShell({
                   {d.label}
                 </Link>
               ))}
+            {/* SIGN OUT STAYS IN THE HEADER, and it is not a layout preference.
+                src/components/member/MemberPage.tsx — the frame this shell
+                replaces — carries the decision in as many words: "a member who
+                cannot leave an account on a shared computer is a privacy
+                problem, not a layout one." This shell dropped it, and behind
+                the member-shell flag a member's only route out was Account →
+                Signed-in devices → sign out everywhere, which is a different
+                and much larger action than leaving this browser.
+
+                §3's member utility is Account; this is not a fourth
+                destination competing with it — it is a form, it changes state,
+                and it reads as the small control it is. */}
+            <form action={logout}>
+              <button className="rounded-full px-3 py-1.5 text-sm text-olive transition-colors hover:bg-ivory hover:text-ground">
+                Sign out
+              </button>
+            </form>
           </div>
         </div>
 
@@ -91,7 +110,7 @@ export function MemberShell({
         </nav>
       </header>
 
-      <main className="mx-auto max-w-3xl px-4 py-6 sm:py-8">
+      <main id={MAIN_ID} className="mx-auto max-w-3xl px-4 py-6 sm:py-8">
         <h1 className="type-display text-2xl font-medium text-ground sm:text-3xl">{title}</h1>
         {lede && <p className="measure mt-1.5 text-olive">{lede}</p>}
         <div className="mt-6">{children}</div>

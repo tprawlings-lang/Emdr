@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Wordmark } from "@/components/Brand";
 import { readServiceStatus, type FunctionState } from "@/lib/site/service-status";
+import { MAIN_ID } from "@/lib/experience/quality";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Service status — Steady" };
@@ -26,7 +27,7 @@ export default async function DegradedStatusPage() {
   const status = await readServiceStatus();
 
   return (
-    <main className="mx-auto max-w-2xl px-6 py-16">
+    <main id={MAIN_ID} className="mx-auto max-w-2xl px-6 py-16">
       <Wordmark className="text-3xl" />
 
       <h1 className="type-identity mt-8 text-3xl font-medium text-ground">

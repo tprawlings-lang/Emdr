@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { DemoClockBadge } from "@/components/app/DemoClockBadge";
+import { MAIN_ID } from "@/lib/experience/quality";
 
 // The application shell (Web GUI handoff, the 20 page examples).
 //
@@ -159,7 +160,7 @@ export function AppShell({
               or the product loses the one element a screen-reader user jumps
               to. It is here rather than around the whole frame because the bar
               and the rail are not the main content. */}
-          <main className="min-w-0 flex-1 px-5 py-6 sm:px-8 sm:py-8">
+          <main id={MAIN_ID} className="min-w-0 flex-1 px-5 py-6 sm:px-8 sm:py-8">
             <h1 className="type-identity text-2xl font-medium text-app-ink sm:text-3xl">{title}</h1>
             {/* The standing line. It appears under the title on all twenty
                 examples, so it belongs to the shell rather than to any page. */}

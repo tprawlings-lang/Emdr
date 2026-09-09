@@ -32,6 +32,7 @@ export function PriorityBadge({ band }: { band: PriorityBand }) {
   const s = BAND_STYLE[band];
   return (
     <span
+      data-testid="band-label"
       className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold ${s.cls}`}
     >
       <span aria-hidden>{s.glyph}</span>

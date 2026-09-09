@@ -6,6 +6,7 @@ import {
   NOT_MONITORED_LINE,
 } from "@/lib/crisis-resources";
 import { escalationNotice } from "@/lib/notify/delivery";
+import { MAIN_ID } from "@/lib/experience/quality";
 
 // Crisis screen: large text, one action at a time, no marketing, no upsell,
 // no unrelated links (executive plan guardrails). Colors stay muted per the
@@ -19,7 +20,7 @@ export default async function CrisisPage({
   const user = await getCurrentUser();
 
   return (
-    <main className="mx-auto max-w-xl px-6 py-14">
+    <main id={MAIN_ID} className="mx-auto max-w-xl px-6 py-14">
       <h1 className="type-identity text-4xl font-medium text-ground">Pause and get support</h1>
       <p className="mt-3 text-lg text-ground">
         {from

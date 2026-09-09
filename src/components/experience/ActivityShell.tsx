@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { SupportDock } from "./SupportDock";
 import { mayClaimSaved, type ActivityShellView } from "@/lib/experience/activity-shell";
+import { MAIN_ID } from "@/lib/experience/quality";
 
 // The active-session shell (handoff 09 §1.6, §4.3, §4.4; Package 3).
 //
@@ -48,8 +49,14 @@ export function ActivityShell({
 
   return (
     <div className="min-h-dvh bg-ivory">
-      {/* No <header> with navigation in it. See the note above. */}
-      <div className="mx-auto max-w-2xl px-4 py-6 sm:py-10">
+      {/* No <header> with navigation in it. See the note above.
+
+          A <main> landmark, because removing navigation removed the landmark
+          too: this shell was the one route in the product a screen-reader user
+          could not skip into, and it is the route where the person is midway
+          through an activity. §8.6 asks for one main landmark on every route,
+          and "every" includes the screens that deliberately have no chrome. */}
+      <main id={MAIN_ID} className="mx-auto max-w-2xl px-4 py-6 sm:py-10">
         <div className="flex flex-wrap items-baseline justify-between gap-2">
           <h1 className="type-display text-2xl font-medium text-ground sm:text-3xl">
             {view.title}
@@ -102,7 +109,7 @@ export function ActivityShell({
             ))}
           </ul>
         </div>
-      </div>
+      </main>
 
       <SupportDock during="activity" />
     </div>
