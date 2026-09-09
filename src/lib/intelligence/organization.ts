@@ -27,12 +27,19 @@ import { SMALL_CELL, type Count } from "@/components/charts/aggregate";
 //    type makes a bare percentage unrepresentable, so the rule holds by
 //    construction rather than by review.
 
-const PROJECTION_VERSION = "org-projections-2026-08-a";
+/** Exported for the scope strip (handoff 09 §6, Package 5): the version the
+ *  strip prints has to be the one the projections computed under, or the
+ *  screen states a build it did not read. */
+export const PROJECTION_VERSION = "org-projections-2026-08-a";
 
 /** Cohort scope: the organization tenant and every facility under it. A
  *  location is a child tenant, so "the network" is a subtree rather than a
  *  column, and a query that forgets the children silently reports zero. */
-async function scopeIds(orgTenantId: string): Promise<string[]> {
+/** The tenants an organization's numbers are computed over: itself and its
+ *  sites. Exported for the scope strip (handoff 09 §6, Package 5), which has
+ *  to report the freshness of the data the numbers came from rather than of
+ *  the parent row, where no events live. */
+export async function scopeIds(orgTenantId: string): Promise<string[]> {
   const c = await data();
   const kids = (await c.all(
     "SELECT id FROM tenants WHERE parent_tenant_id = ?", [orgTenantId],
@@ -239,6 +246,11 @@ export interface OrgHeader {
   firstContactPrior: number | null;
   engaged: Count;
   measureCoverage: Count;
+  /** The window the two first-contact figures were computed over. Carried so
+   *  the scope strip and the header cannot disagree about what the reader
+   *  chose — a strip stating a window the numbers did not use is a screen that
+   *  is confidently wrong, and nothing about it looks broken. */
+  windowDays: number;
   generatedAt: string;
 }
 
@@ -276,7 +288,22 @@ async function medianFirstContact(
  * is §30.5's StateHeader — "shows current state without interpreting missing
  * values" — for this role.
  */
-export async function buildOrgHeader(orgTenantId: string): Promise<Envelope<OrgHeader>> {
+/**
+ * The standing three.
+ *
+ * `windowDays` IS THE ONLY WINDOW THIS CONSOLE HAS. Every other organization
+ * projection counts over all time — `reach()` takes an optional `sinceDays`
+ * and none of them pass it — so the scope strip's period governs exactly the
+ * two figures below and nothing else. Package 5 found that by putting a period
+ * control on the strip and watching the numbers underneath not move; the fix
+ * is not to pretend the control governs more, it is for the strip to say what
+ * it governs. Widening the window to the rest of the console is real work with
+ * a real cost, and it is not presentation work.
+ */
+export async function buildOrgHeader(
+  orgTenantId: string,
+  windowDays = 90,
+): Promise<Envelope<OrgHeader>> {
   const ids = await scopeIds(orgTenantId);
   const m = meta(orgTenantId, await watermark(ids), "org_header.v2");
 
@@ -285,8 +312,11 @@ export async function buildOrgHeader(orgTenantId: string): Promise<Envelope<OrgH
 
   const started = await reach(ids, "care.started");
   return ready(m, assertAggregate<OrgHeader>({
-    firstContactDays: await medianFirstContact(ids, 90, 0),
-    firstContactPrior: await medianFirstContact(ids, 180, 90),
+    firstContactDays: await medianFirstContact(ids, windowDays, 0),
+    // The equally-long window immediately before it, so the comparison is
+    // between two periods of the same length whatever the reader chose.
+    firstContactPrior: await medianFirstContact(ids, windowDays * 2, windowDays),
+    windowDays,
     engaged: { n: started, of: pop },
     measureCoverage: { n: await reach(ids, "coverage.measure_recorded"), of: started },
     generatedAt: m.generatedAt,

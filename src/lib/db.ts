@@ -1998,6 +1998,37 @@ function migrate(db: Database.Database) {
   // Clinician override: a specialist may open a gated module ahead of the
   // program's pacing (prerequisites + readiness). Daily safety gates still hold.
   ensureColumn(db, "module_unlocks", "override", "INTEGER NOT NULL DEFAULT 0");
+  // Handoff 09 §6, Package 5: "Export is a job, not a button. Review scope and
+  // columns, request, progress, ready, download — with authorization rechecked
+  // at download and expired, failed, and superseded outputs identified."
+  //
+  // ADDED AS COLUMNS RATHER THAN A NEW TABLE, because the row already exists
+  // and already carries the disclosure facts — purpose, filter hash, content
+  // hash, signature. What it lacked was a LIFECYCLE: every row was implicitly
+  // "ready forever", so a file requested in March and downloaded in September
+  // was indistinguishable from one requested a minute ago, and a superseded
+  // export had no way to say so.
+  //
+  // `state` defaults to 'ready' so every export written before this column
+  // existed keeps its meaning: it was created synchronously and it succeeded.
+  // Backfilling it to 'requested' would rewrite history into a queue that
+  // never ran.
+  ensureColumn(
+    db, "export_jobs", "state",
+    "TEXT NOT NULL DEFAULT 'ready' " +
+    "CHECK (state IN ('requested','running','ready','downloaded','failed','expired','superseded'))"
+  );
+  // When the file stops being downloadable. §6 wants an expired output
+  // identified as expired rather than silently missing.
+  ensureColumn(db, "export_jobs", "expires_at", "TEXT");
+  // Set when a later export of the SAME filter and surface replaces this one.
+  ensureColumn(db, "export_jobs", "superseded_by", "TEXT");
+  // Every download, counted. A disclosure downloaded four times is four
+  // disclosures, and §6 is explicit that "browser success is not a disclosure
+  // audit record".
+  ensureColumn(db, "export_jobs", "download_count", "INTEGER NOT NULL DEFAULT 0");
+  ensureColumn(db, "export_jobs", "last_downloaded_at", "TEXT");
+  ensureColumn(db, "export_jobs", "failure_reason", "TEXT");
   // Tamper-evident audit chain: each row carries the hash of the previous row
   // and its own content hash, so retroactive edits/deletions are detectable
   // (see audit.ts verifyAuditChain).

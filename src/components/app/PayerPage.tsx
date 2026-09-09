@@ -7,6 +7,11 @@ import { pct } from "@/components/charts/aggregate";
 import { buildPayerHeader } from "@/lib/intelligence/payer";
 import { resolvePayerTenant } from "@/lib/intelligence/scope";
 import { hasData } from "@/lib/presentation/envelope";
+import { ScopeStrip } from "@/components/aggregate/ScopeStrip";
+import {
+  defaultScope, scopeForRequest, currentPath, periodHref, PERIOD_OPTIONS,
+} from "@/lib/intelligence/aggregate-scope";
+import { headers } from "next/headers";
 
 // The payer console shell (§26's ten payer screens, §28's frame).
 
@@ -82,6 +87,36 @@ async function StandingHeader() {
   );
 }
 
+/** The scope strip, above everything. In the shell for the same reason it is
+ *  on the organization side: §6's "carried into every drilldown" is a property
+ *  of the frame, not a habit of thirteen pages. */
+async function Scope() {
+  const tenantId = await resolvePayerTenant();
+  if (!tenantId) return null;
+  const [current, base, path, h] = await Promise.all([
+    // From the request, not from a page prop — see the note in src/proxy.ts.
+    scopeForRequest(tenantId),
+    defaultScope({ tenantId }),
+    currentPath(),
+    headers(),
+  ]);
+  const search = h.get("x-search") ?? "";
+  const periods = PERIOD_OPTIONS.map((o) => ({
+    label: o.label,
+    days: o.days,
+    href: periodHref(path, search, o.days),
+    selected: current.period.label === o.label,
+  }));
+  return (
+    <ScopeStrip
+      scope={current}
+      defaultScope={base}
+      resetHref="/payer/overview"
+      governs="Figures on this console count the whole record; the window is not yet wired into them."
+    />
+  );
+}
+
 export function PayerPage({
   title, lede, layer, here, children, aside,
 }: {
@@ -112,6 +147,7 @@ export function PayerPage({
     >
       <LayerNav layer={layer} here={here} />
       {lede && <p className="measure -mt-2 mb-6 text-olive">{lede}</p>}
+      <Scope />
       <StandingHeader />
       {children}
     </AppShell>
