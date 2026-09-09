@@ -29,11 +29,21 @@ export const MEMBER_RAIL: Rail = {
 
 /** The caseload-level clinician rail. Audit is per-person rather than global —
  *  there is no console-wide event log a clinician is entitled to read, and
- *  §30.6 stops one from being invented here. */
+ *  §30.6 stops one from being invented here.
+ *
+ *  ACTIONS HAS NO DESTINATION, as of handoff 09 Package 2. It pointed at
+ *  /clinician/handoffs, which is a page saying the capability does not exist —
+ *  §1.1: "a navigation item is a promise; promoting a route that dead-ends is
+ *  the fastest way to lose a clinician's trust in the whole shell."
+ *
+ *  Its absence is the honest answer rather than a gap to fill. A clinician's
+ *  actions happen inside a person's record and on the Command Center; there is
+ *  no console-level action screen, and inventing one to occupy a rail slot is
+ *  exactly the filler §1.2 rules out. AppShell renders a layer with no
+ *  destination as plain text rather than a link that goes nowhere. */
 export const CLINICIAN_RAIL: Rail = {
   overview: "/clinician/today",
   progress: "/clinician/caseload",
-  actions: "/clinician/handoffs",
   evidence: "/clinician/reports",
 };
 

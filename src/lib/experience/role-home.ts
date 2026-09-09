@@ -62,7 +62,16 @@ export interface Coverage {
   complete: boolean;
 }
 
-export interface RoleHome<Item = never> {
+/**
+ * The parts every role home shares, and the parts the guard checks.
+ *
+ * SPLIT FROM `RoleHome<Item>` so a role can extend the shape with fields of its
+ * own — the clinician's bucket counts, a payer's scope strip — and still pass
+ * through `assertRoleHome` without losing them. A guard typed over the base
+ * returns what it was given rather than narrowing it, which is the difference
+ * between a check and a filter.
+ */
+export interface RoleHomeBase {
   audience: Audience;
   asking: OperatingQuestion;
   /** Null is a real answer. See the header. */
@@ -70,9 +79,6 @@ export interface RoleHome<Item = never> {
   /** Why there is no primary action, when there is not. Required in that case:
    *  §8.4 forbids an absence that implies a healthy state. */
   primaryAbsentNote?: string;
-  /** The work, for roles that have a list of it. Typed per role by the caller
-   *  — §9's "no generic renderer: use typed role projections". */
-  items: Item[];
   /** How many items there are in total, which is not always `items.length`:
    *  a home shows the first page and the count is the whole. §5: a filter must
    *  not make an obligation disappear, so the total is always reported. */
@@ -80,6 +86,12 @@ export interface RoleHome<Item = never> {
   coverage: Coverage;
   navigation: NavigationManifest;
   generatedAt: string;
+}
+
+export interface RoleHome<Item = never> extends RoleHomeBase {
+  /** The work, for roles that have a list of it. Typed per role by the caller
+   *  — §9's "no generic renderer: use typed role projections". */
+  items: Item[];
 }
 
 export class RoleHomeError extends Error {}
@@ -92,7 +104,7 @@ export class RoleHomeError extends Error {}
  * explanation reads as "nothing to do"; and partial coverage reported as
  * complete is the silent failure §5 names.
  */
-export function assertRoleHome<I>(home: RoleHome<I>): RoleHome<I> {
+export function assertRoleHome<H extends RoleHomeBase & { items: readonly unknown[] }>(home: H): H {
   if (!home.asking.question.trim()) {
     throw new RoleHomeError("A role home must name the question it answers.");
   }

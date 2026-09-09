@@ -31,50 +31,55 @@ export interface PersonHeader {
   consentActive: boolean;
 }
 
-/** The sub-routes, by the layer each belongs to. Two layers hold more than one
- *  screen, so those get a sibling row under the title; the rest do not need
- *  one. */
+/**
+ * The sub-routes, by the layer each belongs to.
+ *
+ * HANDOFF 09 §5 REGROUPED THIS, and the problem it solved was one this build
+ * created. Expansion handoffs 04 and 05 added Trajectory and Load, taking the
+ * Progress row to five tabs — Measures, Life goals, Sessions, Responses,
+ * Trajectory — which is exactly the "long second horizontal menu that wraps
+ * into several rows" §5 rules out. Every addition was right on its own and the
+ * row got worse with each one.
+ *
+ * §5's grouping: "Person sections should group around Overview, Course,
+ * Sessions, Notes, and Safety where the existing content supports it. Course
+ * can contain measures, life goals, responses, and trajectory through clearly
+ * named local links."
+ *
+ * So Course is a landing that holds those four, and the four are no longer in
+ * this list. NOTHING WAS REMOVED: each still has its own address, its own
+ * screen, and a link from Course with room to say what it is for. What went is
+ * the wrapping row.
+ */
 const SCREENS: Array<{ slug: string; label: string; layer: RailSlug }> = [
   { slug: "", label: "Overview", layer: "overview" },
-  { slug: "/measures", label: "Measures", layer: "progress" },
-  // Return-to-Life goals (expansion handoff 01 §9). Under progress, beside the
-  // measures, because that is the comparison it exists to invite: a symptom
-  // score and what a person can actually do again are both progress and they
-  // are not the same progress.
-  { slug: "/goals", label: "Life goals", layer: "progress" },
+  // §5's Course. The four course-shaped screens are reached from here.
+  { slug: "/course", label: "Course", layer: "progress" },
   { slug: "/sessions", label: "Sessions", layer: "progress" },
-  // The intervention record (expansion handoff 02 §9). Under progress rather
-  // than evidence because the question it answers — "what has this person
-  // actually been exposed to" — is read alongside the measures and the goals,
-  // not consulted like a document.
-  { slug: "/responses", label: "Responses", layer: "progress" },
-  // Recovery trajectory (expansion handoff 04 §9). Under progress, last of the
-  // four, because it is the layer ABOVE the others: it reads the measures, the
-  // goals and the session record and says whether the course has changed. A
-  // clinician arrives here after looking at what it is built from, not instead
-  // of looking.
-  { slug: "/trajectory", label: "Trajectory", layer: "progress" },
-  // Load and readiness (expansion handoff 05 §8). Under actions rather than
-  // progress: it is not a record of what happened, it is a reading a clinician
-  // decides what to do with — and §8's six clinician actions live on it.
-  { slug: "/load", label: "Load", layer: "actions" },
   { slug: "/safety", label: "Safety", layer: "actions" },
-  // §17.1: "Place Record Thoughts in the existing action rail/header region so
-  // it is available without scrolling into the formal record." Recording a
-  // thought IS an action — the clinician does it, deliberately, after a
-  // session — so it belongs beside the other things they do here rather than
-  // under evidence, where it would read as something to consult.
-  { slug: "/thoughts", label: "Thoughts", layer: "actions" },
+  // §5 calls this section Notes. The ROUTE keeps its name — renaming a route
+  // breaks every link anybody saved — and the tab carries §5's word.
+  { slug: "/thoughts", label: "Notes", layer: "actions" },
+  // Load and readiness (expansion handoff 05 §8). Under actions: it is a
+  // reading a clinician decides what to do with, and §8's six clinician
+  // actions live on it.
+  { slug: "/load", label: "Load", layer: "actions" },
   { slug: "/plan", label: "Plan", layer: "evidence" },
-  // The full clinical record — timeline, cited summary, review actions. §26's
-  // real split is /measures, /sessions, /plan, /safety and /audit; this is the
-  // holding address for what has not been split out yet, and it is listed
-  // rather than hidden because it is where approve and correct still live.
   { slug: "/record", label: "Full record", layer: "evidence" },
   { slug: "/audit", label: "Audit", layer: "audit" },
 ];
 
+/**
+ * The four screens Course holds, so the layer nav does not.
+ *
+ * Listed here as well as on the Course page because `layerFor` has to resolve
+ * them: a clinician deep-linked to /measures is inside the Progress layer, and
+ * a route the shell does not know renders with the wrong rail item selected.
+ */
+export const COURSE_SECTIONS = ["/measures", "/goals", "/responses", "/trajectory"] as const;
+
 export function layerFor(slug: string): RailSlug {
+  if ((COURSE_SECTIONS as readonly string[]).includes(slug)) return "progress";
   return SCREENS.find((s) => s.slug === slug)?.layer ?? "overview";
 }
 

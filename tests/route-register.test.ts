@@ -41,6 +41,7 @@ import {
   MEMBER_RAIL, CLINICIAN_RAIL, REVIEW_RAIL, ORGANIZATION_RAIL,
   PAYER_RAIL, ADMIN_RAIL, personRail,
 } from "../src/lib/app/rails";
+import { CONSOLE_SCREENS } from "../src/components/clinical/ClinicianPage";
 
 const root = process.cwd();
 
@@ -207,7 +208,18 @@ test("every route registered `redirect` actually redirects and nothing else", ()
 // §1.1: navigation may not promise what does not exist
 // ---------------------------------------------------------------------------
 
-/** Every destination any rail promotes, across every role. */
+/**
+ * Every destination any PRIMARY NAVIGATION promotes.
+ *
+ * THE RAILS ARE NOT THE WHOLE OF NAVIGATION, and the first version of this
+ * guard assumed they were. `CONSOLE_SCREENS` in ClinicianPage.tsx renders a
+ * second row under the title — the layer nav — and it is primary navigation by
+ * every test that matters: it is on every clinician screen, it is above the
+ * content, and a clinician reads it as the list of places they can go. Reading
+ * only `rails.ts` recorded one dead-end promotion and missed four.
+ *
+ * §1.1's ruling is about promises, not about which file a promise lives in.
+ */
 function railDestinations(): Array<{ path: string; rail: string }> {
   const rails: Array<[string, Record<string, string | undefined>]> = [
     ["MEMBER_RAIL", MEMBER_RAIL],
@@ -223,6 +235,10 @@ function railDestinations(): Array<{ path: string; rail: string }> {
     for (const [layer, dest] of Object.entries(rail)) {
       if (dest) out.push({ path: dest, rail: `${name}.${layer}` });
     }
+  }
+  // The clinician layer nav, which is the row a clinician actually reads.
+  for (const s of CONSOLE_SCREENS) {
+    out.push({ path: s.href, rail: `CONSOLE_SCREENS.${s.layer}` });
   }
   return out;
 }

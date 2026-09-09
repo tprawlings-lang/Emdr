@@ -26,8 +26,6 @@
 // a failure, the person retries, and the action happens twice. In this product
 // that is a duplicated clinical record or a second safety escalation.
 
-import crypto from "node:crypto";
-
 import type { ExperienceContext } from "./context";
 
 /**
@@ -135,13 +133,23 @@ export function resolveCommand<P extends Record<string, unknown>>(
  * makes every retry a new action, which is the failure the key exists to
  * prevent. The nonce is the caller's own idea of "this press of this button" —
  * a form's mount id, a row's version — and stays constant across retries of it.
+ *
+ * NOT A HASH, AND DELIBERATELY SO. The first version ran the parts through
+ * sha256, which looked tidier and made this module unusable from a client
+ * component — `node:crypto` is not in the browser, and the control that presses
+ * the button is where the key has to be made. A joined string is exactly as
+ * stable, works everywhere, and has the advantage that a key in a log says what
+ * action it belongs to.
+ *
+ * The parts are escaped rather than trusted: a target containing the separator
+ * would let two different actions collide on one key, which is the one failure
+ * this function must not have.
  */
 export function commandKey(args: {
   intent: string; target: string; actorPersonId: string; nonce: string;
 }): string {
-  return crypto.createHash("sha256")
-    .update([args.intent, args.target, args.actorPersonId, args.nonce].join("|"))
-    .digest("hex").slice(0, 32);
+  const part = (v: string) => v.replace(/[|\\]/g, (c) => `\\${c}`);
+  return [args.intent, args.target, args.actorPersonId, args.nonce].map(part).join("|");
 }
 
 // ---------------------------------------------------------------------------
