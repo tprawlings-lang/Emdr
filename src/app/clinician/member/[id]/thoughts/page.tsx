@@ -10,11 +10,12 @@ import { Panel, Note, WithNote, Callout } from "@/components/app/surfaces";
 import { ThoughtsWorkspace } from "@/components/clinical/ThoughtsWorkspace";
 import { thoughtsSurfaceAvailable } from "@/lib/clinical/thoughts-flags";
 import {
-  listThoughts, getThought, currentTranscript, transcriptVersions,
+  listThoughts, transcriptVersions, sessionForPerson,
 } from "@/lib/clinical/thought-store";
-import { listItemsForThought, itemsByIds, approvedMemory } from "@/lib/clinical/memory-store";
+import { itemsByIds, approvedMemory } from "@/lib/clinical/memory-store";
+import { labelsFor, readableDay } from "@/lib/clinical/session-label";
 import { ClinicalMemoryPanel } from "@/components/clinical/ClinicalMemoryPanel";
-import { runExtraction } from "@/lib/clinical/extraction";
+import { loadThoughtForReview } from "@/lib/clinical/thought-review-load";
 import { listThreads, membershipsForPerson, buildTimelines } from "@/lib/clinical/thread-store";
 import { scoreThread } from "@/lib/clinical/thread-match";
 import { ThreadSuggestions } from "@/components/clinical/ThreadSuggestions";
@@ -181,68 +182,27 @@ export default async function MemberThoughtsPage({
     )
   );
 
+  // Which session each note came from, where it names one.
+  //
+  // RESOLVED FROM THE PERSON'S OWN RECORD, so a stored id that does not belong
+  // to this person resolves to nothing rather than to a label — the same
+  // predicate the write path verifies against, read back on the way out. Notes
+  // written before session-linked notes existed name no session and say so
+  // rather than being labelled with a guess.
+  const sessionRefs = (
+    await Promise.all(
+      [...new Set(thoughts.map((t) => t.sourceSessionId).filter((v): v is string => !!v))].map(
+        (sid) => sessionForPerson(ctx, { personId: id, sessionId: sid })
+      )
+    )
+  ).filter((v): v is NonNullable<typeof v> => v !== null);
+  const sessionLabels = labelsFor(sessionRefs);
+
   await audit({
     actorId: clinician.id, actorRole: "clinician", family: "clinical",
     type: "clinician_thoughts_opened", target: id,
     detail: { count: thoughts.length },
   });
-
-  /** Reads one thought's current transcript for the review step.
-   *
-   *  A server action rather than a fetch: it re-authenticates and re-resolves
-   *  the tenant on every call, so the id the browser sends is checked against
-   *  the caller's own scope rather than trusted because the page rendered. */
-  async function loadTranscript(thoughtId: string) {
-    "use server";
-    const who = await requireClinician();
-    const cc = await data();
-    const row = (await cc.get("SELECT tenant_id FROM users WHERE id = ?", [who.id])) as
-      | { tenant_id: string } | undefined;
-    const scope: TenantContext = {
-      tenantId: row?.tenant_id ?? PLATFORM_TENANT_ID, personId: who.id,
-    };
-    const thought = await getThought(scope, thoughtId);
-    if (!thought) return null;
-    const t = await currentTranscript(scope, thought);
-    if (!t) return null;
-
-    // ORGANIZING HAPPENS HERE, not in the recorder. The clinician has already
-    // stopped speaking and is waiting on one spinner; splitting transcription
-    // and extraction into two waits would show them two, for a step they did
-    // not ask for separately.
-    //
-    // Its failure is not this function's failure. An extractor that cannot run
-    // leaves a perfectly good transcript, and returning null here would throw
-    // that away and tell the clinician their recording could not be loaded —
-    // which is untrue and is the one thing they are worried about.
-    let candidates: Awaited<ReturnType<typeof listItemsForThought>> = [];
-    if (thoughtsSurfaceAvailable("CLINICIAN_THOUGHTS_EXTRACTION")) {
-      const existing = await listItemsForThought(scope, thoughtId);
-      const alreadyRun = existing.length > 0;
-      if (!alreadyRun && thought.status === "processing") {
-        await runExtraction(scope, thoughtId);
-      }
-      candidates = (await listItemsForThought(scope, thoughtId)).filter((i) => i.status === "candidate");
-    }
-
-    const after = await getThought(scope, thoughtId);
-    return {
-      transcript: { text: t.text, hash: t.hash, version: t.version, provider: t.provider },
-      transcriptOnly: after?.status === "review_transcript_only",
-      candidates: candidates.map((i) => ({
-        id: i.id,
-        itemType: i.itemType,
-        statementClass: i.statementClass,
-        displayText: i.displayText,
-        normalizedLabel: i.normalizedLabel,
-        // The quoted span, resolved from the transcript rather than stored
-        // twice. A second copy of the words is a second thing that can drift
-        // from what the clinician actually said.
-        quote: i.span ? t.text.slice(i.span.start, i.span.end) : null,
-        numericFacts: i.numericFacts,
-      })),
-    };
-  }
 
   return (
     <PersonShell person={header} active="/thoughts" title="Thoughts">
@@ -274,7 +234,7 @@ export default async function MemberThoughtsPage({
             <ThoughtsWorkspace
               personId={id}
               personName={member.name}
-              loadTranscript={loadTranscript}
+              loadTranscript={loadThoughtForReview}
             />
           </WithNote>
 
@@ -292,7 +252,10 @@ export default async function MemberThoughtsPage({
                 {thoughts.map((t) => (
                   <li key={t.id} className="grid gap-1 py-3 sm:grid-cols-[12rem_1fr] sm:gap-4">
                     <div>
-                      <span className="text-sm text-app-ink">{t.recordedAt}</span>
+                      {/* The day, not the stored stamp. This rendered
+                          "2026-09-04 00:00:00" — a midnight nothing was
+                          recorded at, in the same row as a human date. */}
+                      <span className="text-sm text-app-ink">{readableDay(t.recordedAt)}</span>
                       <span className="mt-0.5 block text-xs text-olive">
                         {/* Word and glyph, never colour alone. */}
                         <span aria-hidden>
@@ -313,6 +276,16 @@ export default async function MemberThoughtsPage({
                           {versionCounts.get(t.id) === 1 ? "" : "s"}
                         </span>
                       )}
+                      {/* Which session it is about, when it is about one. A
+                          note with no session says so plainly: every note
+                          written before session-linked notes existed is one,
+                          and labelling those with a nearby session would be a
+                          guess presented as a record. */}
+                      <span className="mt-0.5 block text-xs text-olive">
+                        {t.sourceSessionId && sessionLabels.get(t.sourceSessionId)
+                          ? `About ${sessionLabels.get(t.sourceSessionId)}`
+                          : "Not attached to a session"}
+                      </span>
                     </div>
                   </li>
                 ))}

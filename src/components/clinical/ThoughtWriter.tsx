@@ -27,10 +27,13 @@ import { writeThoughtAction } from "@/lib/clinical/thought-actions";
 export function ThoughtWriter({
   personId,
   personName,
+  sourceSession,
   onWritten,
 }: {
   personId: string;
   personName: string;
+  /** The session this note is about, when the surface is inside one. */
+  sourceSession?: { id: string; label: string } | null;
   onWritten?: (thoughtId: string) => void;
 }) {
   const [open, setOpen] = useState(false);
@@ -71,11 +74,17 @@ export function ThoughtWriter({
       className="rounded-2xl border border-ground/10 bg-app-surface px-5 py-5"
     >
       <input type="hidden" name="personId" value={personId} />
+      {sourceSession && (
+        <input type="hidden" name="sourceSessionId" value={sourceSession.id} />
+      )}
 
       {/* §3.1: the patient's name at the top, so a wrong-person error is caught
           before anything is written rather than after. The same reason the
           recorder shows it. */}
-      <p className="text-sm font-medium text-app-ink">A note about {personName}</p>
+      <p className="text-sm font-medium text-app-ink">
+        A note about {personName}
+        {sourceSession && <> &mdash; {sourceSession.label}</>}
+      </p>
       <p className="measure mt-1 text-xs text-olive">
         Written by you, not transcribed. It goes to the same place a recorded thought does —
         yours to review, and only what you keep becomes part of the record.

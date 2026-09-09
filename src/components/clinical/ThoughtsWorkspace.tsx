@@ -29,6 +29,7 @@ type Stage =
 export function ThoughtsWorkspace({
   personId,
   personName,
+  sourceSession,
   /** Fetches the transcript for a thought once processing finishes. Passed in
    *  so this component never talks to the database and can be rendered in a
    *  test without one. */
@@ -36,6 +37,10 @@ export function ThoughtsWorkspace({
 }: {
   personId: string;
   personName: string;
+  /** The session the notes recorded here are about, when this workspace is
+   *  rendered inside one. Null on the Thoughts page, which is about a person
+   *  rather than a session — the case that has always worked and still does. */
+  sourceSession?: { id: string; label: string } | null;
   loadTranscript: (thoughtId: string) => Promise<
     { transcript: ReviewTranscript; transcriptOnly: boolean; candidates: CandidateCard[] } | null
   >;
@@ -50,6 +55,7 @@ export function ThoughtsWorkspace({
         <ThoughtRecorder
           personId={personId}
           personName={personName}
+          sourceSession={sourceSession}
           onCaptured={async (result) => {
             if (!result.ok || !result.thoughtId) {
               setStage({
@@ -80,6 +86,7 @@ export function ThoughtsWorkspace({
         <ThoughtWriter
           personId={personId}
           personName={personName}
+          sourceSession={sourceSession}
           onWritten={async (thoughtId) => {
             setStage({ kind: "processing" });
             const loaded = await loadTranscript(thoughtId);

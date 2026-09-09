@@ -31,9 +31,24 @@ import { getTask } from "../src/lib/ai-gateway/registry";
 import type { TenantContext } from "../src/lib/repository";
 import type { MemoryItem } from "../src/lib/clinical/memory-store";
 
-getDb();
-const ctx: TenantContext = { tenantId: PLATFORM_TENANT_ID, personId: demoId(2) };
+const db = getDb();
 const MEMBER = demoId(0);
+
+/** The tenant the demo member actually lives in.
+ *
+ *  IT WAS PLATFORM_TENANT_ID HERE, matching a demo seed that also wrote to the
+ *  platform tenant — while the demo member and clinician both live in an
+ *  organisation tenant, which is the one the product reads with. So this file
+ *  and the seed agreed with each other and neither agreed with the screen: the
+ *  Thoughts page said "Nothing recorded yet" on a record with three saved
+ *  thoughts under it, and this brief was built over evidence no clinician
+ *  could see.
+ *
+ *  Read from the person, so the test asks the question the page asks. */
+const memberTenant =
+  (db.prepare("SELECT tenant_id FROM persons WHERE id = ?").get(MEMBER) as
+    | { tenant_id: string } | undefined)?.tenant_id ?? PLATFORM_TENANT_ID;
+const ctx: TenantContext = { tenantId: memberTenant, personId: demoId(2) };
 const NOW = new Date("2026-09-04T10:00:00.000Z");
 
 function claim(over: Partial<PrepClaim> = {}): PrepClaim {

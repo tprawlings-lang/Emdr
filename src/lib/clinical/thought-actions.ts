@@ -30,6 +30,7 @@ import {
 import { transcriptionService } from "./transcription";
 import {
   beginThought, finalizeCapture, addTranscript, correctTranscript, saveThought,
+  assertSessionForPerson, SessionNotForPersonError,
   discardThought, transitionThought, getThought,
   StaleTranscriptError, InvalidTransitionError,
 } from "./thought-store";
@@ -60,15 +61,36 @@ function unavailable(): ActionResult {
 }
 
 /** Start a capture. Called when the clinician presses Record, before any audio
- *  exists, so the recorder has an id to upload against. */
-export async function startThoughtAction(personId: string): Promise<ActionResult> {
+ *  exists, so the recorder has an id to upload against.
+ *
+ *  `sourceSessionId` IS OPTIONAL AND VERIFIED. Optional because the Thoughts
+ *  page records a note about a person with no session in view, which is the
+ *  ordinary case and stays exactly as it was. Verified because the id comes
+ *  from a form field, and a clinician with two records open has two session ids
+ *  in play — attaching one patient's session to another patient's note happens
+ *  inside the tenant, where no tenancy guard would see it. */
+export async function startThoughtAction(
+  personId: string,
+  sourceSessionId?: string | null
+): Promise<ActionResult> {
   if (!thoughtsSurfaceAvailable("CLINICIAN_THOUGHTS_CAPTURE")) return unavailable();
   const { ctx, clinicianId } = await clinicianContext();
-  const thought = await beginThought(ctx, { personId });
+
+  let session: string | null = null;
+  if (sourceSessionId) {
+    try {
+      session = (await assertSessionForPerson(ctx, { personId, sessionId: sourceSessionId })).id;
+    } catch (e) {
+      if (e instanceof SessionNotForPersonError) return { ok: false, error: e.message };
+      throw e;
+    }
+  }
+
+  const thought = await beginThought(ctx, { personId, sourceSessionId: session });
   await audit({
     actorId: clinicianId, actorRole: "clinician", family: "clinical",
     type: "clinician_thought_started", target: thought.id,
-    detail: { personId, thoughtId: thought.id },
+    detail: { personId, thoughtId: thought.id, sourceSessionId: session },
   });
   return { ok: true, thoughtId: thought.id };
 }
@@ -228,7 +250,20 @@ export async function writeThoughtAction(formData: FormData): Promise<ActionResu
   if (!personId) return { ok: false, error: "That patient is no longer available." };
   if (!text) return { ok: false, error: "Nothing was written, so nothing has been saved." };
 
-  const thought = await beginThought(ctx, { personId });
+  // The session this note is about, when the surface knew one. Verified
+  // against the person for the same reason the recorder's is.
+  const sourceSessionId = String(formData.get("sourceSessionId") ?? "").trim() || null;
+  let session: string | null = null;
+  if (sourceSessionId) {
+    try {
+      session = (await assertSessionForPerson(ctx, { personId, sessionId: sourceSessionId })).id;
+    } catch (e) {
+      if (e instanceof SessionNotForPersonError) return { ok: false, error: e.message };
+      throw e;
+    }
+  }
+
+  const thought = await beginThought(ctx, { personId, sourceSessionId: session });
   // No audio, and a duration of zero rather than a fabricated one: §18's
   // telemetry row records capture duration, and inventing one for a typed note
   // would put a number in that column that describes nothing.
@@ -244,7 +279,7 @@ export async function writeThoughtAction(formData: FormData): Promise<ActionResu
     actorId: clinicianId, actorRole: "clinician", family: "clinical",
     type: "clinician_thought_written", target: thought.id,
     // The act and its size, never the words (§18).
-    detail: { personId, chars: text.length, source: "typed" },
+    detail: { personId, chars: text.length, source: "typed", sourceSessionId: session },
   });
   revalidatePath(`/clinician/member/${personId}/thoughts`);
   return { ok: true, thoughtId: thought.id };

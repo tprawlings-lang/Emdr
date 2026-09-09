@@ -178,6 +178,56 @@ export async function beginThought(
   return (await getThought(ctx, id))!;
 }
 
+export class SessionNotForPersonError extends Error {}
+
+/**
+ * The session a note is about, if the note names one.
+ *
+ * `source_session_id` has been on `clinician_thoughts` since Phase 0 and
+ * `beginThought` has always accepted it, and until now nothing ever set it: a
+ * note was about a PERSON, never about a session. Session Prep then put the
+ * newest note under its "Last session" heading whatever session it concerned,
+ * so a note written three sessions ago read as a note about last time. That is
+ * not a cosmetic mislabel in a brief a clinician reads in the minute before
+ * they see somebody.
+ *
+ * THE ID IS VERIFIED AGAINST THE PERSON, NOT TRUSTED. A session id arrives
+ * from a form field, and a clinician with two records open has two session ids
+ * in play. Tagging a note with the wrong one puts one patient's session
+ * reference on another patient's note — inside the tenant, so no tenancy guard
+ * would catch it. `repo(ctx)` scopes the read to the tenant; the `person_id`
+ * in the predicate is what makes it this person's session.
+ */
+export async function sessionForPerson(
+  ctx: TenantContext,
+  args: { personId: string; sessionId: string }
+): Promise<{ id: string; moduleId: string; startedAt: string } | null> {
+  const row = await repo(ctx).findOne<Row>(
+    "therapy_sessions", "id = ? AND user_id = ?", [args.sessionId, args.personId]
+  );
+  if (!row) return null;
+  return {
+    id: String(row.id),
+    moduleId: String(row.module_id),
+    startedAt: String(row.started_at),
+  };
+}
+
+/** The same read, as a refusal. Used by the write path, where continuing with
+ *  an unverified id is the failure rather than an inconvenience. */
+export async function assertSessionForPerson(
+  ctx: TenantContext,
+  args: { personId: string; sessionId: string }
+): Promise<{ id: string; moduleId: string; startedAt: string }> {
+  const found = await sessionForPerson(ctx, args);
+  if (!found) {
+    throw new SessionNotForPersonError(
+      "That session is not on this person's record, so a note cannot be attached to it."
+    );
+  }
+  return found;
+}
+
 export class InvalidTransitionError extends Error {}
 
 /** Move a thought, refusing a transition the machine does not allow.

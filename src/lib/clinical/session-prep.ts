@@ -36,7 +36,8 @@ import { listThreads, membershipsForPerson, buildTimelines, type Thread } from "
 import { itemsByIds } from "./memory-store";
 import { openFollowUps, type FollowUp } from "./followups";
 import { goalContextFor, goalLine, type GoalContext } from "./return-goal-evidence";
-import { listThoughts, currentTranscript } from "./thought-store";
+import { listThoughts, currentTranscript, sessionForPerson } from "./thought-store";
+import { labelsFor } from "./session-label";
 import { RETRIEVAL_POLICY_VERSION } from "./retrieval-policy";
 import { responseContextFor, type ResponseContext } from "./response-fingerprint";
 import { RESPONSE_POLICY } from "./response-fingerprint-policy";
@@ -195,6 +196,38 @@ function daysBetween(a: string, b: string): number {
 }
 
 /** The most recent session, or null when there has not been one. */
+/** The note line, as specific as the note's own evidence allows. */
+function noteLine(
+  note: PrepInputs["notes"][number],
+  aboutThisSession: boolean
+): string {
+  const quoted = note.text.length > 400
+    ? `${note.text.slice(0, 400).trimEnd()}…`
+    : note.text;
+  if (aboutThisSession) return `Your note from that session: “${quoted}”`;
+  if (note.sourceSessionLabel) {
+    return `Your note from ${note.sourceSessionLabel}: “${quoted}”`;
+  }
+  // No session named. Says when, and does not imply what it was about.
+  return `Your note written ${onDayOf(note.recordedAt)}: “${quoted}”`;
+}
+
+function onDayOf(stamp: string): string {
+  const d = new Date(`${stamp.slice(0, 10)}T12:00:00Z`);
+  if (Number.isNaN(d.getTime())) return stamp.slice(0, 10);
+  return d.toLocaleDateString("en-GB", { day: "numeric", month: "long", timeZone: "UTC" });
+}
+
+/** The therapy_sessions id a session event names.
+ *
+ *  From the event's own payload, which `safeDetail` passes through, rather than
+ *  matched by date: two sessions can fall on one day, and a brief that guessed
+ *  would be making exactly the claim this change exists to stop making. */
+function sessionIdOf(entry: TimelineEntry): string | null {
+  const v = entry.detail.sessionId;
+  return typeof v === "string" && v.length > 0 ? v : null;
+}
+
 function lastSessionEntry(timeline: Timeline): TimelineEntry | null {
   const sessions = timeline.entries
     .filter((e) => SESSION_TYPES.has(e.type))
@@ -208,7 +241,25 @@ export interface PrepInputs {
    *  corrected. The most useful thing in a pre-session brief is what the person
    *  reading it thought last time, in their own words — a machine headline
    *  saying "session completed, SUDS 3 to 1" is true and is not that. */
-  notes: Array<{ thoughtId: string; text: string; recordedAt: string; typed: boolean }>;
+  notes: Array<{
+    thoughtId: string;
+    text: string;
+    recordedAt: string;
+    typed: boolean;
+    /** The session the note is about, when it names one.
+     *
+     *  THIS IS WHY THE FIELD EXISTS. The claim below sits under "Last session",
+     *  and until notes could name a session it was the NEWEST note that went
+     *  there whatever session it concerned — so a note written three sessions
+     *  ago read as a note about last time, in a brief a clinician reads in the
+     *  minute before they walk into the room. With this present the claim can
+     *  say which session, and without it the claim says only when it was
+     *  written, which is what it always could honestly say. */
+    sourceSessionId?: string | null;
+    /** A label for that session, from src/lib/clinical/session-label.ts, so
+     *  the brief and the record say the same words about the same row. */
+    sourceSessionLabel?: string | null;
+  }>;
   /** Active goals with what has happened to them since the last encounter.
    *  Assembled by the goal adapter rather than derived here — a Session Prep
    *  that computed goal movement itself would be a second implementation of
@@ -274,14 +325,35 @@ export function assemble(inputs: PrepInputs): PrepClaim[] {
   // ONE note, the newest. §11 caps the brief at about a minute and a list of
   // every note ever written is a record, not a brief; the Thoughts page is
   // where the rest of them live.
-  const newestNote = notes[0];
+  // WHICH NOTE, AND THE ANSWER CHANGED. It used to be `notes[0]` — the newest
+  // — printed under "Last session" whatever session it concerned. A note now
+  // names its session, so the note about THIS person's last session is the one
+  // that belongs under that heading, and the newest note is only the fallback
+  // for a person whose notes name no session at all (every note written before
+  // session-linked notes existed).
+  //
+  // The old behaviour was not a display bug. A brief read in the minute before
+  // a session, headed "Last session", quoting a clinician's note from three
+  // sessions ago, is the brief telling them something false about their own
+  // words — and there was no way for the reader to tell.
+  const lastSessionId = last ? sessionIdOf(last) : null;
+  const attachedToLast = lastSessionId
+    ? notes.find((n) => n.sourceSessionId === lastSessionId)
+    : undefined;
+  const newestNote = attachedToLast ?? notes[0];
   if (newestNote) {
     const trimmed = newestNote.text.length > 400
       ? `${newestNote.text.slice(0, 400).trimEnd()}…`
       : newestNote.text;
     claims.push({
       section: "last_session",
-      text: `Your note: “${trimmed}”`,
+      // THREE WORDINGS, AND EACH ONE IS ONLY AS SPECIFIC AS THE EVIDENCE.
+      // A note attached to the session this section is about says so; a note
+      // attached to a DIFFERENT session names that one, because printing it
+      // bare under "Last session" is the mislabel; and a note attached to
+      // nothing says when it was written, which is all anybody can honestly
+      // claim about it.
+      text: noteLine(newestNote, newestNote === attachedToLast),
       // Cited to the thought it came from, so the brief can open it.
       citations: [newestNote.thoughtId],
       origin: "deterministic",
@@ -582,6 +654,19 @@ export async function buildSessionPrep(
   const savedThoughts = (await listThoughts(ctx, personId, 10))
     .filter((t) => t.status === "saved");
   const notes: PrepInputs["notes"] = [];
+  // The session each note names, resolved from THIS person's record. A stored
+  // id that does not belong to them resolves to nothing rather than to a label
+  // — the same predicate the write path verifies against, read back on the way
+  // out — and the label comes from src/lib/clinical/session-label.ts so the
+  // brief and the Thoughts page say the same words about the same row.
+  const noteSessions = (
+    await Promise.all(
+      [...new Set(savedThoughts.map((t) => t.sourceSessionId).filter((v): v is string => !!v))]
+        .map((sid) => sessionForPerson(ctx, { personId, sessionId: sid }))
+    )
+  ).filter((v): v is NonNullable<typeof v> => v !== null);
+  const noteSessionLabels = labelsFor(noteSessions);
+
   for (const t of savedThoughts) {
     const transcript = await currentTranscript(ctx, t);
     if (!transcript) continue;
@@ -590,6 +675,10 @@ export async function buildSessionPrep(
       text: transcript.text,
       recordedAt: t.recordedAt,
       typed: transcript.createdBy === "clinician" && transcript.version === 1,
+      sourceSessionId: t.sourceSessionId,
+      sourceSessionLabel: t.sourceSessionId
+        ? noteSessionLabels.get(t.sourceSessionId) ?? null
+        : null,
     });
   }
   notes.sort((a, b) => b.recordedAt.localeCompare(a.recordedAt));
