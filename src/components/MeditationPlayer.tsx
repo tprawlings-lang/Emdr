@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { Practice } from "@/lib/practices";
 import { useSpeech } from "./useSpeech";
+import { MAIN_ID } from "@/lib/experience/quality";
 
 // Guided-meditation player (roadmap F2). Steps through a practice's segments,
 // reading each aloud on-device (optional) and holding it on screen for its
@@ -68,7 +69,7 @@ export default function MeditationPlayer({
   }
 
   return (
-    <main className="mx-auto flex min-h-[80vh] max-w-md flex-col items-center justify-between gap-8 px-6 py-12 text-center">
+    <main id={MAIN_ID} className="mx-auto flex min-h-[80vh] max-w-md flex-col items-center justify-between gap-8 px-6 py-12 text-center">
       <div className="w-full">
         <div className="h-1.5 w-full overflow-hidden rounded-full bg-moss">
           <div className="h-full rounded-full bg-sage-deep transition-all duration-500" style={{ width: `${progress}%` }} />

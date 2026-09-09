@@ -4,6 +4,7 @@ import Link from "next/link";
 import { completePractice } from "@/lib/actions";
 import type { Practice } from "@/lib/practices";
 import MeditationPlayer from "./MeditationPlayer";
+import { MAIN_ID } from "@/lib/experience/quality";
 
 // Copy that differs between the meditation and sleep libraries. Same player,
 // same completion mechanics — only the framing changes.
@@ -63,7 +64,7 @@ export default function MeditationLibrary({
   }
   if (selected && done) {
     return (
-      <main className="mx-auto flex min-h-[80vh] max-w-md flex-col items-center justify-center gap-6 px-6 py-12 text-center">
+      <main id={MAIN_ID} className="mx-auto flex min-h-[80vh] max-w-md flex-col items-center justify-center gap-6 px-6 py-12 text-center">
         <h1 className="type-display text-3xl font-medium">{copy.doneTitle}</h1>
         <p className="text-olive">{copy.doneBody}</p>
         <div className="flex flex-col gap-3">
@@ -86,7 +87,7 @@ export default function MeditationLibrary({
   }
 
   return (
-    <main className="mx-auto max-w-xl px-6 py-12">
+    <main id={MAIN_ID} className="mx-auto max-w-xl px-6 py-12">
       <h1 className="type-display text-3xl font-medium">{copy.heading}</h1>
       <p className="mt-2 text-olive">{copy.intro}</p>
       <div className="mt-8 space-y-3">

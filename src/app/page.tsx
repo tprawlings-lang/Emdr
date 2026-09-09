@@ -3,6 +3,7 @@ import {
   PublicHeader, PublicFooter, BoundaryNote, CapabilityCard, AudienceCard, ReviewCTA,
 } from "@/components/site/PublicChrome";
 import { capability, BOUNDARY } from "@/lib/site/registry";
+import { MAIN_ID } from "@/lib/experience/quality";
 
 export const metadata = {
   title: "Steady — behavioral health platform (development prototype)",
@@ -27,7 +28,7 @@ export default function Home() {
     <>
       <PublicHeader />
 
-      <main className="mx-auto max-w-5xl px-6 py-12">
+      <main id={MAIN_ID} className="mx-auto max-w-5xl px-6 py-12">
         {/* 1 — Hero and current status */}
         <section>
           <p className="text-xs font-medium uppercase tracking-wide text-olive">

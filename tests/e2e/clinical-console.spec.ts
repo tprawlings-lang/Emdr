@@ -13,6 +13,19 @@ async function signInAsClinician(page: import("@playwright/test").Page) {
 }
 
 test("the caseload orders by clinical need and always shows its reason", async ({ page }) => {
+  // REWRITTEN FOR THE TABLE THAT SHIPS. This asserted against a list of
+  // `caseload-row` cards carrying a band badge and a bulleted reason list. That
+  // list is still in the page — as the FALLBACK branch, taken only when the
+  // clinical-state projection is unavailable — so with the demo dataset loaded
+  // the assertions were waiting on markup no one sees, and the suite had been
+  // red since the caseload became a state table.
+  //
+  // The property is the same and is worth more on the new screen than the old
+  // one: a band never appears as a bare label. What changed is what supplies
+  // the reason. The table's whole design is that there is no combined score —
+  // each person has a separate named state per column — so the reason is those
+  // states, and a row showing a band with no named state beside it is exactly
+  // the verdict-without-evidence the screen exists to refuse.
   await signInAsClinician(page);
   await page.goto("/clinician/caseload");
 
@@ -22,42 +35,43 @@ test("the caseload orders by clinical need and always shows its reason", async (
   await expect(page.getByText(/Provisional configuration/)).toBeVisible();
   await expect(page.getByText(/not clinically approved/)).toBeVisible();
 
-  // Bands are visible, and the demo dataset produces at least one flagged member.
-  await expect(page.getByRole("heading", { name: "Caseload", level: 1 })).toBeVisible();
-
-  // The rule that matters most on this screen: a band never appears as a bare
-  // label. Every row carrying a band carries at least one written reason.
-  const rows = page.getByTestId("caseload-row");
+  const rows = page.getByTestId("caseload-state-row");
   const count = await rows.count();
-  expect(count).toBeGreaterThan(0);
+  expect(count, "the caseload is empty — the rule below would pass vacuously").toBeGreaterThan(0);
 
-  // The skip is on the RENDERED label. The band enum's "none" reaches the page
-  // as "Clear", so comparing against the enum skipped nothing — and that went
-  // unnoticed because every member's last check-in predated the seeded
-  // history's end by a fortnight, so every row carried "Watch". The moment the
-  // population had recent activity, the first clear row walked into the
-  // assertion.
-  let skipped = 0;
-  let checked = 0;
+  let banded = 0;
+  let clear = 0;
   for (let i = 0; i < count; i++) {
     const row = rows.nth(i);
-    const band = (await row.getByTestId("band").textContent())?.trim().toLowerCase() ?? "";
-    if (band.includes("clear")) { skipped += 1; continue; }
-    await expect(row.getByTestId("reasons")).toBeVisible();
-    checked += 1;
+    const text = (await row.textContent())?.trim() ?? "";
+    const band = (await row.getByTestId("band-label").first().textContent())?.trim().toLowerCase() ?? "";
+    if (band.includes("clear")) { clear += 1; continue; }
+    banded += 1;
+    // Every column reports a state in words, including when it has nothing:
+    // "Not set", "Not computed", "Insufficient evidence" are readings, not
+    // blanks. A banded row with none of them is a band with no account of
+    // itself.
+    expect(
+      /Not set|Not computed|Insufficient evidence|tolerated|Held by a safety decision|appears/i.test(text),
+      `a banded row carries no named state: ${text.slice(0, 120)}`
+    ).toBe(true);
   }
-  // Both branches were taken, so neither is dead code the next time the
-  // dataset shifts under it.
-  expect(checked, "no banded row on the caseload — the rule went untested").toBeGreaterThan(0);
-  expect(skipped, "no clear row on the caseload — the skip went untested").toBeGreaterThan(0);
+  // Both branches were taken, so neither is dead the next time the dataset
+  // shifts under it.
+  expect(banded, "no banded row on the caseload — the rule went untested").toBeGreaterThan(0);
+  expect(clear, "no clear row on the caseload — the skip went untested").toBeGreaterThan(0);
 });
 
 test("a member record shows cited claims, marked provenance, and separated AI output", async ({ page }) => {
   await signInAsClinician(page);
   await page.goto("/clinician/caseload");
 
-  // Open the first member in the caseload.
-  await page.getByTestId("caseload-row").first().getByRole("link").first().click();
+  // Open the first member in the caseload. The state table links to the person
+  // record's root rather than straight to /record, which is §5's grouping — the
+  // record decides which section opens, not the row that led here.
+  await page.getByTestId("caseload-state-row").first().getByRole("link").first().click();
+  await expect(page).toHaveURL(/\/clinician\/member\/[^/]+/);
+  await page.goto(`${new URL(page.url()).pathname.replace(/\/$/, "")}/record`);
   await expect(page).toHaveURL(/\/clinician\/member\/[^/]+\/record$/);
 
   await expect(page.getByRole("heading", { name: "Summary" })).toBeVisible();
@@ -86,17 +100,37 @@ test("a member outside the clinician's tenant is not found rather than forbidden
   await expect(page.getByRole("heading", { name: "Not found" })).toBeVisible();
 });
 
-test("the clinical console is reachable from the persistent rail", async ({ page }) => {
-  // The nav bar is gone; navigation is the app shell's five-item rail, which is
-  // §25's information layers rather than a menu. The property is unchanged: a
-  // console page is one click from the console, and the navigation says where
-  // you are rather than only where you can go.
+test("the clinical console is reachable from the navigation it actually ships", async ({ page }) => {
+  // TWO SHELLS, AND THIS TEST WAS ASSERTING THE ONE THAT MOVED. Package 2 put
+  // /clinician/today behind the clinician experience shell — "Steady Clinical
+  // navigation", three destinations — while every other clinical and review
+  // page still uses the app shell's information-layer rail. This started at
+  // /clinician, which redirects to today, and then waited thirty seconds for a
+  // rail that is deliberately not there.
+  //
+  // The property is unchanged and is asserted on both shells rather than
+  // whichever one the test happened to land in: a console page is one click
+  // from the console, and the navigation says where you are rather than only
+  // where you can go.
   await signInAsClinician(page);
-  await page.goto("/clinician");
+
+  await page.goto("/clinician/today");
+  const shell = page.getByRole("navigation", { name: "Steady Clinical navigation" });
+  await shell.getByRole("link", { name: "Patients" }).click();
+  await expect(page).toHaveURL(/\/clinician\/patients$/);
+
+  await page.goto("/clinician/caseload");
   const rail = page.getByRole("navigation", { name: "Information layers" });
-  await rail.getByRole("link", { name: "Progress" }).click();
-  await expect(page).toHaveURL(/\/clinician\/caseload$/);
-  await expect(rail.getByRole("link", { name: "Progress" })).toHaveAttribute("aria-current", "page");
+  // The rail a clinician sees holds Overview, Progress, Evidence and the
+  // crossing to the review console. Naming a layer this role does not have was
+  // how the previous version of this test waited thirty seconds for a link.
+  await rail.getByRole("link", { name: "Evidence" }).click();
+  await expect(page).toHaveURL(/\/clinician\/reports$/);
+  // Where you are, not only where you can go.
+  await expect(
+    page.getByRole("navigation", { name: "Information layers" })
+      .getByRole("link", { name: "Evidence" })
+  ).toHaveAttribute("aria-current", "page");
 });
 
 // ---------------------------------------------------------------------------
@@ -106,14 +140,26 @@ test("the clinical console is reachable from the persistent rail", async ({ page
 test("a member record carries its audit history with the chain verified", async ({ page }) => {
   await signInAsClinician(page);
   await page.goto("/clinician/caseload");
-  await page.getByTestId("caseload-row").first().getByRole("link").first().click();
+  await page.getByTestId("caseload-state-row").first().getByRole("link").first().click();
+  // §5 regrouped the person record, and audit history is its own section
+  // rather than a block at the bottom of /record. Reached through the record's
+  // own navigation, so this asserts it is reachable rather than only that the
+  // URL exists.
+  await page.getByRole("link", { name: "Audit", exact: true }).first().click();
+  await expect(page).toHaveURL(/\/clinician\/member\/[^/]+\/audit$/);
 
-  await expect(page.getByRole("heading", { name: "Audit history" })).toBeVisible();
+  // The section is titled "Audit and lineage" and leads with access and
+  // decisions; "Audit history" was the old record page's block heading. The
+  // property under test is not the wording — it is that a person's record
+  // carries its own audit, with the chain verified on screen.
+  await expect(page.getByRole("heading", { name: "Access and decisions" })).toBeVisible();
   // Tamper-evidence is shown, not asserted in prose. A chain nobody checks is
   // a claim rather than a control.
   await expect(page.getByTestId("chain-banner").first()).toContainText(/Chain intact/);
-  // The scoping caveat reaches the screen rather than living in a comment.
-  await expect(page.getByText(/view filter/)).toBeVisible();
+  // §14's distinction reaches the screen rather than living in a comment:
+  // "nothing happened" and "you cannot see what happened" are different, and
+  // the scope note says which this is.
+  await expect(page.getByText(/scope|filtered view/i).first()).toBeVisible();
 });
 
 test("the audit console is tenant-scoped and never prints raw detail", async ({ page }) => {
@@ -203,17 +249,17 @@ test("every console is reachable from the nav, from anywhere", async ({ page }) 
   await page.getByRole("link", { name: "Clinical console" }).click();
   await expect(page).toHaveURL(/\/clinician\/today$/);
 
+  // Crossing back the other way lands on /clinician/today, which is the one
+  // clinical page behind the experience shell — so the walk continues in that
+  // shell's navigation rather than in the rail. Reaching a console must not
+  // depend on which shell the previous click left you in.
+  const shell = page.getByRole("navigation", { name: "Steady Clinical navigation" });
+  await shell.getByRole("link", { name: "Patients" }).click();
+  await expect(page).toHaveURL(/\/clinician\/patients$/);
+
   const clinRail = page.getByRole("navigation", { name: "Information layers" });
   await clinRail.getByRole("link", { name: "Progress" }).click();
   await expect(page).toHaveURL(/\/clinician\/caseload$/);
-  await page
-    .getByRole("navigation", { name: "Screens in this layer" })
-    .getByRole("link", { name: "Patients" })
-    .click();
-  await expect(page).toHaveURL(/\/clinician\/patients$/);
-  await clinRail.getByRole("link", { name: "Overview" }).click();
-  await expect(page).toHaveURL(/\/clinician\/today$/);
-
   await clinRail.getByRole("link", { name: "Review console" }).click();
   await expect(page).toHaveURL(/\/review\/audit$/);
 });

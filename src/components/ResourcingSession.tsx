@@ -23,6 +23,7 @@ import {
 import { recordResourcingEvent } from "@/lib/actions";
 import { useSpeech } from "./useSpeech";
 import { unlockMedia } from "./media-unlock";
+import { MAIN_ID } from "@/lib/experience/quality";
 
 const CLOSURE_TEXT =
   "Come back to the room at your own pace. Notice your breath, your feet on the floor. Your word and your calm place are yours to return to any time.";
@@ -115,7 +116,7 @@ export default function ResourcingSession({ borderline = false }: { borderline?:
   );
 
   return (
-    <main className="mx-auto flex min-h-[70vh] max-w-xl flex-col justify-center px-6 py-12">
+    <main id={MAIN_ID} className="mx-auto flex min-h-[70vh] max-w-xl flex-col justify-center px-6 py-12">
       {speechSupported && s.phase !== "completed" && (
         <div className="mb-6 flex justify-end">
           <button
