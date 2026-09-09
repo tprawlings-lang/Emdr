@@ -512,8 +512,11 @@ test("an explicit environment variable can turn the shell off in a demo", () => 
     assert.equal(clinicianShellEnabled(), true, "the shell is not on by default in a demo");
     process.env.EMDR_EXPERIENCE_CLINICIAN_SHELL = "0";
     assert.equal(clinicianShellEnabled(), false, "the shell cannot be turned off");
-    // And the unbuilt shells are off even in a demo.
-    assert.equal(experienceFlagEnabled("EXPERIENCE_MEMBER_SHELL"), false);
+    // And the shells that are still unbuilt are off even in a demo. The member
+    // shell was named here until Package 3 landed and joined the demo set; the
+    // aggregate and reviewer shells have not.
+    assert.equal(experienceFlagEnabled("EXPERIENCE_AGGREGATE_SHELL"), false);
+    assert.equal(experienceFlagEnabled("EXPERIENCE_REVIEWER_SHELL"), false);
   } finally {
     if (before === undefined) delete process.env.EMDR_EXPERIENCE_CLINICIAN_SHELL;
     else process.env.EMDR_EXPERIENCE_CLINICIAN_SHELL = before;

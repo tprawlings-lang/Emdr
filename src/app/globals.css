@@ -127,6 +127,35 @@ body {
   line-height: 1.6;
 }
 
+/* The member support dock, and §1.6's one hard geometric rule:
+   "No fixed element may obscure a focused control at 320 CSS pixels."
+
+   TWO ELEMENTS ARE FIXED TO THE BOTTOM OF A MEMBER SCREEN and they were fitted
+   at different times. The dock is a full-width bar of support routes; the SOS
+   panic button is a 56px circle in the corner that predates it. Stacked with no
+   coordination, the circle sat squarely on top of the dock's third entry at
+   320px — visible in a screenshot, invisible to a type-checker.
+
+   AND THE SPACER CANNOT LIVE IN THE DOCK COMPONENT. It did, and it protected
+   only the page: the root layout renders the site footer AFTER the page, so
+   the last thing on a member screen — the 988 notice and the policy links —
+   still went under the bar. The reserve has to be on the body, which is where
+   the document actually ends.
+
+   `:has()` is what makes both of these work with no prop threading and no
+   client JavaScript: the rules apply exactly on the screens where a dock is
+   mounted, and nothing has to be told about anything.
+
+   The 128px below is DOCK_RESERVE_PX in src/lib/experience/activity-shell.ts.
+   One number in two languages, so a guard asserts they agree. */
+body:has([data-support-dock]) {
+  padding-bottom: 128px;
+}
+
+body:has([data-support-dock]) [data-sos-button] {
+  bottom: calc(128px + 1rem);
+}
+
 /* The display optical role. Same family; scale, weight, and tracking carry the
    difference. Inter needs negative tracking at large sizes or it reads loose
    and accidental — that tightening is what makes one family read as two

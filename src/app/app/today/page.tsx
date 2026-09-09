@@ -1,4 +1,11 @@
 import { MemberPage } from "@/components/member/MemberPage";
+import { memberShellEnabled } from "@/lib/experience/flags";
+import { experienceContextFor } from "@/lib/experience/context";
+import { navigationFor } from "@/lib/experience/navigation";
+import { readMemberDay } from "@/lib/member/day-read";
+import { MemberShell } from "@/components/experience/MemberShell";
+import { MemberTodayView } from "@/components/experience/MemberTodayView";
+import { ResumePrompt } from "@/components/experience/ResumePrompt";
 import { buildMemberToday } from "@/lib/member/today";
 import { TodayDecision } from "@/components/member/TodayDecision";
 import { EnvelopeView } from "@/components/presentation/EnvelopeView";
@@ -53,6 +60,43 @@ export default async function DashboardPage({
   if (!(await hasConsent(user.id))) redirect("/app/onboarding");
   if (!(await screeningComplete(user.id))) redirect("/app/screening");
   if (!(await profileComplete(user.id))) redirect("/app/onboarding/profile");
+
+  // Package 3's member shell (handoff 09 §4.1, §4.2, §4.4).
+  //
+  // A WHOLE-PAGE BRANCH, taken before anything below is read — the same shape
+  // Package 2 used on the clinician side and for the same reason. §10.1: "Keep
+  // new work behind role-level flags and prove the current experience is
+  // unchanged with each flag off." With the flag off, not one line below this
+  // runs differently, so "unchanged" is a property of the control flow rather
+  // than a claim about a diff.
+  //
+  // AND IT REPLACES THE CATALOG RATHER THAN SITTING ABOVE IT. §3.4's finding
+  // was that the old Today "makes the member decide what matters now. On a hard
+  // day, that choice load is exactly what the system should reduce." Rendering
+  // §4.1's hierarchy above the module grid would have left the choice load
+  // exactly where it was and added a card to it.
+  if (memberShellEnabled()) {
+    const tenant = (await (await data()).get(
+      "SELECT tenant_id FROM users WHERE id = ?",
+      [user.id]
+    )) as { tenant_id: string } | undefined;
+    const experience = experienceContextFor({ ...user, tenantId: tenant?.tenant_id ?? "" });
+    const { view, resume } = await readMemberDay({ userId: user.id });
+
+    return (
+      <MemberShell
+        navigation={navigationFor(experience)}
+        pathname="/app/today"
+        title={`Hello, ${user.name}`}
+        lede="You are here today. That is enough."
+      >
+        {/* §4.4: offered only after the server was asked, and above the day
+            because somebody who left something unfinished came back for it. */}
+        <ResumePrompt offer={resume} />
+        <MemberTodayView day={view} />
+      </MemberShell>
+    );
+  }
 
   const c = await data();
   const checkin = await getTodayCheckin(user.id);

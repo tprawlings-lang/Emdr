@@ -113,13 +113,13 @@ const OFF_SURFACE: Record<string, string> = {
   // contract wired into a surface before it is settled is a contract that gets
   // shaped by the first screen that consumes it.
   //
-  // These entries are self-clearing, and Package 2 proved it: seven of the
-  // nine left this list when the clinician shell wired them to a screen,
+  // These entries are self-clearing, and Packages 2 and 3 proved it: seven of
+  // the nine left this list when the clinician shell wired them to a screen,
+  // and the last one — the SupportDock — left it when the member shell landed,
   // because the companion guard below fails on a listed module that has become
-  // reachable. That is the mechanism keeping this from becoming a permanent
-  // parking space, and it worked without anybody remembering to check.
-  "src/lib/experience/support-dock.ts":
-    "Handoff 09 §9's SupportDock. Package 3 renders it; declared in Package 1 so the rule that support takes no arguments and cannot be gated is settled before a screen is written against it.",
+  // reachable. Nobody had to remember to check either time. The section is kept
+  // with nothing in it because the mechanism is worth reading about before the
+  // next package needs it, not because anything is parked here.
 };
 
 test("every lib module reaches a screen, or says why not", () => {

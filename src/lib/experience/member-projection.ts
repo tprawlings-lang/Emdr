@@ -89,6 +89,20 @@ export const MEMBER_ALLOWED_FIELDS: readonly string[] = [
   "reason",
   "retryHref",
 
+  // ---- Where somebody is in an activity (§4.3, §4.4; added in Package 3) ----
+  // Three names, added deliberately, because Package 3's resume marker is
+  // checked against THIS list rather than a second one of its own — so
+  // widening what a member may be shown and widening what may be cached on
+  // their phone are the same edit, reviewed in the same diff.
+  //
+  // `step` is a position in a sequence the member is walking, not a level they
+  // reached: "step 3 of 6" is the same kind of statement as "page 3 of 6".
+  // `startedAt` is a clock reading. `reconcileBy` is an idempotency key, which
+  // says nothing about anybody — it exists so a retry cannot write twice.
+  "step",
+  "startedAt",
+  "reconcileBy",
+
   // ---- Identity and plumbing ----
   "displayName",
   "schemaVersion",
