@@ -17,6 +17,15 @@
 > where a test fails the build if it stops describing the product. Prefer it over any
 > status claim in a PDF, including the ones in this file.
 >
+> **Packages 0–7 of handoff 09 are built as of 2026-09-09**; Package 8 needs human
+> participants and cannot be closed in code. Package 7 (cross-role quality) is
+> substantially built rather than closed: §8.6's structural rules, the 320px focus rule and
+> the two touch-target numbers are enforced by `tests/cross-role-quality.test.ts` and
+> `tests/e2e/cross-role-quality.spec.ts`; visual-regression baselines, performance budgets
+> and §8.6's recorded screen-reader attestation are not. The e2e suite is green at 179 of
+> 179 — it had been red since Package 2, because five specs described chrome that Packages
+> 2 and 3 replaced and e2e does not run inside `npm run test:safety`.
+>
 > **Handoff 09 (Unified Product Experience)** now governs navigation, experience, visual
 > system and sequencing, superseding handoff 08 Rev 2 and the Astra review for those
 > decisions. It changes no safety authority, no clinical threshold, no tenancy boundary and

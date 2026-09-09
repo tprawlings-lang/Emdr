@@ -39,8 +39,30 @@ threshold, no tenancy boundary and no release gate. Its work is organised as nin
 | 4 | Demo director and named scenarios | **Done** |
 | 5 | Aggregate scope and evidence | **Done** |
 | 6 | Reviewer decision flow and investor scenario | **Done** |
-| 7 | Cross-role quality | Open — §10 says it runs alongside every package and closes at the end, not as a cleanup sprint |
+| 7 | Cross-role quality | **◐ Substantially built, 2026-09-09** — accessibility, responsive and error-recovery structure landed with guards; §10 says this package closes at the end, and what is left is named below |
 | 8 | Validation and release | Open — **needs human participants**, four of five per audience |
+
+**What Package 7 covers, and what it does not.** Landed: §8.6's structural rules on every
+route (one main landmark, one page-level heading, a skip link written once in the root
+layout), definition lists a screen reader can use, §1.6's rule that no fixed element
+obscures a focused control at 320 CSS px, and §1.10's two target numbers reported
+separately. Enforced by [`tests/cross-role-quality.test.ts`](tests/cross-role-quality.test.ts)
+and [`tests/e2e/cross-role-quality.spec.ts`](tests/e2e/cross-role-quality.spec.ts), which
+audits three role homes and three primary tasks signed in — the half that
+`tests/e2e/a11y.spec.ts` never covered. **The e2e suite is green, 179 of 179**; it had been
+red since Package 2 because five specs described chrome that Packages 2 and 3 replaced, and
+nothing noticed because e2e is not part of `npm run test:safety`. Still open in this
+package: visual-regression baselines, performance budgets (handoff 06 §§30–31 carries the
+numbers), and a manual screen-reader script recorded as a release attestation, which §8.6
+requires and which cannot be produced in code.
+
+**Therapeutic Load is held out of the clinician queue.** Handoff 09 §10.1 allows it into the
+task-provider contract "after its own clinical review", and that review has not happened —
+the provider was registered with no gate and both of its states were reaching a clinician's
+attention queue as work. It is gated in
+[`src/lib/clinical/clinical-review-gate.ts`](src/lib/clinical/clinical-review-gate.ts) and
+what is withheld is stated on `/review/status`. The Load screen is unaffected, deliberately:
+§10.1 gates the queue, not the reading.
 
 **The two earlier programs are complete.** Handoff 06's screen atlas is 80 of 80 screens and
 22 of 22 charts; what remains of it is the non-screen material in §§30–31. The **Clinical
