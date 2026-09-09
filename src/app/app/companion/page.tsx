@@ -8,6 +8,7 @@ import { hasConsent, screeningComplete } from "@/lib/gating";
 import { profileComplete } from "@/lib/profile";
 import { buildCompanionContext } from "@/lib/companion";
 import CompanionChat from "@/components/CompanionChat";
+import { CompanionEntryNotice } from "@/components/experience/CompanionEntryNotice";
 
 export default async function CompanionPage({
   searchParams,
@@ -48,6 +49,13 @@ export default async function CompanionPage({
           Lifeline) or call 911. The crisis page walks you through it one step at a time.
         </p>
       </details>
+
+      {/* §11's interim condition for keeping the companion where it is: entry
+          states it is AI and names its communication limits. ABOVE the chat, so
+          it is read before the first message rather than under the thread. */}
+      <div className="mt-4">
+        <CompanionEntryNotice />
+      </div>
 
       <div className="mt-6 grid gap-6 md:grid-cols-[1fr_260px]">
         <CompanionChat initialMessages={[]} greeting={greeting} autoStartDaily={dailyChat} />

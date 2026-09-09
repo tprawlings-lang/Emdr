@@ -95,6 +95,20 @@ export async function readMemberDay(args: {
             }
           : null,
       recent: await recentQuietly(args.userId),
+      // §11's paused-state answer, and it is only ever as strong as what this
+      // read can establish.
+      //
+      // `person` when the gate answered: nothing in this product expires a hold
+      // on a timer, so a person is what reopens it, and saying that is more
+      // honest than a date nobody is bound by. `unknown` when the gate could
+      // not be read at all — the same failure that produces the
+      // `service_unavailable` day, where claiming a care team will reopen
+      // something would be a claim about a system that just failed to answer.
+      //
+      // The `at` branch exists and is guarded and is deliberately unused: no
+      // hold in this product currently carries a knowable end. When one does,
+      // it is passed here and the copy is already written for it.
+      reopens: day ? { kind: "person" } : { kind: "unknown" },
       now,
     }),
     resume,

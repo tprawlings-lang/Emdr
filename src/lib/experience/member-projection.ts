@@ -54,6 +54,12 @@ export const MEMBER_ALLOWED_FIELDS: readonly string[] = [
   "dayState",
   "dayStateLabel",
   "orientingSentence",
+  // §11's paused-state answer. A closed-set kind, a governed sentence, and a
+  // timestamp — no reason, no criterion, no threshold. `at` is a time the
+  // PRODUCT reopens something, not a fact about the person.
+  "reopens",
+  "sentence",
+  "at",
 
   // ---- The one recommended activity (§4.1) ----
   // §4.1: "what it is, an approximate duration, and a clear pause promise."
