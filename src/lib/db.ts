@@ -13,6 +13,7 @@ import {
   generatePopulationHistory, backfillPlanVersions, backfillFunctionMeasure,
 } from "./demo-population-generator";
 import { runAgents } from "./agents/runner";
+import { evaluateCheckin } from "./gating";
 import { NIL_ULID, ulidFrom } from "./ids";
 
 // Resolved lazily inside getDb() (not at module load) so EMDR_DATA_DIR is
@@ -117,13 +118,23 @@ function refreshDemoDaily(db: Database.Database) {
     if (!m) continue;
     const has = db.prepare("SELECT 1 FROM checkins WHERE user_id = ? AND checkin_date = ?").get(m.id, today);
     if (has) continue;
+    // The routing value is COMPUTED, not typed. It was the literal
+    // 'processing_ok', which is what the rule returns for these answers — and a
+    // literal that agrees with the rule today is the shape every routing
+    // divergence in this codebase started as.
+    const values = {
+      activation: 3, shutdown: 1, harm_urge: false, feels_safe: true,
+      dissociation: 1, sleep_quality: 6, substance_flag: false,
+    };
     db.prepare(
       `INSERT INTO checkins (id, user_id, tenant_id, checkin_date, activation, shutdown, harm_urge,
          feels_safe, dissociation, sleep_quality, substance_flag, recommended_action)
-       VALUES (?, ?, ?, ?, 3, 1, 0, 1, 1, 6, 0, 'processing_ok')`
+       VALUES (?, ?, ?, ?, ?, ?, 0, 1, ?, ?, 0, ?)`
       // Deterministic per member per day, so a reset reproduces it and a
       // second boot on the same day cannot create a duplicate.
-    ).run(demoId(0, `checkin:${m.id}:${today}`), m.id, m.tenant_id, today);
+    ).run(demoId(0, `checkin:${m.id}:${today}`), m.id, m.tenant_id, today,
+      values.activation, values.shutdown, values.dissociation, values.sleep_quality,
+      evaluateCheckin(values));
   }
 }
 

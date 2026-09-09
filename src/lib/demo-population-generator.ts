@@ -1,6 +1,10 @@
 import crypto from "crypto";
 import type Database from "better-sqlite3";
 import { hashPassword } from "./db";
+import { evaluateCheckin } from "./gating";
+import {
+  ALERT_INSERT_IDEMPOTENT_SQL, alertValues, checkinSafetyAlert,
+} from "./clinical/alert-create";
 import { encryptField } from "./crypto";
 import { EVERYDAY_FUNCTION } from "./measures/house";
 import {
@@ -287,6 +291,9 @@ export interface GeneratedCounts {
   modules: number;
   sessions: number;
   safetyEvents: number;
+  /** Urgent alerts raised because a seeded check-in routed to crisis. Counted
+   *  because this number was zero on a history that routed people to crisis. */
+  safetyAlerts: number;
   clinicianActions: number;
   corrections: number;
 }
@@ -628,7 +635,8 @@ function generateInner(db: Database.Database): GeneratedCounts {
   const counts: GeneratedCounts = {
     accounts: 0, consents: 0, subscriptions: 0, profiles: 0, intake: 0,
     checkins: 0, measures: 0, measuresMissing: 0,
-    modules: 0, sessions: 0, safetyEvents: 0, clinicianActions: 0, corrections: 0,
+    modules: 0, sessions: 0, safetyEvents: 0, safetyAlerts: 0,
+    clinicianActions: 0, corrections: 0,
   };
 
   // Idempotent: a second call on a generated database is a no-op.
@@ -654,6 +662,16 @@ function generateInner(db: Database.Database): GeneratedCounts {
        harm_urge, feels_safe, dissociation, sleep_quality, substance_flag,
        recommended_action, created_at)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
+  // The alert a crisis-routed check-in raises, prepared from the product's own
+  // statement.
+  //
+  // WHAT THIS WAS. Seventeen fabricated people reported a harm urge in their
+  // seeded history, every one of them routed to crisis on the row, and the
+  // alerts table held nothing. They band "immediate" on the caseload with a
+  // reason read off the check-in, and a clinician opening one finds nothing to
+  // act on and nothing to close — the same shape as the live defect in the
+  // paced screening gate, in fabricated history rather than in a member's.
+  const insAlert = db.prepare(ALERT_INSERT_IDEMPOTENT_SQL);
   const insScreening = db.prepare(
     `INSERT INTO screenings (id, user_id, tenant_id, instrument, instrument_version,
        total_score, answers_json, risk_flags_json, created_at)
@@ -886,17 +904,53 @@ function generateInner(db: Database.Database): GeneratedCounts {
       const gap = gapFor(row, exposure);
       const paused = row.safety === "Fixed pause" && gap !== null && rel > gap[0] - 3 && rel < gap[0] + 1;
 
+      // THE PRODUCT'S OWN ROUTING RULE, on the values about to be written.
+      //
+      // This used to be a hand-written ladder — `paused ? "crisis" : severity
+      // >= 7 ? "grounding_only" : "steady"` — and it disagreed with the product
+      // in both directions. "steady" IS NOT A ROUTING DECISION the product can
+      // make: `evaluateCheckin` returns crisis, grounding_only, stabilization or
+      // processing_ok, and nothing else. Seven and a half thousand rows of
+      // seeded history carried a value no live check-in has ever produced, and
+      // the clinician's measures table rendered it to a reader as though the
+      // engine had decided it. The ladder also drew its grounding threshold at
+      // severity 7 where the rule draws it at activation 8, and never reached
+      // `stabilization` at all.
+      //
+      // Computed from the row rather than asserted over it, so seeded history
+      // and a member answering the same questions today land in the same place.
+      const checkinValues = {
+        activation: severity,
+        shutdown: Math.max(0, severity - rng.int(0, 2)),
+        harm_urge: paused,
+        feels_safe: !paused,
+        dissociation: row.archetype === "Safety pause" && paused ? 7 : rng.int(0, 3),
+        sleep_quality: Math.max(0, Math.min(10, 8 - Math.round(severity / 2) + rng.int(-1, 1))),
+        substance_flag: false,
+      };
+      const action = evaluateCheckin(checkinValues);
       insCheckin.run(
         popId("checkin", `${row.id}:${day}`), personId, tenant, dayDate(epoch, day),
-        severity, Math.max(0, severity - rng.int(0, 2)),
-        paused ? 1 : 0,
-        paused ? 0 : 1,
-        row.archetype === "Safety pause" && paused ? 7 : rng.int(0, 3),
-        Math.max(0, Math.min(10, 8 - Math.round(severity / 2) + rng.int(-1, 1))),
-        0,
-        paused ? "crisis" : severity >= 7 ? "grounding_only" : "steady",
+        checkinValues.activation, checkinValues.shutdown,
+        checkinValues.harm_urge ? 1 : 0,
+        checkinValues.feels_safe ? 1 : 0,
+        checkinValues.dissociation,
+        checkinValues.sleep_quality,
+        checkinValues.substance_flag ? 1 : 0,
+        action,
         dayStamp(epoch, day, 7 + (seed % 4)),
       );
+      // And what the rule decided reaches somebody, exactly as it does on the
+      // web and mobile paths.
+      if (action === "crisis") {
+        insAlert.run(...alertValues(checkinSafetyAlert({
+          id: popId("checkin-alert", `${row.id}:${day}`),
+          userId: personId,
+          harmUrge: checkinValues.harm_urge,
+          via: "seeded history",
+        })));
+        counts.safetyAlerts++;
+      }
       checkins++;
     }
     counts.checkins += checkins;

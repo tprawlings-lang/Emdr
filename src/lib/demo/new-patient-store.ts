@@ -28,6 +28,7 @@
 
 import { data } from "../data";
 import { newId, hashPassword } from "../db";
+import { evaluateCheckin } from "../gating";
 import { encryptField } from "../crypto";
 import { audit } from "../audit";
 import {
@@ -268,17 +269,29 @@ export async function createDemoPatient(args: {
     // clinician's. src/lib/db.ts already carries a correction for exactly this,
     // written the last time it happened: replay rebuilt the row into the
     // person's tenant while the live row said platform.
+    // THE ROUTING VALUE IS COMPUTED, here as everywhere. It was the literal
+    // "processing_ok" in two places on this path — the row and the event — and
+    // two literals that agree with each other and with the rule today are three
+    // things that can drift apart tomorrow.
+    const values = {
+      activation: 5, shutdown: 3, harm_urge: false, feels_safe: true,
+      dissociation: 3, sleep_quality: 4, substance_flag: false,
+    };
+    const action = evaluateCheckin(values);
     await c.run(
       `INSERT INTO checkins (id, user_id, tenant_id, checkin_date, activation, shutdown, harm_urge,
          feels_safe, dissociation, sleep_quality, substance_flag, recommended_action)
        VALUES (?, ?, ?, ?, ?, ?, 0, 1, ?, ?, 0, ?)`,
-      [checkinId, userId, args.tenantId, today, 5, 3, 3, 4, "processing_ok"]
+      [checkinId, userId, args.tenantId, today, values.activation, values.shutdown,
+        values.dissociation, values.sleep_quality, action]
     );
     await recordCheckin({
       userId, checkinId, occurredAt, checkinDate: today,
-      activation: 5, shutdown: 3, harmUrge: false, feelsSafe: true,
-      dissociation: 3, sleepQuality: 4, substanceFlag: false,
-      recommendedAction: "processing_ok", via: "web",
+      activation: values.activation, shutdown: values.shutdown,
+      harmUrge: values.harm_urge, feelsSafe: values.feels_safe,
+      dissociation: values.dissociation, sleepQuality: values.sleep_quality,
+      substanceFlag: values.substance_flag,
+      recommendedAction: action, via: "web",
     });
     ran.push("checkin");
   }

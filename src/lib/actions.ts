@@ -23,7 +23,7 @@ import { getModule } from "./modules";
 import { checkModuleAccess, evaluateCheckin, todayISO, liveAvailableFor } from "./gating";
 import { shadowDecide, decideAccess } from "./safety/decide";
 import { currentConsentVersion, currentTermsVersion } from "./policy";
-import { createAlert, raiseRiskItemAlert } from "./clinical/alert-create";
+import { createAlert, raiseRiskItemAlert, raiseCheckinSafetyAlert } from "./clinical/alert-create";
 import {
   ReadinessAnswers,
   computeReadiness,
@@ -929,14 +929,7 @@ export async function submitCheckin(formData: FormData) {
   });
 
   if (action === "crisis") {
-    await createAlert({
-      userId: user.id,
-      type: "checkin_safety_positive",
-      severity: "urgent",
-      detail: values.harm_urge
-        ? "Member reported urge to harm self or others on daily check-in."
-        : "Member reported not feeling safe where they are.",
-    });
+    await raiseCheckinSafetyAlert({ userId: user.id, harmUrge: values.harm_urge });
     redirect("/crisis?from=checkin");
   }
   // §20.2: "The check-in result changes the next action without requiring

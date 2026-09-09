@@ -22,6 +22,7 @@
 
 import { data } from "./data";
 import { newId } from "./db";
+import { createAlert } from "./clinical/alert-create";
 import { audit } from "./audit";
 import { encryptField } from "./crypto";
 import { getEntitlements } from "./entitlements";
@@ -175,11 +176,16 @@ async function deliverOutreach(userId: string, o: Outreach) {
 async function maybeRiskWatch(userId: string, reason: string) {
   const last = await lastEvent(userId, "risk_watch");
   if (last !== null && Date.now() - last < RISK_WATCH_MS) return;
-  const c = await data();
-  await c.run("INSERT INTO alerts (id, user_id, alert_type, severity, detail) VALUES (?, ?, ?, ?, ?)", [
-    newId(), userId, "autopilot_risk_watch", "moderate",
-    `Autopilot risk watch: ${reason}. Surfaced early for review; the member's plan has been kept gentle.`,
-  ]);
+  // Through the one writer, like every other alert. This went around it, which
+  // meant the next rule added to `createAlert` would not have applied to the
+  // rows autopilot raises — the same shape as the defect that put that writer
+  // in one place.
+  await createAlert({
+    userId,
+    type: "autopilot_risk_watch",
+    severity: "moderate",
+    detail: `Autopilot risk watch: ${reason}. Surfaced early for review; the member's plan has been kept gentle.`,
+  });
   await recordEvent(userId, "risk_watch");
   await audit({
     actorId: userId, actorRole: "member", family: "safety",
