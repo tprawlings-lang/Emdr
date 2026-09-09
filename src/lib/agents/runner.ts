@@ -11,6 +11,9 @@ import {
 import { TARGETS } from "@/lib/demo-population-generator";
 import { MANIFEST, seedFor, type ManifestRow } from "@/lib/demo-population-manifest";
 import { popPersonId, tenantForRow } from "@/lib/demo-population-seed";
+import {
+  ALERT_INSERT_IDEMPOTENT_SQL, alertValues, checkinSafetyAlert,
+} from "@/lib/clinical/alert-create";
 import { intentFor, type DayIntent } from "./policy";
 
 // The agent behaviour layer.
@@ -58,6 +61,11 @@ export interface AgentRunResult {
    *  product's safety machinery doing its job on a person who asked. */
   sessionsRefused: number;
   refusalsByTier: Record<string, number>;
+  /** Urgent alerts raised because a check-in routed to crisis. Counted because
+   *  the number this layer used to produce was zero on a fortnight that routed
+   *  people to crisis resources, and a count of zero is the shape that mistake
+   *  had. */
+  safetyAlerts: number;
   /** Session requests that got no further because the beta configuration has
    *  autonomous stimulation switched off — no rule fired and nothing about the
    *  person was decided. COUNTED SEPARATELY AND NOT WRITTEN TO THE LEDGER,
@@ -94,7 +102,7 @@ const empty = (): AgentRunResult => ({
   modulesOpened: 0, sessionsStarted: 0, sessionsRefused: 0,
   refusalsByTier: {}, sessionsUnavailable: 0,
   groundingOnlyDays: 0, accessRestrictedDays: 0, tierDays: {}, skippedNotFabricated: 0,
-  checkInFloorPeople: 0, checkInFloorDays: 0,
+  checkInFloorPeople: 0, checkInFloorDays: 0, safetyAlerts: 0,
 });
 
 const dayDate = (epoch: Date, day: number) =>
@@ -172,6 +180,19 @@ export function runAgents(db: Database.Database, now = Date.now()): AgentRunResu
        pre_suds, post_suds, started_at, ended_at)
      VALUES (?, ?, ?, 'resourcing', 'completed', ?, ?, ?, ?)
      ON CONFLICT(id) DO NOTHING`);
+  // THE STATEMENT COMES FROM THE PRODUCT, not from here.
+  //
+  // This layer runs the product's own routing rule and then recorded its answer
+  // on the check-in row and nowhere else. On the days that rule said "crisis",
+  // nothing reached a clinician: the person banded "immediate" on the caseload
+  // with a reason drawn from the check-in, and there was no alert behind it to
+  // open or to close. That is the live defect this layer exists to catch,
+  // reproduced by the layer itself.
+  //
+  // It is prepared from the shared constant rather than written out, because a
+  // hand-written INSERT here is how the wording and the columns drift apart
+  // again. Idempotent on the id: this fortnight is regenerated on every boot.
+  const insAlert = db.prepare(ALERT_INSERT_IDEMPOTENT_SQL);
   // payload_version is now a PARAMETER, looked up from the event's registered
   // schema. It was the literal 1, and daily_checkin.completed is on schema 2 —
   // so every check-in this layer appended told the ledger it used a schema it
@@ -265,7 +286,8 @@ export function runAgents(db: Database.Database, now = Date.now()): AgentRunResu
       for (const d of plan) {
         liveOneDay({
           row, personId, tenant, rel: d.rel, absolute: d.absolute, intent: d.intent, epoch, out,
-          insCheckin, insScreening, insPractice, insSession, insEvent, PROV, CHECKIN_PROV, db,
+          insCheckin, insScreening, insPractice, insSession, insEvent, insAlert,
+          PROV, CHECKIN_PROV, db,
         });
       }
     }
@@ -299,6 +321,7 @@ interface DayArgs {
   insPractice: Database.Statement;
   insSession: Database.Statement;
   insEvent: Database.Statement;
+  insAlert: Database.Statement;
   PROV: string;
   CHECKIN_PROV: string;
   db: Database.Database;
@@ -341,6 +364,26 @@ function liveOneDay(a: DayArgs) {
       personId, "patient", dayStamp(epoch, absolute, 8), dayStamp(epoch, absolute, 8),
       a.CHECKIN_PROV, null, null);
     out.checkIns += 1;
+
+    // ── What the routing rule decided reaches somebody ──────────────────
+    //
+    // The rule's answer was being written to `recommended_action` and left
+    // there. A member on the web path who answers the same way gets an urgent
+    // alert and the crisis screen; this population got a column.
+    //
+    // Raised through the product's own shape, so a clinician reading the row
+    // reads the sentence the live paths write. The marker says where it came
+    // from — these are fabricated people and an alert that hides that would be
+    // the wrong kind of realism.
+    if (action === "crisis") {
+      a.insAlert.run(...alertValues(checkinSafetyAlert({
+        id: agentId(row.id, "checkin-alert", rel),
+        userId: personId,
+        harmUrge: v.harm_urge,
+        via: "demo agent",
+      })));
+      out.safetyAlerts += 1;
+    }
 
     // ── The gate ────────────────────────────────────────────────────────
     //

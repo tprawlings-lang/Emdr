@@ -1,6 +1,8 @@
 import type Database from "better-sqlite3";
 import crypto from "crypto";
 import { hashPassword } from "./db";
+import { evaluateCheckin } from "./gating";
+import { ALERT_INSERT_SEEDED_SQL, alertValues } from "./clinical/alert-create";
 
 // Rich fictional dataset for demo deployments (EMDR_DEMO=1). Gives both the
 // member and clinician views something realistic to show on first login:
@@ -343,11 +345,23 @@ export function seedDemoData(db: Database.Database) {
     const calmer = (21 - d) / 21;
     const activation = Math.max(1, Math.round(6 - 3 * calmer + (d % 3 === 0 ? 1 : 0)));
     const dissociation = d === 9 ? 7 : Math.max(0, Math.round(4 - 3 * calmer));
-    const action =
-      d === 9 ? "grounding_only" : dissociation >= 4 || d % 5 === 4 ? "stabilization" : "processing_ok";
+    // THE PRODUCT'S OWN ROUTING RULE, not a ladder that agrees with it today.
+    // This read `d === 9 ? "grounding_only" : dissociation >= 4 || d % 5 === 4
+    // ? "stabilization" : "processing_ok"` — and the `d % 5 === 4` arm was a
+    // decision the rule does not make on these values. Every seeded row now
+    // carries the answer a member answering the same questions would get.
+    const values = {
+      activation,
+      shutdown: Math.max(0, activation - 2),
+      harm_urge: false,
+      feels_safe: true,
+      dissociation,
+      sleep_quality: d % 4 === 0 ? 3 : 6,
+      substance_flag: false,
+    };
     insCheckin.run(
-      id(), alexId, dateOnly(d), activation, Math.max(0, activation - 2), 0, 1,
-      dissociation, d % 4 === 0 ? 3 : 6, 0, action, daysAgo(d, 8)
+      id(), alexId, dateOnly(d), values.activation, values.shutdown, 0, 1,
+      values.dissociation, values.sleep_quality, 0, evaluateCheckin(values), daysAgo(d, 8)
     );
   }
 
@@ -394,14 +408,19 @@ export function seedDemoData(db: Database.Database) {
     insPostCheck.run(id(), sessionId, alexId, post, 1, 1, Math.min(post, 3), 1, 0, daysAgo(d, 19));
   }
 
-  const insAlert = db.prepare(
-    `INSERT INTO alerts (id, user_id, alert_type, severity, detail, status, reviewed_by, review_note, created_at, reviewed_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-  );
+  // The seeded statement from the one file that owns this table's column list.
+  // It was written out here, which made this the third place `INSERT INTO
+  // alerts` appeared — and a seeded alert is still an alert: the next rule
+  // added to the writer has to reach it too.
+  const insAlert = db.prepare(ALERT_INSERT_SEEDED_SQL);
   // Hard-stop alert, already reviewed by the clinician with a documented note.
   insAlert.run(
-    id(), alexId, "session_hard_stop", "high",
-    "Hard stop in module body-scan: Distress rated 9/10",
+    ...alertValues({
+      // The seed's own deterministic id, so a reset reproduces this row.
+      id: id(),
+      userId: alexId, type: "session_hard_stop", severity: "high",
+      detail: "Hard stop in module body-scan: Distress rated 9/10",
+    }),
     "reviewed", clinicianId,
     "Called member same day. Dissociative spike after poor sleep; agreed to grounding-only week and earlier wind-down. No safety concerns. Follow-up at next weekly review.",
     daysAgo(9, 18), daysAgo(9, 21)

@@ -401,13 +401,29 @@ test("the directory stays a directory, not a second triage queue", async ({ page
 // ---------------------------------------------------------------------------
 
 async function openMemberWithSessions(page: import("@playwright/test").Page): Promise<string> {
-  await page.goto("/clinician/caseload");
-  const hrefs = await page
+  // FOUND BY NAME, not by position.
+  //
+  // This read `ids[1]` off the caseload, under a comment saying the seeded
+  // member with a session history is the second row. That was true until the
+  // caseload's ordering changed: twenty-six check-ins that had routed to crisis
+  // gained the urgent alerts they should always have raised, three of those
+  // people banded immediate ahead of this one, and both charts below started
+  // being read on a member who has no sessions at all. The tests failed for a
+  // reason that had nothing to do with what they are about, which is what a
+  // positional fixture buys.
+  //
+  // Exactly one seeded person carries the history these two charts are about —
+  // the hard stop that opened at 6 and closed at 9, and the fixed gate events
+  // beside it. The patient directory names everybody, so they are found there.
+  await page.goto("/clinician/patients");
+  const href = await page
     .locator('a[href*="/clinician/member/"]')
-    .evaluateAll((as) => as.map((a) => a.getAttribute("href")));
-  const ids = [...new Set(hrefs.filter(Boolean).map((h) => (h as string).split("/")[3]))];
-  // The seeded member with a session history is the second in the caseload.
-  return ids[1] ?? ids[0];
+    .filter({ hasText: "Alex Rivera" })
+    .first()
+    .getAttribute("href");
+  const id = (href ?? "").split("/")[3];
+  if (!id) throw new Error("the seeded member with a session history is not in the patient directory");
+  return id;
 }
 
 test("session response shows both readings, and keeps the session that went the wrong way", async ({ page }) => {

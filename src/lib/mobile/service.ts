@@ -39,7 +39,7 @@ import { getSavedCalmPlace } from "../session-focus";
 import { shadowDecide } from "../safety/decide";
 import { generateProgramPlan } from "../program-plan";
 import { encryptField } from "../crypto";
-import { createAlert } from "../clinical/alert-create";
+import { createAlert, raiseCheckinSafetyAlert } from "../clinical/alert-create";
 
 // ---------- shared shapes (the mobile API contract) ----------
 
@@ -236,12 +236,7 @@ export async function submitCheckinMobile(
   });
 
   if (action === "crisis") {
-    await createAlert({
-      userId, type: "checkin_safety_positive", severity: "urgent",
-      detail: values.harm_urge
-        ? "Member reported urge to harm self or others on daily check-in (mobile)."
-        : "Member reported not feeling safe where they are (mobile).",
-    });
+    await raiseCheckinSafetyAlert({ userId, harmUrge: values.harm_urge, via: "mobile" });
   }
   return { action, date };
 }
