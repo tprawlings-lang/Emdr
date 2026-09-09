@@ -13,6 +13,7 @@
 import { strict as assert } from "node:assert";
 import test from "node:test";
 import fs from "node:fs";
+import { routeEntry } from "../src/lib/app/route-register";
 import path from "node:path";
 
 const CLIN = path.join(process.cwd(), "src", "app", "clinician");
@@ -44,27 +45,76 @@ test("every §26 clinician screen exists", () => {
   assert.deepEqual(missing, [], "these §26 clinician screens do not exist:\n  " + missing.join("\n  "));
 });
 
-test("every clinician screen is reachable from the nav or the person record", () => {
-  // The nav bar is gone: navigation is the shell's rail plus, within a layer,
-  // the sibling row ClinicianPage lists. Both live in these files.
-  const nav = read(path.join(process.cwd(), "src/components/clinical/ClinicianPage.tsx"))
-    + read(path.join(process.cwd(), "src/lib/app/rails.ts"));
-  const shell = read(path.join(process.cwd(), "src/components/clinical/PersonShell.tsx"));
-  const rows = read(path.join(process.cwd(), "src/components/clinical/WorkQueueRow.tsx"));
+/**
+ * Reachability, split by capability state — because handoff 09 §1.1 changed
+ * what "reachable" is allowed to mean.
+ *
+ * This guard used to require every §26 clinician screen to be linked from
+ * navigation or the person record. Four of them are pages that say the
+ * capability behind them does not exist, and §1.1 now rules those OUT of
+ * primary navigation entirely: "a navigation item is a promise; promoting a
+ * route that dead-ends is the fastest way to lose a clinician's trust in the
+ * whole shell." Handoff 09 §0's precedence table gives navigation decisions to
+ * handoff 09 where it and handoff 08 disagree, and this is that case.
+ *
+ * SO THE GUARD SPLITS RATHER THAN EXEMPTS. A working screen must be reachable
+ * from navigation. A capability-absent screen must NOT be in navigation, and
+ * must be named on /review/status — which §1.1 calls the "secondary
+ * product-status location" where an honest capability notice belongs. Both
+ * halves fail the build, so a dead end cannot creep back into the nav and an
+ * omitted capability cannot become invisible.
+ *
+ * The state comes from the route register (Package 0) rather than from a list
+ * here, so there is one answer to "does this work" in the codebase.
+ */
+test("working clinician screens are reachable; capability-absent ones are not in navigation", () => {
+  // Comments are stripped. The first version of this passed for
+  // /clinician/handoffs on the strength of a COMMENT in rails.ts mentioning
+  // the path — a guard that reads prose is a guard that can be satisfied by
+  // writing prose.
+  const strip = (src: string) =>
+    src.replace(/\/\*[\s\S]*?\*\//g, " ").replace(/^\s*\/\/.*$/gm, " ");
+
+  const nav = strip(read(path.join(process.cwd(), "src/components/clinical/ClinicianPage.tsx")))
+    + strip(read(path.join(process.cwd(), "src/lib/app/rails.ts")));
+  const shell = strip(read(path.join(process.cwd(), "src/components/clinical/PersonShell.tsx")));
+  const rows = strip(read(path.join(process.cwd(), "src/components/clinical/WorkQueueRow.tsx")));
   const sources = nav + shell + rows;
+  const productStatus = read(path.join(process.cwd(), "src/app/review/status/page.tsx"));
 
   const orphans: string[] = [];
+  const promotedDeadEnds: string[] = [];
+  const invisibleAbsences: string[] = [];
+
   for (const [r] of ATLAS) {
+    const route = `/clinician/${r}`;
+    const state = routeEntry(route)?.state ?? "working";
+
     if (r.startsWith("member/[id]")) {
-      // Person sub-routes are reached through the record's own tab strip.
+      // Person sub-routes are reached through the record's own local region.
       const slug = r.replace("member/[id]", "").replace("/session/[sid]", "");
-      if (slug && !shell.includes(`"${slug}"`)) orphans.push(`/clinician/${r}`);
-    } else if (!sources.includes(`/clinician/${r}`)) {
-      orphans.push(`/clinician/${r}`);
+      if (slug && !shell.includes(`"${slug}"`)) orphans.push(route);
+      continue;
     }
+
+    if (state === "unavailable") {
+      // §1.1: out of navigation…
+      if (nav.includes(route)) promotedDeadEnds.push(route);
+      // …and still accounted for where a reviewer looks. The register drives
+      // that panel, so naming the register is what makes it reachable.
+      if (!/route-register/.test(productStatus)) invisibleAbsences.push(route);
+      continue;
+    }
+
+    if (!sources.includes(route)) orphans.push(route);
   }
+
   assert.deepEqual(orphans, [],
-    "these clinician screens are not linked from anywhere: " + orphans.join(", "));
+    "these working clinician screens are not linked from anywhere: " + orphans.join(", "));
+  assert.deepEqual(promotedDeadEnds, [],
+    "§1.1: these capability-absent screens are promoted in navigation: " + promotedDeadEnds.join(", "));
+  assert.deepEqual(invisibleAbsences, [],
+    "these capabilities are neither promoted nor accounted for on /review/status: " + invisibleAbsences.join(", "));
 });
 
 test("every person sub-route is tenant scoped", () => {

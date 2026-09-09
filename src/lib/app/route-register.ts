@@ -234,13 +234,14 @@ export const ROUTE_REGISTER: RouteEntry[] = [
   { path: "/clinician/patients", audience: "clinician", job: "Find one person among everyone they are responsible for.", workspace: "patients", state: "working" },
   { path: "/clinician/population", audience: "clinician", job: "See the shape of their whole panel rather than one person.", workspace: "clinician_reports", state: "working" },
   { path: "/clinician/reports", audience: "clinician", job: "Read an aggregate report about their own work.", workspace: "clinician_reports", state: "working" },
-  { path: "/clinician/handoffs", audience: "clinician", job: "Hand a person over to another clinician.", workspace: "command_center", state: "unavailable", evidence: "No handoff record, recipient or acceptance step exists. PROMOTED IN NAVIGATION TODAY — see PROMOTED_UNAVAILABLE." },
+  { path: "/clinician/handoffs", audience: "clinician", job: "Hand a person over to another clinician.", workspace: "command_center", state: "unavailable", evidence: "No handoff record, recipient or acceptance step exists. Removed from primary navigation in Package 2; reachable by URL and named on /review/status." },
   { path: "/clinician/referrals", audience: "clinician", job: "Refer a person out.", workspace: "command_center", state: "unavailable", evidence: "No referral record or destination exists in this build." },
   { path: "/clinician/messages", audience: "clinician", job: "Message a member.", workspace: "command_center", state: "unavailable", evidence: "No message store, thread or delivery path. Confirmed by source reading in the Astra review. §1.1: omitted from primary navigation." },
   { path: "/clinician/schedule", audience: "clinician", job: "See and change appointments.", workspace: "command_center", state: "unavailable", evidence: "No scheduling model exists. Confirmed by source reading in the Astra review. §1.1: omitted from primary navigation." },
 
   // ---- Clinician: one person's record -------------------------------------
   { path: "/clinician/member/[id]", audience: "clinician", job: "Get oriented on one person in ten seconds.", workspace: "person_record", state: "working" },
+  { path: "/clinician/member/[id]/course", audience: "clinician", job: "Choose which reading of this person's course to open.", workspace: "person_record", state: "working", evidence: "Handoff 09 §5's Course section. Holds measures, life goals, responses and trajectory as named links, so the person record's tab row is five sections rather than a wrapping second menu." },
   { path: "/clinician/member/[id]/measures", audience: "clinician", job: "Read the instrument scores over time.", workspace: "person_record", state: "working" },
   { path: "/clinician/member/[id]/goals", audience: "clinician", job: "See what this person is trying to get back to, and whether it is moving.", workspace: "person_record", state: "working" },
   { path: "/clinician/member/[id]/sessions", audience: "clinician", job: "Read what happened in the sessions and what followed them.", workspace: "person_record", state: "working" },
@@ -381,11 +382,22 @@ export interface PromotedUnavailable {
 }
 
 export const PROMOTED_UNAVAILABLE: PromotedUnavailable[] = [
-  {
-    path: "/clinician/handoffs",
-    promotedBy: "CLINICIAN_RAIL.actions",
-    due: "Package 2 (clinician shell). §1.1: a navigation item is a promise; §1.5 puts work needing action in Command Center, which is where this layer should point.",
-  },
+  // EMPTY, AS OF HANDOFF 09 PACKAGE 2, and the empty list is the point rather
+  // than a tidying-up.
+  //
+  // Package 0 recorded one dead-end promotion and could not fix it: its exit
+  // evidence was "no product behavior change". Package 2 is where §1.1 gets
+  // applied, and widening the guard to read the clinician layer nav as well as
+  // the rails turned that one violation into five — Handoffs, Messages,
+  // Referrals and Schedule were all promoted from ClinicianPage's CONSOLE_SCREENS,
+  // and only the rails had been checked.
+  //
+  // All five are gone from navigation. The routes remain, still saying what is
+  // missing, reachable by URL and listed on /review/status.
+  //
+  // The guard now asserts this list is EXACTLY what navigation promotes, which
+  // means empty here requires empty there. A new dead-end promotion fails the
+  // build rather than joining a list somebody stops reading.
 ];
 
 // ---------------------------------------------------------------------------

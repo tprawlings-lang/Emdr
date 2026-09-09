@@ -13,6 +13,13 @@ import { EnvelopeView } from "@/components/presentation/EnvelopeView";
 import { WorkQueueRow } from "@/components/clinical/WorkQueueRow";
 import { CommandCenterHeader } from "@/components/clinical/CommandCenterHeader";
 import { relativeAge } from "@/components/clinical/primitives";
+import { clinicianShellEnabled } from "@/lib/experience/flags";
+import { experienceContextFor } from "@/lib/experience/context";
+import { navigationFor } from "@/lib/experience/navigation";
+import { fromSearchParams } from "@/lib/experience/view-state";
+import { clinicianHome } from "@/lib/experience/clinician-home";
+import { ExperienceShell } from "@/components/experience/ExperienceShell";
+import { ClinicianHomeView } from "@/components/experience/ClinicianHomeView";
 
 // The clinician's Command Center (GUI and Decision-Surface Handoff §10.3;
 // expansion handoff 03 §1–§4).
@@ -86,6 +93,60 @@ export default async function CommandCenterPage({
   const commandCenter = commandCenterSurfaceAvailable("CLINICAL_COMMAND_CENTER");
   // Phase 3's drawer, behind its own flag and everything it rests on.
   const drawer = commandCenterSurfaceAvailable("CLINICAL_COMMAND_CENTER_DRAWER");
+
+  // ---- Handoff 09 Package 2: the clinician shell -------------------------
+  //
+  // A WHOLE-PAGE BRANCH, not a swapped component, because the shells differ:
+  // ClinicianPage renders §25's five information layers and this renders a
+  // NavigationManifest. §10.1: "Keep new work behind role-level flags and
+  // prove the current experience is unchanged with each flag off" — with the
+  // flag off, everything below this block runs exactly as it did.
+  //
+  // THE PROJECTION IS THE SAME ONE. Both branches read the envelope computed
+  // above: same query, same server-side ordering, same guards. Package 2's
+  // exit evidence includes "authorization and queue authority unchanged", and
+  // sharing the projection is what makes that literally true rather than
+  // carefully maintained.
+  if (clinicianShellEnabled()) {
+    const experience = experienceContextFor({ ...clinician, tenantId });
+    const view = fromSearchParams(params, tenantId);
+    const selectedRowId = typeof params.row === "string" ? params.row : null;
+
+    const home = clinicianHome({
+      ctx: experience,
+      envelope,
+      view,
+      showing: filter === "stable" ? null : filter,
+      now: new Date().toISOString(),
+      rowsPerBucket: filter === null ? ROWS_PER_BUCKET : Number.MAX_SAFE_INTEGER,
+    });
+
+    // Who work could be assigned to. Queried here rather than in the
+    // experience layer, which owns no SQL (Package 1's exit evidence).
+    const assignees = (await c.all(
+      `SELECT id, name FROM users
+        WHERE tenant_id = ? AND role IN ('clinician', 'care_manager') AND id != ?
+        ORDER BY name LIMIT 12`,
+      [tenantId, clinician.id]
+    )) as Array<{ id: string; name: string }>;
+
+    return (
+      <ExperienceShell
+        role="Steady Clinical"
+        navigation={navigationFor(experience)}
+        pathname="/clinician/today"
+        title={home.asking.question}
+        lede="Who needs you today, why, and what to do next."
+      >
+        <ClinicianHomeView
+          home={home}
+          view={view}
+          selectedRowId={selectedRowId}
+          assignees={assignees}
+        />
+      </ExperienceShell>
+    );
+  }
 
   return (
     <ClinicianPage
