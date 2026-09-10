@@ -10,6 +10,8 @@ import {
 import { setNoteStatusAction } from "@/lib/clinical/actions";
 import { NoteForm } from "@/components/clinical/NoteForm";
 import { exerciseMatrix, postureNote } from "@/lib/clinical/demo-posture";
+import { NOT_CAUGHT } from "@/lib/experience/visual-baseline";
+import { VISUAL_BASELINE } from "@/lib/experience/visual-baseline.generated";
 import { activePolicy, policyBanner } from "@/lib/clinical-policy";
 
 export const dynamic = "force-dynamic";
@@ -91,6 +93,39 @@ export default async function TestingConsole({
         is a demonstration assumption waiting for exactly the kind of judgement this page
         collects — nothing on it has been ratified.
       </p>
+
+      {/* ---------------- The visual baseline ---------------- */}
+      {/* A testing console that lists what is exercised should also say what is
+          WATCHED between one change and the next. This is the only place in the
+          product that answers "would we notice if a screen quietly lost a
+          section", and — as pointedly — what it would not notice. */}
+      <section className="mt-10">
+        <h2 className="type-display text-2xl font-medium">What is watched for regression</h2>
+        <p className="measure mt-1 text-sm text-olive">
+          A structural baseline of {VISUAL_BASELINE.screens.length} screens, captured{" "}
+          {VISUAL_BASELINE.capturedAt.slice(0, 10)} — {VISUAL_BASELINE.conditions}. It holds each
+          screen&apos;s heading outline, its landmarks, the colours actually painted and the
+          spacing values in use. Not screenshots: CI installs its own browser, and a pixel
+          baseline that only matches on the machine that made it is a red check everybody
+          learns to ignore.
+        </p>
+        <ul className="mt-4 space-y-2">
+          {VISUAL_BASELINE.screens.map((sc) => (
+            <li key={sc.route} className="rounded-2xl border border-ground/10 bg-linen px-4 py-3 text-sm">
+              <code>{sc.route}</code>{" "}
+              <span className="text-olive">
+                — {sc.role} · {sc.headings.length} headings · {sc.landmarks.length} landmarks
+              </span>
+            </li>
+          ))}
+        </ul>
+        <h3 className="mt-6 text-xs font-semibold uppercase tracking-wide text-olive">
+          What it would not notice
+        </h3>
+        <ul className="measure mt-2 space-y-1 text-sm text-olive">
+          {NOT_CAUGHT.map((n) => <li key={n}>{n}</li>)}
+        </ul>
+      </section>
 
       {/* ---------------- What you can exercise ---------------- */}
       <section className="mt-10">

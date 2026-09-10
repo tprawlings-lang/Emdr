@@ -253,16 +253,27 @@ test("the companion is not a step inside a session", () => {
 // Referral export — decided, and still not built
 // ---------------------------------------------------------------------------
 
-test("the referral export is decided as passive compilation and remains unbuilt", () => {
-  // Handoff 09 forbids building this until the question is answered. It is now
-  // answered, which unblocks the work rather than performing it — and this
-  // guard exists so the two do not get confused: an entry claiming a decision
-  // while an unbuilt feature quietly appears is worse than either alone.
+test("the referral export is built as passive compilation, and points at where", () => {
+  // This guard used to assert the entry said "Not built", which was true and
+  // was the whole point: handoff 09 forbade building it until the question was
+  // answered, and an entry claiming a decision while an unbuilt feature quietly
+  // appeared would have been worse than either alone.
+  //
+  // It is built now, so the guard asserts the thing that replaced that: the
+  // decision names where it lives, and the files it names exist. A `where` that
+  // still said "not built" would now be the stale half of the same failure.
   const d = SECTION_11_DECISIONS.find((x) => x.id === "referral_export_assembly");
   assert.ok(d);
   assert.equal(d.state, "decided");
   assert.match(d.answer, /[Pp]assive compilation/);
-  assert.match(d.where, /Not built/);
+  assert.ok(!/Not built/.test(d.where), "the entry still claims it is unbuilt");
+  for (const file of d.where.match(/src\/[\w/.-]+\.tsx?/g) ?? []) {
+    assert.ok(fs.existsSync(path.join(process.cwd(), file)), `${d.id} names ${file}, which does not exist`);
+  }
+  // And the condition the decision attached to compiling without asking: the
+  // member reads it.
+  assert.match(d.answer, /member reads/i, "the decision no longer states its own condition");
+  assert.match(d.where, /\/app\/settings\/referral/, "the member's own view of it is not named");
 });
 
 test("the decisions reach a surface", () => {

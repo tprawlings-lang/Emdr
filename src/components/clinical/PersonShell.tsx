@@ -78,8 +78,17 @@ const SCREENS: Array<{ slug: string; label: string; layer: RailSlug }> = [
  */
 export const COURSE_SECTIONS = ["/measures", "/goals", "/responses", "/trajectory"] as const;
 
+/**
+ * Screens reached from Notes rather than from the rail, for the same reason
+ * Course holds its four: the tab row is the thing §5 shortened, and a bridge
+ * that only makes sense once items are approved belongs behind the screen where
+ * they are approved.
+ */
+export const NOTES_SECTIONS = ["/note"] as const;
+
 export function layerFor(slug: string): RailSlug {
   if ((COURSE_SECTIONS as readonly string[]).includes(slug)) return "progress";
+  if ((NOTES_SECTIONS as readonly string[]).includes(slug)) return "actions";
   return SCREENS.find((s) => s.slug === slug)?.layer ?? "overview";
 }
 

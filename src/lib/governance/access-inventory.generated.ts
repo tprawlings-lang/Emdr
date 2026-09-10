@@ -953,6 +953,36 @@ export const ACCESS_INVENTORY: AccessInventory = {
       "exempt": []
     },
     {
+      "path": "/app/settings/referral",
+      "audience": "member",
+      "file": "app/app/settings/referral/page.tsx",
+      "owed": [
+        1,
+        2,
+        4,
+        5,
+        7
+      ],
+      "found": {
+        "1": [
+          "requireUser(",
+          "requireMember("
+        ],
+        "2": [
+          "requireMember("
+        ],
+        "4": [
+          "revoked_at IS NULL"
+        ],
+        "5": [],
+        "7": []
+      },
+      "missing": [
+        7
+      ],
+      "exempt": []
+    },
+    {
       "path": "/app/settings/account",
       "audience": "member",
       "file": "app/app/settings/account/page.tsx",
@@ -1745,6 +1775,43 @@ export const ACCESS_INVENTORY: AccessInventory = {
       "path": "/clinician/member/[id]/thoughts",
       "audience": "clinician",
       "file": "app/clinician/member/[id]/thoughts/page.tsx",
+      "owed": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        7
+      ],
+      "found": {
+        "1": [
+          "requireUser(",
+          "requireClinician("
+        ],
+        "2": [
+          "requireClinician("
+        ],
+        "3": [
+          "tenant_id = ?",
+          "repo(ctx)",
+          "loadPersonHeader("
+        ],
+        "4": [
+          "revoked_at IS NULL",
+          "consentActive"
+        ],
+        "5": [],
+        "7": [
+          "audit("
+        ]
+      },
+      "missing": [],
+      "exempt": []
+    },
+    {
+      "path": "/clinician/member/[id]/note",
+      "audience": "clinician",
+      "file": "app/clinician/member/[id]/note/page.tsx",
       "owed": [
         1,
         2,
@@ -3149,8 +3216,8 @@ export const ACCESS_INVENTORY: AccessInventory = {
       "exempt": []
     }
   ],
-  "protectedCount": 110,
-  "complete": 49,
+  "protectedCount": 112,
+  "complete": 50,
   "gapsByStep": {
     "1": 0,
     "2": 1,
@@ -3158,7 +3225,7 @@ export const ACCESS_INVENTORY: AccessInventory = {
     "4": 19,
     "5": 0,
     "6": 12,
-    "7": 57,
+    "7": 58,
     "8": 2
   },
   "unresolved": []
