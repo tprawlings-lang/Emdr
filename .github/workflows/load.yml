@@ -18,7 +18,7 @@ jobs:
       EMDR_DATA_KEY: load-ci-placeholder-key
       NODE_ENV: production
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/setup-node@v4
         with:
           node-version: 22
