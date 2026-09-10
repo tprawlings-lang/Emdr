@@ -29,8 +29,17 @@ jobs:
       - name: Start server
         run: |
           npm run start > server.log 2>&1 &
-          echo "SERVER_PID=$!" >> "$GITHUB_ENV"
+          PID=$!
+          echo "SERVER_PID=$PID" >> "$GITHUB_ENV"
           for i in $(seq 1 30); do
+            # A DEAD PROCESS IS NOT A SLOW ONE. Without this the loop spends
+            # thirty seconds on a start that failed in the first second, and
+            # reports "did not become ready" for a crash whose cause is already
+            # in the log. The runner is fresh so nothing else can hold the
+            # port, but a bad config or a failed migration still exits here.
+            if ! kill -0 "$PID" 2>/dev/null; then
+              echo "server exited before it was ready"; cat server.log; exit 1
+            fi
             if [ "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:3000/)" = "200" ]; then
               echo "ready after ${i}s"; exit 0
             fi
