@@ -37,7 +37,22 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export async function signupMobile(input: {
   name: string; email: string; password: string; dob: string; wellnessAck: boolean;
+  /** The pilot access code. Required — see the gate check below. */
+  accessCode?: string;
 }): Promise<{ token: string; user: SessionUser } | { error: string }> {
+  // THE SAME GATE AS THE WEB FORM, and this is the door that was standing open.
+  //
+  // §12 closed `/signup` on the web and this route kept creating accounts with
+  // no code and no cap — which made the closure a sign rather than a gate. The
+  // check lives in lib/enrollment/gate.ts so both callers ask one question, and
+  // a third caller cannot be added without meeting it.
+  //
+  // BEFORE ANY VALIDATION, so a client without a code cannot use the error
+  // messages below to find out which addresses are already registered.
+  const { checkEnrollment } = await import("../enrollment/gate");
+  const gate = await checkEnrollment(String(input.accessCode ?? ""));
+  if (!gate.ok) return { error: gate.reason };
+
   const name = input.name.trim().slice(0, 80);
   const email = input.email.trim().toLowerCase().slice(0, 200);
   if (!name || !EMAIL_RE.test(email)) return { error: "Enter a valid name and email." };
@@ -62,6 +77,9 @@ export async function signupMobile(input: {
   // Identity dual-write (ADR 0011) — must precede any event append.
   await provisionPerson({
     userId, name, email, role: "member", passwordHash: hashPassword(input.password),
+    // Explicit, though it is the default: a human typed this, so their answers
+    // must never pool with the fabricated population.
+    provenance: "real",
   });
   const insertConsent = "INSERT INTO consents (id, user_id, policy_version, scope) VALUES (?, ?, ?, ?)";
   await c.run(insertConsent, [newId(), userId, "wellness-ack-v1", "wellness_acknowledgment"]);
