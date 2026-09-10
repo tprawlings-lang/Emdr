@@ -9,11 +9,49 @@ import { test, expect } from "@playwright/test";
 // review environment from re-accumulating real identifiers.
 test.skip(Boolean(process.env.E2E_BASE_URL), "runs against the hermetic seeded server");
 
-test("the signup route no longer creates accounts", async ({ page }) => {
+test("the signup route creates no account without the access code", async ({ page }) => {
+  // THIS TEST CHANGED WITH THE BEHAVIOUR, deliberately, and the §12 promise it
+  // was written for is still kept — by a different mechanism.
+  //
+  // It used to assert that `/signup` redirected to `/request-review`, because
+  // the route was shut outright. Enrollment is now a gated pilot: with
+  // `EMDR_ENROLLMENT_CODE` set the form renders, and with it unset the redirect
+  // is exactly what it always was. The e2e server sets the variable, so the
+  // closed path is covered where it can be — `tests/enrollment-gate.test.ts`
+  // unsets it and asserts the redirect and the refusal.
+  //
+  // WHAT §12 ACTUALLY PROTECTED was not the redirect; it was that a stranger
+  // could not put a real identity into this environment. That is what this
+  // asserts now, against the form itself.
   await page.goto("/signup");
-  await expect(page).toHaveURL(/\/request-review/);
-  // No account-creation form survives anywhere on the destination.
-  await expect(page.locator('input[name="password"]')).toHaveCount(0);
+  await page.waitForLoadState("networkidle");
+  await expect(page).toHaveURL(/\/signup/);
+
+  // A code is required, structurally — not merely validated on submit.
+  const codeField = page.locator('input[name="access_code"]');
+  await expect(codeField, "the enrollment form asks for no access code").toHaveCount(1);
+  await expect(codeField).toHaveAttribute("required", "");
+
+  // And a wrong one creates nothing. The address is checked afterwards by
+  // trying it again: a refusal that had written the row would answer
+  // "already exists" the second time.
+  const email = `closed-${Date.now()}@example.test`;
+  await codeField.fill("not-the-code");
+  await page.locator('input[name="name"]').fill("Should Not Exist");
+  await page.locator('input[name="email"]').fill(email);
+  await page.locator('input[name="password"]').fill("password-1234");
+  await page.locator('input[name="dob"]').fill("1990-01-01");
+  await page.locator('input[name="wellness_ack"]').check();
+  await page.locator('input[name="data_ack"]').check();
+  await Promise.all([
+    page.waitForURL(/refused=/, { timeout: 20_000 }),
+    page.getByRole("button", { name: /Create my account/i }).click(),
+  ]);
+  await expect(page.locator("main")).toContainText(/access code is not valid/i);
+
+  // No session was minted on the way to refusing.
+  await page.goto("/app/today");
+  await expect(page, "a refused signup left a usable session").toHaveURL(/\/login/);
 });
 
 test("the subscribe route states that billing is closed and offers no purchase", async ({ page }) => {

@@ -173,7 +173,7 @@ export const ROUTE_REGISTER: RouteEntry[] = [
   { path: "/status/degraded", audience: "public", job: "See what is working and what is not, measured rather than asserted.", workspace: "site", state: "working" },
   { path: "/request-review", audience: "public", job: "Ask for access to the review environment.", workspace: "site", state: "working" },
   { path: "/login", audience: "public", job: "Sign in.", workspace: "auth", state: "working" },
-  { path: "/signup", audience: "public", job: "Start an account.", workspace: "auth", state: "redirect", evidence: "Sends to /request-review: this build has no open self-signup, and a form that collected details it could not act on would be worse than saying so." },
+  { path: "/signup", audience: "public", job: "Join the pilot with an access code.", workspace: "auth", state: "working", evidence: "A gated pilot, not open self-signup: an access code, twenty-five places, and a page that names what the next screens ask before the first field. Redirects to /request-review when EMDR_ENROLLMENT_CODE is unset, which is the state a deployment is in unless somebody deliberately opens it (docs/demo/enrollment.md)." },
   { path: "/verify", audience: "public", job: "Confirm an email address.", workspace: "auth", state: "working" },
   { path: "/reset", audience: "public", job: "Recover access to an account.", workspace: "auth", state: "working" },
   { path: "/invite/[token]", audience: "public", job: "Accept an invitation into a tenant.", workspace: "auth", state: "working" },
