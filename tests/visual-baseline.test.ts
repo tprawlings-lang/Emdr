@@ -173,6 +173,70 @@ test("the module says why it is not a screenshot comparison", () => {
 // The committed artefact
 // ---------------------------------------------------------------------------
 
+test("colours are recorded coarsely enough to survive a renderer, finely enough to catch a change", () => {
+  // THE FAILURE THIS CLOSES. `visual-baseline.ts` says at length that this is
+  // a contract check rather than a pixel comparison, because CI installs its
+  // own Chromium and the capture container pins another. Colour leaked that
+  // difference straight back in: two builds convert the same token to oklab
+  // and disagree in the sixth decimal —
+  //
+  //   0.960333 0.00280914 0.0133284   (CI)
+  //   0.960262 0.00281644 0.0133320   (capture container)
+  //
+  // — the same colour, and it produced 48 drift entries across ten screens on
+  // a diff that changed none of them. A baseline that only matches on one
+  // machine is the red suite everybody learns to ignore.
+  // SCOPED TO THE PALETTE. A first version scanned the whole blob and caught
+  // `25.1875px` — a spacing value, which is exact rem arithmetic rather than
+  // renderer noise and is identical on every machine. Rounding that would
+  // throw away real precision to fix a problem it does not have.
+  const colours = VISUAL_BASELINE.screens.flatMap((s) =>
+    [...s.palette.background, ...s.palette.text]
+  );
+  const values = colours.flatMap((c) => c.match(/-?\d+\.\d+/g) ?? []);
+  const tooPrecise = values.filter((v) => (v.split(".")[1] ?? "").length > 3);
+  assert.deepEqual(
+    [...new Set(tooPrecise)].slice(0, 5), [],
+    "the baseline records colours at more than three decimals, which measures the renderer " +
+    "rather than the design. Recapture with the rounding in scripts/capture-visual-baseline.ts."
+  );
+
+  // AND STILL COARSER THAN ANY REAL CHANGE. Swapping one declared token for
+  // another moves the second decimal at least, so three decimals catches it.
+  // Asserted by rounding a real recorded colour to two decimals and checking
+  // the drift reporter still sees the difference — if it did not, this
+  // rounding would be hiding regressions instead of noise.
+  // A SCREEN WITH A DECIMAL COLOUR, because that is what rounding applies to.
+  // Picking the first screen with any text colour found `rgb(23, 58, 50)` —
+  // integers — and the mutation below was a silent no-op on it, so the check
+  // passed vacuously.
+  const withColour = VISUAL_BASELINE.screens.find((s) =>
+    s.palette.text.some((c) => /\d\.\d/.test(c))
+  );
+  assert.ok(withColour, "no screen records a fractional colour, so rounding is untested");
+  // A SECOND-DECIMAL SHIFT, built by arithmetic rather than by a regex on the
+  // string. The first attempt rewrote digits in place and happened to produce
+  // a value already in the set, so the assertion failed on a rounding that was
+  // in fact fine — a test wrong about the thing it was defending.
+  const shifted: ScreenBaseline = {
+    ...withColour!,
+    palette: {
+      ...withColour!.palette,
+      text: withColour!.palette.text.map((c) =>
+        c.replace(/\d+\.\d+/, (n) => (parseFloat(n) + 0.02).toFixed(3))
+      ),
+    },
+  };
+  assert.notDeepEqual(
+    shifted.palette.text, withColour!.palette.text,
+    "the mutation did not actually change a colour, so the check below proves nothing"
+  );
+  assert.ok(
+    driftBetween(baseline([withColour!]), baseline([shifted])).length > 0,
+    "a colour change in the second decimal is not reported; the rounding is too coarse"
+  );
+});
+
 test("the baseline covers a screen from every role that has one", () => {
   const roles = new Set(VISUAL_BASELINE.screens.map((s) => s.role));
   for (const role of ["member", "clinician", "organization", "reviewer"]) {

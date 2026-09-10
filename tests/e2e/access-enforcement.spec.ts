@@ -134,6 +134,12 @@ test("the review console states what its own inventory cannot prove", async ({ p
   await expect(page.locator("main")).toContainText(/does not\s+prove the guard is correct/);
   await expect(page.locator("main")).toContainText(/attacking the boundary/);
   // And it shows the open questions rather than only what passed.
-  await expect(page.getByText("Open questions")).toBeVisible();
-  await expect(page.getByText("Declared exemptions")).toBeVisible();
+  //
+  // BY ROLE, NOT BY TEXT. `getByText("Open questions")` matched the heading
+  // alone until the panel's empty state started explaining where the open
+  // questions had GONE — and then matched two elements and failed in strict
+  // mode, on a page that was working. A phrase is not a selector: the thing
+  // being asserted is that the section exists, so ask for the heading.
+  await expect(page.getByRole("heading", { name: "Open questions" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Declared exemptions" })).toBeVisible();
 });

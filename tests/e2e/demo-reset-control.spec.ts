@@ -33,6 +33,23 @@ async function signIn(page: Page, email: string, password: string) {
   ]);
 }
 
+/**
+ * The reset form, found BY ITS OWN BUTTON.
+ *
+ * This used to be `page.locator('form input[name="reason"]').last()`, which
+ * meant "the reset form" only for as long as the reset form happened to be the
+ * last one on the page. Three controls were then built below it — a data
+ * scenario, a QA export, each with its own reason field — and the assertion
+ * silently moved to somebody else's form and failed on a minlength that was
+ * correct for the control it had drifted onto.
+ *
+ * A positional selector is a guess about layout. Naming the submit button is a
+ * statement about which control is meant, and it survives the page growing.
+ */
+function resetForm(page: Page) {
+  return page.locator('form:has(button:text("Reset the dataset"))');
+}
+
 test("the reset control is on the page that refuses to demonstrate", async ({ page }) => {
   await signIn(page, "admin.demo@steady.local", "demoadmin1234");
   await page.goto("/admin/demo");
@@ -43,14 +60,14 @@ test("the reset control is on the page that refuses to demonstrate", async ({ pa
   // offers no remedy sends the presenter to a database client.
   await expect(main).toContainText(/Reset dataset/);
   await expect(main).toContainText(/must never repair the demo by editing database rows/);
-  // `.last()` because the clock control also takes a typed reason — two
-  // controls on one page, both guarded the same way, which is the convention
-  // rather than a coincidence.
-  await expect(main.locator('form input[name="reason"]').last()).toBeVisible();
+  await expect(resetForm(page).locator('input[name="reason"]')).toBeVisible();
 
-  // And it is no longer listed as a control that does not exist.
-  const notBuilt = main.locator("text=Controls that are not built");
-  await expect(notBuilt).toBeVisible();
+  // And the console still keeps a place for what it lacks. The heading changes
+  // when the list empties — a panel titled "controls that are not built" over
+  // nothing is a screen contradicting itself — so this matches either wording
+  // rather than pinning the one that happened to be true the day it was
+  // written.
+  await expect(main).toContainText(/Controls that are not built|What is not on this screen/);
 });
 
 test("a reviewer cannot reach the reset control", async ({ page }) => {
@@ -71,7 +88,7 @@ test("the reset control states p9's guard, and does not fire without one", async
 
   // p9's guard is a TYPED REASON, refused in the browser before the server is
   // asked — and again on the server, because a form is not a permission.
-  const reason = page.locator('form input[name="reason"]').last();
+  const reason = resetForm(page).locator('input[name="reason"]');
   await expect(reason).toHaveAttribute("required", "");
   await expect(reason).toHaveAttribute("minlength", "4");
 

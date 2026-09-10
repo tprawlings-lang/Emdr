@@ -175,7 +175,13 @@ test("demo administration says how far it reaches, and where it must not", async
   await expect(main).toContainText(/never be carried/i);
   // Controls that do not exist are named as sentences, not rendered as
   // disabled buttons a presenter might click mid-demonstration.
-  await expect(main).toContainText(/Controls that are not built/i);
+  //
+  // EITHER HEADING. The panel renames itself when the list empties — a section
+  // titled "controls that are not built" over nothing is a screen contradicting
+  // itself — and all six of p9's controls are built now. What this test is
+  // actually about is the line below it: whatever the panel says, no disabled
+  // button is offered.
+  await expect(main).toContainText(/Controls that are not built|What is not on this screen/i);
   await expect(main.locator("button[disabled]")).toHaveCount(0);
 });
 
