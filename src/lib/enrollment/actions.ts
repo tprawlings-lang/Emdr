@@ -9,8 +9,7 @@ import { setSessionCookie } from "../auth";
 import { checkAgeEligibility } from "../age-gate";
 import { currentTermsVersion } from "../policy";
 import { provisionPerson, grantConsent as spineGrantConsent } from "../spine";
-import { orgTenantId } from "../demo-population-seed";
-import { checkEnrollment } from "./gate";
+import { checkEnrollment, pilotTenantId } from "./gate";
 
 // Creating an account through the enrollment gate.
 //
@@ -80,10 +79,14 @@ export async function enrollAction(formData: FormData): Promise<void> {
 
   const userId = newId();
   const passwordHash = hashPassword(password);
-  // The demo clinician's tenant, so a clinician can see the account they are
-  // watching somebody create. The caseload is tenant-scoped, and an enrollee in
-  // the platform tenant would be invisible to every clinical screen.
-  const tenantId = orgTenantId("NE", "A");
+  // THE PILOT'S OWN TENANT, not the demo clinician's.
+  //
+  // The first version used NE Care Network A so a clinician could watch the
+  // caseload fill up, and it broke every aggregate screen for that
+  // organization: `assertSingleProvenance` refuses a cohort spanning fabricated
+  // and real people, correctly, because a metric over both answers neither
+  // question. See the note on `pilotTenantId`.
+  const tenantId = await pilotTenantId();
 
   await c.run(
     `INSERT INTO users (id, email, name, role, password_hash, dob, tenant_id)

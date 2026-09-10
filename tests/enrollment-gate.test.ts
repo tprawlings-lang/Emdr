@@ -26,8 +26,8 @@ import { collectEnvIssues as collectEnvIssuesSync } from "../src/lib/env-guard";
 import { getDb } from "../src/lib/db";
 import { resetDemoData } from "../src/lib/demo-reset";
 import {
-  checkEnrollment, enrolledCount, enrollmentOpen, enrollmentState,
-  verifyEnrollmentCode, ENROLLMENT_LIMIT,
+  checkEnrollment, enrolledCount, enrollmentOpen, enrollmentState, pilotTenantId,
+  verifyEnrollmentCode, ENROLLMENT_LIMIT, PILOT_TENANT_ID,
 } from "../src/lib/enrollment/gate";
 
 const CODE = "pilot-code-for-tests";
@@ -468,4 +468,112 @@ test("the login screen offers the way in when enrollment is open", () => {
   );
   assert.match(page, /enrollment\.full \?/, "a full pilot still offers the form");
   assert.match(page, /enrollment\.remaining/, "the panel does not say how many places are left");
+});
+
+// ---------------------------------------------------------------------------
+// One population per cohort
+// ---------------------------------------------------------------------------
+
+test("enrolled people get their own tenant, never the fabricated population's", async () => {
+  // THE GUARD THAT CAUGHT THIS was `assertSingleProvenance`, and it caught it
+  // in CI rather than here. The first version put enrollees in NE Care Network
+  // A so the demo clinician's caseload would show them, and every aggregate
+  // screen for that organization began answering 500:
+  //
+  //   cohort "all_eligible.v1" spans 42 fabricated people and 1 real ones.
+  //
+  // It refuses rather than filters on purpose — a filtered metric has an
+  // undisclosed denominator — so the fix is the one it asks for: scope to one
+  // population, at the tenant, which is what a cohort is drawn from.
+  const db = getDb();
+  resetDemoData(db);
+
+  const tenant = await pilotTenantId();
+  assert.equal(tenant, PILOT_TENANT_ID);
+
+  // The tenant exists, is a valid kind, and is not one the seed populated.
+  const row = db.prepare("SELECT kind, name FROM tenants WHERE id = ?").get(tenant) as
+    | { kind: string; name: string } | undefined;
+  assert.ok(row, "the pilot tenant was not created");
+  assert.ok(
+    ["platform", "organization", "facility", "program"].includes(row!.kind),
+    `the pilot tenant's kind ${row!.kind} is outside the schema's closed set`
+  );
+  const fabricatedHere = (db.prepare(
+    "SELECT COUNT(*) AS n FROM persons WHERE tenant_id = ? AND provenance = 'fabricated'"
+  ).get(tenant) as { n: number }).n;
+  assert.equal(fabricatedHere, 0,
+    "the pilot tenant already holds fabricated people, so a cohort there spans both");
+
+  // Idempotent: enrolling twice does not create a second tenant, and a reset
+  // followed by an enrolment recreates it.
+  assert.equal(await pilotTenantId(), tenant);
+  resetDemoData(db);
+  assert.equal(await pilotTenantId(), tenant);
+});
+
+test("both signup doors put people in the pilot tenant, not a seeded one", () => {
+  // Stated at both call sites. The web action and the mobile route are the two
+  // ways a real person gets an account, and one of them defaulting to the
+  // platform tenant would make the same signup two different kinds of person.
+  for (const rel of ["src/lib/enrollment/actions.ts", "src/lib/mobile/onboarding.ts"]) {
+    const src = code(rel);
+    assert.match(src, /pilotTenantId\(\)/, `${rel} does not use the pilot tenant`);
+    assert.doesNotMatch(src, /orgTenantId\(/,
+      `${rel} still places enrollees in a seeded organization's tenant`);
+    // And the users row carries it, because that column is what the caseload
+    // and every aggregate query read.
+    const at = src.indexOf("INSERT INTO users");
+    assert.ok(at > 0, `${rel} no longer inserts a user`);
+    assert.match(src.slice(at, at + 320), /tenant_id/,
+      `${rel} inserts a user without a tenant, so the column takes its default`);
+  }
+});
+
+test("an event defaults to the person's own tenant, not the platform's", async () => {
+  // THE DEFECT CLASS, not the instance. `appendEvent` defaulted `tenant_id` to
+  // PLATFORM_TENANT_ID, which is right only for people who live there — so
+  // every recorder that does not thread a tenant through (recordConsent among
+  // them) tagged an event about a person in one tenant with another.
+  //
+  // `runQualityChecks`' "Cross-tenant references" counts exactly that and
+  // expects zero. Enrolling four people produced nine, the DATA_QUALITY rule
+  // fired, and the planning console blocked its own release — which is the
+  // system working, over a fault this introduced.
+  const db = getDb();
+  resetDemoData(db);
+  const tenant = await pilotTenantId();
+
+  const { provisionPerson, grantConsent } = await import("../src/lib/spine");
+  const id = "tenant-default-probe";
+  db.prepare(
+    `INSERT INTO users (id, email, name, role, password_hash, status, tenant_id)
+     VALUES (?, 'tenant-probe@example.test', 'Probe', 'member', 'x', 'active', ?)`
+  ).run(id, tenant);
+  await provisionPerson({
+    userId: id, name: "Probe", email: "tenant-probe@example.test",
+    role: "member", tenantId: tenant, provenance: "real",
+  });
+  // The consent recorder takes no tenant — which is the point. It has to land
+  // in the person's tenant anyway.
+  await grantConsent({ userId: id, policyVersion: "probe-v1", scope: "wellness_acknowledgment" });
+
+  const rows = db.prepare(
+    "SELECT event_type, tenant_id FROM longitudinal_events WHERE person_id = ?"
+  ).all(id) as { event_type: string; tenant_id: string }[];
+  assert.ok(rows.length >= 2, "the probe wrote no events");
+  for (const r of rows) {
+    assert.equal(
+      r.tenant_id, tenant,
+      `${r.event_type} was written to ${r.tenant_id} for a person in ${tenant} — a cross-tenant reference`
+    );
+  }
+
+  // And the environment's own check agrees.
+  const { runQualityChecks } = await import("../src/lib/demo-quality");
+  const cross = runQualityChecks(db).find((c) => c.check === "Cross-tenant references");
+  assert.ok(cross, "the cross-tenant check is gone");
+  assert.equal(cross!.pass, true, `cross-tenant references: ${cross!.actual}`);
+
+  resetDemoData(db);
 });

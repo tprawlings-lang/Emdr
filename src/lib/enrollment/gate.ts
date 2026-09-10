@@ -31,6 +31,7 @@
 import crypto from "node:crypto";
 
 import { data } from "../data";
+import { PLATFORM_TENANT_ID } from "../db";
 
 /** How many real people may enrol against one code. */
 export const ENROLLMENT_LIMIT = 25;
@@ -106,6 +107,43 @@ export async function enrollmentState(): Promise<EnrollmentState> {
     remaining: Math.max(0, ENROLLMENT_LIMIT - enrolled),
     full: enrolled >= ENROLLMENT_LIMIT,
   };
+}
+
+/** The pilot's own tenant id. Derived rather than random, so it is the same
+ *  value on every machine and after every reset. */
+export const PILOT_TENANT_ID = "PILOT0000000000000000000000";
+
+/**
+ * The tenant enrolled people belong to, created if it is not there.
+ *
+ * THEY GET THEIR OWN, AND THE REASON IS A GUARD THAT CAUGHT ME. The first
+ * version put enrollees in NE Care Network A so the demo clinician's caseload
+ * would show them — and every aggregate screen for that organization began
+ * answering 500:
+ *
+ *   cohort "all_eligible.v1" spans 42 fabricated people and 1 real ones.
+ *   A metric over both is a number nobody can interpret: it is neither a
+ *   finding about the study nor a demonstration of the product.
+ *
+ * `assertSingleProvenance` is right, and it refuses rather than filters on
+ * purpose: a filtered metric has an undisclosed denominator, and the reader
+ * cannot tell a suppressed population from a small one. So the fix is the one
+ * it asks for — scope the query to one population — done at the tenant, which
+ * is what every cohort is drawn from.
+ *
+ * IT IS ALSO THE RIGHT ANSWER FOR THE PILOT ITSELF. What a pilot is for is
+ * reading what real people did, and that is a different question from what the
+ * fabricated population demonstrates. Mixing them would have produced one
+ * number answering neither.
+ */
+export async function pilotTenantId(): Promise<string> {
+  const c = await data();
+  await c.run(
+    `INSERT INTO tenants (id, kind, name, parent_tenant_id) VALUES (?, 'program', 'Steady Pilot', ?)
+     ON CONFLICT(id) DO NOTHING`,
+    [PILOT_TENANT_ID, PLATFORM_TENANT_ID]
+  );
+  return PILOT_TENANT_ID;
 }
 
 export type GateVerdict = { ok: true } | { ok: false; reason: string };
