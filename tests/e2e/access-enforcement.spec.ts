@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { ROUTE_REGISTER } from "../../src/lib/app/route-register";
 
 // The permission sequence, attacked rather than read (handoff 06 §30.6, §31.5).
 //
@@ -90,6 +91,37 @@ test("step 3: a person outside the caseload is not found, not forbidden", async 
   expect(res?.status(), "a record outside the caseload answered with something other than not-found").toBe(404);
   const body = await page.locator("body").innerText();
   expect(body).not.toMatch(/forbidden|not authori[sz]ed|permission denied/i);
+});
+
+test("a reviewer can open every screen their own console lists", async ({ page }) => {
+  // THE REVIEW CONSOLE LISTED A SCREEN THE REVIEWER COULD NOT OPEN. The audit
+  // trail's layout calls `requireReviewAccess` and its page called
+  // `requireClinician` — guards that disagree by exactly one role — so clicking
+  // "Audit trail" in the reviewer's own navigation bounced them back to the
+  // console's landing page with no explanation. The register calls it a
+  // reviewer route, and §6 gives the security reviewer this exact artefact:
+  // "who accessed or changed what, and can the record be trusted?".
+  //
+  // Found by a performance run. The gate refuses to time a redirect, and this
+  // route answered 25 out of 25 with one.
+  // Driven from the ROUTE REGISTER rather than from the rendered navigation.
+  // The console's nav shows only the screens in the layer you are already on,
+  // so no single page lists them all — and the register is the canonical
+  // statement of what exists for whom in any case.
+  await signIn(page, "reviewer");
+  const screens = ROUTE_REGISTER
+    .filter((r) => r.audience === "reviewer" && r.state === "working" && !r.path.includes("["))
+    .map((r) => r.path);
+  expect(screens.length, "the register lists no working reviewer screens").toBeGreaterThan(10);
+
+  const bounced: string[] = [];
+  for (const href of screens) {
+    await page.goto(href, { waitUntil: "domcontentloaded" });
+    if (new URL(page.url()).pathname !== href) {
+      bounced.push(`${href} -> ${new URL(page.url()).pathname}`);
+    }
+  }
+  expect(bounced, "screens the register offers a reviewer and the app refuses them").toEqual([]);
 });
 
 test("the review console states what its own inventory cannot prove", async ({ page }) => {

@@ -2743,11 +2743,9 @@ export const ACCESS_INVENTORY: AccessInventory = {
       "found": {
         "1": [
           "requireUser(",
-          "requireClinician(",
           "requireReviewAccess("
         ],
         "2": [
-          "requireClinician(",
           "requireReviewAccess("
         ],
         "5": []
@@ -2767,11 +2765,9 @@ export const ACCESS_INVENTORY: AccessInventory = {
       "found": {
         "1": [
           "requireUser(",
-          "requireClinician(",
           "requireReviewAccess("
         ],
         "2": [
-          "requireClinician(",
           "requireReviewAccess("
         ],
         "5": []
@@ -2791,11 +2787,9 @@ export const ACCESS_INVENTORY: AccessInventory = {
       "found": {
         "1": [
           "requireUser(",
-          "requireClinician(",
           "requireReviewAccess("
         ],
         "2": [
-          "requireClinician(",
           "requireReviewAccess("
         ],
         "5": []
@@ -2851,6 +2845,28 @@ export const ACCESS_INVENTORY: AccessInventory = {
       "path": "/review/models",
       "audience": "reviewer",
       "file": "app/review/models/page.tsx",
+      "owed": [
+        1,
+        2,
+        5
+      ],
+      "found": {
+        "1": [
+          "requireUser(",
+          "requireReviewAccess("
+        ],
+        "2": [
+          "requireReviewAccess("
+        ],
+        "5": []
+      },
+      "missing": [],
+      "exempt": []
+    },
+    {
+      "path": "/review/performance",
+      "audience": "reviewer",
+      "file": "app/review/performance/page.tsx",
       "owed": [
         1,
         2,
@@ -3014,11 +3030,9 @@ export const ACCESS_INVENTORY: AccessInventory = {
       "found": {
         "1": [
           "requireUser(",
-          "requireClinician(",
           "requireReviewAccess("
         ],
         "2": [
-          "requireClinician(",
           "requireReviewAccess("
         ],
         "5": [],
@@ -3135,8 +3149,8 @@ export const ACCESS_INVENTORY: AccessInventory = {
       "exempt": []
     }
   ],
-  "protectedCount": 109,
-  "complete": 48,
+  "protectedCount": 110,
+  "complete": 49,
   "gapsByStep": {
     "1": 0,
     "2": 1,

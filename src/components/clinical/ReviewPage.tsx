@@ -34,6 +34,7 @@ export const REVIEW_SCREENS: Array<{ href: string; label: string; layer: RailSlu
   { href: "/review/models", label: "Model registry", layer: "evidence" },
   { href: "/review/telemetry", label: "Telemetry", layer: "evidence" },
   { href: "/review/security", label: "Access enforcement", layer: "audit" },
+  { href: "/review/performance", label: "Performance budgets", layer: "evidence" },
   { href: "/review/audit", label: "Audit trail", layer: "audit" },
   { href: "/review/lineage", label: "Lineage trace", layer: "audit" },
 ];

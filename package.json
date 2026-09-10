@@ -14,7 +14,8 @@
     "loadcheck": "node scripts/loadcheck.mjs",
     "backup": "tsx scripts/backup.ts",
     "restore": "tsx scripts/restore.ts",
-    "demo": "tsx scripts/demo.ts"
+    "demo": "tsx scripts/demo.ts",
+    "perfcheck": "tsx scripts/perfcheck.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.104.1",

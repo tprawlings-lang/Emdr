@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { requestNow } from "@/lib/request-clock";
 import { ReviewPage } from "@/components/clinical/ReviewPage";
-import { requireClinician } from "@/lib/auth";
+import { requireReviewAccess } from "@/lib/auth";
 import { recentAuditEvents } from "@/lib/audit";
 import {
   evaluateAccess,
@@ -83,7 +83,16 @@ function buildInputs(sp: SP): SafetyInputs {
 }
 
 export default async function AutonomousReview({ searchParams }: { searchParams: Promise<SP> }) {
-  await requireClinician();
+  // THE REVIEW CONSOLE'S OWN GUARD. This called `requireClinician` while its
+  // layout calls `requireReviewAccess`, so a reviewer was bounced out of a
+  // screen whose stated job is "review what the product does without a
+  // clinician in the loop".
+  //
+  // THE SIGN-OFF AUTHORITY IS UNCHANGED, because it never lived here:
+  // `recordRuleSignoff` calls `requireClinician` itself, so a reviewer can read
+  // the rules and agree with nothing. Guarding the page was guarding the wrong
+  // thing — it denied the reading and would not have stopped the writing.
+  await requireReviewAccess();
   // The page's clock, read once. Every "how long ago" and every gate below
   // uses this reading, so nothing on the screen can disagree with anything
   // else about what time it is.
