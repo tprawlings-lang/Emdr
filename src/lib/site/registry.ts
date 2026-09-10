@@ -326,5 +326,17 @@ export const RESTRICTED_PHRASES = [
   "production-ready",
 ] as const;
 
-/** Retail routes that must not be linked from any public page (§15). */
-export const RETIRED_ROUTES = ["/signup", "/subscribe"] as const;
+/** Retail routes that must not be linked from any public page (§15).
+ *
+ *  `/signup` LEFT THIS LIST when enrollment became a gated pilot. It was here
+ *  because it was a retail front door that had been shut, and a link to a shut
+ *  door is a dead end that also advertises a retail product this build is not.
+ *  It is now a live route behind an access code and a cap, and the sign-in
+ *  screen links to it deliberately — which this guard was correctly failing.
+ *
+ *  The link is conditional on the gate being open (see the panel in
+ *  src/app/login/page.tsx), so with `EMDR_ENROLLMENT_CODE` unset nothing points
+ *  at it and it redirects exactly as it did before.
+ *
+ *  `/subscribe` stays: billing is closed, and nothing should link to it. */
+export const RETIRED_ROUTES = ["/subscribe"] as const;

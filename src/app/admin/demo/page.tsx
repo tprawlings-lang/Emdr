@@ -1,6 +1,8 @@
 import { AppShell } from "@/components/app/AppShell";
 import { Panel, Note, WithNote, SummaryCards } from "@/components/app/surfaces";
 import { requireDemoAdmin } from "@/lib/auth";
+import { walkthroughCount, WALKTHROUGH_LIMIT } from "@/lib/demo/walkthrough";
+import { enrolledCount, ENROLLMENT_LIMIT } from "@/lib/enrollment/gate";
 import { NewPatient } from "@/components/demo/NewPatient";
 import { assignableClinicians } from "@/lib/demo/new-patient-store";
 import { logout } from "@/lib/actions";
@@ -62,6 +64,16 @@ export default async function AdminDemoPage() {
        (SELECT COUNT(*) FROM audit_log)           AS audit`,
     [],
   )) as { tenants: number; persons: number; events: number; audit: number };
+
+  // Onboarding walkthroughs are the one kind of fabricated person a VISITOR
+  // creates rather than the seed. Counted beside the seeded totals so a
+  // presenter can see the environment filling up before the cap refuses,
+  // rather than discovering it when the button says no.
+  const walkthroughs = await walkthroughCount();
+  // People who filled in the enrollment form. NOT fabricated data, and a
+  // reset deletes them anyway — so the number is on the reset panel, where
+  // the decision is made, rather than only in the manifest.
+  const enrolled = await enrolledCount();
 
   const scenarios = replayScenarios();
   const failing = scenarios.filter((s) => !s.pass).length;
@@ -303,6 +315,33 @@ export default async function AdminDemoPage() {
             fabricated member data. Anything a person originated here is not rebuilt by this and
             is not fabricated data — the manifest reports how many such people exist above.
           </p>
+          {/* Onboarding walkthroughs are the one kind of fabricated person a
+              VISITOR creates rather than the seed, so the count moves with what
+              people did in this environment and the seeded totals do not.
+              Beside the reset rather than in the summary above, for two
+              reasons: `SummaryCards` takes three and refuses a fourth — which
+              is the right rule, a fourth headline is not a headline — and this
+              is only ever read when deciding whether to reset. */}
+          <p className="measure mt-4 text-sm text-olive">
+            <span className="font-semibold text-ground">
+              Enrollment: {enrolled} of {ENROLLMENT_LIMIT} places used
+            </span>{" "}
+            — accounts created through the access-coded signup form. Real people, so they are
+            reported here and never counted as fabricated population.
+          </p>
+
+          {walkthroughs > 0 && (
+            <p className="measure mt-4 rounded-2xl border border-ground/10 bg-app-surface px-4 py-3 text-sm text-ground">
+              <span className="font-semibold">
+                Onboarding walkthroughs: {walkthroughs} of {WALKTHROUGH_LIMIT}
+              </span>{" "}
+              <span className="text-olive">
+                fabricated people created from the sign-in screen&rsquo;s walkthrough. A reset
+                clears them. At {WALKTHROUGH_LIMIT} the control refuses until one happens.
+              </span>
+            </p>
+          )}
+
           {/* §7.3: "Before reset, show scope, active sessions, and effect."
               Stated from `resetScope()` rather than written here, so the two
               lists and the destructive call cannot describe different
@@ -339,7 +378,35 @@ export default async function AdminDemoPage() {
             </div>
           )}
 
+          {enrolled > 0 && (
+            <div className="mt-4 rounded-2xl border border-support/40 bg-support/10 px-4 py-3">
+              <p className="text-sm font-semibold text-support-deep">
+                {enrolled} enrolled {enrolled === 1 ? "person" : "people"} would be deleted
+              </p>
+              <p className="measure mt-1 text-sm text-ground">
+                These are people who filled in the enrollment form — real names, real
+                addresses, and their own answers to the safety screener and the daily
+                check-in. A reset removes them and everything they wrote, with no undo, and
+                reports success. Nothing in the rebuilt baseline will record that they were
+                here.
+              </p>
+              <p className="measure mt-2 text-sm text-olive">
+                Export anything you still need first. The reset is refused until the box below
+                is ticked, and ticking it is recorded against your account.
+              </p>
+            </div>
+          )}
+
           <form action={resetDemoEnvironment} className="mt-4 space-y-4">
+            {enrolled > 0 && (
+              <label className="flex items-start gap-2 text-sm">
+                <input type="checkbox" name="discardEnrolled" className="mt-1" />
+                <span className="font-medium text-app-ink">
+                  Delete the {enrolled} enrolled {enrolled === 1 ? "person" : "people"} and
+                  everything they entered
+                </span>
+              </label>
+            )}
             {scope.activeWalkthrough && (
               <>
                 <label className="flex items-start gap-2 text-sm">

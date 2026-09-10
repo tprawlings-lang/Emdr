@@ -17,18 +17,42 @@ export const metadata: Metadata = {
     "A calm, private, self-guided wellness program built on the EMDR method — guided sessions, grounding tools, and a companion that remembers. Not therapy, and not for emergency use.",
 };
 
-/** Names the fabricated persona currently signed in.
+/** Names who is signed in, and says whether they are a real person.
  *
  *  Handoff §2: "any screen that resembles a live service must carry the
  *  persistent demo banner AND a fabricated persona indicator." The banner says
  *  the environment is fake; this says *who you are pretending to be*, which is
- *  the part a viewer forgets three screens into a walkthrough. */
+ *  the part a viewer forgets three screens into a walkthrough.
+ *
+ *  IT USED TO SAY "FABRICATED" ABOUT EVERYBODY, and once enrollment existed
+ *  that was a false statement on screen. A person who enrolled saw their own
+ *  name called invented, and anyone reading over their shoulder was told that
+ *  real answers — a real safety screener, a real check-in — were synthetic
+ *  data. The first is unpleasant; the second is the one that matters, because
+ *  the whole point of the banner is to stop a screenshot being mistaken for a
+ *  record, and mislabelling in this direction makes a record look like a
+ *  screenshot.
+ *
+ *  So it asks. Fabricated stays the default when the lookup finds nothing:
+ *  every seeded person has a row, so an absent one is a failed query rather
+ *  than evidence about a human being. */
 async function PersonaIndicator() {
   const user = await getCurrentUser().catch(() => null);
   if (!user) return null;
+  const { personIsReal } = await import("@/lib/enrollment/gate");
+  const real = await personIsReal(user.id).catch(() => false);
   return (
     <span className="mt-1 inline-block rounded-full bg-ivory/15 px-2 py-0.5 text-xs text-ivory">
-      Fabricated persona: <strong>{user.name}</strong> ({user.role})
+      {real ? (
+        <>
+          Pilot account: <strong>{user.name}</strong> ({user.role}) &mdash; a real account, not a
+          fabricated persona
+        </>
+      ) : (
+        <>
+          Fabricated persona: <strong>{user.name}</strong> ({user.role})
+        </>
+      )}
     </span>
   );
 }
@@ -37,6 +61,10 @@ export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   const demo = process.env.EMDR_DEMO === "1";
+  // Read here rather than imported from the gate module: this is a layout,
+  // it renders on every request, and the question is only ever "is the door
+  // open", which the variable answers without a database read.
+  const enrolling = Boolean(process.env.EMDR_ENROLLMENT_CODE);
   return (
     <html lang="en" className={`h-full antialiased ${inter.variable} ${literata.variable}`}>
       <body className="min-h-full flex flex-col bg-ivory font-sans text-ground">
@@ -58,11 +86,39 @@ export default function RootLayout({
             aria-label="Demonstration environment notice"
             className="bg-ground px-4 py-2 text-center text-sm text-ivory"
           >
+            {/* THE HEADER IS A CATEGORY, AND IT STAYS. "Demo, fabricated data,
+                not clinical care" describes what this deployment is — 240
+                fabricated profiles and at most 25 pilot accounts — and four
+                specs and two guards read it as the environment's name. The
+                sentence below is where the false claim actually lived. */}
             <strong className="tracking-wide">DEMO — FABRICATED DATA — NOT CLINICAL CARE</strong>
             <span className="block text-ivory/90">
-              Every person, record, and clinician here is invented. Nothing in this
-              environment is a real member, real health information, or approved care.{" "}
-              <a href="/request-review" className="underline">Request review access</a>
+              {enrolling ? (
+                // THE BANNER STOPPED BEING TRUE, so it changed rather than
+                // staying put. With enrollment open, "every person here is
+                // invented" is a false statement printed directly above a form
+                // collecting a real person's name and, two screens later, their
+                // answer to whether they have had suicidal thoughts this month.
+                //
+                // A banner that asserts something the reader can see is untrue
+                // does not merely fail at its own job — it teaches people that
+                // the notices on this product are decoration, which is the
+                // opposite of what every other one is for. So it says the
+                // narrower thing that is still true: the population is
+                // fabricated, some accounts are not, and neither is care.
+                <>
+                  The seeded population is fabricated, and pilot accounts are real people
+                  entering their own answers. Neither is clinical care, and nothing here is
+                  monitored in real time.{" "}
+                  <a href="/request-review" className="underline">Request review access</a>
+                </>
+              ) : (
+                <>
+                  Every person, record, and clinician here is invented. Nothing in this
+                  environment is a real member, real health information, or approved care.{" "}
+                  <a href="/request-review" className="underline">Request review access</a>
+                </>
+              )}
             </span>
             <Suspense fallback={null}>
               <PersonaIndicator />

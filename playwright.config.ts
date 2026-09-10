@@ -50,6 +50,11 @@ export default defineConfig({
           // configure one to exercise the open path. This value is local to the
           // ephemeral e2e server and never reaches a deployed environment.
           EMDR_REVIEW_ACCESS_CODE: "e2e-placeholder-review-code",
+          // Enrollment is closed when no code is set, and the closed path is
+          // worth testing too — tests/enrollment-gate.test.ts covers it by
+          // unsetting the variable, so the browser suite exercises the open one.
+          // Same shape and the same promise: local to this ephemeral server.
+          EMDR_ENROLLMENT_CODE: "e2e-placeholder-enrollment-code",
         },
       },
 });

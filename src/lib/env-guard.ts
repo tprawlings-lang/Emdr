@@ -56,6 +56,45 @@ export function collectEnvIssues(env: NodeJS.ProcessEnv = process.env): EnvIssue
     });
   }
 
+  // ENROLLMENT IS OFF UNLESS A CODE IS SET, and when it is on this says so at
+  // boot. Not because opening it is a mistake — it is a deliberate act, and the
+  // pilot needs it — but because it is the one setting that changes what KIND
+  // of data this deployment holds. With it on, real people create accounts and
+  // answer the safety screener; with it off, nothing here is about anybody.
+  // That belongs in the log a person reads when they ask what this instance is.
+  if (env.EMDR_ENROLLMENT_CODE) {
+    issues.push({
+      level: "warn",
+      key: "EMDR_ENROLLMENT_CODE",
+      message:
+        "Public enrollment is OPEN (access code set) — real people can create accounts and " +
+        "enter safety-screener and check-in answers here. A demo reset deletes them; the " +
+        "console refuses until that is acknowledged (docs/demo/enrollment.md).",
+    });
+    // A short code is not a gate. Long enough that it is not guessable in a
+    // few thousand tries, and short enough to read down a phone.
+    if (env.EMDR_ENROLLMENT_CODE.length < 12) {
+      issues.push({
+        level: isProd ? "fatal" : "warn",
+        key: "EMDR_ENROLLMENT_CODE",
+        message:
+          "EMDR_ENROLLMENT_CODE is shorter than 12 characters — it is the only thing between " +
+          "the open internet and a form that collects health answers. Use a longer phrase.",
+      });
+    }
+    // Real people's data with no backup is a different risk from fabricated
+    // data with no backup, and the generic backup warning does not say so.
+    if (isProd && backupVars.some((v) => !env[v])) {
+      issues.push({
+        level: "warn",
+        key: "BACKUP",
+        message:
+          "Enrollment is open AND backups are off — enrolled people's answers exist in one " +
+          "place only, and a reset or a lost disk ends them.",
+      });
+    }
+  }
+
   return issues;
 }
 

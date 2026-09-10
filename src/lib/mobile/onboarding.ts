@@ -37,7 +37,22 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export async function signupMobile(input: {
   name: string; email: string; password: string; dob: string; wellnessAck: boolean;
+  /** The pilot access code. Required — see the gate check below. */
+  accessCode?: string;
 }): Promise<{ token: string; user: SessionUser } | { error: string }> {
+  // THE SAME GATE AS THE WEB FORM, and this is the door that was standing open.
+  //
+  // §12 closed `/signup` on the web and this route kept creating accounts with
+  // no code and no cap — which made the closure a sign rather than a gate. The
+  // check lives in lib/enrollment/gate.ts so both callers ask one question, and
+  // a third caller cannot be added without meeting it.
+  //
+  // BEFORE ANY VALIDATION, so a client without a code cannot use the error
+  // messages below to find out which addresses are already registered.
+  const { checkEnrollment, pilotTenantId } = await import("../enrollment/gate");
+  const gate = await checkEnrollment(String(input.accessCode ?? ""));
+  if (!gate.ok) return { error: gate.reason };
+
   const name = input.name.trim().slice(0, 80);
   const email = input.email.trim().toLowerCase().slice(0, 200);
   if (!name || !EMAIL_RE.test(email)) return { error: "Enter a valid name and email." };
@@ -55,13 +70,25 @@ export async function signupMobile(input: {
     return { error: "An account with that email already exists." };
   }
   const userId = newId();
+  // TENANT SET EXPLICITLY. Without it the column takes its default — the
+  // platform tenant — and `users.tenant_id` is what the caseload and every
+  // aggregate query read, so a mobile enrollee and a web enrollee would be two
+  // different kinds of person for the same signup.
+  const tenantId = await pilotTenantId();
   await c.run(
-    "INSERT INTO users (id, email, name, role, password_hash, dob) VALUES (?, ?, ?, 'member', ?, ?)",
-    [userId, email, name, hashPassword(input.password), input.dob]
+    `INSERT INTO users (id, email, name, role, password_hash, dob, tenant_id)
+     VALUES (?, ?, ?, 'member', ?, ?, ?)`,
+    [userId, email, name, hashPassword(input.password), input.dob, tenantId]
   );
   // Identity dual-write (ADR 0011) — must precede any event append.
   await provisionPerson({
     userId, name, email, role: "member", passwordHash: hashPassword(input.password),
+    // Explicit, though it is the default: a human typed this, so their answers
+    // must never pool with the fabricated population.
+    provenance: "real",
+    // And the same tenant the web form uses, for the same reason: a cohort
+    // spanning both provenances is refused by assertSingleProvenance.
+    tenantId,
   });
   const insertConsent = "INSERT INTO consents (id, user_id, policy_version, scope) VALUES (?, ?, ?, ?)";
   await c.run(insertConsent, [newId(), userId, "wellness-ack-v1", "wellness_acknowledgment"]);

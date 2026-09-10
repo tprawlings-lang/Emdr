@@ -30,7 +30,7 @@ async function signInAsPayer(page: Page) {
   await page.locator('input[name="password"]').fill("payer1234");
   await Promise.all([
     page.waitForURL(/\/payer/),
-    page.locator('form button[type="submit"]').click(),
+    page.locator('form:has(input[name="password"]) button[type="submit"]').click(),
   ]);
 }
 
@@ -39,7 +39,7 @@ async function signInAsOperations(page: Page) {
   await page.waitForLoadState("networkidle");
   await page.locator('input[name="email"]').fill("org.demo@steady.local");
   await page.locator('input[name="password"]').fill("org1234");
-  await page.locator('form button[type="submit"]').click();
+  await page.locator('form:has(input[name="password"]) button[type="submit"]').click();
   await expect(page).toHaveURL(/\/organization/);
 }
 

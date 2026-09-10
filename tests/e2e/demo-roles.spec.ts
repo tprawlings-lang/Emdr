@@ -38,7 +38,7 @@ async function signIn(page: Page, who: keyof typeof ACCOUNTS, selectRole?: strin
   await page.locator('input[name="password"]').fill(a.password);
   await Promise.all([
     page.waitForURL((u) => !u.pathname.startsWith("/login") || u.search.includes("error")),
-    page.locator('form button[type="submit"]').click(),
+    page.locator('form:has(input[name="password"]) button[type="submit"]').click(),
   ]);
 }
 
@@ -68,7 +68,7 @@ test("the role dropdown grants nothing — clinician credentials with Demo Admin
   await page.locator('input[name="password"]').fill("not-the-password");
   await Promise.all([
     page.waitForURL(/error=/),
-    page.locator('form button[type="submit"]').click(),
+    page.locator('form:has(input[name="password"]) button[type="submit"]').click(),
   ]);
   await expect(page).toHaveURL(/\/login\?error=1/);
 });

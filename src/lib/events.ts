@@ -371,12 +371,49 @@ export interface LongitudinalEvent {
  *  Throws on an unregistered type: an unknown event type is a programming
  *  error, and silently accepting it would put an unreadable row into permanent
  *  history. */
+/** Where a person lives, for an append that did not say.
+ *
+ *  Falls back to the platform tenant when there is no person row — the same
+ *  value the old default used, so an append for somebody the spine has not
+ *  provisioned behaves exactly as it did rather than failing. */
+async function tenantOfPerson(
+  c: Awaited<ReturnType<typeof data>>, personId: string,
+): Promise<string> {
+  try {
+    const row = (await c.get("SELECT tenant_id FROM persons WHERE id = ?", [personId])) as
+      | { tenant_id: string } | undefined;
+    return row?.tenant_id ?? PLATFORM_TENANT_ID;
+  } catch {
+    return PLATFORM_TENANT_ID;
+  }
+}
+
 export async function appendEvent(args: AppendEventArgs): Promise<string> {
   if (!isEventType(args.type)) {
     throw new Error(`Unregistered event type: ${String(args.type)}`);
   }
   const id = ulid();
   const c = await data();
+  // THE DEFAULT IS THE PERSON'S OWN TENANT, not the platform's.
+  //
+  // It used to be `PLATFORM_TENANT_ID`, which is correct only for people who
+  // live there — and silently wrong for everybody else. Every recorder that
+  // does not thread a tenant through (recordConsent, and it is not alone) then
+  // wrote an event about a person in one tenant tagged with another, which is
+  // exactly what `runQualityChecks`' "Cross-tenant references" counts and
+  // expects to be zero.
+  //
+  // FOUND TWICE. A data bundle wrote eighteen events to the platform tenant
+  // earlier in this project's life; pilot enrollment then produced nine more
+  // the same way, and the planning console blocked its own release over the
+  // resulting DATA_QUALITY signal. Fixing the two call sites would have left
+  // the trap armed for the third.
+  //
+  // Behaviour is unchanged wherever things were already right: a person in the
+  // platform tenant resolves to the platform tenant. An explicit `tenantId`
+  // still wins, and a person with no row still falls back, because an event
+  // that cannot find its person is not the moment to start refusing writes.
+  const tenantId = args.tenantId ?? (await tenantOfPerson(c, args.personId));
   await c.run(
     `INSERT INTO longitudinal_events
        (id, tenant_id, person_id, event_type, payload_version, payload,
@@ -385,7 +422,7 @@ export async function appendEvent(args: AppendEventArgs): Promise<string> {
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, CURRENT_TIMESTAMP), ?, ?, ?, ?)`,
     [
       id,
-      args.tenantId ?? PLATFORM_TENANT_ID,
+      tenantId,
       args.personId,
       args.type,
       currentPayloadVersion(args.type),

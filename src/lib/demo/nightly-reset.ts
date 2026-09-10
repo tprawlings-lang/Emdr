@@ -39,6 +39,7 @@
 import { getDb } from "../db";
 import { audit } from "../audit";
 import { resetDemoData } from "../demo-reset";
+import { enrolledCount } from "../enrollment/gate";
 import { runQualityChecks, qualitySummary } from "../demo-quality";
 import { activeLock } from "./environment-lock";
 import { recordReset } from "./preflight";
@@ -92,7 +93,11 @@ export function nextRunAt(now = new Date(), hourUtc = nightlyResetConfig().hourU
 
 export type NightlyOutcome =
   | { ran: true; ms: number; rowsRemoved: number; checksFailed: number; overBudget: boolean }
-  | { ran: false; skipped: "walkthrough_held" | "disabled"; detail: string };
+  // `enrolled_present` is a THIRD reason to skip, not a variant of the lock:
+  // a held walkthrough means somebody is mid-demonstration, and this means
+  // real people would lose their answers. A caller reading the outcome should
+  // be able to tell those apart.
+  | { ran: false; skipped: "walkthrough_held" | "enrolled_present" | "disabled"; detail: string };
 
 /**
  * One night's run.
@@ -124,6 +129,30 @@ export async function runNightlyReset(now = new Date()): Promise<NightlyOutcome>
       detail: { reason: "walkthrough_held", heldBy: lock.heldBy, minutesHeld: lock.minutesHeld },
     });
     return { ran: false, skipped: "walkthrough_held", detail };
+  }
+
+  // ENROLLED PEOPLE SKIP THE NIGHT, for the same reason a held walkthrough
+  // does and with more at stake. `resetDemoData` deletes users, persons,
+  // consents, checkins and screenings unconditionally — for a pilot that is
+  // every answer anybody gave, deleted at an hour chosen so nobody is
+  // watching, by a job that then reports success.
+  //
+  // SKIPPED, NEVER OVERRIDDEN. The console lets an operator proceed
+  // deliberately with a tick that is recorded against their account; a timer
+  // cannot be deliberate, so this has no equivalent and should not. If a pilot
+  // is running, the nightly reset simply does not run.
+  const enrolled = await enrolledCount();
+  if (enrolled > 0) {
+    const detail =
+      `${enrolled} enrolled ${enrolled === 1 ? "person has" : "people have"} accounts here, ` +
+      "and a reset would delete them and everything they entered. Skipped: discarding real " +
+      "people's answers is a decision a person makes on the console, not one a timer makes.";
+    await audit({
+      actorRole: "system", family: "security",
+      type: "demo_nightly_reset_skipped", target: "environment",
+      detail: { reason: "enrolled_present", enrolled },
+    });
+    return { ran: false, skipped: "enrolled_present", detail };
   }
 
   const db = getDb();

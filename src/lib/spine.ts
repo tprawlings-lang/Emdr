@@ -41,19 +41,30 @@ export async function provisionPerson(args: {
   role: Role;
   passwordHash?: string | null;
   tenantId?: string;
+  /** Defaults to 'real', because the caller that has always existed is the
+   *  signup path. See the note below for when 'fabricated' is the honest
+   *  answer — and it is a narrow case, not a convenience. */
+  provenance?: "real" | "fabricated";
 }): Promise<void> {
   const tenantId = args.tenantId ?? PLATFORM_TENANT_ID;
+  // DEFAULTS TO REAL, and the default is the safe direction. The distinction
+  // this column draws is generated-by-the-system versus originated-by-a-person,
+  // not demo versus production — somebody exploring a demonstration is still a
+  // person, and their data must never be poolable with a synthetic agent's. A
+  // caller that forgets to think about this gets the answer that keeps a real
+  // person's row out of the fabricated pool.
+  //
+  // 'fabricated' is correct only where NOBODY IS DESCRIBED: the seeded
+  // population, and the onboarding walkthrough, where the name, address and
+  // date of birth are all generated and no field exists to type a real one
+  // into. If a caller takes any of those from a human, it is 'real'.
+  const provenance = args.provenance ?? "real";
   try {
     const c = await data();
     await c.run(
-      // REAL. This is the signup path: a human filled in a form. The
-      // distinction the provenance column draws is generated-by-the-system
-      // versus originated-by-a-person, not demo versus production — somebody
-      // exploring a demonstration is still a person, and their data must never
-      // be poolable with a synthetic agent's.
-      `INSERT INTO persons (id, tenant_id, display_name, provenance) VALUES (?, ?, ?, 'real')
+      `INSERT INTO persons (id, tenant_id, display_name, provenance) VALUES (?, ?, ?, ?)
        ON CONFLICT(id) DO NOTHING`,
-      [args.userId, tenantId, args.name]
+      [args.userId, tenantId, args.name, provenance]
     );
     await c.run(
       `INSERT INTO accounts (id, person_id, tenant_id, email, password_hash)

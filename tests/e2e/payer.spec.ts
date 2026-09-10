@@ -22,7 +22,7 @@ async function signIn(page: import("@playwright/test").Page) {
   await page.locator('input[name="password"]').fill("payer1234");
   await Promise.all([
     page.waitForURL(/\/payer/, { timeout: 30000 }),
-    page.locator('form button[type="submit"]').click(),
+    page.locator('form:has(input[name="password"]) button[type="submit"]').click(),
   ]);
 }
 

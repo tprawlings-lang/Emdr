@@ -5,6 +5,7 @@ import { requireDemoAdmin } from "@/lib/auth";
 import { audit } from "@/lib/audit";
 import { getDb } from "@/lib/db";
 import { resetDemoData } from "@/lib/demo-reset";
+import { enrolledCount } from "@/lib/enrollment/gate";
 import { runQualityChecks, qualitySummary } from "@/lib/demo-quality";
 import { recordReset } from "@/lib/demo/preflight";
 import { canReset, releaseLock } from "@/lib/demo/environment-lock";
@@ -47,6 +48,8 @@ export async function resetDemoEnvironment(formData: FormData): Promise<void> {
   // can read what happened to their environment.
   const interrupt = String(formData.get("interrupt") ?? "") === "on";
   const interruptReason = String(formData.get("interruptReason") ?? "").trim();
+  // A second, separate deliberation, for a second, different loss. See below.
+  const discardEnrolled = String(formData.get("discardEnrolled") ?? "") === "on";
 
   if (reason.length < MIN_REASON) {
     await audit({
@@ -56,6 +59,44 @@ export async function resetDemoEnvironment(formData: FormData): Promise<void> {
     });
     revalidatePath("/admin/demo");
     return;
+  }
+
+  // ENROLLED PEOPLE ARE NOT FABRICATED DATA, and a reset does not know that.
+  //
+  // `resetDemoData` runs `DELETE FROM` over every table in DEMO_DATA_TABLES —
+  // users, persons, consents, checkins, screenings — unconditionally. That is
+  // correct for a seeded population and catastrophic for a pilot: the enrolled
+  // people, their consents, their screener answers and every daily check-in
+  // they have written go, with no undo, and the environment reports success.
+  //
+  // The scoped alternative was considered and refused. Deleting only fabricated
+  // rows would leave real rows behind, and the baseline hash is taken over what
+  // remains — so a reset would stop being deterministic, which is the one
+  // property the whole reset exists to provide. Determinism and preservation
+  // cannot both live in this operation, so the operation asks instead.
+  //
+  // A SEPARATE ACKNOWLEDGEMENT from the walkthrough interrupt, because it is a
+  // different loss: that one costs somebody their demonstration, this one costs
+  // people their answers. Rolling them into one checkbox would let an operator
+  // agree to the one they were thinking about.
+  const enrolled = await enrolledCount();
+  if (enrolled > 0 && !discardEnrolled) {
+    await audit({
+      actorId: user.id, actorRole: user.role, family: "security",
+      type: "demo_reset_refused", target: "environment",
+      detail: { refusal: "enrolled people would be deleted", enrolled },
+    });
+    revalidatePath("/admin/demo");
+    return;
+  }
+  if (enrolled > 0) {
+    // Recorded before the delete, because after it there is nothing left that
+    // says these people were ever here.
+    await audit({
+      actorId: user.id, actorRole: user.role, family: "security",
+      type: "demo_enrolled_discarded", target: "environment",
+      detail: { enrolled, reason },
+    });
   }
 
   // Handoff 09 §7.3: "prevent a reset during another walkthrough unless an
