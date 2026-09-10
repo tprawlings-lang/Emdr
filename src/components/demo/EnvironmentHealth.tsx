@@ -94,8 +94,15 @@ export function EnvironmentHealth({
           <div>
             <dt className="inline font-medium text-ground">Last rebuild: </dt>
             <dd className="inline">
+              {/* WITH ITS REASON. p9 requires a typed reason on the manual
+                  control and the console never showed it, which stopped being
+                  cosmetic once a TIMER became one of the things that can
+                  rebuild this environment: an operator arriving on a dataset
+                  that changed overnight needs to tell a person's rebuild from
+                  the nightly job's. */}
               {status.lastReset
-                ? `${status.lastReset.status} at ${status.lastReset.at}`
+                ? `${status.lastReset.status} at ${status.lastReset.at}` +
+                  (status.lastReset.reason ? ` — ${status.lastReset.reason}` : "")
                 : "none recorded on this environment"}
             </dd>
           </div>

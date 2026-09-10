@@ -29,6 +29,7 @@
 
 import type Database from "better-sqlite3";
 import { runQualityChecks, qualitySummary } from "../demo-quality";
+import { validateProjections } from "./projection-hashes";
 import { replayScenarios } from "../safety/scenarios";
 import { DEMO_SEED_VERSION } from "../demo-seed";
 import { demoBaseline } from "../demo-reset";
@@ -52,8 +53,13 @@ export interface EnvironmentStatus {
   checks: PreflightCheck[];
   /** The failures, first, because §7.3 says to lead with them. */
   failures: PreflightCheck[];
-  /** The last reset attempt, when one is recorded. */
-  lastReset: { at: string; status: "succeeded" | "failed"; detail: string | null } | null;
+  /** The last reset attempt, when one is recorded — WITH THE REASON somebody
+   *  typed, or the one the nightly job wrote. p9 requires a typed reason on the
+   *  manual control and this shape dropped it, so the console could say a
+   *  rebuild succeeded and not what it was for. */
+  lastReset: {
+    at: string; status: "succeeded" | "failed"; reason: string | null; detail: string | null;
+  } | null;
   /** Everything §7.3 moves OUT of the routine header: "dataset hashes,
    *  provider versions, and detailed logs into an environment drawer. A
    *  64-character fingerprint in the routine header is reading burden without
@@ -118,6 +124,34 @@ export function environmentStatus(db: Database.Database): EnvironmentStatus {
         : `${failingSafety} scenarios do not match`,
   });
 
+  // p29 NAMES THIS CHECK ALONGSIDE THE RESET: "the admin page blocks external
+  // demonstrations when the latest reset or PROJECTION VERIFICATION failed."
+  // The reset half was here from the start and this half was not, which made
+  // the sentence half-implemented in the one direction that does not announce
+  // itself — a dataset that quietly stopped being the published one still read
+  // as ready.
+  //
+  // AN UNRECORDED HASH BLOCKS TOO, and that is the uncomfortable half. A
+  // manifest with no hash for a table cannot say the table is right, and a
+  // check that treats "I do not know" as "fine" stops covering the dataset one
+  // table at a time. The remedy is a generation run, which is a minute's work
+  // and is named on the console.
+  const projections = validateProjections(db);
+  checks.push({
+    id: "projection_hashes",
+    label: "Projection hashes",
+    matters:
+      "The dataset does not match the one recorded in the seed manifest. Every screen in " +
+      "the walkthrough will show a population nobody rehearsed, and the numbers will be " +
+      "internally consistent — which is what makes it hard to notice from the room.",
+    pass: projections.ok,
+    actual: projections.ok
+      ? `All ${projections.checks.length} projected tables match ${projections.datasetVersion}`
+      : projections.drifted.length > 0
+        ? `${projections.drifted.length} table(s) differ: ${projections.drifted.join(", ")}`
+        : `No hash recorded for ${projections.unrecorded.length} table(s) under ${projections.datasetVersion}`,
+  });
+
   const accounts = countDemoAccounts(db);
   checks.push({
     id: "demo_accounts",
@@ -173,14 +207,23 @@ export function meetsRequirements(
 
 export function readLastReset(
   db: Database.Database
-): { at: string; status: "succeeded" | "failed"; detail: string | null } | null {
+): { at: string; status: "succeeded" | "failed"; reason: string | null; detail: string | null } | null {
   try {
     const row = db
-      .prepare("SELECT attempted_at, status, detail FROM demo_reset_log WHERE id = 1")
-      .get() as { attempted_at: string; status: string; detail: string | null } | undefined;
+      .prepare("SELECT attempted_at, status, reason, detail FROM demo_reset_log WHERE id = 1")
+      .get() as {
+        attempted_at: string; status: string; reason: string | null; detail: string | null;
+      } | undefined;
     if (!row) return null;
     if (row.status !== "succeeded" && row.status !== "failed") return null;
-    return { at: row.attempted_at, status: row.status, detail: row.detail };
+    // THE REASON WAS WRITTEN AND NEVER READ. `recordReset` has always stored
+    // it — p9 requires a typed reason on the manual control — and this function
+    // dropped the column, so the console could say a rebuild succeeded and not
+    // what it was for. That gap stopped being cosmetic when a TIMER became one
+    // of the things that can rebuild this environment: an operator arriving on
+    // a dataset that changed overnight needs to tell "somebody rebuilt it at
+    // 4pm for a reason they typed" from "the nightly job ran".
+    return { at: row.attempted_at, status: row.status, reason: row.reason, detail: row.detail };
   } catch {
     // A database without the table is a database that has never recorded one,
     // which is the same answer as no row.

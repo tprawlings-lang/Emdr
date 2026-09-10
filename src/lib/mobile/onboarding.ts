@@ -14,6 +14,8 @@ import { currentConsentSections, currentConsentVersion, currentTermsVersion } fr
 import {
   FITNESS_ITEMS,
   FITNESS_SCREENER_VERSION,
+  screenerApproved,
+  screenerCaveat,
   getFitnessState,
   recordFitnessScreening,
   type FitnessState,
@@ -112,7 +114,17 @@ export async function grantConsentMobile(userId: string): Promise<{ ok: boolean 
 // ---------- fitness screener ----------
 
 export function screenerInfo() {
-  return { version: FITNESS_SCREENER_VERSION, items: FITNESS_ITEMS };
+  // THE CAVEAT TRAVELS WITH THE VERSION. A client reading
+  // `version: "fit-v1-placeholder"` out of JSON has to already know this
+  // codebase's naming convention to know it is being warned that a live gate
+  // runs on criteria no clinician has ratified. A field that says so in words
+  // needs no convention.
+  return {
+    version: FITNESS_SCREENER_VERSION,
+    approved: screenerApproved(),
+    provisional: screenerCaveat(),
+    items: FITNESS_ITEMS,
+  };
 }
 
 export async function submitScreenerMobile(

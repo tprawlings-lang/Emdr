@@ -195,7 +195,12 @@ test("screens with no capability say so and render no working-looking control", 
   // Same rule as the member side. An empty list with the right columns reads as
   // "no items today" rather than "this does not work yet", and a clinician who
   // believes the first will stop checking.
-  for (const slug of ["messages", "referrals", "handoffs", "schedule"]) {
+  // HANDOFFS LEFT THIS LIST when the capability was built, rather than being
+  // struck through: a test that keeps checking a screen still refuses is a
+  // test that fails the day somebody does the work. The three that remain are
+  // absences of a real kind — no message store and no recipient, no scheduling
+  // model, no referral destination or wait clock — and each screen says which.
+  for (const slug of ["messages", "referrals", "schedule"]) {
     const src = read(path.join(CLIN, slug, "page.tsx"));
     assert.ok(src.length > 0, `/clinician/${slug} is missing`);
     assert.doesNotMatch(src, /<form|<textarea|type="submit"/,

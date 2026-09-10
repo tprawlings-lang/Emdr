@@ -8,11 +8,22 @@ import { DEMO_ROLES } from "@/lib/roles";
 import { data } from "@/lib/data";
 import { replayScenarios } from "@/lib/safety/scenarios";
 import { ADMIN_RAIL } from "@/lib/app/rails";
-import { getDb } from "@/lib/db";
+import { getDb, PLATFORM_TENANT_ID } from "@/lib/db";
 import { runQualityChecks, qualitySummary } from "@/lib/demo-quality";
 import { MILESTONES, readClock } from "@/lib/demo-clock";
 import { advanceDemoClock } from "@/lib/demo-clock-actions";
-import { resetDemoEnvironment } from "@/lib/demo-reset-actions";
+import {
+  resetDemoEnvironment, applyDemoDataScenario, exportDemoQaReport,
+} from "@/lib/demo-reset-actions";
+import { qaRows, qaSummary, QA_EXPORT_SURFACE } from "@/lib/demo/qa-export";
+import {
+  RESET_BUDGET_MS, nightlyResetConfig, nextRunAt,
+} from "@/lib/demo/nightly-reset";
+import { listExports } from "@/lib/intelligence/export";
+import {
+  DATA_SCENARIOS, appliedScenarios, resolveCohort,
+} from "@/lib/demo/data-scenario";
+import { validateProjections, validationRemedy } from "@/lib/demo/projection-hashes";
 import { environmentStatus } from "@/lib/demo/preflight";
 import { resetScope } from "@/lib/demo/environment-lock";
 import { EnvironmentHealth } from "@/components/demo/EnvironmentHealth";
@@ -60,6 +71,17 @@ export default async function AdminDemoPage() {
   // are the detail behind it, not a second opinion about it.
   const status = environmentStatus(getDb());
   const scope = resetScope();
+  const applied = appliedScenarios();
+  const validation = validateProjections(getDb());
+  const remedy = validationRemedy(validation);
+  const qaAll = qaRows(getDb());
+  const qa = qaSummary(qaAll);
+  const qaRowCount = qaAll.length;
+  const qaHistory = (await listExports(PLATFORM_TENANT_ID)).filter(
+    (e) => e.surface === QA_EXPORT_SURFACE
+  );
+  const nightly = nightlyResetConfig();
+  const nextNightly = nextRunAt(new Date(), nightly.hourUtc);
 
   // p29's data-quality manifest, computed NOW against the live database. A
   // manifest recorded at build time reports the state of the last good build,
@@ -359,20 +381,314 @@ export default async function AdminDemoPage() {
         </Panel>
 
         <Panel
-          title="Controls that are not built"
-          footnote="Handoff 07 p9 specifies six; three are built. None of the remaining four is rendered as a disabled button — a control a presenter might click mid-demonstration is worse than a sentence saying it does not exist."
+          title="Validate projections"
+          footnote="p9's fifth control. Two questions, asked separately because they fail separately: are the projections consistent with their own events, and is this the dataset that was published?"
         >
-          <dl className="divide-y divide-ground/5">
-            {PENDING.map((p) => (
-              <div key={p.control} className="grid gap-1 py-3 sm:grid-cols-[11rem_1fr] sm:gap-4">
-                <dt className="text-sm font-medium text-app-ink">{p.control}</dt>
-                <dd className="measure text-sm text-ground">
-                  {p.behavior}
-                  <span className="mt-0.5 block text-xs text-olive">Needs: {p.needs}</span>
+          <p className="measure text-sm text-ground">
+            The hashes below are recorded in the seed manifest for{" "}
+            <code className="text-xs">{validation.datasetVersion}</code> and compared against the
+            live tables. This catches a drift the replay cannot: a generator change moves both
+            halves at once, so live and rebuilt agree while neither is the published dataset.
+            A hand-edited row and a half-finished rebuild are caught the same way.
+          </p>
+          <p className="measure mt-2 text-sm text-olive">
+            It does <strong>not</strong> catch an applied data bundle. A bundle writes to the
+            event spine and touches no projected table, so every hash still matches — correctly,
+            because the projections are the published ones until something rebuilds them. What
+            an altered population is recorded by is the bundle list above, and the QA report
+            carries the same list as a section of its own.
+          </p>
+
+          {validation.ok ? (
+            <p className="measure mt-3 rounded-2xl border border-state-safe/50 bg-state-safe-bg/40 px-4 py-3 text-sm text-ground">
+              Every projected table matches the hash recorded for this dataset version. That
+              says the data is the published one; it does not say the projections agree with
+              their own events, which is the separate check on the{" "}
+              <Link href="/review/release" className="underline">release console</Link>.
+            </p>
+          ) : (
+            <div role="alert" className="measure mt-3 rounded-2xl border border-state-caution/60 bg-state-caution-bg/50 px-4 py-3">
+              <p className="text-sm font-semibold text-ground">
+                This dataset does not match the seed manifest.
+              </p>
+              {/* THE REMEDY, NEXT TO THE FAILURE. The two remedies are
+                  opposite — regenerate, or reset — and choosing between them is
+                  the whole of the operator's decision. A check whose failure
+                  has no stated remedy is one people learn to click past. */}
+              <p className="mt-1 text-sm text-ground">{remedy}</p>
+            </div>
+          )}
+
+          <dl className="mt-4 divide-y divide-ground/5">
+            {validation.checks.map((c) => (
+              <div key={c.table} className="grid gap-1 py-2 sm:grid-cols-[12rem_minmax(0,1fr)] sm:gap-4">
+                <dt className="text-sm font-medium text-app-ink">{c.table}</dt>
+                <dd className="min-w-0 break-words text-sm text-ground">
+                  {c.verdict === "matches" && (
+                    <span className="text-state-safe">◆ matches</span>
+                  )}
+                  {c.verdict === "differs" && (
+                    <span className="text-state-caution">▲ differs</span>
+                  )}
+                  {c.verdict === "not_recorded" && (
+                    <span className="text-olive">○ no hash recorded</span>
+                  )}
+                  <span className="text-olive"> · {c.rows} rows</span>
+                  <span className="mt-0.5 block font-mono text-xs text-olive">
+                    {/* Enough to compare by eye, and never the whole digest:
+                        a wall of hex teaches a reader to skip the row. */}
+                    {c.actual === null ? "empty in this environment" : c.actual.slice(0, 16)}
+                    {c.verdict === "differs" && c.expected !== null && (
+                      <> · expected {c.expected.slice(0, 16)}</>
+                    )}
+                  </span>
                 </dd>
               </div>
             ))}
           </dl>
+        </Panel>
+
+        <Panel
+          title="Inject a data scenario"
+          footnote="p9's fourth control. An approved, versioned event bundle that changes what the fabricated population has been through — not a guided walkthrough, which changes what a presenter shows. Reversible by reset, and by reset only: an undo that removed events would rewrite history, which this spine refuses to do for anybody."
+        >
+          <p className="measure text-sm text-ground">
+            Each bundle below is declared in code and reviewed like code. There is no upload and
+            no free-text event: a console that can write arbitrary events into a clinical spine
+            is a console that can fabricate a safety history. Applying one appends to the event
+            spine and nothing else — the projections are rebuilt from those events, so a bundle
+            cannot invent a state the replay would not produce.
+          </p>
+
+          {applied.length > 0 && (
+            <div className="mt-4 rounded-2xl border border-state-support/60 bg-state-support-bg/50 px-4 py-3">
+              <p className="text-sm font-semibold text-ground">
+                This dataset has been altered.
+              </p>
+              <ul className="measure mt-1 space-y-1 text-sm text-ground">
+                {applied.map((a) => (
+                  <li key={a.scenarioVersion}>
+                    <code className="text-xs">{a.scenarioVersion}</code> — {a.people} people,{" "}
+                    {a.events} events, applied {a.appliedAt} by {a.appliedByName ?? a.appliedBy}:{" "}
+                    &ldquo;{a.reason}&rdquo;
+                  </li>
+                ))}
+              </ul>
+              <p className="measure mt-2 text-xs text-olive">
+                Anybody reading a screen in this environment is reading a population that carries
+                the above. Reset returns it to the baseline.
+              </p>
+            </div>
+          )}
+
+          <div className="mt-4 space-y-4">
+            {DATA_SCENARIOS.map((sc) => {
+              const on = applied.find((a) => a.scenarioVersion === sc.version);
+              const cohort = resolveCohort(sc.cohort);
+              return (
+                <div key={sc.id} className="rounded-2xl border border-ground/10 bg-app-surface px-4 py-3">
+                  <div className="flex flex-wrap items-baseline justify-between gap-2">
+                    <p className="text-sm font-medium text-app-ink">{sc.title}</p>
+                    <code className="text-xs text-olive">{sc.version}</code>
+                  </div>
+                  <p className="measure mt-1 text-sm text-ground">{sc.purpose}</p>
+                  {/* THE CONSEQUENCE BEFORE THE CONTROL. An operator about to
+                      change what a population has been through should read what
+                      the dataset looks like afterwards, not discover it. */}
+                  <p className="measure mt-2 text-sm text-olive">
+                    <strong className="text-ground">Afterwards:</strong> {sc.whatChanges}
+                  </p>
+                  <p className="mt-2 text-xs text-olive">
+                    {cohort.length} fabricated {cohort.length === 1 ? "person" : "people"} ·{" "}
+                    {sc.events.length * cohort.length} events ·{" "}
+                    {sc.events.map((e) => e.type).join(", ")}
+                  </p>
+
+                  {on ? (
+                    <p className="mt-3 rounded-xl bg-app-accent/40 px-3 py-2 text-sm text-ground">
+                      Already applied {on.appliedAt}. Applying it again would double every event
+                      in it, so it is refused until the environment is reset.
+                    </p>
+                  ) : (
+                    <form action={applyDemoDataScenario} className="mt-3 space-y-2">
+                      <input type="hidden" name="scenarioId" value={sc.id} />
+                      <label className="block text-sm">
+                        <span className="font-medium text-app-ink">Reason</span>
+                        <input
+                          name="reason"
+                          required
+                          minLength={12}
+                          placeholder="Showing the safety response path at the 3pm clinical review"
+                          className="mt-1 w-full rounded-xl border border-ground/20 bg-app-surface px-3 py-2 text-sm"
+                        />
+                        <span className="mt-1 block text-xs text-olive">
+                          A sentence, not a word. It is recorded with the application and is what
+                          explains an altered dataset to whoever finds it next.
+                        </span>
+                      </label>
+                      <button className="rounded-full bg-app-accent px-4 py-2 text-sm font-medium text-app-ink hover:opacity-90">
+                        Apply this bundle
+                      </button>
+                    </form>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </Panel>
+
+        <Panel
+          title="Nightly rebuild"
+          footnote="p9's G18. Off unless explicitly armed: this is the only scheduled job in the product that deletes member data, and it runs at an hour chosen so that nobody is watching."
+        >
+          {nightly.enabled ? (
+            <>
+              <p className="measure text-sm text-ground">
+                <strong>Armed.</strong> The dataset is rebuilt every day at{" "}
+                <strong>{String(nightly.hourUtc).padStart(2, "0")}:00 UTC</strong>. Next run{" "}
+                {nextNightly.toISOString().slice(0, 16).replace("T", " ")} UTC.
+              </p>
+              <p className="measure mt-2 text-sm text-olive">
+                The hour is stated in UTC rather than a local zone because this environment has
+                reviewers in several places and a timezone of its own in none of them — a local
+                hour would be somebody&rsquo;s, and nobody would know whose.{" "}
+                <code className="text-xs">EMDR_DEMO_RESET_HOUR_UTC</code> moves it.
+              </p>
+            </>
+          ) : (
+            <>
+              <p className="measure text-sm text-ground">
+                <strong>Off.</strong> {nightly.reason}
+              </p>
+              <p className="measure mt-2 text-sm text-olive">
+                Nothing rebuilds this environment on its own. Whatever state it is in tomorrow
+                morning is the state somebody left it in tonight, which is exactly what the
+                controls above are for.
+              </p>
+            </>
+          )}
+
+          {/* THE REFUSAL IS THE PART WORTH READING even when the job is off,
+              because it is the reason a scheduled reset is safe to arm at all.
+              §7.3's lock stops a dataset changing under somebody's meeting; a
+              robot at 4am is that failure with nobody in the room. */}
+          <p className="measure mt-3 rounded-2xl border border-ground/10 bg-app-surface px-4 py-3 text-sm text-ground">
+            A run <strong>skips the night</strong> while a walkthrough holds the environment —
+            it never interrupts one. Interrupting somebody mid-walkthrough is a decision a
+            person makes deliberately, and a timer cannot be deliberate. A skipped night is
+            recorded, because an environment that quietly stopped rebuilding is one somebody
+            will demonstrate from a week later.
+          </p>
+          <p className="measure mt-2 text-xs text-olive">
+            Every run records how long it took against p29&rsquo;s{" "}
+            {RESET_BUDGET_MS / 1000}-second ceiling. That ceiling is reported against, never
+            enforced: aborting a rebuild halfway through for running long would leave the
+            environment in the state this job exists to prevent.
+          </p>
+        </Panel>
+
+        <Panel
+          title="Export the QA report"
+          footnote="p9's sixth control. A manifest of counts, hashes and failed checks, released through the same governed export path an aggregate report uses: a stated purpose, a signature, a content hash and an audit event before the file exists."
+        >
+          <p className="measure text-sm text-ground">
+            A QA report is for being believed later — attached to a ticket, quoted in a review,
+            cited in an argument about whether this environment was fit on a particular
+            afternoon. That is exactly the kind of claim the export machinery exists to make
+            checkable, and a report with no signature and no recorded purpose is a screenshot
+            with extra steps.
+          </p>
+          <p className="measure mt-2 text-sm text-olive">
+            <strong className="text-ground">This one does not refuse on a failing environment.</strong>{" "}
+            Every other control here stops when the manifest fails, because demonstrating from a
+            broken environment is the harm. This one exists to describe a broken environment to
+            somebody who is not in the room, so withholding it when the checks fail would remove
+            the artifact at the moment it is the thing being asked for.
+          </p>
+
+          <p className="mt-3 text-sm text-ground">
+            {qa.total} graded checks, {qa.failed} failing · {qaRowCount} rows including the
+            baseline hash, every projection hash, and any data bundle in force.
+          </p>
+
+          <form action={exportDemoQaReport} className="mt-3 space-y-2">
+            <label className="block text-sm">
+              <span className="font-medium text-app-ink">What this file is for</span>
+              <input
+                name="purpose"
+                required
+                minLength={12}
+                placeholder="Attaching to the deploy ticket — four manifest checks failed after the release"
+                className="mt-1 w-full rounded-xl border border-ground/20 bg-app-surface px-3 py-2 text-sm"
+              />
+              <span className="mt-1 block text-xs text-olive">
+                Recorded with the file. A report cannot be produced without one, which is the
+                field that makes the release reviewable afterwards.
+              </span>
+            </label>
+            <button className="rounded-full bg-app-accent px-4 py-2 text-sm font-medium text-app-ink hover:opacity-90">
+              Release the QA report
+            </button>
+          </form>
+
+          {qaHistory.length > 0 && (
+            <div className="mt-4">
+              <p className="text-xs font-semibold uppercase tracking-wide text-olive">
+                Released reports
+              </p>
+              <ul className="mt-2 space-y-2">
+                {qaHistory.map((h) => (
+                  <li key={h.id} className="rounded-2xl border border-ground/10 bg-app-surface px-4 py-2 text-sm">
+                    <div className="flex flex-wrap items-baseline justify-between gap-2">
+                      <span className="text-ground">{h.createdAt}</span>
+                      <a
+                        href={`/api/demo/qa-report/${h.id}`}
+                        className="text-state-info underline"
+                      >
+                        Manifest
+                      </a>
+                    </div>
+                    <p className="measure text-xs text-olive">
+                      {h.rowCount} rows · {h.requestedByName ?? "unattributed"} ·{" "}
+                      {h.downloadCount === 0
+                        ? "not downloaded"
+                        : `downloaded ${h.downloadCount}×`}{" "}
+                      · &ldquo;{h.purpose}&rdquo;
+                    </p>
+                  </li>
+                ))}
+              </ul>
+              <p className="measure mt-2 text-xs text-olive">
+                This is the disclosure log for the QA report. A console that can release a file
+                but cannot show what it has released has an audit trail nobody can read.
+              </p>
+            </div>
+          )}
+        </Panel>
+
+        <Panel
+          title={PENDING.length === 0 ? "What is not on this screen" : "Controls that are not built"}
+          footnote="Handoff 07 p9 specifies six controls. A control that does not work is never rendered as a disabled button — one a presenter might click mid-demonstration is worse than a sentence saying it does not exist."
+        >
+          {PENDING.length === 0 ? (
+            <p className="measure text-sm text-ground">
+              All six controls exist above. This panel stays because the list it holds is the
+              first thing to fill in again: a screen that had a place for its own gaps and then
+              deleted the place is one where the next gap has nowhere to be written down.
+            </p>
+          ) : (
+            <dl className="divide-y divide-ground/5">
+              {PENDING.map((p) => (
+                <div key={p.control} className="grid gap-1 py-3 sm:grid-cols-[11rem_1fr] sm:gap-4">
+                  <dt className="text-sm font-medium text-app-ink">{p.control}</dt>
+                  <dd className="measure text-sm text-ground">
+                    {p.behavior}
+                    <span className="mt-0.5 block text-xs text-olive">Needs: {p.needs}</span>
+                  </dd>
+                </div>
+              ))}
+            </dl>
+          )}
           {/* The self-referential version of this paragraph — "this used to say
               the control was not exposed here yet" — was written and removed in
               the same pass. A screen that narrates its own history is doing the
@@ -427,28 +743,4 @@ function Row({
  *  trusts to be current. Each says what it needs, so
  *  the gap is a piece of work rather than a mystery. */
 const PENDING: Array<{ control: string; behavior: string; needs: string }> = [
-  {
-    // DISAMBIGUATED because the word now means two things on this screen. The
-    // guided walkthroughs above are versioned PRESENTATION scenarios: an order
-    // of screens and a set of claims. This is a DATA scenario: an event bundle
-    // that changes what the fabricated population has been through. Building
-    // the first did not build the second, and a reader who assumed it had
-    // would go looking for a control that is not there.
-    control: "Inject data scenario",
-    behavior:
-      "Apply an approved, versioned event bundle such as a safety pause, changing what the " +
-      "fabricated population has been through; reversible by reset. Not the same as a guided " +
-      "walkthrough, which changes what a presenter shows rather than what the data says.",
-    needs: "A versioned event-bundle format, which the presentation scenario registry is not.",
-  },
-  {
-    control: "Validate projections",
-    behavior: "Rebuild every projection and compare hashes; fail the page if any role's view differs.",
-    needs: "Expected projection hashes in the seed manifest — handoff 07 Wave 2.",
-  },
-  {
-    control: "Export QA report",
-    behavior: "A manifest of counts, hashes and failed checks, labelled fabricated on every page.",
-    needs: "The checks themselves now run above; what is missing is releasing them as a signed file through the governed export.",
-  },
 ];

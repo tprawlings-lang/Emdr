@@ -89,6 +89,19 @@ export const DEMO_DATA_TABLES = [
   // held lock behind would block the next reset on a session that no longer
   // has anything to hold.
   "demo_environment_lock",
+  // Applied data scenarios. p9 calls a bundle "reversible by reset", and this
+  // line is the whole of that promise: the events a bundle wrote go when the
+  // spine is rebuilt, and the record of having applied it goes here. Leaving
+  // the record behind would tell the next operator that a bundle is in force
+  // over a population that no longer carries it — which is worse than saying
+  // nothing, because they would believe it.
+  "demo_data_scenario_applications",
+  // Handoffs of accountability. Cleared: a transfer names three fabricated
+  // people and is meaningless once they are rebuilt — and a surviving one
+  // would point at users who no longer exist, which is the orphan the data
+  // quality manifest exists to catch. Before `users`, which it references on
+  // three columns.
+  "care_handoffs",
   // Planning first: a signal review points at its signal, and a signal is
   // derived entirely from the fabricated population it is about.
   //
@@ -282,40 +295,60 @@ const VOLATILE_COLUMN = /_at$|^created$|^updated$|^plan_date$|^checkin_date$|^ef
  *  timestamps and encrypted ciphertext: the former move, and the latter differs
  *  on every write because AES-GCM uses a fresh nonce, so hashing it would make
  *  the baseline unstable for a reason unrelated to the data. */
+/**
+ * The time-invariant fingerprint of one table's rows: a header naming the
+ * columns, then one sorted line per row.
+ *
+ * EXTRACTED SO THERE IS ONE DEFINITION of what makes two datasets the same.
+ * The baseline below hashes every demo table together into one value, and the
+ * per-projection hashes (`src/lib/demo/projection-hashes.ts`) hash each
+ * projected table on its own so a drift can name which one moved. Those are
+ * two questions over the same normalization, and a second copy of these rules
+ * would answer them differently the first time either changed.
+ *
+ * Returns an empty array for an empty table, so a caller can tell "no rows"
+ * apart from "no such table" without the hash swallowing the difference.
+ */
+export function tableFingerprint(db: Database.Database, table: string): string[] {
+  const rows = db.prepare(`SELECT * FROM ${table}`).all() as Record<string, unknown>[];
+  if (rows.length === 0) return [];
+
+  const cols = Object.keys(rows[0])
+    .filter((c) => !VOLATILE_COLUMN.test(c))
+    // Ciphertext differs per write (fresh GCM nonce); hash its presence, not
+    // its value, so "a note exists here" is still covered.
+    .sort();
+
+  const lines = rows.map((r) =>
+    cols.map((c) => {
+      const v = r[c];
+      if (v === null || v === undefined) return `${c}=`;
+      const s = String(v);
+      // Values that are non-deterministic BY DESIGN are recorded as present
+      // rather than by content: AES-GCM ciphertext uses a fresh nonce per
+      // write, and password hashes use a fresh salt. Hashing either would
+      // make the baseline unstable for a reason that has nothing to do with
+      // whether the dataset was reproduced correctly — and a baseline that
+      // fails for the wrong reason is one people learn to ignore.
+      return isCiphertext(s) || SALTED_COLUMN.test(c)
+        ? `${c}=<opaque:${s.length > 0 ? "present" : "empty"}>`
+        : `${c}=${s}`;
+    }).join("|")
+  );
+  return [`cols=${cols.join(",")}`, ...lines.sort()];
+}
+
 export function demoBaseline(db: Database.Database): BaselineResult {
   const counts: Record<string, number> = {};
   const hash = crypto.createHash("sha256");
   hash.update(`version=${DEMO_SEED_VERSION}\n`);
 
   for (const table of [...DEMO_DATA_TABLES].sort()) {
-    const rows = db.prepare(`SELECT * FROM ${table}`).all() as Record<string, unknown>[];
-    counts[table] = rows.length;
-    if (rows.length === 0) continue;
-
-    const cols = Object.keys(rows[0])
-      .filter((c) => !VOLATILE_COLUMN.test(c))
-      // Ciphertext differs per write (fresh GCM nonce); hash its presence, not
-      // its value, so "a note exists here" is still covered.
-      .sort();
-
-    hash.update(`table=${table} cols=${cols.join(",")}\n`);
-    const lines = rows.map((r) =>
-      cols.map((c) => {
-        const v = r[c];
-        if (v === null || v === undefined) return `${c}=`;
-        const s = String(v);
-        // Values that are non-deterministic BY DESIGN are recorded as present
-        // rather than by content: AES-GCM ciphertext uses a fresh nonce per
-        // write, and password hashes use a fresh salt. Hashing either would
-        // make the baseline unstable for a reason that has nothing to do with
-        // whether the dataset was reproduced correctly — and a baseline that
-        // fails for the wrong reason is one people learn to ignore.
-        return isCiphertext(s) || SALTED_COLUMN.test(c)
-          ? `${c}=<opaque:${s.length > 0 ? "present" : "empty"}>`
-          : `${c}=${s}`;
-      }).join("|")
-    );
-    for (const line of lines.sort()) hash.update(line + "\n");
+    counts[table] = (db.prepare(`SELECT COUNT(*) AS n FROM ${table}`).get() as { n: number }).n;
+    const fp = tableFingerprint(db, table);
+    if (fp.length === 0) continue;
+    hash.update(`table=${table} ${fp[0]}\n`);
+    for (const line of fp.slice(1)) hash.update(line + "\n");
   }
 
   return { version: DEMO_SEED_VERSION, counts, hash: hash.digest("hex") };

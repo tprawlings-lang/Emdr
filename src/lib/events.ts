@@ -118,6 +118,23 @@ export const EVENT_TYPES = {
   "module_unlock.requested": 2,
   "module_unlock.decided": 2,
 
+  // Handoff of accountability (§26: "Keep accountability through transfer").
+  //
+  // TWO EVENTS, NOT ONE, and the pair is the whole point. Ownership already
+  // existed on a work item, and a screen built on ownership alone would be
+  // INFERRING accountability from an assignment nobody agreed to — which is
+  // exactly how a person gets lost between two clinicians who each believed
+  // the other had them. So a transfer is proposed by one person and RESOLVED
+  // by another, and the gap between the two events is a state the product can
+  // see and report rather than a silence.
+  //
+  // `care_handoff.resolved` covers accepted, declined and withdrawn: they are
+  // one decision with three outcomes, and splitting them into three types
+  // would let a reader who filtered for one of them believe the handoff was
+  // still open.
+  "care_handoff.proposed": 1,
+  "care_handoff.resolved": 1,
+
   // Clinician thoughts and clinical memory (Clinician Thoughts spec §7).
   //
   // Phase 1 registers only the three that Phase 1 can emit. The rest of §7's
