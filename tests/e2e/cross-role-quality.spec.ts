@@ -228,3 +228,50 @@ test("touch targets are reported against the goal and the floor separately", asy
   });
   expect(report.belowFloor, `below the 24px conformance floor:\n${report.offenders.join("\n")}`).toBe(0);
 });
+
+test("no screen throws a hydration error", async ({ page }) => {
+  // A DEFECT THAT IS INVISIBLE IN A SCREENSHOT. `Callout` wrapped its children
+  // in a paragraph, nine call sites passed a paragraph as their child, and a
+  // paragraph inside a paragraph is invalid HTML — so React found the mismatch
+  // on hydration and regenerated the whole tree on the client. Every one of
+  // those screens looked correct and was throwing in the browser console, and
+  // nothing in this suite was reading it.
+  //
+  // Now something is. The list is the screens that use the shared wrappers most
+  // heavily, one per role, rather than every route: a check that opens ninety
+  // pages is a check nobody runs.
+  const failures: string[] = [];
+  page.on("pageerror", (err) => {
+    if (/hydrat|did not match|cannot be a descendant|cannot contain a nested/i.test(String(err))) {
+      failures.push(`${page.url()}: ${String(err).split("\n")[0]}`);
+    }
+  });
+  page.on("console", (msg) => {
+    if (msg.type() !== "error") return;
+    if (/hydrat|cannot be a descendant|cannot contain a nested/i.test(msg.text())) {
+      failures.push(`${page.url()}: ${msg.text().split("\n")[0]}`);
+    }
+  });
+
+  await page.goto("/login");
+  await page.locator('input[name="email"]').fill("clinician.demo@steady.local");
+  await page.locator('input[name="password"]').fill("clinician1234");
+  await page.getByRole("button", { name: "Continue" }).click();
+  await expect(page).toHaveURL(/\/clinician/);
+
+  for (const route of [
+    "/clinician/today",
+    "/clinician/caseload",
+    "/review/status",
+    "/review/planning",
+    "/review/lineage",
+    "/review/demo-data",
+    "/review/security",
+    "/review/performance",
+  ]) {
+    await page.goto(route, { waitUntil: "domcontentloaded" });
+    await expect(page.locator("main")).toBeVisible();
+  }
+
+  expect(failures, "these screens regenerate their tree on the client").toEqual([]);
+});

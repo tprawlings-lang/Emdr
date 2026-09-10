@@ -145,6 +145,7 @@ export default async function MemberThoughtsPage({
   const threadsAvailable = thoughtsSurfaceAvailable("CLINICIAN_THREADS");
   const extractionAvailable = thoughtsSurfaceAvailable("CLINICIAN_THOUGHTS_EXTRACTION");
   const askAvailable = thoughtsSurfaceAvailable("CLINICIAN_PATIENT_ASK");
+  const noteBridgeAvailable = thoughtsSurfaceAvailable("CLINICIAN_NOTE_BRIDGE");
   const thoughts = available ? await listThoughts(ctx, id) : [];
 
   const threadView = threadsAvailable
@@ -228,6 +229,22 @@ export default async function MemberThoughtsPage({
             <div className="mb-6">
               <AskSteady personId={id} />
             </div>
+          )}
+
+          {/* The note bridge (Phase 6). Reached from here rather than from the
+              tab row, because a bridge that only makes sense once items are
+              approved belongs behind the screen where they are approved — and
+              because §5's finding about this shell was that the tab row was
+              already too long. */}
+          {noteBridgeAvailable && (
+            <p className="mb-6 text-sm">
+              <Link href={`/clinician/member/${id}/note`} className="underline">
+                Build a note draft
+              </Link>{" "}
+              <span className="text-olive">
+                — approved items you choose, with their sources kept. Steady cannot sign it.
+              </span>
+            </p>
           )}
 
           <WithNote

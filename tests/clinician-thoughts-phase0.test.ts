@@ -212,6 +212,15 @@ const BUILT: ThoughtsFlag[] = [
   // behaviour. Added here because the phase exists, which is the only reason
   // this list is ever added to.
   "CLINICIAN_PATIENT_ASK",
+  // Phase 6 landed 2026-09-10: clinician-selected approved items feeding a note
+  // draft, source ids preserved on every line, nothing that signs, and no
+  // stored state — so the phase's "disabled per tenant without data loss" rule
+  // is a fact rather than a promise about a migration.
+  //
+  // THIS IS THE LAST ONE. The list below is now empty, which is the point of
+  // keeping the biconditional: it will fail the moment a flag is added without
+  // a phase behind it.
+  "CLINICIAN_NOTE_BRIDGE",
 ];
 
 test("demo enables exactly the phases that are built", () => {
@@ -230,10 +239,16 @@ test("demo enables exactly the phases that are built", () => {
     assert.equal(thoughtsFlagEnabled(f), true,
       `${f} is dark in the one environment built for clinical review, and the phase behind it exists`);
   }
-  for (const f of THOUGHTS_FLAGS.filter((x) => !BUILT.includes(x))) {
+  const unbuilt = THOUGHTS_FLAGS.filter((x) => !BUILT.includes(x));
+  for (const f of unbuilt) {
     assert.equal(thoughtsFlagEnabled(f), false,
       `${f} is on in demo, but the phase behind it is not built`);
   }
+  // Every phase is built, so the second half of the biconditional currently
+  // guards nothing — and saying so is better than a loop over an empty list
+  // that reads as though it checked something. It starts guarding again the
+  // moment a flag is added ahead of its phase, which is the case it exists for.
+  assert.deepEqual(unbuilt, [], `phases still unbuilt: ${unbuilt.join(", ")}`);
 });
 
 test("an explicit 0 forces a flag off, even in demo", () => {
@@ -275,21 +290,28 @@ test("a downstream surface cannot open over a closed one", () => {
 test("a flag is read at call time, not at module load", () => {
   // A flag captured into a constant when the module first loads cannot be
   // turned off without a redeploy. This codebase has shipped that bug before.
-  // A flag that is NOT demo-enabled, so "unset" genuinely means off here. It
-  // was CLINICIAN_THREADS until Phase 3 landed and turned that one on in demo,
-  // at which point this test was asserting the opposite of what it meant. It
-  // then became CLINICIAN_PATIENT_ASK, and Phase 5 landing did the same thing
-  // again — so it is now the note bridge, the one phase still unbuilt. The
-  // migration is the healthy behaviour of this test rather than a nuisance: it
-  // has to name a flag whose "off" is real, and the set of those shrinks by one
-  // every time a phase ships.
-  const f: ThoughtsFlag = "CLINICIAN_NOTE_BRIDGE";
-  delete process.env[f];
-  assert.equal(thoughtsFlagEnabled(f), false);
-  process.env[f] = "1";
-  assert.equal(thoughtsFlagEnabled(f), true, "the flag was captured at load");
-  delete process.env[f];
-  assert.equal(thoughtsFlagEnabled(f), false);
+  //
+  // THIS TEST HAS MIGRATED THREE TIMES and has now run out of somewhere to
+  // migrate to. It needed a flag whose "off" was real, so it named the one
+  // phase still unbuilt: CLINICIAN_THREADS until Phase 3 landed, then
+  // CLINICIAN_PATIENT_ASK until Phase 5, then CLINICIAN_NOTE_BRIDGE until
+  // Phase 6 — and every phase is built now, so no such flag exists.
+  //
+  // Which is fine, because the demo default was never the property under test.
+  // With EMDR_DEMO unset, every flag is off unless explicitly set, so the flip
+  // is observable on any of them — and running it over ALL of them is stronger
+  // than the single flag this used to check.
+  const demo = process.env.EMDR_DEMO;
+  delete process.env.EMDR_DEMO;
+  try {
+    for (const f of THOUGHTS_FLAGS) {
+      delete process.env[f];
+      assert.equal(thoughtsFlagEnabled(f), false, `${f} is on with nothing set`);
+      process.env[f] = "1";
+      assert.equal(thoughtsFlagEnabled(f), true, `${f} was captured at load`);
+      delete process.env[f];
+    }
+  } finally { if (demo) process.env.EMDR_DEMO = demo; }
 });
 
 test("audio defaults to deletion, in demo and production alike", () => {

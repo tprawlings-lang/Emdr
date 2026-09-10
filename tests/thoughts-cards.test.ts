@@ -60,10 +60,22 @@ test("extraction is on in demo now that the phase behind it exists", () => {
   // The rule the flag list follows: a flag opens a surface with something
   // behind it. Phase 2 has an extractor, a contract, candidates and a save.
   assert.equal(thoughtsFlagEnabled("CLINICIAN_THOUGHTS_EXTRACTION"), true);
-  // The example of an unbuilt phase moves on as phases land — Phase 4, then
-  // Phase 5, now Phase 6. The authoritative built/unbuilt list is in
-  // clinician-thoughts-phase0.test.ts; this only checks the phase it needs.
-  assert.equal(thoughtsFlagEnabled("CLINICIAN_NOTE_BRIDGE"), false, "Phase 6 is not built");
+  // This used to name whichever phase was still unbuilt — Phase 4, then 5, then
+  // 6 — as its example of a dark flag. Phase 6 landing left it with nothing to
+  // point at, so the contrast it was drawing is drawn against an EXPLICIT off
+  // instead, which is the property that actually matters here: the surface
+  // follows the flag rather than the other way round.
+  //
+  // The authoritative built/unbuilt list stays in
+  // clinician-thoughts-phase0.test.ts.
+  const prev = process.env.CLINICIAN_NOTE_BRIDGE;
+  process.env.CLINICIAN_NOTE_BRIDGE = "0";
+  assert.equal(
+    thoughtsFlagEnabled("CLINICIAN_NOTE_BRIDGE"), false,
+    "an explicit 0 no longer closes a surface, even in demo"
+  );
+  if (prev === undefined) delete process.env.CLINICIAN_NOTE_BRIDGE;
+  else process.env.CLINICIAN_NOTE_BRIDGE = prev;
 });
 
 test("the cards render the statement class before the sentence", () => {

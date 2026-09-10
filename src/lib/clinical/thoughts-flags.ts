@@ -68,9 +68,15 @@ const DEMO_ENABLED: ReadonlySet<ThoughtsFlag> = new Set([
   "CLINICIAN_SESSION_PREP",
   // Ask Steady joined when Phase 5 landed, on the same terms as the four above:
   // the surface has retrieval, an answer with its sources, and the
-  // conflicting-evidence behaviour §12 requires. Phase 6 is still absent, for
-  // the reason the phases after a built one always are.
+  // conflicting-evidence behaviour §12 requires.
   "CLINICIAN_PATIENT_ASK",
+  // The note bridge joined when Phase 6 landed. It has the three things that
+  // phase's definition of done asks for: a draft that cannot sign itself,
+  // nothing reaching it that a clinician did not select from approved items,
+  // and no stored state at all — so switching this off removes a screen and
+  // loses nothing, which is the "disabled per tenant without data loss" rule
+  // answered rather than promised.
+  "CLINICIAN_NOTE_BRIDGE",
 ]);
 
 /** Off unless explicitly set to "1", except where demo enables it above.
