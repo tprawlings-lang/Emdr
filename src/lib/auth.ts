@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import crypto from "crypto";
 import { data } from "./data";
 import { type Role, landingFor, isAggregateRole } from "./roles";
+import { noteSignal } from "./telemetry/store";
 import { DEMO_SEED_VERSION } from "./demo-seed";
 
 const COOKIE = "emdr_session";
@@ -298,7 +299,7 @@ export async function requireClinician(): Promise<SessionUser> {
  */
 export async function requireIntelligence(): Promise<SessionUser> {
   const user = await requireUser();
-  if (!isAggregateRole(user.role)) redirect(denialFor(user.role));
+  if (!isAggregateRole(user.role)) denyScope(user.role, "aggregate_scope");
   return user;
 }
 
@@ -307,14 +308,14 @@ export async function requireIntelligence(): Promise<SessionUser> {
  *  organizations", and a payer "cannot see patient-level clinical records". */
 export async function requireOrganization(): Promise<SessionUser> {
   const user = await requireUser();
-  if (user.role !== "organization" && user.role !== "demo_admin") redirect(denialFor(user.role));
+  if (user.role !== "organization" && user.role !== "demo_admin") denyScope(user.role, "organization_scope");
   return user;
 }
 
 /** The payer console. */
 export async function requirePayer(): Promise<SessionUser> {
   const user = await requireUser();
-  if (user.role !== "payer" && user.role !== "demo_admin") redirect(denialFor(user.role));
+  if (user.role !== "payer" && user.role !== "demo_admin") denyScope(user.role, "payer_scope");
   return user;
 }
 
@@ -322,7 +323,7 @@ export async function requirePayer(): Promise<SessionUser> {
  *  corrections, audit — and NOT routine treatment decisions). */
 export async function requireReviewer(): Promise<SessionUser> {
   const user = await requireUser();
-  if (user.role !== "reviewer" && user.role !== "demo_admin") redirect(denialFor(user.role));
+  if (user.role !== "reviewer" && user.role !== "demo_admin") denyScope(user.role, "reviewer_scope");
   return user;
 }
 
@@ -345,7 +346,7 @@ export async function requireReviewer(): Promise<SessionUser> {
 export async function requireReviewAccess(): Promise<SessionUser> {
   const user = await requireUser();
   if (user.role !== "reviewer" && user.role !== "clinician" && user.role !== "demo_admin") {
-    redirect(denialFor(user.role));
+    denyScope(user.role, "review_access");
   }
   return user;
 }
@@ -360,7 +361,7 @@ export async function requireReviewAccess(): Promise<SessionUser> {
  */
 export async function requireDemoAdmin(): Promise<SessionUser> {
   const user = await requireUser();
-  if (user.role !== "demo_admin") redirect(denialFor(user.role));
+  if (user.role !== "demo_admin") denyScope(user.role, "demo_admin_scope");
   return user;
 }
 
@@ -380,4 +381,21 @@ export async function requireDemoAdmin(): Promise<SessionUser> {
  */
 function denialFor(role: Role): string {
   return role === "member" ? "/app/today" : "/403";
+}
+
+/**
+ * A scope denial, recorded and then redirected.
+ *
+ * §31.7's `permission_denied` signal, at the one place every scope denial in
+ * this file passes through. Its privacy rule is the strictest of the nine —
+ * "actor role and policy code; NO SUBJECT IDENTITY" — because a denial log
+ * naming who was being looked at leaks the existence §30.6 step 2 refuses to
+ * reveal. So the role and a code for the door go in, and the account's id, the
+ * path and the subject do not.
+ *
+ * Fire-and-forget: a denial must happen whether or not it can be counted.
+ */
+function denyScope(role: Role, policyCode: string): never {
+  noteSignal("permission_denied", { actorRole: role, policyCode }, { actorRole: role });
+  redirect(denialFor(role));
 }

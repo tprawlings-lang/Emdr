@@ -103,7 +103,25 @@ export class CommandError extends Error {}
 export function resolveCommand<P extends Record<string, unknown>>(
   ctx: ExperienceContext, input: CommandInput<P>
 ): ResolvedCommand<P> {
-  const smuggled = ["actorId", "actorPersonId", "tenantId", "role", "audience", "personId"]
+  // AUTHORITY, not subject — and the difference was a live defect.
+  //
+  // `personId` was on this list, and it does not belong on it. Authority is who
+  // is acting and in whose tenant; a client that supplies either believes it
+  // can set one, so supplying it is refused rather than overwritten. The
+  // SUBJECT is which person the action is about, and on the attention queue
+  // that is whichever row the clinician clicked — there is no way for a client
+  // not to send it.
+  //
+  // With `personId` here, all three row actions on the clinician's queue —
+  // record contact, assign, complete review — threw before doing anything, and
+  // "Could not save" was the only outcome any of them had ever produced. Found
+  // by driving the queue, not by a test: nothing exercised an action and the
+  // guard that pinned this list together.
+  //
+  // The subject is still not trusted. A command whose target names a record
+  // takes the subject FROM that record and refuses a payload that disagrees —
+  // see `subjectFor` in src/lib/clinical/shell-actions.ts.
+  const smuggled = ["actorId", "actorPersonId", "tenantId", "role", "audience"]
     .filter((k) => k in (input.payload as Record<string, unknown>));
   if (smuggled.length > 0) {
     throw new CommandError(

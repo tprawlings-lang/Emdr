@@ -1,6 +1,7 @@
 import crypto from "crypto";
 import { data } from "@/lib/data";
 import { audit } from "@/lib/audit";
+import { noteSignal } from "@/lib/telemetry/store";
 import { SMALL_CELL } from "@/components/charts/aggregate";
 import {
   supersedeEarlier, openDownloadWindow, EXPORT_STATES, type ExportState,
@@ -197,6 +198,16 @@ export async function createExport(req: ExportRequest): Promise<ExportResult> {
       contentHash,
     },
   });
+
+  // §31.7's export_requested signal. The purpose SENTENCE is not in it — see
+  // the deviation recorded beside that signal in the catalog — but the cohort
+  // version and the filter hash are, which is what makes an export's parity
+  // checkable from the operational review rather than only from the register.
+  noteSignal("export_requested", {
+    surface: req.surface.replace(/[^a-z0-9_]/gi, "_").toLowerCase().slice(0, 48),
+    cohortVersion: req.cohortVersion,
+    filterHash,
+  }, { tenantId: req.tenantId, actorRole: req.requestedByRole });
 
   const c = await data();
   await c.run(

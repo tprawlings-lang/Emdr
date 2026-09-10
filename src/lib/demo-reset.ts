@@ -202,6 +202,11 @@ export const DEMO_DATA_TABLES = [
   "screenings",
   "consents",
   "audit_log",
+  // Telemetry (§31.7). Cleared, not preserved: a signal row records that a
+  // fabricated person's screen was reached, so it is demonstration data like
+  // every other row above. It references only the tenant, so it goes before
+  // users but has no ordering constraint against it.
+  "telemetry_signals",
   "users",
   // Tenants last — everything above may reference the platform tenant.
   "tenants",
