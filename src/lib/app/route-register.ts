@@ -311,6 +311,7 @@ export const ROUTE_REGISTER: RouteEntry[] = [
   { path: "/demo", audience: "demo_admin", job: "Reach the demonstration environment as a chosen role.", workspace: "demo_ops", state: "working" },
   { path: "/demo/[path]", audience: "demo_admin", job: "Enter the environment at a specific screen.", workspace: "demo_ops", state: "working" },
   { path: "/demo/scenarios", audience: "demo_admin", job: "Run a named walkthrough, and see whether the environment can serve it.", workspace: "demo_ops", state: "working", evidence: "Package 4. Launcher and progress guide over the scenario registry; refuses to start on a failed preflight or while another walkthrough holds the environment." },
+  { path: "/admin/pilot", audience: "demo_admin", job: "Read what pilot participants entered.", workspace: "demo_ops", state: "working", evidence: "The pilot's own answers — fit questions, baseline measures, check-ins and what the rules decided — for the one population that is real. Counts of people rather than rates, because at a cap of twenty-five a percentage reads as a finding. No control here routes anybody or changes a gate." },
   { path: "/admin/demo", audience: "demo_admin", job: "See environment health and reset it safely.", workspace: "demo_ops", state: "working", evidence: "§7.3: leads with environment health and failed preflight, states reset scope before the control, and refuses a reset during another walkthrough unless deliberately interrupted." },
 ];
 

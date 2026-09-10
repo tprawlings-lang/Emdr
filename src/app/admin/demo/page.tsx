@@ -327,7 +327,14 @@ export default async function AdminDemoPage() {
               Enrollment: {enrolled} of {ENROLLMENT_LIMIT} places used
             </span>{" "}
             — accounts created through the access-coded signup form. Real people, so they are
-            reported here and never counted as fabricated population.
+            reported here and never counted as fabricated population.{" "}
+            {/* The count is the number; what they entered is the point. A
+                console that reported only how many people had enrolled would
+                describe the pilot without reading it. */}
+            <a href="/admin/pilot" className="font-medium text-ground underline">
+              Read what they entered
+            </a>
+            .
           </p>
 
           {walkthroughs > 0 && (
