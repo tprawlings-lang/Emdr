@@ -447,3 +447,25 @@ test("the demo banner stops claiming everyone is invented once enrollment is ope
   assert.match(layout, /DEMO — FABRICATED DATA — NOT CLINICAL CARE/,
     "the demo banner's header changed, which several specs identify it by");
 });
+
+test("the login screen offers the way in when enrollment is open", () => {
+  // ENROLLMENT SHIPPED WITH NOTHING LINKING TO IT. `/signup` was reachable only
+  // by typing the address, which turns a pilot invitation into a scavenger
+  // hunt — and the sign-in screen is the one place somebody told "go to the
+  // site and sign up" is guaranteed to land.
+  const page = code("src/app/login/page.tsx");
+  assert.match(page, /enrollmentState\(\)/, "the login screen never asks whether enrollment is open");
+  assert.match(page, /href="\/signup"/, "the login screen offers no route to enrollment");
+
+  // Gated on the STATE, not the environment variable, so a full pilot says so
+  // instead of offering a form the next screen refuses.
+  const at = page.indexOf('href="/signup"');
+  assert.ok(at > 0);
+  const before = page.slice(0, at);
+  assert.ok(
+    before.lastIndexOf("{enrollment.open && (") > 0,
+    "the enrollment link is not inside an enrollment.open block"
+  );
+  assert.match(page, /enrollment\.full \?/, "a full pilot still offers the form");
+  assert.match(page, /enrollment\.remaining/, "the panel does not say how many places are left");
+});

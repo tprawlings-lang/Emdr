@@ -3,6 +3,7 @@ import { SteadyMark, Wordmark } from "@/components/Brand";
 import { DEMO_ROLES } from "@/lib/roles";
 import { MAIN_ID } from "@/lib/experience/quality";
 import { startWalkthroughAction } from "@/lib/demo/walkthrough-actions";
+import { enrollmentState } from "@/lib/enrollment/gate";
 
 // The demo role selector (handoff 07 §1.1, p5).
 //
@@ -27,6 +28,10 @@ export default async function LoginPage({
   searchParams: Promise<{ error?: string; refused?: string }>;
 }) {
   const { error, refused } = await searchParams;
+  // Asked here rather than assumed from the environment variable: the panel
+  // below has to say how many places are left, and a screen that offers a
+  // form the gate would refuse is worse than no screen.
+  const enrollment = await enrollmentState();
   return (
     <main id={MAIN_ID} className="mx-auto max-w-md px-6 py-16">
       <div className="flex items-center gap-3">
@@ -115,6 +120,44 @@ export default async function LoginPage({
           Continue
         </button>
       </form>
+      {enrollment.open && (
+        // THE WAY IN, ON THE SCREEN PEOPLE ARRIVE AT.
+        //
+        // Enrollment shipped with nothing linking to it. `/signup` was reachable
+        // only by typing the address, which makes a pilot invitation into a
+        // scavenger hunt — and the one place a new person is guaranteed to land
+        // is the sign-in screen, having been told "go to the site and sign up".
+        //
+        // Rendered from the gate's own state rather than from the environment
+        // variable, so a full pilot says so here instead of offering a form that
+        // refuses on the next screen.
+        <div className="mt-8 rounded-3xl border border-ground/15 bg-ivory p-5">
+          <p className="text-sm font-semibold text-ground">New here?</p>
+          {enrollment.full ? (
+            <p className="measure mt-1 text-sm text-olive">
+              The pilot is full &mdash; all {enrollment.limit} places are taken. Scoped access to
+              look around without an account is arranged through a{" "}
+              <a href="/request-review" className="font-medium text-ground underline">
+                review request
+              </a>
+              .
+            </p>
+          ) : (
+            <>
+              <p className="measure mt-1 text-sm text-olive">
+                If you were given an access code, start here. {enrollment.remaining} of{" "}
+                {enrollment.limit} places remain.
+              </p>
+              <a
+                href="/signup"
+                className="mt-4 block w-full rounded-full bg-sage px-6 py-3 text-center font-medium text-ground transition-colors hover:bg-sage-deep"
+              >
+                Create an account
+              </a>
+            </>
+          )}
+        </div>
+      )}
       {DEMO && (
         // NEW PATIENT ONBOARDING, on the sign-in screen because that is where
         // somebody looks for it and where it was reported missing. It is under
