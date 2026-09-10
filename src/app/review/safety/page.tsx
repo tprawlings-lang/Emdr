@@ -1,6 +1,9 @@
 import { ReviewPage } from "@/components/clinical/ReviewPage";
 import { Panel, Note, WithNote } from "@/components/app/surfaces";
 import { requireReviewer } from "@/lib/auth";
+import {
+  FITNESS_SCREENER_VERSION, screenerCaveat,
+} from "@/lib/fitness-screener";
 import { replayScenarios } from "@/lib/safety/scenarios";
 import { BETA_CONFIG } from "@/lib/safety/config";
 
@@ -24,6 +27,8 @@ export const metadata = { title: "Safety rule results — Steady Review" };
 // The screen deliberately does NOT read a member's record. It reports the
 // ENGINE's behaviour on fixed inputs, which is why a reviewer can be shown it
 // without any question of whose data it is.
+
+const screenerProvisional = screenerCaveat();
 
 export default async function ReviewSafetyPage() {
   await requireReviewer();
@@ -62,6 +67,30 @@ export default async function ReviewSafetyPage() {
             <p className="measure mt-1 text-sm text-ground">
               Computed now, by calling the same function a member&rsquo;s daily check-in calls.
               Nothing on this page is a stored result.
+            </p>
+          </div>
+        )}
+
+        {/* THE GATE THAT IS NOT ON THIS PAGE, and runs before every scenario on
+            it. The ten replayed below exercise the daily-check-in gate chain;
+            the fitness screener decides whether somebody may run self-guided
+            processing AT ALL, and it has been running on unratified criteria
+            with nothing but a version suffix to say so. A reviewer reading a
+            page of green scenarios should not have to know a naming convention
+            to learn that. */}
+        {screenerProvisional && (
+          <div
+            role="note"
+            className="mt-6 rounded-3xl border border-state-caution/60 bg-state-caution-bg/50 p-5"
+          >
+            <p className="text-sm font-semibold text-ground">
+              The fitness screener is provisional
+            </p>
+            <p className="measure mt-1 text-sm text-ground">{screenerProvisional}</p>
+            <p className="measure mt-2 text-sm text-olive">
+              Version <code className="font-mono text-xs">{FITNESS_SCREENER_VERSION}</code>.
+              It is stamped on every stored screening and served to the mobile client, which
+              now carries this sentence with it rather than relying on the suffix.
             </p>
           </div>
         )}

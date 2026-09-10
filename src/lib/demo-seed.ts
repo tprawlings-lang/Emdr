@@ -83,6 +83,11 @@ function demoHash(role: string): string {
 export const ALEX_ID = demoId(0);
 export const SAM_ID = demoId(1);
 export const DEMO_CLINICIAN_ID = demoId(2);
+/** The colleague a person can be handed to. Deterministic like the rest, so
+ *  the population seed can move them into the same tenant as Dr. Chen — a
+ *  transfer across tenants is refused, correctly, and a recipient in another
+ *  organization would demonstrate the refusal rather than the workflow. */
+export const DEMO_CLINICIAN_2_ID = demoId(8);
 
 /**
  * The demo accounts, as data rather than as inline inserts.
@@ -110,6 +115,13 @@ export const DEMO_ACCOUNTS: DemoAccount[] = [
   { seq: 0, email: PATIENT_EMAIL, name: "Alex Rivera (fictional)", role: "member", formerEmail: "demo@example.com", daysAgo: 22 },
   { seq: 1, email: "patient2.demo@steady.local", name: "Sam Okafor (fictional)", role: "member", formerEmail: "demo2@example.com", daysAgo: 2 },
   { seq: 2, email: "clinician.demo@steady.local", name: "Dr. Maya Chen (fictional)", role: "clinician", formerEmail: "clinician@example.com", daysAgo: 40 },
+  // A SECOND CLINICIAN, and the reason is a whole capability rather than
+  // variety. A handoff needs somebody to hand TO — the screen refuses to offer
+  // a transfer with no recipient who could accept one — so with a single
+  // clinician account the transfer-of-accountability workflow could be built,
+  // tested and never demonstrated. A feature the review environment cannot
+  // show is half-shipped.
+  { seq: 8, email: "clinician2.demo@steady.local", name: "Dr. Tomas Ruiz (fictional)", role: "clinician", daysAgo: 30 },
   { seq: 3, email: "org.demo@steady.local", name: "Jordan Idowu (fictional)", role: "organization", formerEmail: "operations@example.com", daysAgo: 60 },
   { seq: 4, email: "payer.demo@steady.local", name: "Priya Raman (fictional)", role: "payer", daysAgo: 60 },
   { seq: 5, email: "reviewer.demo@steady.local", name: "Dr. Ellis Nakamura (fictional)", role: "reviewer", daysAgo: 75 },
@@ -225,6 +237,14 @@ export function seedDemoData(db: Database.Database) {
   insertUser.run(alexId, PATIENT_EMAIL, "Alex Rivera (fictional)", "member", demoHash("member"), daysAgo(22));
   insertUser.run(samId, "patient2.demo@steady.local", "Sam Okafor (fictional)", "member", demoHash("member"), daysAgo(2));
   insertUser.run(clinicianId, "clinician.demo@steady.local", "Dr. Maya Chen (fictional)", "clinician", demoHash("clinician"), daysAgo(40));
+  // The colleague a person can be handed to. Same tenant as Dr. Chen, because
+  // a transfer across tenants is refused — correctly — and a recipient in
+  // another organization would demonstrate the refusal rather than the
+  // workflow.
+  insertUser.run(
+    DEMO_CLINICIAN_2_ID, "clinician2.demo@steady.local", "Dr. Tomas Ruiz (fictional)",
+    "clinician", demoHash("clinician"), daysAgo(30),
+  );
 
   // The two AGGREGATE roles, now separate. Each reads a population and can
   // read no person's record — §30.6's rule that aggregate access does not

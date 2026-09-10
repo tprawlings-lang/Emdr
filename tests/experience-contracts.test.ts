@@ -130,7 +130,9 @@ test("capability state agrees with the route register", () => {
   const absentRoutes = new Set(byState("unavailable").map((r) => r.path));
   const pairs: Array<[string, string]> = [
     ["messageAClinician", "/app/messages"],
-    ["handOverAPerson", "/clinician/handoffs"],
+    // `handOverAPerson` is no longer here: the capability is built, the
+    // register calls the route working, and the pair below asserts the two
+    // agree in the other direction.
     ["referAPersonOut", "/clinician/referrals"],
     ["messageAMember", "/clinician/messages"],
     ["scheduleAnAppointment", "/clinician/schedule"],
@@ -205,7 +207,13 @@ test("the omitted capabilities are still named, with reasons", () => {
     assert.ok(a.reason.length > 20, `"${a.label}" is absent with no reason: "${a.reason}"`);
   }
   const labels = nav.absent.map((a) => a.label);
-  for (const expected of ["Messages", "Schedule", "Handoffs", "Referrals"]) {
+  // HANDOFFS IS PROMOTED NOW, not named as absent, so it left this list when
+  // the capability was built. §1.1's rule cuts both ways: a navigation item is
+  // a promise, and once the promise can be kept, withholding it is its own
+  // dishonesty — especially here, where nothing notifies a clinician that a
+  // transfer is waiting and the navigation item is the only way they will find
+  // out.
+  for (const expected of ["Messages", "Schedule", "Referrals"]) {
     assert.ok(labels.includes(expected), `${expected} is neither promoted nor named as absent`);
   }
 });
@@ -225,11 +233,15 @@ test("no manifest is padded to reach a count", () => {
     navigationFor(member).core.map((d) => d.label),
     ["Today", "Tools", "Progress", "Care team"]
   );
-  // And the clinician's is three, which is §5's schematic: "Three primary
-  // destinations; Messages and Schedule omitted until they exist."
+  // And the clinician's is four. §5's schematic reads "Three primary
+  // destinations; Messages and Schedule omitted until they exist" — three was
+  // the count once Handoffs was omitted too, for the same reason. It exists
+  // now, so the count moved because the product did rather than because
+  // somebody wanted a fuller row: the two the schematic actually names are
+  // still absent, and still say why.
   assert.deepEqual(
     navigationFor(clinician).core.map((d) => d.label),
-    ["Command Center", "Patients", "Reports"]
+    ["Command Center", "Patients", "Reports", "Handoffs"]
   );
 });
 

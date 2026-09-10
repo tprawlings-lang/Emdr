@@ -16,6 +16,69 @@ export const FITNESS_SCREENER_ID = "fitness-screener";
 export const FITNESS_SCREENER_VERSION = "fit-v1-placeholder";
 export const RETAKE_COOLDOWN_HOURS = 24;
 
+/**
+ * Whether a clinician has ratified the items above — and, until one has, the
+ * fact that a live gate is running on criteria nobody approved.
+ *
+ * THE SUFFIX WAS DOING THIS JOB AND SHOULD NOT HAVE BEEN. `fit-v1-placeholder`
+ * is a string, and the only thing standing between a reader and the belief that
+ * these criteria are clinically settled was four syllables at the end of it. It
+ * travels a long way for a string: it is stamped on every stored screening row,
+ * and `/api/mobile/v1/screener` serves it to a client that has no idea what the
+ * suffix means. A caller reading `version: "fit-v1-placeholder"` from JSON has
+ * to already know the convention to know they are being warned.
+ *
+ * SO THE STATE IS DATA, in the same shape the clinical policy already uses for
+ * exactly this: an approval with a named owner, null until somebody signs it.
+ * §34's rule for planning thresholds — a named owner and an approval date
+ * before rules may fire — is the same rule, and this gate has been firing
+ * without one.
+ *
+ * WHAT IT DOES NOT DO IS TURN THE GATE OFF, and that is deliberate rather than
+ * a compromise. These items came from the compliance packet's standard
+ * self-guided-EMDR exclusion list; running them unapproved is a considered
+ * position, and a screener that refused to run until a signature existed would
+ * open self-guided processing to everybody in the meantime. Withholding the
+ * gate is worse than running a provisional one. What was missing is that
+ * nobody could SEE they were provisional.
+ */
+export interface ScreenerApproval {
+  /** Null until an EMDR-trained clinical advisor ratifies the items, the
+   *  hard-stop mapping and the cooldown (compliance packet 3.6). */
+  approvedBy: string | null;
+  approvedAt: string | null;
+  /** What a reviewer would be signing off, so the ask is a list rather than a
+   *  conversation. */
+  covers: string[];
+}
+
+export const FITNESS_SCREENER_APPROVAL: ScreenerApproval = {
+  approvedBy: null,
+  approvedAt: null,
+  covers: [
+    "the wording of each item",
+    "which answers are a hard stop and which are a soft flag",
+    "the 24-hour cooldown before a retake",
+  ],
+};
+
+export function screenerApproved(a: ScreenerApproval = FITNESS_SCREENER_APPROVAL): boolean {
+  return a.approvedBy !== null && a.approvedAt !== null;
+}
+
+/** Said in the words a reader needs, wherever the version travels. Returns null
+ *  once it is approved, so a surface renders nothing rather than a stale
+ *  caveat. */
+export function screenerCaveat(a: ScreenerApproval = FITNESS_SCREENER_APPROVAL): string | null {
+  if (screenerApproved(a)) return null;
+  return (
+    "PROVISIONAL — not clinically approved. These questions decide whether somebody may " +
+    "run self-guided processing at all, and no EMDR-trained clinician has yet ratified " +
+    `${a.covers.join(", ")}. They are running because withholding the gate would be worse ` +
+    "than running a provisional one, not because they are settled."
+  );
+}
+
 export type FitnessOutcome = "pass" | "soft_flag" | "hard_stop";
 
 export interface FitnessItem {

@@ -96,6 +96,12 @@ export const DEMO_DATA_TABLES = [
   // over a population that no longer carries it — which is worse than saying
   // nothing, because they would believe it.
   "demo_data_scenario_applications",
+  // Handoffs of accountability. Cleared: a transfer names three fabricated
+  // people and is meaningless once they are rebuilt — and a surviving one
+  // would point at users who no longer exist, which is the orphan the data
+  // quality manifest exists to catch. Before `users`, which it references on
+  // three columns.
+  "care_handoffs",
   // Planning first: a signal review points at its signal, and a signal is
   // derived entirely from the fabricated population it is about.
   //

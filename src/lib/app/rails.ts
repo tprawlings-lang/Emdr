@@ -31,19 +31,27 @@ export const MEMBER_RAIL: Rail = {
  *  there is no console-wide event log a clinician is entitled to read, and
  *  §30.6 stops one from being invented here.
  *
- *  ACTIONS HAS NO DESTINATION, as of handoff 09 Package 2. It pointed at
- *  /clinician/handoffs, which is a page saying the capability does not exist —
- *  §1.1: "a navigation item is a promise; promoting a route that dead-ends is
- *  the fastest way to lose a clinician's trust in the whole shell."
+ *  ACTIONS POINTS AT HANDOFFS AGAIN, and the round trip is worth recording.
+ *  It pointed there originally, was emptied in handoff 09 Package 2 because the
+ *  destination was a page saying the capability did not exist — §1.1: "a
+ *  navigation item is a promise; promoting a route that dead-ends is the
+ *  fastest way to lose a clinician's trust in the whole shell" — and is
+ *  restored now that the capability is real.
  *
- *  Its absence is the honest answer rather than a gap to fill. A clinician's
- *  actions happen inside a person's record and on the Command Center; there is
- *  no console-level action screen, and inventing one to occupy a rail slot is
- *  exactly the filler §1.2 rules out. AppShell renders a layer with no
- *  destination as plain text rather than a link that goes nowhere. */
+ *  THE EMPTYING WAS RIGHT AND SO IS THE RESTORING, because the reason changed
+ *  rather than the rule. What made the slot filler was the dead end, not the
+ *  slot; a transfer of accountability waiting for this clinician's answer is
+ *  the clearest console-level action there is.
+ *
+ *  AND IT MATTERS MORE HERE THAN ELSEWHERE. Nothing notifies a clinician that
+ *  somebody has asked them to take over a person — there is no delivery path in
+ *  this build — so the rail is the only thing that will ever bring them to the
+ *  page. A working screen nobody can navigate to is, in that specific case,
+ *  indistinguishable from the dead end this slot was emptied to avoid. */
 export const CLINICIAN_RAIL: Rail = {
   overview: "/clinician/today",
   progress: "/clinician/caseload",
+  actions: "/clinician/handoffs",
   evidence: "/clinician/reports",
 };
 

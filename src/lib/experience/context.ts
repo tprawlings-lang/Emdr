@@ -135,10 +135,18 @@ const BUILD_CAPABILITIES: Record<Capability, CapabilityState> = {
   seeOwnCareTeam: { available: true },
   reviewAttentionQueue: { available: true },
   openAPersonRecord: { available: true },
-  handOverAPerson: {
-    available: false,
-    reason: "There is no handoff record, recipient or acceptance step in this build.",
-  },
+  // Built. The reason this was false — no record, no recipient, no acceptance
+  // step — named the three things a handoff needed, and it now has all three:
+  // `care_handoffs` is the record, the recipient is a clinician who can sign in
+  // and answer, and acceptance is the event that moves accountability.
+  //
+  // NOTHING NOTIFIES THEM, and that does not make the capability absent. A
+  // capability flag answers "does this screen do its job"; a delivery path is a
+  // separate absence, stated on every state of the screen rather than by
+  // withholding the navigation item. Turning this off for want of a notifier
+  // would hide the only surface where a clinician can discover a transfer is
+  // waiting for them — which is the opposite of what the flag is for.
+  handOverAPerson: { available: true },
   referAPersonOut: {
     available: false,
     reason: "There is no referral record or destination in this build.",

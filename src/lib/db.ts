@@ -1029,6 +1029,44 @@ export const SCHEMA_SQL = `
   -- p9 says a bundle is "reversible by reset", and this table is how that is
   -- true rather than claimed — it is in DEMO_DATA_TABLES, so a reset clears the
   -- record along with the events it describes, and a guard holds it there.
+  -- Handoff of accountability (§26: "Keep accountability through transfer").
+  --
+  -- WHY A TABLE AND NOT AN OWNER COLUMN. A work item already carries an owner,
+  -- and /clinician/handoffs refused to list anything from it for a stated
+  -- reason: ownership is an assignment one person makes, and accountability is
+  -- something the other person accepts. A screen that showed transfers by
+  -- reading owner changes would be inferring the second from the first, and
+  -- that inference is how people get lost between clinicians.
+  --
+  -- SO THE ROW HOLDS BOTH ENDS AND THE GAP BETWEEN THEM. The state is
+  -- 'proposed' until the receiver decides; until then the SENDER is still
+  -- accountable, which the screen says in those words. A withdrawn handoff is
+  -- resolved rather than deleted: "I asked and thought better of it" is part of
+  -- the record of who was looking after somebody.
+  CREATE TABLE IF NOT EXISTS care_handoffs (
+    id TEXT PRIMARY KEY,
+    tenant_id TEXT NOT NULL REFERENCES tenants(id),
+    person_id TEXT NOT NULL REFERENCES users(id),
+    from_clinician_id TEXT NOT NULL REFERENCES users(id),
+    to_clinician_id TEXT NOT NULL REFERENCES users(id),
+    -- Required, and long enough to be a sentence. A transfer with no stated
+    -- reason is the thing a receiving clinician cannot act on.
+    reason TEXT NOT NULL,
+    -- When the sender needs an answer by. Nullable: not every transfer is
+    -- time-bound, and a fabricated deadline is worse than none.
+    due_at TEXT,
+    state TEXT NOT NULL DEFAULT 'proposed'
+      CHECK (state IN ('proposed','accepted','declined','withdrawn')),
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    decided_at TEXT,
+    -- What the receiver said. Required to decline: a refusal with no reason
+    -- sends the person back to the sender with nothing to act on.
+    decided_note TEXT
+  );
+  CREATE INDEX IF NOT EXISTS idx_handoff_to ON care_handoffs(to_clinician_id, state);
+  CREATE INDEX IF NOT EXISTS idx_handoff_from ON care_handoffs(from_clinician_id, state);
+  CREATE INDEX IF NOT EXISTS idx_handoff_person ON care_handoffs(person_id);
+
   CREATE TABLE IF NOT EXISTS demo_data_scenario_applications (
     id TEXT PRIMARY KEY,
     scenario_id TEXT NOT NULL,
@@ -2329,6 +2367,13 @@ export const TENANT_SCOPED_TABLES = [
   // rather than care data, but it is scoped to exactly one tenant and reading
   // another's would show their cohorts, filters and stated purposes.
   "export_jobs",
+  // A handoff names THREE people — the subject, the clinician giving them up
+  // and the one being asked to take them — and carries a free-text reason
+  // written for a colleague. Reading another tenant's would disclose who is
+  // being transferred, between whom, and why, which is more than most care
+  // tables give away in one row. Scoped from creation and listed here so the
+  // repository's scoping applies and the schema guard keeps counting it.
+  "care_handoffs",
   // Demographic attributes are the most sensitive person-scoped table in the
   // schema. p13 permits them for representation, disparity and access audit
   // only, and a query that forgets the tenant reads another organization's.

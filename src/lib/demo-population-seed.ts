@@ -7,7 +7,7 @@ import {
 } from "./demo-population-manifest";
 import { CALENDAR_DAYS, demoEpoch, enrolmentDayFor } from "./demo-population-calendar";
 import { displayName, pick, MEMBER_NOTES } from "./demo-population-dictionaries";
-import { ALEX_ID, SAM_ID, DEMO_CLINICIAN_ID } from "./demo-seed";
+import { ALEX_ID, SAM_ID, DEMO_CLINICIAN_ID, DEMO_CLINICIAN_2_ID } from "./demo-seed";
 
 // The 240-profile demo population (handoff 07 §2, pp10–29).
 //
@@ -281,7 +281,11 @@ function bindNarrativePersonas(db: Database.Database) {
         census_region, state, socioeconomic_context, source)
      VALUES (?, ?, ?, '[]', NULL, 'English', 'Northeast', ?, 'standard', 'self_reported')
      ON CONFLICT(person_id) DO NOTHING`);
-  for (const id of [DEMO_CLINICIAN_ID, ALEX_ID, SAM_ID]) {
+  // The second clinician moves with them. A handoff recipient in another
+  // tenant is refused — correctly — so leaving Dr. Ruiz in the platform tenant
+  // would make the transfer workflow undemonstrable in exactly the way having
+  // no second clinician did.
+  for (const id of [DEMO_CLINICIAN_ID, DEMO_CLINICIAN_2_ID, ALEX_ID, SAM_ID]) {
     moveUser.run(tenant, id);
     ensurePerson.run(tenant, id);
     movePerson.run(tenant, id);
