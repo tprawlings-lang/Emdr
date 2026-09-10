@@ -2,9 +2,7 @@ import { MemberPage } from "@/components/member/MemberPage";
 import Link from "next/link";
 import { buildMemberDay } from "@/lib/member/view";
 import { DayCanvas } from "@/components/member/DayCanvas";
-import { redirect } from "next/navigation";
 import { requireMember } from "@/lib/auth";
-import { subscriptionActive } from "@/lib/billing";
 import { MODULES } from "@/lib/modules";
 import { completedModuleIds } from "@/lib/gating";
 import {
@@ -41,7 +39,6 @@ function moduleName(id: string): string {
 
 export default async function PathsPage() {
   const user = await requireMember();
-  if (!(await subscriptionActive(user.id))) redirect("/subscribe");
 
   const intake = await getTrackIntake(user.id);
   const savedTags = new Set(intake?.tags ?? []);

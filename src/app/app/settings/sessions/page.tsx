@@ -1,7 +1,6 @@
 import { MemberPage } from "@/components/member/MemberPage";
-import { redirect } from "next/navigation";
 import { requireMember } from "@/lib/auth";
-import { hasConsent, hasProcessingConsent } from "@/lib/gating";
+import { hasProcessingConsent } from "@/lib/gating";
 import { grantProcessingConsent, revokeProcessingConsent } from "@/lib/actions";
 import { PROCESSING_CONSENT_SECTIONS, PROCESSING_CONSENT_VERSION } from "@/lib/policy";
 import { blsResourcingEnabled } from "@/lib/safety/config";
@@ -10,7 +9,6 @@ import { blsResourcingEnabled } from "@/lib/safety/config";
 // before any bilateral-stimulation (calm-place) session. One tap either way.
 export default async function SessionConsentPage() {
   const user = await requireMember();
-  if (!(await hasConsent(user.id))) redirect("/app/onboarding");
   const granted = await hasProcessingConsent(user.id);
   const featureOn = blsResourcingEnabled();
 

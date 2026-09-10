@@ -4,6 +4,7 @@ import { personRail } from "@/lib/app/rails";
 import { ClinicianRailFooter } from "./ClinicianPage";
 import { PriorityBadge, OwnerChip, FreshnessLabel } from "./primitives";
 import type { PriorityBand } from "@/lib/clinical/caseload";
+import type { ProjectionMeta } from "@/lib/presentation/envelope";
 
 // The person record shell (§26, §10.4, and the clinician mockups p59–p63).
 //
@@ -29,6 +30,8 @@ export interface PersonHeader {
   evidenceAt: string | null;
   now: string;
   consentActive: boolean;
+  /** Which build and which policy produced the facts above (§30.6 step 8). */
+  meta: ProjectionMeta;
 }
 
 /**
@@ -131,6 +134,14 @@ export function PersonShell({
               absent-by-omission the rest of the time. */}
           <span className={`text-xs font-medium ${person.consentActive ? "text-state-safe" : "text-state-caution"}`}>
             {person.consentActive ? "◆ Consent active" : "○ No consent on record"}
+          </span>
+          {/* The version the facts on this line were computed under.
+              Recessive on purpose — it is for the reader who is checking a
+              screenshot against the live record, not for the clinician
+              reading the band. Rendered rather than kept in a payload,
+              because a version nobody can see settles no argument. */}
+          <span className="font-mono text-[11px] text-olive/70" title="Projection version">
+            {person.meta.projectionVersion}
           </span>
         </div>
 

@@ -69,6 +69,24 @@ export function cell(c: Count): string {
   return suppressed(c) ? `under ${SMALL_CELL} (of ${num(c.of)})` : pct(c);
 }
 
+/**
+ * A count OF PEOPLE, suppressed below the threshold.
+ *
+ * `cell` needs a denominator because it renders a proportion. A bare headline —
+ * "N people met a fixed gate", "N eligible members" — has no denominator to
+ * carry, and `num` formats it raw. That is how eight aggregate routes came to
+ * render person counts with no suppression on them at all: the count was true,
+ * the formatter was innocent, and nothing in between asked whether three people
+ * is a number this screen may say out loud.
+ *
+ * Zero stays zero. "None" is not disclosive and hiding it would make an empty
+ * population look like a suppressed one, which is the opposite of §29.1's rule
+ * that suppressed data stays visible AS suppressed.
+ */
+export function people(n: number): string {
+  return n > 0 && n < SMALL_CELL ? `under ${SMALL_CELL}` : num(n);
+}
+
 // ---------------------------------------------------------------------------
 // Frame
 // ---------------------------------------------------------------------------

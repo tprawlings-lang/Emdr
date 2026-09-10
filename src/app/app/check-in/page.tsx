@@ -1,11 +1,8 @@
 import { AppShell } from "@/components/app/AppShell";
 import { MEMBER_RAIL } from "@/lib/app/rails";
 import Link from "next/link";
-import { redirect } from "next/navigation";
 import { requireMember } from "@/lib/auth";
-import { subscriptionActive } from "@/lib/billing";
-import { hasConsent, screeningComplete } from "@/lib/gating";
-import { getActiveTriggers, profileComplete } from "@/lib/profile";
+import { getActiveTriggers } from "@/lib/profile";
 import { submitCheckin } from "@/lib/actions";
 
 function ScaleInput({
@@ -58,10 +55,6 @@ function YesNo({ name }: { name: string }) {
 
 export default async function CheckinPage() {
   const user = await requireMember();
-  if (!(await subscriptionActive(user.id))) redirect("/subscribe");
-  if (!(await hasConsent(user.id))) redirect("/app/onboarding");
-  if (!(await screeningComplete(user.id))) redirect("/app/screening");
-  if (!(await profileComplete(user.id))) redirect("/app/onboarding/profile");
 
   const triggers = await getActiveTriggers(user.id);
 

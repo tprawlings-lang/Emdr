@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { requestNow } from "@/lib/request-clock";
 import { requireMember } from "@/lib/auth";
-import { hasConsent, resourcingBlsAvailable } from "@/lib/gating";
+import { resourcingBlsAvailable } from "@/lib/gating";
 import { decideAccess } from "@/lib/safety/decide";
 import { resourcingClinicallyBlocked } from "@/lib/safety/resourcing";
 import { AccessTier } from "@/lib/safety/types";
@@ -18,7 +18,6 @@ export default async function ResourcingSessionPage() {
   // uses this reading, so nothing on the screen can disagree with anything
   // else about what time it is.
   const now = requestNow();
-  if (!(await hasConsent(user.id))) redirect("/app/onboarding");
 
   // Feature + kill switch + processing consent.
   if (!(await resourcingBlsAvailable(user.id))) redirect("/app/settings/sessions");

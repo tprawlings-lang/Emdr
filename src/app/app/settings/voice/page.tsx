@@ -1,7 +1,6 @@
 import { MemberPage } from "@/components/member/MemberPage";
-import { redirect } from "next/navigation";
 import { requireMember } from "@/lib/auth";
-import { hasConsent, hasVoiceConsent } from "@/lib/gating";
+import { hasVoiceConsent } from "@/lib/gating";
 import { grantVoiceConsent, withdrawVoiceConsent } from "@/lib/actions";
 import { VOICE_CONSENT_SECTIONS, VOICE_CONSENT_VERSION, voiceConsentRequired } from "@/lib/policy";
 
@@ -11,7 +10,6 @@ import { VOICE_CONSENT_SECTIONS, VOICE_CONSENT_VERSION, voiceConsentRequired } f
 // granting here (enforced by voiceAvailableFor / liveAvailableFor).
 export default async function VoiceSettingsPage() {
   const user = await requireMember();
-  if (!(await hasConsent(user.id))) redirect("/app/onboarding");
   const granted = await hasVoiceConsent(user.id);
 
   return (

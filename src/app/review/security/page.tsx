@@ -112,9 +112,14 @@ export default async function AccessEnforcementPage() {
                     <dd>{s.onFailure}</dd>
                   </div>
                   {s.evidence.length > 0 && (
-                    <div className="grid gap-1 sm:grid-cols-[9rem_1fr] sm:gap-3">
+                    <div className="grid gap-1 sm:grid-cols-[9rem_minmax(0,1fr)] sm:gap-3">
                       <dt className="text-ground/60">Evidence</dt>
-                      <dd className="break-words">
+                      {/* `minmax(0,1fr)` and `min-w-0`, the same as the row
+                          below: a bare `1fr` track keeps its automatic minimum
+                          width, so a long list of markers runs off the right
+                          edge instead of wrapping. Step 1 names nine guards
+                          and only six of them were on the screen. */}
+                      <dd className="min-w-0 break-words">
                         {s.evidence.map((e) => <code key={e} className="mr-2">{e}</code>)}
                       </dd>
                     </div>
@@ -148,9 +153,14 @@ export default async function AccessEnforcementPage() {
         footnote="A route here owes a step and does not show it at the depth this looks. That is either a real gap or a mechanism further down than one call — both worth a reviewer's attention, neither a verdict."
       >
         {withGaps.length === 0 ? (
-          <p className="text-sm text-ground/70">
+          <p className="measure text-sm text-ground/70">
             Every protected route shows every step it owes. That is not the same as being
-            secure — see the note above.
+            secure, and an empty panel is the moment that is easiest to forget: a static
+            walk proves a guard is called, never that it is correct. The open questions
+            have moved rather than gone — they are the exemptions below, each a decision
+            somebody made that a reviewer may disagree with, and step 5, which has no
+            marker at all and is held by the tests that attack the boundary rather than
+            read it.
           </p>
         ) : (
           <div className="space-y-3">

@@ -411,6 +411,23 @@ export interface OrgCapacity {
   ratio: { label: string; value: number }[];
   /** How stale the freshest reading from the slowest site is, in days. */
   feedAgeDays: number;
+  /**
+   * Sites withheld from `demand` because fewer than the small-cell threshold
+   * were waiting there (§30.6 step 6).
+   *
+   * WITHHELD RATHER THAN BLANKED, because a bar carries its value twice: in the
+   * label and in its length. Suppressing the number while drawing a bar three
+   * eleventh as long as its neighbour discloses the same thing more quietly,
+   * which is worse. The count of what was withheld goes on the screen, so the
+   * suppression stays visible as suppression.
+   */
+  withheldSites: number;
+}
+
+/** Sites at or above the small-cell threshold, and how many were dropped. */
+function withhold(rows: { label: string; value: number }[]) {
+  const shown = rows.filter((r) => r.value === 0 || r.value >= SMALL_CELL);
+  return { shown, withheld: rows.length - shown.length };
 }
 
 /**
@@ -454,6 +471,11 @@ export async function buildOrgCapacity(orgTenantId: string): Promise<Envelope<Or
 
   if (rows.length === 0) return empty(m, "No scheduled visits are awaiting a care start.");
 
+  // Suppressed once, before either branch returns. A site withheld on the
+  // partial path and shown on the ready one would be a threshold that depends
+  // on whether an unrelated feed happens to be connected.
+  const demand = withhold(rows.map((r) => ({ label: r.label, value: Number(r.n) })));
+
   const supply = (await c.all(
     `SELECT t.name AS label, SUM(s.n) AS n, MIN(s.latest) AS latest FROM (
        SELECT tenant_id, SUM(open_first_visit_slots) AS n, MAX(as_of) AS latest
@@ -473,7 +495,7 @@ export async function buildOrgCapacity(orgTenantId: string): Promise<Envelope<Or
     return partial(
       m,
       assertAggregate<OrgCapacity>({
-        demand: rows.map((r) => ({ label: r.label, value: r.n })),
+        demand: demand.shown, withheldSites: demand.withheld,
         supply: [], ratio: [], feedAgeDays: -1,
       }),
       [{
@@ -494,7 +516,7 @@ export async function buildOrgCapacity(orgTenantId: string): Promise<Envelope<Or
   return ready(
     m,
     assertAggregate<OrgCapacity>({
-      demand: rows.map((r) => ({ label: r.label, value: r.n })),
+      demand: demand.shown, withheldSites: demand.withheld,
       supply: supply.map((s) => ({ label: s.label, value: Number(s.n) })),
       // Only where BOTH halves exist. A site with demand and no slot feed gets
       // no ratio rather than a ratio against zero, which would render as an

@@ -2,7 +2,6 @@ import { notFound } from "next/navigation";
 import { requireClinician } from "@/lib/auth";
 import { data } from "@/lib/data";
 import { MODULES } from "@/lib/modules";
-import { audit } from "@/lib/audit";
 import { scoreItq } from "@/lib/instruments";
 import { decryptField } from "@/lib/crypto";
 import { clinicianCloseModule, clinicianOpenModule } from "@/lib/actions";
@@ -42,13 +41,11 @@ export default async function MemberDetailPage({
   if (!person) notFound();
 
   // Record-access events belong in the audit trail too.
-  await audit({
-    actorId: clinician.id,
-    actorRole: "clinician",
-    family: "security",
-    type: "member_record_viewed",
-    target: member.id,
-  });
+  // The generic access event that used to be written here now comes from
+  // `loadPersonHeader`, which every person tab passes through — eight of the
+  // fifteen were writing none at all, and this one wrote its own. The
+  // specific events the other tabs write (what was opened, and how much of it)
+  // stay where they are: they say something this one does not.
 
   const screenings = await c.all("SELECT instrument, total_score, answers_json, risk_flags_json, created_at FROM screenings WHERE user_id = ? ORDER BY created_at DESC", [id]) as {
     instrument: string;

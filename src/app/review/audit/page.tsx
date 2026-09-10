@@ -70,6 +70,17 @@ export default async function AuditConsolePage() {
         )}
       </p>
 
+      {/* §30.6 STEP 8: the version and the watermark, ON the extract.
+          A trace's whole value is that somebody can check it later, and a
+          banner that says the chain verified helps nobody once the table has
+          been pasted into a document. This line travels with the rows. */}
+      <p className="mt-3 font-mono text-[11px] text-olive/70">
+        {feed.meta.projectionVersion} · generated {feed.meta.generatedAt.slice(0, 19).replace("T", " ")} ·{" "}
+        {feed.meta.sourceWatermark
+          ? `newest entry ${feed.meta.sourceWatermark}`
+          : "no entries in scope"}
+      </p>
+
       <AuditTable entries={feed.entries} showTarget />
     </ReviewPage>
   );

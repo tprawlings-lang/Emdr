@@ -11,27 +11,22 @@ import { noteSignal, noteSurfaceViewed } from "@/lib/telemetry/store";
 import { TodayDecision } from "@/components/member/TodayDecision";
 import { EnvelopeView } from "@/components/presentation/EnvelopeView";
 import Link from "next/link";
-import { redirect } from "next/navigation";
 import { requireMember } from "@/lib/auth";
 import { memberHistory } from "@/lib/member/history";
 import { HistoryStrip } from "@/components/member/HistoryStrip";
-import { subscriptionActive } from "@/lib/billing";
 import { data } from "@/lib/data";
 import { MODULES } from "@/lib/modules";
 import {
   checkModuleAccess,
   getTodayCheckin,
   getUnlock,
-  hasConsent,
   resourcingBlsAvailable,
-  screeningComplete,
-} from "@/lib/gating";
+  } from "@/lib/gating";
 import { getFitnessState } from "@/lib/fitness-screener";
 import {
   getActiveTriggers,
   getSafetyPlan,
-  profileComplete,
-} from "@/lib/profile";
+  } from "@/lib/profile";
 
 function actionLabel(action: string): { label: string; tone: string } {
   switch (action) {
@@ -57,10 +52,6 @@ export default async function DashboardPage({
 }: { searchParams: Promise<{ from?: string }> }) {
   const { from } = await searchParams;
   const user = await requireMember();
-  if (!(await subscriptionActive(user.id))) redirect("/subscribe");
-  if (!(await hasConsent(user.id))) redirect("/app/onboarding");
-  if (!(await screeningComplete(user.id))) redirect("/app/screening");
-  if (!(await profileComplete(user.id))) redirect("/app/onboarding/profile");
 
   // Package 3's member shell (handoff 09 §4.1, §4.2, §4.4).
   //

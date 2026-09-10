@@ -103,12 +103,22 @@ function bodyOf(src: string, name: string): string | null {
   // The body opens at the first brace after the parameter list closes. Taking
   // the first brace outright finds a default value like `= {}` and returns an
   // empty body that matches nothing.
+  //
+  // A BODY CAN OPEN INSIDE A CALL'S PARENTHESES, which the depth rule alone
+  // gets wrong. `const f = cache(async (a) => { … })` — a real form in this
+  // codebase, and the shape React's request-scoped memoisation takes — has its
+  // body brace at paren depth 1, so a depth-0 rule scans past it to the
+  // trailing `;` and reports the function as having no body at all. When that
+  // happened to `recordAggregateAccess`, twenty aggregate routes went from
+  // audited to unaudited in the inventory without one line of their own
+  // changing. A brace immediately after `=>` opens a body at whatever depth it
+  // sits at.
   let parens = 0;
   let open = -1;
   for (let i = m.index; i < src.length; i++) {
     if (src[i] === "(") parens += 1;
     else if (src[i] === ")") parens -= 1;
-    else if (src[i] === "{" && parens === 0) { open = i; break; }
+    else if (src[i] === "{" && (parens === 0 || arrowPrecedes(src, i))) { open = i; break; }
     else if (src[i] === ";" && parens === 0) return null;
   }
   if (open < 0) return null;
@@ -121,6 +131,13 @@ function bodyOf(src: string, name: string): string | null {
     }
   }
   return null;
+}
+
+/** Whether the token immediately before position `i` is a `=>`. */
+function arrowPrecedes(src: string, i: number): boolean {
+  let j = i - 1;
+  while (j >= 0 && /\s/.test(src[j])) j -= 1;
+  return j >= 1 && src[j] === ">" && src[j - 1] === "=";
 }
 
 /**
@@ -144,8 +161,15 @@ export function layoutsFor(routePath: string): string[] {
 }
 
 /** The source a route's guards can be found in: its own and its layouts', plus
- *  the bodies of the symbols each imports AND calls. */
-function reachableSource(rel: string, routePath: string): string {
+ *  the bodies of the symbols each imports AND calls.
+ *
+ *  EXPORTED FOR THE CALIBRATION TEST rather than for a caller. The inventory's
+ *  worth depends on this walk being BOUNDED, and once every protected route
+ *  shows every step it owes, "some route still has a gap" stops being able to
+ *  tell a well-guarded codebase from a walk that reaches everything. What can
+ *  still tell them apart is a negative control: a marker that lives three hops
+ *  away must not turn up here. */
+export function reachableSource(rel: string, routePath: string): string {
   const abs = path.join(SRC, rel);
   if (!fs.existsSync(abs)) return "";
   let own = code(fs.readFileSync(abs, "utf8"));
@@ -165,7 +189,13 @@ function reachableSource(rel: string, routePath: string): string {
       // inside exactly such components — so at call-detection only, nineteen
       // organization and payer routes reported no suppression while rendering
       // it on every figure they draw.
-      if (!new RegExp(`\\b${name}\\s*\\(|<${name}[\\s/>]`).test(own)) continue;
+      //
+      // A SERVER ACTION IS HANDED OVER, NOT CALLED EITHER. `action={requestOrgExport}`
+      // is the most consequential code a page runs — the one write path that
+      // produces a governed export — and the walk was blind to it in both of
+      // the earlier forms. A route that hands a function to a component causes
+      // that function to run as surely as one that calls it.
+      if (!new RegExp(`\\b${name}\\s*\\(|<${name}[\\s/>]|[A-Za-z]=\\{${name}\\}`).test(own)) continue;
       impSrc ??= code(fs.readFileSync(imp.file, "utf8"));
       const body = bodyOf(impSrc, name);
       if (body) combined += "\n" + body + "\n" + sameFileHelpers(impSrc, body);
@@ -228,12 +258,27 @@ export function inventory(): AccessInventory {
       // no marker for it, so an empty cell would report the absence of a thing
       // that was never claimed.
       if (s.proof === "behaviourally") { found[n] = []; continue; }
+
+      // AN EXEMPTION IS CHECKED FIRST, and that ordering is a correction.
+      //
+      // It used to run only when no evidence was found, which made it a
+      // fallback rather than a statement. Then the member tree got a layout —
+      // and because a layout's source is part of every route beneath it, the
+      // walk started finding `requireMember(` and `hasConsent(` on
+      // `/app/ground`, which takes the layout's OPEN branch and calls neither.
+      // The inventory reported grounding as authenticated. That is FALSE
+      // COVERAGE, which is worse than a false gap: a reviewer reads a guard
+      // that does not run.
+      //
+      // A static walk cannot see which branch a layout takes. What it can do is
+      // treat a declared exemption as what it says it is — a statement that the
+      // route does not owe the step — so the answer comes from the decision
+      // somebody wrote down rather than from an import the route never reaches.
+      if (exemption(entry.path, n)) { exempt.push(n); found[n] = []; continue; }
+
       const hits = evidenceIn(src, s);
       found[n] = hits;
       if (hits.length > 0) continue;
-      // A declared exemption is not a gap, and it is not silence either: the
-      // reason travels to the screen beside the route.
-      if (exemption(entry.path, n)) { exempt.push(n); continue; }
       missing.push(n);
       gapsByStep[n] += 1;
     }

@@ -1,11 +1,8 @@
 import { MemberPage } from "@/components/member/MemberPage";
 import { requestNow } from "@/lib/request-clock";
 import Link from "next/link";
-import { redirect } from "next/navigation";
 import { requireMember } from "@/lib/auth";
-import { subscriptionActive } from "@/lib/billing";
 import { data } from "@/lib/data";
-import { hasConsent, screeningComplete } from "@/lib/gating";
 import { getInstrument } from "@/lib/instruments";
 
 const TRACKED: { id: "pcl-5" | "itq"; cadenceDays: number }[] = [
@@ -23,9 +20,6 @@ export default async function MeasuresPage({
   // uses this reading, so nothing on the screen can disagree with anything
   // else about what time it is.
   const now = requestNow();
-  if (!(await subscriptionActive(user.id))) redirect("/subscribe");
-  if (!(await hasConsent(user.id))) redirect("/app/onboarding");
-  if (!(await screeningComplete(user.id))) redirect("/app/screening");
   const { submitted } = await searchParams;
 
   const c = await data();
