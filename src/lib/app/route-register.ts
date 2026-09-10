@@ -219,6 +219,7 @@ export const ROUTE_REGISTER: RouteEntry[] = [
 
   // ---- Member: account ----------------------------------------------------
   { path: "/app/settings", audience: "member", job: "Find the setting they came for.", workspace: "member_account", state: "working" },
+  { path: "/app/settings/referral", audience: "member", job: "See what a referral would take with you, and what it would leave behind.", workspace: "member_account", state: "working", evidence: "Handoff 09 §11's referral-export decision: passive compilation, with the condition that the member is told what it contains. Compiled from records that already exist — consent scopes, latest validated measures, current safety routing, engagement counts, program track — and refused field by field unless every value is a code, count, score, date or short label, so prose cannot travel. The packet cannot be disclosed: no consent scope in this product authorises sending a record outside it and there is no destination, and the screen says both rather than rendering a disabled button." },
   { path: "/app/settings/account", audience: "member", job: "Change their own details.", workspace: "member_account", state: "working" },
   { path: "/app/settings/billing", audience: "member", job: "See and change what they pay.", workspace: "member_account", state: "working" },
   { path: "/app/settings/sessions", audience: "member", job: "See where they are signed in and end a session.", workspace: "member_account", state: "working" },

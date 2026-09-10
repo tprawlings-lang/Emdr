@@ -953,6 +953,36 @@ export const ACCESS_INVENTORY: AccessInventory = {
       "exempt": []
     },
     {
+      "path": "/app/settings/referral",
+      "audience": "member",
+      "file": "app/app/settings/referral/page.tsx",
+      "owed": [
+        1,
+        2,
+        4,
+        5,
+        7
+      ],
+      "found": {
+        "1": [
+          "requireUser(",
+          "requireMember("
+        ],
+        "2": [
+          "requireMember("
+        ],
+        "4": [
+          "revoked_at IS NULL"
+        ],
+        "5": [],
+        "7": []
+      },
+      "missing": [
+        7
+      ],
+      "exempt": []
+    },
+    {
       "path": "/app/settings/account",
       "audience": "member",
       "file": "app/app/settings/account/page.tsx",
@@ -3149,7 +3179,7 @@ export const ACCESS_INVENTORY: AccessInventory = {
       "exempt": []
     }
   ],
-  "protectedCount": 110,
+  "protectedCount": 111,
   "complete": 49,
   "gapsByStep": {
     "1": 0,
@@ -3158,7 +3188,7 @@ export const ACCESS_INVENTORY: AccessInventory = {
     "4": 19,
     "5": 0,
     "6": 12,
-    "7": 57,
+    "7": 58,
     "8": 2
   },
   "unresolved": []

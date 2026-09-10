@@ -72,9 +72,9 @@ export const SECTION_11_DECISIONS: ReadonlyArray<OpenDecision> = [
       "Referral export: passive compilation (the Wysa pattern) or member curation?",
     state: "decided",
     answer:
-      "Passive compilation. The system assembles the referral from what it already holds and tells the member what it contains, rather than asking them to curate at the moment of referral — which is usually the worst moment to ask somebody to curate. THE DECISION UNBLOCKS THE WORK; it does not do it. Handoff 09 forbade building this until the question was answered, and it is now answerable rather than built.",
+      "Passive compilation. The system assembles the referral from what it already holds and tells the member what it contains, rather than asking them to curate at the moment of referral — which is usually the worst moment to ask somebody to curate. Built on that basis, with the condition honoured: the member reads the whole packet before anything could go anywhere. It still cannot be sent, and that is a fact about consent rather than plumbing — no scope in this product authorises disclosing a record outside it, and there is no destination.",
     where:
-      "Not built. This entry is the record that it may now be, and that it is passive compilation when it is.",
+      "src/lib/clinical/referral-packet.ts (the compiler and the two limits), compiled by src/lib/clinical/referral-packet-store.ts, shown to the member at /app/settings/referral and described to a clinician at /clinician/referrals.",
     decidedOn: "2026-09-09",
   },
 ];

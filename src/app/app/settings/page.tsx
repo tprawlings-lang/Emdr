@@ -46,6 +46,8 @@ const GROUPS: Array<{ heading: string; items: Array<{ href: string; label: strin
         body: "Who has access, what they can see, and how to withdraw it." },
       { href: "/app/consent", label: "Consent and sharing",
         body: "What you have agreed to, when, and under which version of the terms." },
+      { href: "/app/settings/referral", label: "What a referral would contain",
+        body: "If you were ever referred on, what would go with you — and what would not." },
       { href: "/app/messages", label: "Messages",
         body: "Secure messaging with a care team, and what is available instead." },
       { href: "/app/welcome", label: "What Steady is",
