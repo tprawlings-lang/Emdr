@@ -9,7 +9,7 @@
 import type { VisualBaseline } from "./visual-baseline";
 
 export const VISUAL_BASELINE: VisualBaseline = {
-  "capturedAt": "2026-09-10T04:39:22.705Z",
+  "capturedAt": "2026-09-10T17:34:02.426Z",
   "conditions": "1280x900 with motion frozen, signed in per role, against a production build over the hermetic e2e seed (rm -rf .e2e-data && npm run demo -- reset && npm run start) — the same environment tests/e2e/visual-baseline.spec.ts compares against",
   "screens": [
     {
@@ -104,8 +104,8 @@ export const VISUAL_BASELINE: VisualBaseline = {
           "rgb(47, 58, 51)"
         ],
         "text": [
-          "oklab(0.960262 0.00281644 0.013332 / 0.7)",
-          "oklab(0.960262 0.00281644 0.013332 / 0.85)",
+          "oklab(0.96 0.003 0.013 / 0.7)",
+          "oklab(0.96 0.003 0.013 / 0.85)",
           "rgb(247, 241, 232)",
           "rgb(47, 58, 51)",
           "rgb(84, 94, 83)"
@@ -226,7 +226,7 @@ export const VISUAL_BASELINE: VisualBaseline = {
       ],
       "palette": {
         "background": [
-          "oklab(0.979726 0.000857621 0.00855476 / 0.4)",
+          "oklab(0.98 0.001 0.009 / 0.4)",
           "rgb(223, 233, 226)",
           "rgb(243, 228, 200)",
           "rgb(247, 241, 232)",
@@ -274,7 +274,7 @@ export const VISUAL_BASELINE: VisualBaseline = {
       ],
       "palette": {
         "background": [
-          "oklab(0.470023 0.0844482 0.0538396 / 0.15)",
+          "oklab(0.47 0.084 0.054 / 0.15)",
           "rgb(226, 237, 241)",
           "rgb(236, 233, 226)",
           "rgb(243, 221, 216)",
@@ -329,7 +329,7 @@ export const VISUAL_BASELINE: VisualBaseline = {
       ],
       "palette": {
         "background": [
-          "oklab(0.908299 -0.0143883 0.0179987 / 0.6)",
+          "oklab(0.908 -0.014 0.018 / 0.6)",
           "rgb(122, 81, 16)",
           "rgb(147, 165, 139)",
           "rgb(223, 233, 226)",
@@ -337,7 +337,7 @@ export const VISUAL_BASELINE: VisualBaseline = {
           "rgb(255, 253, 248)"
         ],
         "text": [
-          "oklab(0.335901 -0.0175858 0.00736779 / 0.8)",
+          "oklab(0.336 -0.018 0.007 / 0.8)",
           "rgb(122, 81, 16)",
           "rgb(138, 67, 53)",
           "rgb(23, 58, 50)",
@@ -390,8 +390,8 @@ export const VISUAL_BASELINE: VisualBaseline = {
           "rgb(255, 253, 248)"
         ],
         "text": [
-          "oklab(0.335901 -0.0175858 0.00736779 / 0.6)",
-          "oklab(0.335901 -0.0175858 0.00736779 / 0.8)",
+          "oklab(0.336 -0.018 0.007 / 0.6)",
+          "oklab(0.336 -0.018 0.007 / 0.8)",
           "rgb(23, 58, 50)",
           "rgb(47, 58, 51)",
           "rgb(55, 93, 112)",
@@ -441,16 +441,16 @@ export const VISUAL_BASELINE: VisualBaseline = {
       ],
       "palette": {
         "background": [
-          "oklab(0.908299 -0.0143883 0.0179987 / 0.4)",
+          "oklab(0.908 -0.014 0.018 / 0.4)",
           "rgb(226, 237, 241)",
           "rgb(243, 228, 200)",
           "rgb(255, 253, 248)"
         ],
         "text": [
-          "oklab(0.335901 -0.0175858 0.00736779 / 0.5)",
-          "oklab(0.335901 -0.0175858 0.00736779 / 0.6)",
-          "oklab(0.335901 -0.0175858 0.00736779 / 0.7)",
-          "oklab(0.335901 -0.0175858 0.00736779 / 0.8)",
+          "oklab(0.336 -0.018 0.007 / 0.5)",
+          "oklab(0.336 -0.018 0.007 / 0.6)",
+          "oklab(0.336 -0.018 0.007 / 0.7)",
+          "oklab(0.336 -0.018 0.007 / 0.8)",
           "rgb(122, 81, 16)",
           "rgb(23, 58, 50)",
           "rgb(47, 58, 51)",
@@ -503,15 +503,15 @@ export const VISUAL_BASELINE: VisualBaseline = {
       ],
       "palette": {
         "background": [
-          "oklab(0.908299 -0.0143883 0.0179987 / 0.4)",
+          "oklab(0.908 -0.014 0.018 / 0.4)",
           "rgb(226, 237, 241)",
           "rgb(255, 253, 248)"
         ],
         "text": [
-          "oklab(0.335901 -0.0175858 0.00736779 / 0.5)",
-          "oklab(0.335901 -0.0175858 0.00736779 / 0.6)",
-          "oklab(0.335901 -0.0175858 0.00736779 / 0.7)",
-          "oklab(0.335901 -0.0175858 0.00736779 / 0.8)",
+          "oklab(0.336 -0.018 0.007 / 0.5)",
+          "oklab(0.336 -0.018 0.007 / 0.6)",
+          "oklab(0.336 -0.018 0.007 / 0.7)",
+          "oklab(0.336 -0.018 0.007 / 0.8)",
           "rgb(23, 58, 50)",
           "rgb(47, 58, 51)",
           "rgb(55, 93, 112)",

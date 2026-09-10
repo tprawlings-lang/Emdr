@@ -139,8 +139,40 @@ export async function readScreen(page: import("playwright").Page) {
     const rhythm = new Set<string>();
     for (const el of [...main.querySelectorAll("*")].slice(0, 900)) {
       const s = getComputedStyle(el);
-      if (s.backgroundColor && s.backgroundColor !== "rgba(0, 0, 0, 0)") backgrounds.add(s.backgroundColor);
-      if (s.color) texts.add(s.color);
+      // ROUNDED, BECAUSE FULL PRECISION MEASURES THE RENDERER.
+      //
+      // The header on visual-baseline.ts explains that this is a contract
+      // check rather than a pixel comparison, precisely because CI installs
+      // its own Chromium and this container pins another. Colour leaked that
+      // difference back in anyway: two builds convert the same token to
+      // oklab and disagree in the sixth decimal —
+      //
+      //   0.960333 0.00280914 0.0133284   (CI)
+      //   0.960262 0.00281644 0.0133320   (here)
+      //
+      // — which is the same colour, and produced 48 drift entries across ten
+      // screens on a diff that changed none of them. A baseline that only
+      // matches on one machine is the red suite everybody learns to ignore,
+      // which is the thing this file set out not to be.
+      //
+      // Three decimals is ~14× coarser than the observed noise (7e-5) and far
+      // finer than any real change: swapping one declared token for another
+      // moves the second decimal at least. The guard in
+      // tests/visual-baseline.test.ts holds that boundary.
+      //
+      // INLINED, NOT A HELPER. A `const round = …` here is a named function
+      // expression, and the note below is exactly about that: esbuild keeps
+      // the name by emitting a `__name` call that does not exist in the page.
+      // Written as a helper first, and it would have failed on the first
+      // evaluate — the same way this file already records it failing once.
+      if (s.backgroundColor && s.backgroundColor !== "rgba(0, 0, 0, 0)") {
+        backgrounds.add(s.backgroundColor.replace(/-?\d+\.\d{4,}/g,
+          (n) => String(Math.round(parseFloat(n) * 1000) / 1000)));
+      }
+      if (s.color) {
+        texts.add(s.color.replace(/-?\d+\.\d{4,}/g,
+          (n) => String(Math.round(parseFloat(n) * 1000) / 1000)));
+      }
       for (const v of [s.paddingTop, s.paddingLeft, s.marginTop, s.gap]) {
         if (v && v !== "0px" && v !== "normal") rhythm.add(v);
       }
