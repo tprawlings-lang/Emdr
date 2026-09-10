@@ -15,6 +15,7 @@
     "backup": "tsx scripts/backup.ts",
     "restore": "tsx scripts/restore.ts",
     "demo": "tsx scripts/demo.ts",
+    "gen:projection-hashes": "tsx scripts/gen-projection-hashes.ts",
     "perfcheck": "tsx scripts/perfcheck.ts"
   },
   "dependencies": {

@@ -1022,6 +1022,27 @@ export const SCHEMA_SQL = `
     released_reason TEXT
   );
 
+  -- Applied data scenarios (handoff 07 Wave 8, p9's "Inject data scenario").
+  --
+  -- Not a singleton: several bundles may be in force at once, and which ones
+  -- is the question an operator opening an altered environment needs answered.
+  -- p9 says a bundle is "reversible by reset", and this table is how that is
+  -- true rather than claimed — it is in DEMO_DATA_TABLES, so a reset clears the
+  -- record along with the events it describes, and a guard holds it there.
+  CREATE TABLE IF NOT EXISTS demo_data_scenario_applications (
+    id TEXT PRIMARY KEY,
+    scenario_id TEXT NOT NULL,
+    -- The VERSION, not just the id: applying the same version twice doubles
+    -- every event in it, and the refusal is keyed on this column.
+    scenario_version TEXT NOT NULL,
+    applied_by TEXT NOT NULL,
+    applied_by_name TEXT,
+    reason TEXT NOT NULL,
+    applied_at TEXT NOT NULL,
+    person_count INTEGER NOT NULL,
+    event_count INTEGER NOT NULL
+  );
+
   CREATE TABLE IF NOT EXISTS demo_clock (
     id INTEGER PRIMARY KEY CHECK (id = 1),
     -- The instant the environment should be READ AS. Null means live: the

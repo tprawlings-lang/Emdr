@@ -8,6 +8,8 @@ import { resetDemoData } from "@/lib/demo-reset";
 import { runQualityChecks, qualitySummary } from "@/lib/demo-quality";
 import { recordReset } from "@/lib/demo/preflight";
 import { canReset, releaseLock } from "@/lib/demo/environment-lock";
+import { applyDataScenario } from "@/lib/demo/data-scenario";
+import { exportQaReport } from "@/lib/demo/qa-export";
 
 // p9's Reset control, as a server action.
 //
@@ -137,4 +139,88 @@ export async function resetDemoEnvironment(formData: FormData): Promise<void> {
 
   // Every console reads this data, so every console is stale after it.
   revalidatePath("/", "layout");
+}
+
+// ---------------------------------------------------------------------------
+// Data scenarios (handoff 07 Wave 8, p9's "Inject data scenario")
+// ---------------------------------------------------------------------------
+
+/**
+ * Apply an approved, versioned event bundle.
+ *
+ * THINNER THAN THE RESET ACTION ABOVE, and deliberately. Every refusal a
+ * bundle can hit — wrong environment, unknown scenario, a reason too short to
+ * be reviewable, a version already applied, a cohort out of bounds, a target
+ * outside the fabricated population — lives in `applyDataScenario`, so it
+ * refuses the same way whether it is reached from this form, a test, or a
+ * script somebody writes later. What is left here is the two things that are
+ * properties of the REQUEST rather than of the data: who is asking, and
+ * telling the screen to redraw.
+ *
+ * THE LOCK IS NOT CONSULTED, and that is a decision rather than an omission.
+ * §7.3's lock protects against a dataset being REPLACED under somebody's
+ * meeting; a bundle appends to the population that is already there and
+ * changes nothing a presenter has shown so far. A presenter mid-walkthrough
+ * who wants to demonstrate a safety pause is the intended user of this
+ * control, and blocking them would be the mechanism working against the
+ * situation it was built for.
+ */
+export async function applyDemoDataScenario(formData: FormData): Promise<void> {
+  const user = await requireDemoAdmin();
+  const scenarioId = String(formData.get("scenarioId") ?? "");
+  const reason = String(formData.get("reason") ?? "");
+
+  const outcome = await applyDataScenario({
+    scenarioId,
+    actorId: user.id,
+    actorName: user.name ?? user.email,
+    reason,
+  });
+
+  if (!outcome.ok) {
+    // A refusal is recorded, because an operator who cannot tell a refusal
+    // apart from a silent failure will reach for the shell p29 forbids.
+    await audit({
+      actorId: user.id, actorRole: user.role, family: "security",
+      type: "demo_data_scenario_refused", target: scenarioId || "unknown",
+      detail: { refusal: outcome.reason },
+    });
+  }
+
+  revalidatePath("/admin/demo");
+}
+
+// ---------------------------------------------------------------------------
+// The QA report (handoff 07 Wave 8, p9's "Export QA report")
+// ---------------------------------------------------------------------------
+
+/**
+ * Release the QA report through the governed export path.
+ *
+ * THE ONE CONTROL ON THIS PAGE THAT DOES NOT REFUSE ON A FAILING ENVIRONMENT.
+ * Every other gate here exists because demonstrating from a broken environment
+ * is the harm; this one exists to describe a broken environment to somebody who
+ * is not in the room. Withholding it when the checks fail would remove the
+ * artifact at the exact moment it is the thing being asked for.
+ */
+export async function exportDemoQaReport(formData: FormData): Promise<void> {
+  const user = await requireDemoAdmin();
+  const purpose = String(formData.get("purpose") ?? "");
+
+  const outcome = await exportQaReport({
+    db: getDb(),
+    requestedBy: user.id,
+    requestedByRole: user.role,
+    purpose,
+  });
+
+  if (!outcome.ok) {
+    await audit({
+      actorId: user.id, actorRole: user.role, family: "security",
+      type: "demo_qa_export_refused", target: "admin/demo/qa-report",
+      detail: { refusal: outcome.reason },
+    });
+  }
+
+  revalidatePath("/admin/demo");
 }

@@ -11,5 +11,13 @@ export async function register() {
 
     const { scheduleNightlyBackups } = await import("./lib/backup");
     scheduleNightlyBackups();
+
+    // The demonstration environment's nightly rebuild (handoff 07 Wave 8, G18).
+    // Armed here for the same reason the backup is: the SQLite file lives on
+    // this service's disk. It refuses to arm unless EMDR_DEMO_NIGHTLY_RESET is
+    // explicitly 1 — it is the only scheduled job that deletes member data, and
+    // it must never switch itself on.
+    const { scheduleNightlyDemoReset } = await import("./lib/demo/nightly-reset");
+    scheduleNightlyDemoReset();
   }
 }
