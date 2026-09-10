@@ -6,6 +6,7 @@ import { recordContact, assignWork, completeReview } from "@/lib/clinical/shell-
 import { commandKey, type CommandResult } from "@/lib/experience/command";
 import { idle, submitting, advance, mayClaimSaved, type TaskState } from "@/lib/experience/task-state";
 import { ACTION_LABEL, ACTION_NOTE, type ClinicianAction } from "@/lib/experience/clinician-vocabulary";
+import { useRecorded } from "./QueueConfirmations";
 
 // The separated row actions (handoff 09 §5, §9; Package 2).
 //
@@ -53,6 +54,7 @@ export function RowActions({
   const [task, setTask] = useState<TaskState>(idle());
   const [note, setNote] = useState("");
   const [result, setResult] = useState<CommandResult<{ summary: string }> | null>(null);
+  const recorded = useRecorded();
 
   // Stable across retries of the same press. §9: a key containing a timestamp
   // makes every retry a new action, which is the failure the key prevents.
@@ -63,6 +65,10 @@ export function RowActions({
     const r = await call();
     setResult(r);
     setTask(advance(r));
+    // Lifted out of the row, because a confirmed review can REMOVE this row
+    // from the queue and unmount the confirmation with it. See
+    // ./QueueConfirmations.tsx.
+    if (r.outcome === "confirmed" && r.result?.summary) recorded?.record(r.result.summary);
     // The draft survives a conflict and a failure; it is cleared only on a
     // confirmed write, where keeping it would invite a second one.
     if (r.outcome === "confirmed") setNote("");

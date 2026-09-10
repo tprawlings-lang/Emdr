@@ -289,7 +289,7 @@ test("a command payload carrying authority fields is refused, not overwritten", 
   // §9: "An envelope carrying submitted authority fields invites trusting
   // them." Silently overwriting would work today and break the moment somebody
   // reads the payload before resolve() runs.
-  for (const field of ["actorId", "tenantId", "role", "personId"]) {
+  for (const field of ["actorId", "actorPersonId", "tenantId", "role", "audience"]) {
     assert.throws(
       () => resolveCommand(clinician, {
         intent: "acknowledge", target: "sig-1",
@@ -299,6 +299,118 @@ test("a command payload carrying authority fields is refused, not overwritten", 
       `a payload carrying ${field} was accepted`
     );
   }
+});
+
+test("the subject of a command is not an authority field", () => {
+  // THIS LIST USED TO CONTAIN `personId`, AND THAT WAS A LIVE DEFECT. All three
+  // row actions on the clinician's attention queue — record contact, assign,
+  // complete review — pass the person the row is about in their payload,
+  // because that is what the clinician clicked. So every one of them threw
+  // before doing anything, and "Could not save" was the only outcome any of
+  // them had ever produced. Nothing caught it: this test pinned the list and no
+  // test called an action, so the two halves of the contradiction were never in
+  // the same room.
+  //
+  // Authority is WHO IS ACTING and IN WHOSE TENANT. A client that supplies
+  // either believes it can set one. The subject is WHICH PERSON the action is
+  // about, and there is no way for a client not to send it.
+  const resolved = resolveCommand(clinician, {
+    intent: "complete_review", target: "sig-1",
+    payload: { personId: "person-7", note: "called them" }, idempotencyKey: "k1",
+  });
+  assert.equal(resolved.payload.personId, "person-7", "the subject was stripped from the payload");
+  assert.equal(resolved.actorPersonId, "clin-1", "the actor came from anywhere but the context");
+  assert.equal(resolved.tenantId, "t-1");
+
+  // And the subject is not TRUSTED either: where a command's target names a
+  // record, the action takes the subject off that record and refuses a payload
+  // that disagrees. Both people are in the same tenant, so this is not a
+  // disclosure — it is a review recorded in the wrong chart.
+  const actions = code(fs.readFileSync(path.join(root, "src/lib/clinical/shell-actions.ts"), "utf8"));
+  assert.match(actions, /async function subjectFor\(/, "there is no subject resolver");
+  // The comparison that makes the subject safe to accept: when the target names
+  // a signal, that signal's own person wins and a payload naming somebody else
+  // is refused.
+  assert.match(
+    actions, /signal\.personId !== claimed/,
+    "the resolver does not check the payload against the record"
+  );
+  // Every action resolves through it — including the two that do not otherwise
+  // load a signal.
+  assert.equal(
+    (actions.match(/subjectFor\(ctx, command\)/g) ?? []).length, 3,
+    "not all three row actions resolve their subject"
+  );
+  // And nothing writes a care action from the raw payload any more.
+  assert.ok(
+    !/personId: command\.payload\.personId,/.test(actions),
+    "a care action is still written from the unchecked payload"
+  );
+});
+
+test("a queue row with no attention signal can still be reviewed", () => {
+  // THE SECOND HALF OF THE SAME DEFECT. Only one of the three kinds of work
+  // item has an attention signal behind it. An ALERT-DERIVED row is the safety
+  // engine's own output — the rows carrying safety authority, and the ones a
+  // clinician most needs to close — and a CASELOAD-DERIVED row has no alert at
+  // all. `completeReview` began by loading a signal and giving up when there
+  // was none, so "Complete review" answered "Not available here" on every
+  // safety row in the queue.
+  const actions = code(fs.readFileSync(path.join(root, "src/lib/clinical/shell-actions.ts"), "utf8"));
+  // Matched on the CALL and its condition, not on the name: the function's own
+  // definition contains the name, so a guard looking for the identifier passes
+  // while nothing calls it.
+  assert.match(
+    actions, /if \(!subject\.signal\) \{\s*return completeReviewWithoutSignal\(/,
+    "a signal-less row is not routed to the path that handles it"
+  );
+  // Reviewing an alert row CLOSES the alert, through the writer that carries
+  // the rule — an immediate- or high-band alert closes with a documented
+  // action, never an acknowledgement. A direct UPDATE here would go around it.
+  assert.match(actions, /closeAlert\(/, "an alert-derived review does not close the alert");
+  assert.ok(
+    !/UPDATE alerts/i.test(actions),
+    "the action writes the alerts table itself instead of using the closer"
+  );
+  // A caseload row has nothing to close, and says so rather than implying a
+  // change it did not make.
+  assert.match(actions, /Nothing was closed/, "a caseload review claims something closed");
+});
+
+test("a confirmation outlives the row it came from", () => {
+  // Reviewing an alert-derived row REMOVES it from the queue, because the queue
+  // reads the alert's status. The confirmation used to live inside that row, so
+  // it unmounted with it: the clinician pressed "Record it" on a safety row and
+  // it silently vanished, which is indistinguishable from a re-sort. §5 asks
+  // for "exactly what the action changed after the server confirms it", and a
+  // row that is simply gone is not that.
+  const dir = path.join(root, "src/components/experience");
+  const confirmations = code(fs.readFileSync(path.join(dir, "QueueConfirmations.tsx"), "utf8"));
+  assert.match(confirmations, /aria-live="polite"/, "the region is not announced");
+  assert.match(confirmations, /data-testid="queue-confirmations"/);
+  // It reports the server's own summary and invents nothing.
+  assert.match(confirmations, /\{n\.summary\}/);
+
+  const rowActions = code(fs.readFileSync(path.join(dir, "RowActions.tsx"), "utf8"));
+  assert.match(rowActions, /recorded\?\.record\(/, "the row does not lift its confirmation");
+  assert.match(
+    rowActions, /outcome === "confirmed"[\s\S]{0,80}recorded\?\.record\(/,
+    "an unconfirmed result is lifted as though it were confirmed"
+  );
+
+  // And the provider wraps BOTH columns: the panel is derived from the same
+  // items, so a removed row closes it too and an action taken there would
+  // vanish the same way.
+  const view = code(fs.readFileSync(path.join(dir, "ClinicianHomeView.tsx"), "utf8"));
+  const openAt = view.indexOf("<QueueConfirmations>");
+  const closeAt = view.indexOf("</QueueConfirmations>");
+  assert.ok(openAt > 0 && closeAt > openAt, "the provider is gone");
+  const wrapped = view.slice(openAt, closeAt);
+  assert.match(wrapped, /QueueEvidencePanel/, "the evidence panel is outside the confirmation region");
+  assert.ok(
+    (wrapped.match(/<RowActions/g) ?? []).length === 2,
+    "not every row-action mount is inside the confirmation region"
+  );
 });
 
 test("actor and tenant come from the context, never the input", () => {

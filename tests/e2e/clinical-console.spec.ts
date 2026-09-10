@@ -501,3 +501,65 @@ test("engagement shows which days, not a rate, and never counts pre-enrolment da
   // And the interpretation a clinician needs before reading a gap.
   await expect(strip.getByText(/reason to ask, not a compliance failure/)).toBeVisible();
 });
+
+// ---------------------------------------------------------------------------
+// The row actions actually work — the test whose absence let them break
+// ---------------------------------------------------------------------------
+
+test("completing a review from the queue records it, and says what it recorded", async ({ page }) => {
+  // THIS TEST EXISTS BECAUSE ALL THREE ROW ACTIONS WERE DEAD AND EVERYTHING
+  // PASSED. `resolveCommand` refuses a payload carrying an authority field, and
+  // `personId` was on that list — so record contact, assign and complete review
+  // each threw before doing anything, and "Could not save" was the only outcome
+  // any of them had ever produced. A unit test pinned the list and another
+  // asserted the three functions were exported; nothing pressed the button.
+  //
+  // So this presses the button. It is deliberately end-to-end rather than a
+  // unit test of the action: the defect was in the seam between a payload the
+  // component builds and a rule the command layer applies, and a test on either
+  // side of that seam could not see it.
+  await signInAsClinician(page);
+  await page.goto("/clinician/today");
+
+  // The queue's own control, opened from the first row that offers a review.
+  const open = page.getByRole("button", { name: "Complete review" }).first();
+  await expect(open).toBeVisible();
+  await open.click();
+
+  await page.locator("textarea").first().fill("Called them; agreed a grounding-only week.");
+  await page.getByRole("button", { name: "Record it" }).first().click();
+
+  // §5: "Show exactly what the action changed after the server confirms it."
+  //
+  // ASSERTED ON THE REGION ABOVE THE LIST, NOT ON THE ROW, and that is the
+  // third finding in this seam. Reviewing an alert-derived row closes that
+  // person's open alerts, and the queue reads an alert's status — so the row
+  // leaves the list and used to take its confirmation with it. The clinician
+  // pressed "Record it" on a safety row and it silently vanished, which is
+  // indistinguishable from a re-sort.
+  const confirmations = page.getByTestId("queue-confirmations");
+  await expect(confirmations).toContainText(/Recorded your review/, { timeout: 15000 });
+  // And it says WHAT changed, not that something did.
+  await expect(confirmations).toContainText(/closed \d+ open alert/);
+  await expect(page.getByText("Could not save")).toHaveCount(0);
+
+  // The row it came from is gone, and the confirmation outlived it.
+  await expect(page.getByText(/\d+ items need review\./)).toBeVisible();
+});
+
+test("a safety row will not close on an acknowledgement", async ({ page }) => {
+  // The rule that survives the fix above. An immediate-band alert closes with a
+  // documented action, never an empty note — and the drawer calls the note
+  // optional, which is true for a caseload row and not for this one. So the
+  // refusal has to SAY which rule refused it rather than failing quietly.
+  await signInAsClinician(page);
+  await page.goto("/clinician/today");
+
+  await page.getByRole("button", { name: "Complete review" }).first().click();
+  await page.getByRole("button", { name: "Record it" }).first().click();
+
+  await expect(page.getByText(/closes with a documented action/)).toBeVisible({ timeout: 15000 });
+  // Including the article. A clinician read "A immediate-band alert" until the
+  // article was chosen rather than assumed.
+  await expect(page.getByText(/An immediate-band alert/)).toBeVisible();
+});

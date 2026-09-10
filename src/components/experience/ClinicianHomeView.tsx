@@ -5,6 +5,7 @@ import { coverageNote } from "@/lib/experience/role-home";
 import { summary as filterSummary, type ViewState } from "@/lib/experience/view-state";
 import { QueueRow } from "./QueueRow";
 import { QueueEvidencePanel } from "./QueueEvidencePanel";
+import { QueueConfirmations } from "./QueueConfirmations";
 import { RowActions } from "./RowActions";
 
 // The Command Center, rendered (handoff 09 §5, Package 2).
@@ -58,6 +59,14 @@ export function ClinicianHomeView({
   };
 
   return (
+    // The confirmation region wraps BOTH columns.
+    //
+    // ./QueueConfirmations.tsx says why it exists at all: a confirmed review
+    // can remove the row it came from, so the confirmation cannot live inside
+    // the row. It has to wrap the panel as well as the list, because the panel
+    // is derived from the same items — a removed row closes the panel too, and
+    // an action taken there would vanish the same way.
+    <QueueConfirmations>
     <div className="lg:flex lg:gap-8">
       <div className="min-w-0 flex-1">
         {/* §3's counts as filters. Never capped — the count is the whole
@@ -203,5 +212,6 @@ export function ClinicianHomeView({
         </div>
       )}
     </div>
+    </QueueConfirmations>
   );
 }

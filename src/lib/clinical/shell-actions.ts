@@ -12,6 +12,8 @@ import {
   recordCareAction, acknowledgeSignal, getSignal, currentCareActions,
   AttentionSignalError,
 } from "./attention-signals";
+import { alertQueue, closeAlert, AlertClosureError } from "./alerts";
+import type { AttentionSignal } from "./attention-vocabulary";
 import { experienceContextFor } from "../experience/context";
 import {
   resolveCommand, confirmed, rejected, stale, unavailable, indeterminate,
@@ -107,6 +109,51 @@ function fromError(err: unknown, key: string): CommandResult<never> {
 }
 
 /**
+ * The person a row action is about, resolved from the RECORD when the target
+ * names one.
+ *
+ * A row action carries two things about a person: the subject in its payload,
+ * and a target that is either that same person or the signal being acted on.
+ * The subject cannot be refused — the clinician chose it by clicking a row, and
+ * there is no way for a client not to send it — but it cannot be trusted
+ * either. When the target names a signal, THAT SIGNAL'S OWN personId is
+ * authoritative: a payload that disagrees would record a review against one
+ * person citing another person's signal. Both are in the same tenant, so this
+ * is not a disclosure; it is a wrong entry in a clinical chart, which is its
+ * own harm.
+ *
+ * Returns the signal when the target named one, so a caller that needs the rest
+ * of it does not load it twice.
+ */
+async function subjectFor(
+  ctx: TenantContext,
+  command: { target: string; payload: { personId: string } }
+): Promise<
+  | { ok: true; personId: string; signalId: string | null; signal: AttentionSignal | null }
+  | { ok: false; reason: string }
+> {
+  const claimed = command.payload.personId.trim();
+  if (!claimed) return { ok: false, reason: "That row does not say who it is about." };
+  // The target IS the person when the row has no signal behind it.
+  if (command.target === claimed) {
+    return { ok: true, personId: claimed, signalId: null, signal: null };
+  }
+  const signal = await getSignal(ctx, command.target);
+  if (!signal) {
+    // Not "forbidden" and not an error: a signal in another tenant does not
+    // exist, so the answer cannot be used to probe for one.
+    return { ok: false, reason: "That item is no longer in your queue." };
+  }
+  if (signal.personId !== claimed) {
+    return {
+      ok: false,
+      reason: "That row and that item are about different people. Reopen the queue and try again.",
+    };
+  }
+  return { ok: true, personId: signal.personId, signalId: signal.id, signal };
+}
+
+/**
  * §5's "Record contact". Records an ATTEMPT and says so.
  *
  * The vocabulary matters more than the mechanism here. There is no delivery
@@ -125,9 +172,11 @@ export async function recordContact(input: CommandInput<{ personId: string; note
         "Say what happened. A contact attempt with no account of it is a row that proves somebody pressed a button."
       );
     }
+    const subject = await subjectFor(ctx, command);
+    if (!subject.ok) return unavailable(subject.reason);
     // Idempotency, checked before writing rather than after. §9: retry must
     // not create a duplicate.
-    const existing = await currentCareActions(ctx, command.payload.personId, 20);
+    const existing = await currentCareActions(ctx, subject.personId, 20);
     const already = existing.find((a) => a.note === note && a.action === "contact");
     if (already) {
       return confirmed({
@@ -136,10 +185,10 @@ export async function recordContact(input: CommandInput<{ personId: string; note
       });
     }
     const recordId = await recordCareAction(ctx, {
-      personId: command.payload.personId,
+      personId: subject.personId,
       clinicianId,
       action: "contact",
-      signalId: command.target === command.payload.personId ? null : command.target,
+      signalId: subject.signalId,
       note,
       sourceSurface: "command_center_row",
     });
@@ -174,15 +223,17 @@ export async function assignWork(input: CommandInput<{ personId: string; ownerId
   try {
     const command = resolveCommand(experience, input);
     if (!command.payload.ownerId.trim()) return rejected("Choose who owns this.");
+    const subject = await subjectFor(ctx, command);
+    if (!subject.ok) return unavailable(subject.reason);
     const recordId = await recordCareAction(ctx, {
-      personId: command.payload.personId,
+      personId: subject.personId,
       clinicianId,
       // The nearest thing the care-action vocabulary has, and the note carries
       // the specifics. Inventing an `assign` action here would put a ninth
       // value in a closed vocabulary from a presentation module, which is the
       // wrong direction for a rule to travel.
       action: "add_followup",
-      signalId: command.target === command.payload.personId ? null : command.target,
+      signalId: subject.signalId,
       note: `Assigned to ${command.payload.ownerName}.`,
       outcomeState: `owner:${command.payload.ownerId}`,
       sourceSurface: "command_center_row",
@@ -205,6 +256,79 @@ export async function assignWork(input: CommandInput<{ personId: string; ownerId
 }
 
 /**
+ * Completing a review on a row that has no attention signal behind it.
+ *
+ * TWO CASES, and they close differently because they mean different things.
+ *
+ * An ALERT-DERIVED row is the safety engine's output. Reviewing it means
+ * closing this person's open alerts, and `closeAlert` already carries the rule
+ * that matters: an urgent- or high-band alert closes with a documented action,
+ * not an acknowledgement. So the note the drawer calls optional is REQUIRED
+ * here, and the refusal says why rather than failing quietly. Closing the
+ * alerts is also what makes the row change: the queue reads an alert's status,
+ * so a reviewed alert stops asking.
+ *
+ * A CASELOAD-DERIVED row is a person the caseload surfaced with no alert at
+ * all — days since contact, unresolved distress. There is nothing to close, so
+ * the review is exactly what it says: a recorded care action. The row will
+ * still be there tomorrow, because the thing that raised it has not changed,
+ * and saying otherwise would be the false confirmation §4.4 forbids.
+ */
+async function completeReviewWithoutSignal(args: {
+  ctx: TenantContext;
+  clinicianId: string;
+  personId: string;
+  note: string;
+}): Promise<CommandResult<RecordedChange>> {
+  const note = args.note.trim();
+  const open = (await alertQueue({ tenantId: args.ctx.tenantId }))
+    .filter((a) => a.personId === args.personId && a.status === "open");
+
+  let closed = 0;
+  for (const alert of open) {
+    try {
+      await closeAlert({
+        alertId: alert.id, tenantId: args.ctx.tenantId,
+        clinicianId: args.clinicianId, resolution: note,
+      });
+      closed += 1;
+    } catch (err) {
+      if (err instanceof AlertClosureError) return rejected(err.message);
+      throw err;
+    }
+  }
+
+  const recordId = await recordCareAction(args.ctx, {
+    personId: args.personId,
+    clinicianId: args.clinicianId,
+    action: "review",
+    signalId: null,
+    note: note || null,
+    sourceSurface: "command_center_row",
+  });
+  await audit({
+    actorId: args.clinicianId, actorRole: "clinician", family: "clinical",
+    type: "review_completed", target: args.personId,
+    detail: { recordId, signalId: null, alertsClosed: closed },
+  });
+  noteSignal("queue_item_resolved", {
+    // No signal, so no signal type. The reason code says which kind of row
+    // this was, which is the honest answer and still a code.
+    reasonCode: closed > 0 ? "alert_review" : "caseload_review",
+    ownerRole: "clinician",
+  }, { actorRole: "clinician" });
+  noteSignal("primary_action_selected", { actionCode: "complete_review" }, { actorRole: "clinician" });
+  revalidatePath("/clinician/today");
+
+  return confirmed({
+    summary: closed > 0
+      ? `Recorded your review and closed ${closed} open ${closed === 1 ? "alert" : "alerts"} for this person.`
+      : "Recorded your review. Nothing was closed — this row came from the caseload, not an alert, so it stays until what raised it changes.",
+    recordId,
+  });
+}
+
+/**
  * §5's "Complete review". The one that acknowledges.
  *
  * EXPECTED VERSION IS CHECKED, and this is where §5's concurrency rule lands:
@@ -220,14 +344,30 @@ export async function completeReview(input: CommandInput<{ personId: string; not
   const { ctx, clinicianId, experience } = await clinicianContext();
   try {
     const command = resolveCommand(experience, input);
-    const signalId = command.target;
+    const subject = await subjectFor(ctx, command);
+    if (!subject.ok) return unavailable(subject.reason);
 
-    const signal = await getSignal(ctx, signalId);
-    if (!signal) {
-      // Not "forbidden" and not an error: a signal in another tenant does not
-      // exist, so the answer cannot be used to probe for one.
-      return unavailable("That item is no longer in your queue.");
+    // MOST OF THE QUEUE IS NOT AN ATTENTION SIGNAL, and this action refused all
+    // of it.
+    //
+    // A work item comes from one of three places. An attention signal has a
+    // lineage and a state machine. An ALERT-DERIVED row is the safety engine's
+    // own output — the rows that carry safety authority, and the ones a
+    // clinician most needs to close. A CASELOAD-DERIVED row is a person the
+    // caseload flagged with no alert at all. Only the first has a signal, and
+    // this function began by loading one and giving up when there was none —
+    // so "Complete review" on a safety row produced "Not available here", every
+    // time.
+    //
+    // Found the same way as the missing alerts it now closes: by pressing the
+    // button on a running queue.
+    if (!subject.signal) {
+      return completeReviewWithoutSignal({
+        ctx, clinicianId, personId: subject.personId, note: command.payload.note,
+      });
     }
+    const signal = subject.signal;
+    const signalId = signal.id;
     // §5's reconcile-before-accept. The version is the signal's own state plus
     // its last update, which is what changes when somebody else acts.
     const currentVersion = `${signal.state}@${signal.evidenceAt}`;
@@ -245,7 +385,7 @@ export async function completeReview(input: CommandInput<{ personId: string; not
       signalId, clinicianId, sourceSurface: "command_center_row",
     });
     const recordId = await recordCareAction(ctx, {
-      personId: command.payload.personId,
+      personId: signal.personId,
       clinicianId,
       action: "review",
       signalId,
@@ -254,7 +394,7 @@ export async function completeReview(input: CommandInput<{ personId: string; not
     });
     await audit({
       actorId: clinicianId, actorRole: "clinician", family: "clinical",
-      type: "review_completed", target: command.payload.personId,
+      type: "review_completed", target: signal.personId,
       detail: { recordId, signalId },
     });
     // §31.7's two action signals, from the one place a review is completed.
