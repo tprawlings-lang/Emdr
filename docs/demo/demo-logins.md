@@ -16,11 +16,20 @@ it is context for the presenter and grants nothing. The account decides what you
 Selecting *Demo Admin* and entering the clinician's credentials returns the same generic
 failure as any other wrong pairing.
 
+**So the dropdown has to match the account, or leave it on *Any role*.** This is the
+likeliest way a sign-in fails at a demonstration, and the refusal is deliberately silent
+about which of the three reasons it was — a message that named the mismatch would turn
+the dropdown into an oracle for which role an address holds. It also counts: ten failed
+attempts on one address inside fifteen minutes pauses that account for fifteen minutes,
+for everybody, so a presenter retrying a mismatched pairing can lock a shared demo
+account mid-session.
+
 | Role | Email | Password | Lands on |
 |---|---|---|---|
 | **Patient** | `patient.demo@steady.local` | `patient1234` | `/app/today` |
 | Patient (second persona) | `patient2.demo@steady.local` | `patient1234` | `/app/today` |
 | **Clinician** | `clinician.demo@steady.local` | `clinician1234` | `/clinician/today` |
+| Clinician (second persona) | `clinician2.demo@steady.local` | `clinician1234` | `/clinician/today` |
 | **Reviewer** | `reviewer.demo@steady.local` | `reviewer1234` | `/review/safety` |
 | **Organization** | `org.demo@steady.local` | `org1234` | `/organization/overview` |
 | Organization (demo network) | `network.demo@steady.local` | `org1234` | `/organization/overview` |
@@ -44,6 +53,7 @@ reserved ranges reaches a public page.
 | `patient.demo@steady.local` | Alex Rivera | Three weeks into the programme and improving. Consent, processing-session consent, baseline and follow-up measures, check-ins, a safety plan, companion memory. The end-to-end member experience |
 | `patient2.demo@steady.local` | Sam Okafor | Two days in, and PHQ-9 item 9 tripped the urgent queue. **Deliberately has no processing-session consent** — a demo where every gate is pre-satisfied demonstrates nothing about the gates |
 | `clinician.demo@steady.local` | Dr. Maya Chen | Clinician **NE-C1** in NE Care Network A: a panel of 42 — forty of the fabricated profiles plus Alex and Sam — with 84 reviews attributed to this account. Caseload, safety queue, cited summaries, module decisions |
+| `clinician2.demo@steady.local` | Dr. Tomas Ruiz | The second clinician in NE Care Network A. The account that makes a caseload boundary demonstrable from the inside: sign in as each in turn and the same tenant shows a different panel |
 | `reviewer.demo@steady.local` | Dr. Ellis Nakamura | The review console: fixed safety-scenario replay, **planning signals and their lifecycle**, BLS oversight, the testing console, the audit trail, and **the four deciding screens** — access requests, clinical language, release gates, research (see below) |
 | `org.demo@steady.local` | Jordan Idowu | Northside Behavioral Health — 4,820 covered lives across four sites, none of them named. Aggregate only |
 | `network.demo@steady.local` | Dana Okonkwo | NE Care Network A — 42 of the 240 fabricated profiles. The account to use for the **Population** screen; `org.demo` reports on a different population and says so |

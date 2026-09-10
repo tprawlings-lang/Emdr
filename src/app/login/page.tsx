@@ -40,7 +40,23 @@ export default async function LoginPage({
         <p className="mt-4 rounded-2xl border border-support/40 bg-support/10 px-4 py-3 text-sm text-support-deep">
           {error === "locked"
             ? "Too many attempts \u2014 this account is paused for 15 minutes to protect it. Try again then."
-            : "That email or password didn't match. Try again when you're ready."}
+            : DEMO
+              // THE SAME SENTENCE FOR ALL THREE FAILURES, which is what keeps
+              // the added clause safe. A role mismatch, an unknown address and
+              // a wrong password answer identically (p8's first negative
+              // test); naming the dropdown here tells a reader it participates
+              // without telling them which of the three they hit, because
+              // everyone sees it. A message that appeared ONLY on a mismatch
+              // would be an oracle for which role an address holds, and the
+              // addresses are published.
+              //
+              // IT IS SAID BECAUSE THE SELECTOR IS THE LIKELY CAUSE. Choosing
+              // "Demo Admin" and signing in as a clinician is a reasonable
+              // reading of "which demo am I giving" and it refuses, silently,
+              // for a reason the presenter has no way to see. Ten of those in
+              // fifteen minutes locks the shared account for everybody.
+              ? "That email or password didn't match. If you picked a Demo role above, it has to be the role that account already holds \u2014 \u201CAny role\u201D always works. Try again when you're ready."
+              : "That email or password didn't match. Try again when you're ready."}
         </p>
       )}
       <form action={login} className="mt-6 space-y-4">
