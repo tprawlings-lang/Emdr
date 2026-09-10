@@ -28,7 +28,7 @@ async function signInAsOperations(page: import("@playwright/test").Page) {
   await page.locator('input[name="password"]').fill("org1234");
   await Promise.all([
     page.waitForURL(/\/organization/),
-    page.locator('form button[type="submit"]').click(),
+    page.locator('form:has(input[name="password"]) button[type="submit"]').click(),
   ]);
 }
 

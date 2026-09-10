@@ -2,6 +2,7 @@ import { login } from "@/lib/actions";
 import { SteadyMark, Wordmark } from "@/components/Brand";
 import { DEMO_ROLES } from "@/lib/roles";
 import { MAIN_ID } from "@/lib/experience/quality";
+import { startWalkthroughAction } from "@/lib/demo/walkthrough-actions";
 
 // The demo role selector (handoff 07 §1.1, p5).
 //
@@ -23,9 +24,9 @@ const DEMO = process.env.EMDR_DEMO === "1";
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string }>;
+  searchParams: Promise<{ error?: string; refused?: string }>;
 }) {
-  const { error } = await searchParams;
+  const { error, refused } = await searchParams;
   return (
     <main id={MAIN_ID} className="mx-auto max-w-md px-6 py-16">
       <div className="flex items-center gap-3">
@@ -36,6 +37,14 @@ export default async function LoginPage({
       <p className="mt-2 text-sm text-olive">
         Access to the Steady review environment. Every person and record in it is fabricated.
       </p>
+      {refused && (
+        // A DIFFERENT REGISTER FROM A FAILED SIGN-IN, and a different key, so
+        // the screen can say "the walkthrough refused, and here is why" without
+        // a reader parsing prose to work out which of the two happened.
+        <p className="mt-4 rounded-2xl border border-support/40 bg-support/10 px-4 py-3 text-sm text-support-deep">
+          {refused}
+        </p>
+      )}
       {error && (
         <p className="mt-4 rounded-2xl border border-support/40 bg-support/10 px-4 py-3 text-sm text-support-deep">
           {error === "locked"
@@ -106,6 +115,41 @@ export default async function LoginPage({
           Continue
         </button>
       </form>
+      {DEMO && (
+        // NEW PATIENT ONBOARDING, on the sign-in screen because that is where
+        // somebody looks for it and where it was reported missing. It is under
+        // the form rather than beside it: the accounts above are the demo, and
+        // this is a fifth thing you can do, not a sixth credential.
+        //
+        // NOTHING IS TYPED HERE. The button posts an empty form — the person is
+        // generated server-side, from the same dictionaries the 240 fabricated
+        // profiles use. That is what keeps §12 intact: the enrollment form that
+        // was closed took a real name, a real address and a real date of birth
+        // from whoever found the page, and there is no field here to put one in.
+        <div className="mt-8 rounded-3xl border border-sage/40 bg-sage/10 p-5">
+          <p className="text-sm font-semibold text-ground">Walk through a new patient&rsquo;s onboarding</p>
+          <p className="measure mt-1 text-sm text-olive">
+            Starts at the first screen a new patient sees and goes through consent, the
+            program-fit questions, the baseline measures and the safety plan &mdash; in the
+            order and the wording they meet them.
+          </p>
+          <form action={startWalkthroughAction} className="mt-4">
+            <button
+              type="submit"
+              className="w-full rounded-full border border-ground/20 bg-ivory px-6 py-3 font-medium text-ground transition-colors hover:bg-linen"
+            >
+              Start an onboarding walkthrough
+            </button>
+          </form>
+          <p className="measure mt-3 text-xs text-olive">
+            Creates a fabricated person in NE Care Network A, so{" "}
+            <span className="text-ground">Dr. Maya Chen&rsquo;s caseload shows the onboarding from
+            the clinician&rsquo;s side</span> while you go through it. You type no name, address or
+            date of birth: all three are generated, and the person is cleared by a demo reset
+            like any other fabricated row.
+          </p>
+        </div>
+      )}
       {DEMO && (
         <div className="mt-6 rounded-3xl border border-ground/10 bg-linen p-5">
           <p className="text-sm font-semibold text-ground">What each demo role sees</p>

@@ -46,6 +46,39 @@ reserved ranges reaches a public page.
 
 ---
 
+## Walking a new patient's onboarding
+
+The sign-in screen carries a second control below the form: **Start an onboarding
+walkthrough**. It exists so a clinician can meet the onboarding the way a patient does —
+informed consent, the eight program-fit questions, the baseline instruments, the profile
+and safety plan — in order, in the real wording, rather than reading them in a spec.
+
+**Press it and you are onboarding.** There is nothing to fill in. A fabricated person is
+generated, signed in, and dropped at step 2 of 4, and the demo banner names them at the top
+of every screen.
+
+**It does not reopen enrollment.** §12 closed a form that took a real name, a real email
+address and a real date of birth from whoever found the page and wrote them into this
+environment. This takes no input at all — the name comes from the same dictionaries the 240
+fabricated profiles use, the address is `@steady.local`, and the date of birth is
+generated. There is no field a real identity can enter by, which is a stronger guarantee
+than validating one.
+
+**The clinician sees it from the other side.** The person is created in NE Care Network A,
+which is Dr. Maya Chen's tenant, so `clinician.demo@steady.local` finds them on
+`/clinician/caseload` while the walkthrough is still in progress. That is the half worth
+watching: what the answers do to a caseload, not only what the questions look like.
+
+A few things worth knowing before a demonstration:
+
+| | |
+|---|---|
+| **Getting back in** | You cannot. The account has no usable password on purpose — a shared credential printed anywhere is the §3 problem that outlives every other control. Start another walkthrough instead. |
+| **How many** | Twenty-five at a time. Past that the button refuses and says so. The demo admin console shows the running count beside the seeded totals. |
+| **Clearing them** | A demo reset, like any other fabricated row. They are `provenance = 'fabricated'`, so nothing about them is treated as a real person's record. |
+
+---
+
 ## Who each account is
 
 | Account | Persona | What they have |

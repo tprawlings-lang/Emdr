@@ -43,6 +43,14 @@ const ACCOUNTS = [
 
 const TOUCH = { ...devices["iPad (gen 7)"], hasTouch: true };
 
+// THE SIGN-IN BUTTON, not whichever submit button is first in the document.
+// The login screen carries two forms now — sign in, and the onboarding
+// walkthrough — so `form button[type="submit"]` matches both and Playwright's
+// strict mode rejects it. Scoped by the password field, which is the one thing
+// only the sign-in form has. governed-export.spec.ts already scopes its own
+// form this way, for the same reason and against the same hazard.
+const SIGN_IN = 'form:has(input[name="password"]) button[type="submit"]';
+
 test("every demo account signs in by touch, on a touch device", async ({ browser, baseURL }) => {
   // `baseURL` is passed through explicitly: a context built here does NOT
   // inherit the one in `use`, and a relative goto in it fails as an invalid
@@ -62,7 +70,7 @@ test("every demo account signs in by touch, on a touch device", async ({ browser
       await page.locator('input[name="email"]').fill(account.email);
       await page.locator('input[name="password"]').fill(account.password);
 
-      const button = page.locator('form button[type="submit"]');
+      const button = page.locator(SIGN_IN);
       await button.scrollIntoViewIfNeeded();
 
       // `tap()`, not `click()`. On a `hasTouch` context this dispatches the
@@ -91,7 +99,7 @@ test("the button receives the press itself — nothing is painted over it", asyn
     const page = await context.newPage();
     await page.goto("/login");
     await page.waitForLoadState("networkidle");
-    const button = page.locator('form button[type="submit"]');
+    const button = page.locator(SIGN_IN);
     await button.scrollIntoViewIfNeeded();
 
     const box = await button.boundingBox();
@@ -154,7 +162,7 @@ test("Continue works with JavaScript switched off", async ({ browser, baseURL })
     await page.locator('input[name="password"]').fill("clinician1234");
     await Promise.all([
       page.waitForURL((u) => !u.pathname.startsWith("/login")),
-      page.locator('form button[type="submit"]').click(),
+      page.locator(SIGN_IN).click(),
     ]);
     await expect(page, "signing in without JavaScript went nowhere").toHaveURL(/\/clinician\/today/);
   } finally {
@@ -177,7 +185,7 @@ test("a refused sign-in says the Demo role has to match", async ({ page }) => {
   await page.locator('input[name="password"]').fill("not-the-password");
   await Promise.all([
     page.waitForURL(/error=/),
-    page.locator('form button[type="submit"]').click(),
+    page.locator(SIGN_IN).click(),
   ]);
   const banner = page.locator("main p").filter({ hasText: /didn't match/ });
   await expect(banner).toContainText(/Demo role/i);

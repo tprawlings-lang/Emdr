@@ -1,6 +1,7 @@
 import { AppShell } from "@/components/app/AppShell";
 import { Panel, Note, WithNote, SummaryCards } from "@/components/app/surfaces";
 import { requireDemoAdmin } from "@/lib/auth";
+import { walkthroughCount, WALKTHROUGH_LIMIT } from "@/lib/demo/walkthrough";
 import { NewPatient } from "@/components/demo/NewPatient";
 import { assignableClinicians } from "@/lib/demo/new-patient-store";
 import { logout } from "@/lib/actions";
@@ -62,6 +63,12 @@ export default async function AdminDemoPage() {
        (SELECT COUNT(*) FROM audit_log)           AS audit`,
     [],
   )) as { tenants: number; persons: number; events: number; audit: number };
+
+  // Onboarding walkthroughs are the one kind of fabricated person a VISITOR
+  // creates rather than the seed. Counted beside the seeded totals so a
+  // presenter can see the environment filling up before the cap refuses,
+  // rather than discovering it when the button says no.
+  const walkthroughs = await walkthroughCount();
 
   const scenarios = replayScenarios();
   const failing = scenarios.filter((s) => !s.pass).length;
@@ -135,6 +142,10 @@ export default async function AdminDemoPage() {
           cards={[
             { label: "Tenants", value: String(counts.tenants) },
             { label: "Fabricated people", value: counts.persons.toLocaleString() },
+            {
+              label: "Onboarding walkthroughs",
+              value: `${walkthroughs} of ${WALKTHROUGH_LIMIT}`,
+            },
             { label: "Ledger events", value: counts.events.toLocaleString() },
           ]}
         />

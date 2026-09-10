@@ -27,7 +27,7 @@ async function signIn(page: Page, who: keyof typeof ACCOUNTS) {
   await page.locator('input[name="password"]').fill(a.password);
   await Promise.all([
     page.waitForURL((u) => !u.pathname.startsWith("/login")),
-    page.locator('form button[type="submit"]').click(),
+    page.locator('form:has(input[name="password"]) button[type="submit"]').click(),
   ]);
 }
 
