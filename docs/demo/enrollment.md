@@ -79,6 +79,37 @@ is not built.
 
 ---
 
+## The pilot's clinician
+
+`clinician.pilot@steady.local` / `pilotclin1234`, created with the tenant.
+
+**Without one the pilot is a room nobody can enter.** Every clinical surface resolves its
+scope from `users.tenant_id`, so a tenant holding members and no clinician holds people
+nobody can open — which is what separating the pilot from the fabricated population left
+behind on the first attempt: answers that went in and were visible only as a count.
+
+**Not `clinician.demo`, and that is not a preference.** A clinician belongs to one tenant.
+Moving the demo clinician here would empty the caseload of the forty-two fabricated people
+the whole demonstration rests on. Two populations need two clinicians for the same reason
+they needed two tenants.
+
+The account is marked `fabricated` — nobody is described by it, it is a login — which also
+keeps it out of the enrolment count, so opening the door does not use up one of the
+twenty-five places.
+
+### What a participant's activity does to it
+
+Verified end to end rather than assumed. A participant who reports a harm urge on a daily
+check-in appears on `/clinician/today` within the same request cycle:
+
+> **Needs attention 1** · ▲ Immediate · *Live Tester* — Harm urge reported on the check-in of
+> 2026-09-10 · **Record contact**
+
+and on `/clinician/caseload` in the Immediate band with *"Held by a safety decision"*. All
+fourteen person tabs and all eleven clinician consoles render for a pilot participant.
+
+---
+
 ## Where enrollees live
 
 | | |

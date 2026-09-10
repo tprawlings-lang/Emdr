@@ -143,7 +143,56 @@ export async function pilotTenantId(): Promise<string> {
      ON CONFLICT(id) DO NOTHING`,
     [PILOT_TENANT_ID, PLATFORM_TENANT_ID]
   );
+  await ensurePilotClinician();
   return PILOT_TENANT_ID;
+}
+
+/** The pilot's clinician account. */
+export const PILOT_CLINICIAN_ID = "PILOTCLIN00000000000000000";
+export const PILOT_CLINICIAN_EMAIL = "clinician.pilot@steady.local";
+
+/**
+ * A clinician who can actually see the pilot.
+ *
+ * WITHOUT ONE THE TENANT IS A DEAD END. Every clinical surface resolves its
+ * scope from `users.tenant_id` — the caseload, the attention queue, the person
+ * record — so a tenant with members and no clinician holds people nobody can
+ * open. Separating the pilot from the fabricated population was right and it
+ * left exactly that: enrollees whose answers went in and were visible only as
+ * a count on an admin screen.
+ *
+ * NOT `clinician.demo`, AND THAT IS NOT A CHOICE. A clinician belongs to one
+ * tenant, and moving the demo clinician here would empty the caseload of
+ * forty-two fabricated people that the whole demonstration rests on. Two
+ * populations need two clinicians; it is the same reason they needed two
+ * tenants.
+ *
+ * CREATED WITH THE TENANT, so the two cannot exist apart. A pilot with a
+ * clinician and no tenant is impossible, and a tenant with no clinician was
+ * the bug.
+ */
+export async function ensurePilotClinician(): Promise<string> {
+  const c = await data();
+  const { hashPassword } = await import("../db");
+  await c.run(
+    `INSERT INTO users (id, email, name, role, password_hash, status, tenant_id)
+     VALUES (?, ?, 'Pilot Clinician', 'clinician', ?, 'active', ?)
+     ON CONFLICT(id) DO NOTHING`,
+    // A DISTINCT PASSWORD, like every other demo role — a shared one makes
+    // "which account am I signed in as" a question answered from memory. It
+    // lives in docs/demo/demo-logins.md and on no public page (§3).
+    [PILOT_CLINICIAN_ID, PILOT_CLINICIAN_EMAIL, hashPassword("pilotclin1234"), PILOT_TENANT_ID]
+  );
+  // FABRICATED, and this is the one place in the pilot where that is the right
+  // answer: nobody is described by this account. It is a login, not a person —
+  // which also keeps it out of `enrolledCount`, so the operator does not lose a
+  // place to it.
+  const { provisionPerson } = await import("../spine");
+  await provisionPerson({
+    userId: PILOT_CLINICIAN_ID, name: "Pilot Clinician", email: PILOT_CLINICIAN_EMAIL,
+    role: "clinician", tenantId: PILOT_TENANT_ID, provenance: "fabricated",
+  });
+  return PILOT_CLINICIAN_ID;
 }
 
 export type GateVerdict = { ok: true } | { ok: false; reason: string };

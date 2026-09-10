@@ -28,6 +28,7 @@ import { resetDemoData } from "../src/lib/demo-reset";
 import {
   checkEnrollment, enrolledCount, enrollmentOpen, enrollmentState, pilotTenantId,
   verifyEnrollmentCode, ENROLLMENT_LIMIT, PILOT_TENANT_ID,
+  PILOT_CLINICIAN_ID, PILOT_CLINICIAN_EMAIL,
 } from "../src/lib/enrollment/gate";
 
 const CODE = "pilot-code-for-tests";
@@ -499,11 +500,18 @@ test("enrolled people get their own tenant, never the fabricated population's", 
     ["platform", "organization", "facility", "program"].includes(row!.kind),
     `the pilot tenant's kind ${row!.kind} is outside the schema's closed set`
   );
-  const fabricatedHere = (db.prepare(
-    "SELECT COUNT(*) AS n FROM persons WHERE tenant_id = ? AND provenance = 'fabricated'"
+  // THE INVARIANT IS ABOUT THE COHORT, NOT THE TENANT. Every cohort query
+  // filters `u.role = 'member'`, so what must not mix is fabricated and real
+  // MEMBERS — the pilot's clinician is a fabricated login in this tenant and
+  // is correctly not part of any cohort. The first version of this assertion
+  // counted every person here and failed the moment that clinician existed,
+  // which would have read as the separation breaking when it had not.
+  const fabricatedMembers = (db.prepare(
+    `SELECT COUNT(*) AS n FROM persons p JOIN users u ON u.id = p.id
+      WHERE p.tenant_id = ? AND p.provenance = 'fabricated' AND u.role = 'member'`
   ).get(tenant) as { n: number }).n;
-  assert.equal(fabricatedHere, 0,
-    "the pilot tenant already holds fabricated people, so a cohort there spans both");
+  assert.equal(fabricatedMembers, 0,
+    "the pilot tenant holds a fabricated member, so a cohort there spans both populations");
 
   // Idempotent: enrolling twice does not create a second tenant, and a reset
   // followed by an enrolment recreates it.
@@ -575,5 +583,78 @@ test("an event defaults to the person's own tenant, not the platform's", async (
   assert.ok(cross, "the cross-tenant check is gone");
   assert.equal(cross!.pass, true, `cross-tenant references: ${cross!.actual}`);
 
+  resetDemoData(db);
+});
+
+// ---------------------------------------------------------------------------
+// The pilot has a clinician, or it is a room nobody can enter
+// ---------------------------------------------------------------------------
+
+test("creating the pilot tenant creates a clinician who can see it", async () => {
+  // WITHOUT ONE THE TENANT IS A DEAD END. Every clinical surface resolves its
+  // scope from `users.tenant_id`, so a tenant with members and no clinician
+  // holds people nobody can open. Separating the pilot from the fabricated
+  // population was right and left exactly that: answers that went in and were
+  // visible only as a count on an admin screen.
+  const db = getDb();
+  resetDemoData(db);
+  const tenant = await pilotTenantId();
+
+  const clin = db.prepare(
+    "SELECT id, email, role, status, tenant_id FROM users WHERE id = ?"
+  ).get(PILOT_CLINICIAN_ID) as
+    | { id: string; email: string; role: string; status: string; tenant_id: string } | undefined;
+  assert.ok(clin, "the pilot tenant has no clinician");
+  assert.equal(clin!.role, "clinician");
+  assert.equal(clin!.status, "active", "an inactive clinician cannot sign in");
+  assert.equal(clin!.tenant_id, tenant,
+    "the pilot clinician is in a different tenant from the pilot, so the caseload is empty");
+  assert.equal(clin!.email, PILOT_CLINICIAN_EMAIL);
+
+  // Idempotent — a second call does not fail or duplicate.
+  await pilotTenantId();
+  const n = (db.prepare(
+    "SELECT COUNT(*) AS n FROM users WHERE tenant_id = ? AND role = 'clinician'"
+  ).get(tenant) as { n: number }).n;
+  assert.equal(n, 1, `the pilot tenant has ${n} clinicians`);
+  resetDemoData(db);
+});
+
+test("the pilot clinician is a login, not a participant", async () => {
+  // Marked fabricated because nobody is described by it — which is also what
+  // keeps it out of `enrolledCount`, so the operator does not lose one of
+  // twenty-five places to an account they created by opening the door.
+  const db = getDb();
+  resetDemoData(db);
+  await pilotTenantId();
+
+  const person = db.prepare("SELECT provenance FROM persons WHERE id = ?")
+    .get(PILOT_CLINICIAN_ID) as { provenance: string } | undefined;
+  assert.ok(person, "the pilot clinician has no person row, so no event can reference them");
+  assert.equal(person!.provenance, "fabricated",
+    "the pilot clinician is marked real, so it counts as an enrolled person");
+  assert.equal(await enrolledCount(), 0, "creating the clinician used up an enrolment place");
+
+  // And it does not reach the participant list.
+  const { pilotParticipants } = await import("../src/lib/enrollment/pilot-console");
+  assert.equal((await pilotParticipants()).length, 0,
+    "the clinician account is listed as a pilot participant");
+  resetDemoData(db);
+});
+
+test("the demo clinician stays with the fabricated population", async () => {
+  // A clinician belongs to ONE tenant. Moving clinician.demo to the pilot
+  // would empty the caseload of the forty-two fabricated people the whole
+  // demonstration rests on — two populations need two clinicians for the same
+  // reason they needed two tenants.
+  const db = getDb();
+  resetDemoData(db);
+  await pilotTenantId();
+  const demo = db.prepare(
+    "SELECT tenant_id FROM users WHERE email = 'clinician.demo@steady.local'"
+  ).get() as { tenant_id: string } | undefined;
+  assert.ok(demo, "the demo clinician is gone");
+  assert.notEqual(demo!.tenant_id, PILOT_TENANT_ID,
+    "the demo clinician was moved into the pilot, emptying the demonstration caseload");
   resetDemoData(db);
 });
