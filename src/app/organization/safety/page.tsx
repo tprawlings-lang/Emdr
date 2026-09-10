@@ -1,7 +1,7 @@
 import { OrgPage } from "@/components/app/OrgPage";
 import { EnvelopeView } from "@/components/presentation/EnvelopeView";
 import { Note, Panel, WithNote } from "@/components/app/surfaces";
-import { Figure, Line, num, pct } from "@/components/charts/aggregate";
+import { Figure, Line, pct, people } from "@/components/charts/aggregate";
 import { buildOrgSafetyOps } from "@/lib/intelligence/organization";
 import { resolveOrgTenant } from "@/lib/intelligence/scope";
 
@@ -58,7 +58,7 @@ export default async function OrgSafetyPage() {
               >
                 <Panel>
                   <p className="mb-4 text-sm text-ground">
-                    {num(s.triggered)} people met a fixed gate. A human response is recorded
+                    {people(s.triggered)} people met a fixed gate. A human response is recorded
                     for {pct(s.responded)}. No model makes, clears or reverses a gate.
                   </p>
                   <Figure

@@ -160,7 +160,12 @@ export const ACCESS_STEPS: AccessStep[] = [
     check: "Apply small-cell suppression for aggregate roles",
     onFailure: "Suppress value and related derivations",
     proof: "statically",
-    evidence: ["SMALL_CELL", "suppressed(", "suppressExternal(", "suppressSmallCells("],
+    // `countColumns:` is the caller's half of the export contract, and it earns
+    // its place here: `createExport` cannot suppress what it cannot identify,
+    // so the type requires every caller to name which columns are counts of
+    // people before a file can exist. A screen that renders no figure but
+    // produces a governed file shows its suppression there and nowhere else.
+    evidence: ["SMALL_CELL", "suppressed(", "suppressExternal(", "suppressSmallCells(", "countColumns:"],
     attackedBy: ["tests/aggregate-boundary.test.ts", "tests/metrics.test.ts"],
   },
   {
@@ -169,7 +174,21 @@ export const ACCESS_STEPS: AccessStep[] = [
     check: "Record access audit event",
     onFailure: "Fail closed for protected evidence if audit write fails",
     proof: "statically",
-    evidence: ["audit(", "auditUnavailable("],
+    // AN ACCESS AUDIT, NOT ANY AUDIT, and the difference produced false
+    // coverage before it was drawn. The marker was `audit(`, which matches
+    // every event this product records — so a member route inherited one from
+    // `subscriptionActive`, whose module writes `subscription_ended` and
+    // `subscription_renewed`. A billing lifecycle event is not evidence that
+    // somebody's record was read, and twenty-seven member routes read as
+    // audited on the strength of it.
+    //
+    // §30.6 step 7 is about recording an ACCESS. This product writes those
+    // under the security family, or with a type that says what was looked at.
+    evidence: [
+      'family: "security"',
+      "_viewed", "_opened", "_accessed", "_read",
+      "auditUnavailable(",
+    ],
     attackedBy: ["tests/audit-chain.test.ts", "tests/access-states.test.ts"],
   },
   {
@@ -199,16 +218,26 @@ export function step(n: number): AccessStep | null {
  * queue does not owe them. Step 6 is about an aggregate, so a person's chart
  * does not. Steps 1, 2, 5 and 8 are owed by every protected route.
  *
- * Step 7 is owed by any route that reads a protected record — every person-level
- * route, and every aggregate one, because an export or a drilldown is a
- * disclosure whether or not it names anybody.
+ * Step 7 is owed where an account reads SOMEBODY ELSE'S record, and by every
+ * aggregate route, because a drilldown is a disclosure whether or not it names
+ * anybody. It is NOT owed by a member reading their own — the same correction
+ * step 3 needed, for the same reason. An access audit exists to record who
+ * looked at whose record; a member is the subject rather than a third party,
+ * and logging every page view of somebody's own data would turn an
+ * accountability record into a log of what they read about themselves. This
+ * product's audit trail is a record of governed actions, not of page views.
  */
 export function stepsFor(entry: RouteEntry): number[] {
   if (!isProtected(entry)) return [];
+  // A REDIRECT SHIM READS NOTHING. `/organization` and `/payer` are four and
+  // seven lines that send somebody to the overview; they have no record to
+  // scope, no population to suppress and no access to record. They still owe
+  // authentication and a role, which they get from their console's layout.
+  if (entry.state === "redirect") return [1, 2];
   const owed = [1, 2, 5];
   if (servesAProjection(entry)) owed.push(8);
-  if (readsAnotherPerson(entry)) owed.push(3);
-  if (isPersonLevel(entry)) owed.push(4, 7);
+  if (readsAnotherPerson(entry)) owed.push(3, 7);
+  if (isPersonLevel(entry)) owed.push(4);
   if (isAggregate(entry)) owed.push(6, 7);
   return [...new Set(owed)].sort((a, b) => a - b);
 }
@@ -317,7 +346,42 @@ export const ACCESS_EXEMPTIONS: AccessExemption[] = [
   {
     path: "/demo/[path]",
     step: 1,
-    reason: "The same door, entered at a named screen. The entry code is still the control.",
+    reason:
+      "The same door as `/demo`, entered at a named screen instead of the landing page. A " +
+      "reviewer follows a link straight to the surface they were sent to see, and the entry " +
+      "code submitted on the gateway is still the control — there is no account behind it to " +
+      "authenticate, because the role is chosen after the code is accepted.",
+  },
+  {
+    path: "/organization/teams",
+    step: 6,
+    reason:
+      "Renders no population data. The screen is a description of how teams are " +
+      "structured and a set of links; there is no count on it, so there is no cell to " +
+      "suppress. Verified by reading it — the file makes no query at all.",
+  },
+  {
+    path: "/organization/teams",
+    step: 7,
+    reason:
+      "Nothing is disclosed, so there is no access to record. An audit event here would " +
+      "say somebody read a page that reports on nobody.",
+  },
+  {
+    path: "/payer/population-access",
+    step: 6,
+    reason:
+      "Renders no population data — a list of access needs and what the contract says " +
+      "about them, with no numerator, denominator or cohort on the screen.",
+  },
+  {
+    path: "/payer/population-access",
+    step: 7,
+    reason:
+      "Nothing is disclosed, so there is no access to record. The page describes the " +
+      "access needs a contract covers and what the plan says about each; it reports on " +
+      "no cohort and reads no record, so an audit event here would say somebody opened a " +
+      "description.",
   },
   {
     path: "/demo/[path]",
@@ -325,6 +389,37 @@ export const ACCESS_EXEMPTIONS: AccessExemption[] = [
     reason:
       "The same door, entered at a named screen. The role is still chosen after the entry " +
       "code is accepted, so there is nothing to confirm here.",
+  },
+  {
+    path: "/demo/scenarios",
+    step: 2,
+    reason:
+      "Any signed-in operator, deliberately not the demo-admin role. The person presenting " +
+      "to a reviewer is usually not the person who administers the environment, and making " +
+      "the walkthrough require the reset role would mean handing out the reset role to run " +
+      "a story. `requireUser` is the guard, and the destructive control this screen links to " +
+      "— `/admin/demo`, which rebuilds the environment — holds `requireDemoAdmin` rather " +
+      "than borrowing this one.",
+  },
+  {
+    path: "/payer/evidence",
+    step: 6,
+    reason:
+      "The registry lists DEFINITIONS, not values. A metric row is its name, its label and " +
+      "its unit; the model row is a version, an approval date, and how many scenarios and " +
+      "assumptions the version holds. Not one number on the screen is a count of people, so " +
+      "there is no cell for a threshold to bite on. The values these definitions produce are " +
+      "suppressed where they are rendered, on the contract and population screens.",
+  },
+  {
+    path: "/payer/evidence/cost",
+    step: 6,
+    reason:
+      "Every figure here is a modelled dollar rate — a PMPM range with a midpoint — and the " +
+      "lists beside it are assumption sentences and superseded version strings. A cohort " +
+      "size would owe suppression and none is shown. The control this screen actually " +
+      "carries is the one above it: an estimate may never be quoted as an observed value, " +
+      "and only an approved model version renders at all.",
   },
 ];
 

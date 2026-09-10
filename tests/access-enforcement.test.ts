@@ -41,7 +41,7 @@ import {
   ACCESS_STEPS, ACCESS_EXEMPTIONS, STATIC_PROOF_LIMIT, PROJECTION_ROUTES,
   isProtected, stepsFor, exemption, readsAnotherPerson, isAggregate,
 } from "../src/lib/governance/access-sequence";
-import { inventory, layoutsFor } from "../src/lib/governance/access-evidence";
+import { inventory, layoutsFor, reachableSource } from "../src/lib/governance/access-evidence";
 import { ACCESS_INVENTORY } from "../src/lib/governance/access-inventory.generated";
 
 const ROOT = path.join(__dirname, "..");
@@ -136,6 +136,40 @@ test("a member reading their own record owes no care-relationship check", () => 
   assert.ok(stepsFor(theirs).includes(3), "a clinician owes no relationship check on a chart");
 });
 
+test("a member reading their own record owes no access audit either", () => {
+  // The same correction step 3 needed, for the same reason. An access audit
+  // records who looked at WHOSE record; a member is the subject rather than a
+  // third party, and logging every page view of somebody's own data turns an
+  // accountability record into a log of what they read about themselves.
+  //
+  // Thirty-four member routes were being counted against this before the
+  // distinction was drawn.
+  const mine = ROUTE_REGISTER.find((r) => r.path === "/app/progress")!;
+  assert.ok(!stepsFor(mine).includes(7), "a member owes an access audit on their own page");
+  const theirs = ROUTE_REGISTER.find((r) => r.path === "/clinician/member/[id]")!;
+  assert.ok(stepsFor(theirs).includes(7), "a clinician owes no access audit on somebody else's chart");
+  const aggregate = ROUTE_REGISTER.find((r) => r.path === "/payer/overview")!;
+  assert.ok(stepsFor(aggregate).includes(7), "an aggregate console owes no access audit");
+});
+
+test("an access audit is not any audit", () => {
+  // THE MARKER PRODUCED FALSE COVERAGE BEFORE IT WAS NARROWED. It was
+  // `audit(`, which matches every event this product records — so member routes
+  // inherited one from `subscriptionActive`, whose module writes
+  // `subscription_ended` and `subscription_renewed`. A billing lifecycle event
+  // is not evidence that somebody's record was read.
+  const seven = ACCESS_STEPS.find((s) => s.n === 7)!;
+  assert.ok(!seven.evidence.includes("audit("), "any audit counts as an access audit again");
+  assert.ok(
+    seven.evidence.some((e) => e.includes("security")),
+    "the security family is no longer accepted as an access audit"
+  );
+  assert.ok(
+    seven.evidence.some((e) => /_viewed|_opened|_accessed|_read/.test(e)),
+    "an event that says what was looked at is no longer accepted"
+  );
+});
+
 test("only a route that serves a versioned payload owes the projection step", () => {
   // A server-rendered page has no DTO to version. Step 8 belongs to the API
   // boundary and to the projection consumers the handoff names.
@@ -203,18 +237,98 @@ test("the walk sees a component used in JSX, not only a function that is called"
   );
 });
 
+test("the walk follows a server action handed to a component", () => {
+  // A FIFTH FORM OF USE, and the most consequential one it was blind to.
+  //
+  // `action={requestOrgExport}` is neither a call nor a JSX element, and what
+  // it hands over is the one write path that produces a governed export. The
+  // reports screen renders no figure of its own — its suppression lives
+  // entirely in the file that action produces — so at call-and-JSX detection
+  // only it reported no suppression while being the single route on the
+  // console whose whole job is a disclosure.
+  for (const path of ["/organization/reports", "/payer/contract"]) {
+    const row = inv.routes.find((r) => r.path === path);
+    assert.ok(row, `${path} is not in the register`);
+    assert.ok(
+      (row!.found[6] ?? []).length > 0,
+      `${path} produces a governed export and shows no suppression`
+    );
+  }
+
+  // The marker it finds is the CALLER'S half of the contract. `createExport`
+  // cannot suppress a column it has not been told is a count of people, and
+  // the type makes every caller name them — including naming none, which is
+  // what the contract report does and why it is a declaration rather than an
+  // omission.
+  const actions = code("src/lib/intelligence/export-actions.ts");
+  assert.match(actions, /countColumns: \["referred", "contacted", "started"\]/,
+    "the site export no longer names its count columns");
+  assert.match(actions, /countColumns: \[\]/,
+    "the contract export no longer declares that it has no count columns");
+  assert.match(code("src/lib/intelligence/export.ts"), /req\.countColumns\.includes\(col\)/,
+    "the export path no longer suppresses the columns its caller named");
+});
+
+test("the walk finds a body that opens inside a call's parentheses", () => {
+  // A FOURTH FIDELITY BUG, and the first one caught by disbelieving a
+  // regression rather than a cell.
+  //
+  // `recordAggregateAccess` was rewritten from a function declaration to
+  // `const recordAggregateAccess = cache(async (…) => { … })` — the shape
+  // request-scoped memoisation takes — and twenty aggregate routes went from
+  // audited to unaudited without a line of their own changing. The walk's
+  // brace-matcher took the first `{` at paren depth zero, and an arrow body
+  // inside `cache(` sits at depth one, so it read the function as having no
+  // body and none of its markers reached the routes.
+  //
+  // Asserted on the routes rather than on the matcher, because the matcher is
+  // private and the thing that matters is the answer, not the mechanism.
+  const aggregate = inv.routes.filter(
+    (r) => r.path.startsWith("/organization/") || r.path.startsWith("/payer/")
+  );
+  assert.ok(aggregate.length > 10, "the aggregate consoles are missing from the register");
+  const unaudited = aggregate
+    .filter((r) => r.owed.includes(7) && !r.exempt.includes(7) && (r.found[7] ?? []).length === 0)
+    .map((r) => r.path);
+  assert.deepEqual(
+    unaudited, [],
+    `these aggregate consoles show no access audit: ${unaudited.join(", ")}`
+  );
+});
+
 test("the walk does not reach through the whole codebase", () => {
-  // The failure that would make this screen worthless. If every route were
-  // green, the walk would be finding evidence through imports rather than in
-  // the code that runs.
-  assert.ok(
-    inv.complete < inv.protectedCount,
-    "every protected route shows every step; the walk is almost certainly too deep"
-  );
-  assert.ok(
-    Object.values(inv.gapsByStep).some((n) => n > 0),
-    "no step has a single gap anywhere, which no real codebase looks like"
-  );
+  // THE FAILURE THAT WOULD MAKE THIS SCREEN WORTHLESS: a walk deep enough to
+  // find `audit(` from anywhere, so every route reads green regardless of what
+  // it actually calls.
+  //
+  // THIS USED TO BE CHECKED BY "SOME ROUTE STILL HAS A GAP", and that stopped
+  // working the moment the last gap closed. It was a proxy, and a bad one in
+  // both directions: it would have passed a hopelessly deep walk over a
+  // codebase with one unguarded route, and it failed a correctly-bounded walk
+  // over a codebase with none. A test that a codebase can only pass by staying
+  // imperfect is a test that will be deleted the week it finally fails.
+  //
+  // WHAT REPLACES IT IS A NEGATIVE CONTROL. `/app/ground` is a member page
+  // three hops from the aggregate consoles: its layout, its own imports and
+  // their bodies contain nothing from `lib/intelligence`. If a marker that
+  // lives there turns up in its reachable source, the walk is transitive and
+  // every green cell on the screen is meaningless.
+  const ground = reachableSource("app/app/ground/page.tsx", "/app/ground");
+  assert.ok(ground.length > 0, "the walk found no source at all for /app/ground");
+  for (const foreign of [
+    "aggregate_console_viewed",  // lib/intelligence/scope.ts
+    "suppressSmallCells(",       // the aggregate suppression helpers
+    "countColumns:",             // lib/intelligence/export-actions.ts
+  ]) {
+    assert.ok(
+      !ground.includes(foreign),
+      `the walk reached "${foreign}" from a member page; it is following imports transitively`
+    );
+  }
+
+  // And the other direction on the same route: the walk is not empty either.
+  // A bounded walk that finds nothing anywhere would also pass the check above.
+  assert.match(ground, /requireMember\(/, "the walk missed the member layout's own guard");
 });
 
 // ---------------------------------------------------------------------------
@@ -323,12 +437,141 @@ test("the screen reports the open questions rather than only the coverage", () =
   assert.match(code("src/components/clinical/ReviewPage.tsx"), /href: "\/review\/security"/);
 });
 
-test("the inventory currently has open questions, and the screen will show them", () => {
-  // Not an aspiration — a record of the state this shipped in. Fifty-seven
-  // routes read a protected record without an access audit event, nineteen
-  // member care routes have no consent check on them, and those are findings
-  // this screen exists to make visible rather than numbers to tidy away.
-  const withGaps = inv.routes.filter((r) => r.missing.length > 0);
-  assert.ok(withGaps.length > 0, "there are no open questions; check the walk still works");
-  assert.ok(inv.gapsByStep[7] > 0, "the audit gap closed without this test noticing");
+test("the open questions moved into the exemption list rather than disappearing", () => {
+  // WHAT THIS SCREEN SHIPPED WITH: fifty-seven routes reading a protected
+  // record with no access audit event, nineteen member care routes with no
+  // consent check, twenty-four aggregate consoles reading a population without
+  // recording that anybody had, and two projections handing out an unversioned
+  // payload. Every one of those is closed, and this test used to assert they
+  // were open — a record of a state, which stopped being true.
+  //
+  // THE OPEN QUESTIONS DID NOT GO AWAY. They changed form. A route that shows
+  // every step it owes may still owe a step somebody DECIDED it does not, and
+  // that decision is the thing a reviewer should argue with. So the assertion
+  // is that the decisions are still on the screen and still attached to
+  // reasons, rather than that some cell is still empty.
+  const exempted = inv.routes.filter((r) => r.exempt.length > 0);
+  assert.ok(exempted.length > 0, "no route declares an exemption, which no real codebase looks like");
+  for (const r of exempted) {
+    for (const n of r.exempt) {
+      const e = exemption(r.path, n);
+      assert.ok(e, `${r.path} is exempt from step ${n} with no entry behind it`);
+      assert.ok(
+        e!.reason.length > 120,
+        `${r.path} step ${n} is exempt on a one-liner; an exemption is an argument, not a label`
+      );
+    }
+  }
+
+  // And the screen has to say so when nothing is missing, rather than going
+  // quiet. A blank Open questions panel reads as "not checked".
+  const page = code("src/app/review/security/page.tsx");
+  assert.match(page, /withGaps\.length === 0/, "the screen has no empty state for a complete walk");
+});
+
+test("reading somebody else's record is audited at the one place every tab passes through", () => {
+  // Eight of the fifteen clinician person tabs read a chart without recording
+  // that anybody had, and the two that did each wrote their own event from
+  // their own page — the same shape as the five prefixes of the member gate
+  // chain, one layer down.
+  //
+  // It goes where the tenant scope already goes: a sub-route cannot ship
+  // unscoped by forgetting the WHERE clause, and should not be able to ship
+  // unaudited by forgetting a line.
+  const header = code("src/lib/clinical/person-header.ts");
+  assert.match(header, /type: "person_record_viewed"/, "the person header records no access");
+  assert.match(header, /family: "security"/);
+  // AFTER the lookup: a person outside this tenant returns null above, and
+  // recording a refused read would put the subject's id in the trail on the
+  // strength of somebody guessing it.
+  const nullReturn = header.indexOf("if (!person) return null;");
+  const record = header.indexOf("recordAccess(");
+  assert.ok(nullReturn > 0 && record > nullReturn, "a refused read is audited as an access");
+  // And no person page keeps its own generic copy.
+  const generic: string[] = [];
+  const dir = path.join(ROOT, "src/app/clinician/member/[id]");
+  const walk = (d: string) => {
+    for (const e of fs.readdirSync(d, { withFileTypes: true })) {
+      const p = path.join(d, e.name);
+      if (e.isDirectory()) { walk(p); continue; }
+      if (e.name !== "page.tsx") continue;
+      if (/type: "member_record_viewed"|type: "person_record_viewed"/.test(
+        code(path.relative(ROOT, p))
+      )) generic.push(path.relative(ROOT, p));
+    }
+  };
+  walk(dir);
+  assert.deepEqual(generic, [], `these pages write their own generic access event: ${generic.join(", ")}`);
+});
+
+test("an aggregate console records its read once per request, not once per call", () => {
+  // A drilldown is a disclosure whether or not it names anybody, and
+  // twenty-four organization and payer routes read a population without
+  // recording that anybody had.
+  //
+  // ONCE PER REQUEST. A console resolves its tenant from the page and again
+  // from the components beneath it, and the first version wrote twelve
+  // identical rows for four page views. An access trail with three entries for
+  // one read is harder to answer a question from than one with a single entry.
+  const scope = code("src/lib/intelligence/scope.ts");
+  assert.match(scope, /type: "aggregate_console_viewed"/, "the aggregate scope records no access");
+  assert.match(scope, /cache\(/, "the aggregate access event is not memoised per request");
+  // Recorded with the tenant that was actually resolved, so a refused request
+  // puts nothing in the trail.
+  assert.match(scope, /if \(!tenantId\) return;/, "a refused scope is recorded as an access");
+});
+
+test("a projection version says which POLICY produced it, not only which build", () => {
+  // §30.6 step 8 asks for "the projection version", and a version that names
+  // only the schema answers the wrong question here.
+  //
+  // The person record's `band` is computed by the priority policy. Two records
+  // stamped `clinician_patient.v1` under different policies are not comparable
+  // — the same member is "elevated" on one and "routine" on the other, and
+  // nothing on either screen says why. So the policy version is joined INTO
+  // the projection version rather than parked in a field beside it, which is
+  // the same shape the clinician queue already uses.
+  const header = code("src/lib/clinical/person-header.ts");
+  assert.match(
+    header, /projectionVersion: `\$\{CLINICIAN_PATIENT_SCHEMA\}\+\$\{policy\.version\}`/,
+    "the person record's projection version does not carry the policy that computed its band"
+  );
+  // The watermark is the evidence behind the band, not the render time — a
+  // watermark equal to `now` on every request carries no information at all.
+  assert.match(
+    header, /sourceWatermark: head\?\.evidenceAt \?\? null/,
+    "the person record's watermark is not the evidence it reflects"
+  );
+
+  // AND IT REACHES THE SCREEN. A version held in a payload nobody renders
+  // settles no argument about a screenshot, which is the argument it exists
+  // to settle.
+  assert.match(
+    code("src/components/clinical/PersonShell.tsx"), /\{person\.meta\.projectionVersion\}/,
+    "the person header computes a projection version and never shows it"
+  );
+
+  // The audit trace, on the same terms. Its chain state is what changes the
+  // meaning of the rows, so that is what travels in its version.
+  const trace = code("src/lib/clinical/audit-history.ts");
+  assert.match(
+    trace, /chain:\$\{chain\.ok \? "verified" : "broken"\}/,
+    "the audit trace's version does not say whether the chain verified"
+  );
+  assert.match(
+    code("src/app/review/audit/page.tsx"), /\{feed\.meta\.projectionVersion\}/,
+    "the audit console never renders the version of the trace it is showing"
+  );
+});
+
+test("an access audit never fails a read", () => {
+  // §30.6's fail-closed rule is about protected EVIDENCE and high-impact
+  // actions — the envelope's `audit_unavailable` state — not about withholding
+  // a chart from a clinician who is with a member.
+  for (const rel of ["src/lib/clinical/person-header.ts", "src/lib/intelligence/scope.ts"]) {
+    const src = code(rel);
+    const at = src.indexOf("family: \"security\"");
+    assert.ok(at > 0, `${rel} writes no access event`);
+    assert.match(src.slice(at, at + 600), /catch/, `${rel} lets a failed audit throw into a render`);
+  }
 });

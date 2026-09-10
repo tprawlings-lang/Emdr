@@ -23,6 +23,7 @@ function read(p: string): string {
   return fs.existsSync(p) ? fs.readFileSync(p, "utf8") : "";
 }
 
+
 function walk(dir: string, ext = ".tsx"): string[] {
   if (!fs.existsSync(dir)) return [];
   const out: string[] = [];
@@ -131,6 +132,59 @@ test("pct and cell always render numerator and denominator", async () => {
 
   // At the threshold it reports normally.
   assert.match(cell({ n: SMALL_CELL, of: 4820 }), /11/);
+});
+
+test("a bare headline count of people is suppressed too, and zero stays zero", async () => {
+  const { people, num, SMALL_CELL } = await import("../src/components/charts/aggregate");
+
+  // `cell` needs a denominator because it renders a proportion. A headline —
+  // "N met a fixed gate", "N eligible members" — has none to carry, so it went
+  // through `num` and came out raw. Eight aggregate routes rendered person
+  // counts with no suppression on them at all that way: the count was true,
+  // the formatter was innocent, and nothing in between asked whether three
+  // people is a number the screen may say out loud.
+  const small = people(SMALL_CELL - 1);
+  assert.equal(small, `under ${SMALL_CELL}`);
+  assert.doesNotMatch(small, new RegExp(`\\b${SMALL_CELL - 1}\\b`), "the suppressed count leaked");
+
+  // At and above the threshold, formatted normally.
+  assert.equal(people(SMALL_CELL), num(SMALL_CELL));
+  assert.equal(people(4820), "4,820");
+
+  // ZERO STAYS ZERO. "None" is not disclosive, and hiding it would make an
+  // empty population look like a suppressed one — the opposite of §29.1's
+  // rule that suppressed data stays visible AS suppressed.
+  assert.equal(people(0), "0");
+});
+
+test("a bar is withheld rather than blanked when its site is small", async () => {
+  const { buildOrgCapacity } = await import("../src/lib/intelligence/organization");
+  const { SMALL_CELL } = await import("../src/components/charts/aggregate");
+
+  // A BAR CARRIES ITS VALUE TWICE: in the label and in its length. Suppressing
+  // the number while still drawing a bar a third as long as its neighbour
+  // discloses the same thing more quietly, which is worse than not drawing it.
+  // So a small site leaves the list and the COUNT of what left goes on screen.
+  const src = code(read(path.join(INTEL_LIB, "organization.ts")));
+  assert.match(src, /r\.value === 0 \|\| r\.value >= SMALL_CELL/,
+    "the capacity demand list no longer filters small sites");
+  assert.match(src, /withheldSites/, "the capacity projection no longer counts what it withheld");
+
+  // Suppressed once, before either branch returns: a site withheld on the
+  // partial path and shown on the ready one would be a threshold that depends
+  // on whether an unrelated slot feed happens to be connected.
+  assert.equal(
+    (src.match(/withhold\(rows\.map\(/g) ?? []).length, 1,
+    "the demand list is suppressed more than once, so the two branches can disagree"
+  );
+
+  // And the screen says how many are missing rather than quietly showing fewer.
+  const page = code(read(path.join(ORG_APP, "capacity", "page.tsx")));
+  assert.match(page, /c\.withheldSites > 0/, "the capacity screen never mentions what it withheld");
+  assert.match(page, /SMALL_CELL/, "the note does not name the threshold it applied");
+
+  assert.ok(typeof buildOrgCapacity === "function");
+  assert.ok(SMALL_CELL > 1);
 });
 
 // ---------------------------------------------------------------------------

@@ -1,6 +1,6 @@
 import { PayerPage } from "@/components/app/PayerPage";
 import { Panel } from "@/components/app/surfaces";
-import { num } from "@/components/charts/aggregate";
+import { people } from "@/components/charts/aggregate";
 import { loadContract } from "@/lib/intelligence/payer";
 import { resolvePayerTenant } from "@/lib/intelligence/scope";
 import { data } from "@/lib/data";
@@ -52,7 +52,7 @@ export default async function PayerCohortsPage() {
                 ["Version", contract.cohortVersion],
                 ["Contract", contract.name],
                 ["Period", `${contract.periodStart} to ${contract.periodEnd}`],
-                ["Members", `${num(pop)} eligible`],
+                ["Members", `${people(pop)} eligible`],
                 ["Membership rule", "Enrolled in the behavioural-health programme with an eligibility span overlapping the contract period."],
                 ["Claims lag expected", `${contract.claimsLagDays} days`],
               ].map(([k, v]) => (

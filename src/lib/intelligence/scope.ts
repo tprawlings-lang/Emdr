@@ -1,4 +1,8 @@
+import { cache } from "react";
+import { headers } from "next/headers";
+
 import { data } from "@/lib/data";
+import { audit } from "@/lib/audit";
 import { getCurrentUser } from "@/lib/auth";
 
 // Which tenant an Intelligence account reports on (§30.6 step 1: resolve the
@@ -42,8 +46,11 @@ export async function resolveOrgTenant(): Promise<string | null> {
   const user = await getCurrentUser();
   if (!user) return null;
   if (user.role !== "organization" && user.role !== "demo_admin") return null;
-  if (user.role === "demo_admin") return demoAdminTenant("organization");
-  return await resolveActingTenant();
+  const tenant = user.role === "demo_admin"
+    ? await demoAdminTenant("organization")
+    : await resolveActingTenant();
+  await recordAggregateAccess(user.id, user.role, tenant);
+  return tenant;
 }
 
 /** A health plan: the acting tenant, when the account holds the payer role. */
@@ -51,9 +58,59 @@ export async function resolvePayerTenant(): Promise<string | null> {
   const user = await getCurrentUser();
   if (!user) return null;
   if (user.role !== "payer" && user.role !== "demo_admin") return null;
-  if (user.role === "demo_admin") return demoAdminTenant("payer");
-  return await resolveActingTenant();
+  const tenant = user.role === "demo_admin"
+    ? await demoAdminTenant("payer")
+    : await resolveActingTenant();
+  await recordAggregateAccess(user.id, user.role, tenant);
+  return tenant;
 }
+
+/**
+ * §30.6 step 7, at the one place every aggregate console passes through.
+ *
+ * A DRILLDOWN IS A DISCLOSURE WHETHER OR NOT IT NAMES ANYBODY. Twenty-four
+ * organization and payer routes read a population without recording that
+ * anybody had, and the aggregate consoles are the surfaces whose whole risk is
+ * that a small enough cohort stops being aggregate.
+ *
+ * Recorded AFTER the role check and with the tenant that was actually resolved,
+ * so a refused request does not put a tenant id in the trail on the strength of
+ * somebody asking for it. The surface comes from the request rather than from
+ * twenty call sites, each of which would be a chance to name the wrong one.
+ *
+ * Never throws into a render: a failed audit on a read is not a reason to
+ * withhold a report. §30.6's fail-closed rule is about protected evidence and
+ * high-impact actions, which is the envelope's `audit_unavailable` state.
+ *
+ * ONCE PER REQUEST, not once per call. A console resolves its tenant from the
+ * page and again from the components beneath it, and the first version of this
+ * wrote twelve identical rows for four page views. An access trail with three
+ * entries for one read is harder to answer a question from than one with a
+ * single entry per read, which is the whole point of keeping it. React's
+ * `cache` memoises by argument for the life of a render, which is exactly the
+ * scope wanted here: one row per person per console per request.
+ */
+const recordAggregateAccess = cache(async (
+  actorId: string, actorRole: string, tenantId: string | null
+): Promise<void> => {
+  if (!tenantId) return;
+  let surface = "unknown";
+  try {
+    surface = (await headers()).get("x-pathname") ?? "unknown";
+  } catch {
+    // Called outside a request. Nothing to name, and nothing to fail.
+  }
+  try {
+    await audit({
+      actorId, actorRole, family: "security",
+      type: "aggregate_console_viewed",
+      target: tenantId,
+      detail: { surface },
+    });
+  } catch (err) {
+    console.error("access audit failed for an aggregate console read:", err);
+  }
+});
 
 /**
  * Demo administration is the one role with no tenant of its own (p6: "all

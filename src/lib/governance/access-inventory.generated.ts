@@ -20,7 +20,6 @@ export const ACCESS_INVENTORY: AccessInventory = {
         2,
         4,
         5,
-        7,
         8
       ],
       "found": {
@@ -36,9 +35,6 @@ export const ACCESS_INVENTORY: AccessInventory = {
           "revoked_at IS NULL"
         ],
         "5": [],
-        "7": [
-          "audit("
-        ],
         "8": [
           "projectionVersion",
           "schemaVersion",
@@ -56,8 +52,7 @@ export const ACCESS_INVENTORY: AccessInventory = {
         1,
         2,
         4,
-        5,
-        7
+        5
       ],
       "found": {
         "1": [
@@ -71,10 +66,7 @@ export const ACCESS_INVENTORY: AccessInventory = {
           "hasConsent(",
           "revoked_at IS NULL"
         ],
-        "5": [],
-        "7": [
-          "audit("
-        ]
+        "5": []
       },
       "missing": [],
       "exempt": []
@@ -87,8 +79,7 @@ export const ACCESS_INVENTORY: AccessInventory = {
         1,
         2,
         4,
-        5,
-        7
+        5
       ],
       "found": {
         "1": [
@@ -102,10 +93,7 @@ export const ACCESS_INVENTORY: AccessInventory = {
           "hasConsent(",
           "revoked_at IS NULL"
         ],
-        "5": [],
-        "7": [
-          "audit("
-        ]
+        "5": []
       },
       "missing": [],
       "exempt": []
@@ -119,7 +107,6 @@ export const ACCESS_INVENTORY: AccessInventory = {
         2,
         4,
         5,
-        7,
         8
       ],
       "found": {
@@ -135,9 +122,6 @@ export const ACCESS_INVENTORY: AccessInventory = {
           "revoked_at IS NULL"
         ],
         "5": [],
-        "7": [
-          "audit("
-        ],
         "8": [
           "projectionVersion",
           "schemaVersion",
@@ -155,8 +139,7 @@ export const ACCESS_INVENTORY: AccessInventory = {
         1,
         2,
         4,
-        5,
-        7
+        5
       ],
       "found": {
         "1": [
@@ -170,10 +153,7 @@ export const ACCESS_INVENTORY: AccessInventory = {
           "hasConsent(",
           "revoked_at IS NULL"
         ],
-        "5": [],
-        "7": [
-          "audit("
-        ]
+        "5": []
       },
       "missing": [],
       "exempt": []
@@ -186,8 +166,7 @@ export const ACCESS_INVENTORY: AccessInventory = {
         1,
         2,
         4,
-        5,
-        7
+        5
       ],
       "found": {
         "1": [
@@ -201,10 +180,7 @@ export const ACCESS_INVENTORY: AccessInventory = {
           "hasConsent(",
           "revoked_at IS NULL"
         ],
-        "5": [],
-        "7": [
-          "audit("
-        ]
+        "5": []
       },
       "missing": [],
       "exempt": []
@@ -217,8 +193,7 @@ export const ACCESS_INVENTORY: AccessInventory = {
         1,
         2,
         4,
-        5,
-        7
+        5
       ],
       "found": {
         "1": [
@@ -232,10 +207,7 @@ export const ACCESS_INVENTORY: AccessInventory = {
           "hasConsent(",
           "revoked_at IS NULL"
         ],
-        "5": [],
-        "7": [
-          "audit("
-        ]
+        "5": []
       },
       "missing": [],
       "exempt": []
@@ -248,8 +220,7 @@ export const ACCESS_INVENTORY: AccessInventory = {
         1,
         2,
         4,
-        5,
-        7
+        5
       ],
       "found": {
         "1": [
@@ -263,10 +234,7 @@ export const ACCESS_INVENTORY: AccessInventory = {
           "hasConsent(",
           "revoked_at IS NULL"
         ],
-        "5": [],
-        "7": [
-          "audit("
-        ]
+        "5": []
       },
       "missing": [],
       "exempt": []
@@ -279,17 +247,13 @@ export const ACCESS_INVENTORY: AccessInventory = {
         1,
         2,
         4,
-        5,
-        7
+        5
       ],
       "found": {
         "1": [],
         "2": [],
         "4": [],
-        "5": [],
-        "7": [
-          "audit("
-        ]
+        "5": []
       },
       "missing": [],
       "exempt": [
@@ -306,8 +270,7 @@ export const ACCESS_INVENTORY: AccessInventory = {
         1,
         2,
         4,
-        5,
-        7
+        5
       ],
       "found": {
         "1": [
@@ -321,10 +284,7 @@ export const ACCESS_INVENTORY: AccessInventory = {
           "hasConsent(",
           "revoked_at IS NULL"
         ],
-        "5": [],
-        "7": [
-          "audit("
-        ]
+        "5": []
       },
       "missing": [],
       "exempt": []
@@ -337,8 +297,7 @@ export const ACCESS_INVENTORY: AccessInventory = {
         1,
         2,
         4,
-        5,
-        7
+        5
       ],
       "found": {
         "1": [
@@ -352,10 +311,7 @@ export const ACCESS_INVENTORY: AccessInventory = {
           "hasConsent(",
           "revoked_at IS NULL"
         ],
-        "5": [],
-        "7": [
-          "audit("
-        ]
+        "5": []
       },
       "missing": [],
       "exempt": []
@@ -368,8 +324,7 @@ export const ACCESS_INVENTORY: AccessInventory = {
         1,
         2,
         4,
-        5,
-        7
+        5
       ],
       "found": {
         "1": [
@@ -383,10 +338,7 @@ export const ACCESS_INVENTORY: AccessInventory = {
           "hasConsent(",
           "revoked_at IS NULL"
         ],
-        "5": [],
-        "7": [
-          "audit("
-        ]
+        "5": []
       },
       "missing": [],
       "exempt": []
@@ -399,8 +351,7 @@ export const ACCESS_INVENTORY: AccessInventory = {
         1,
         2,
         4,
-        5,
-        7
+        5
       ],
       "found": {
         "1": [
@@ -414,10 +365,7 @@ export const ACCESS_INVENTORY: AccessInventory = {
           "hasConsent(",
           "revoked_at IS NULL"
         ],
-        "5": [],
-        "7": [
-          "audit("
-        ]
+        "5": []
       },
       "missing": [],
       "exempt": []
@@ -430,8 +378,7 @@ export const ACCESS_INVENTORY: AccessInventory = {
         1,
         2,
         4,
-        5,
-        7
+        5
       ],
       "found": {
         "1": [
@@ -445,10 +392,7 @@ export const ACCESS_INVENTORY: AccessInventory = {
           "hasConsent(",
           "revoked_at IS NULL"
         ],
-        "5": [],
-        "7": [
-          "audit("
-        ]
+        "5": []
       },
       "missing": [],
       "exempt": []
@@ -461,8 +405,7 @@ export const ACCESS_INVENTORY: AccessInventory = {
         1,
         2,
         4,
-        5,
-        7
+        5
       ],
       "found": {
         "1": [
@@ -476,10 +419,7 @@ export const ACCESS_INVENTORY: AccessInventory = {
           "hasConsent(",
           "revoked_at IS NULL"
         ],
-        "5": [],
-        "7": [
-          "audit("
-        ]
+        "5": []
       },
       "missing": [],
       "exempt": []
@@ -492,8 +432,7 @@ export const ACCESS_INVENTORY: AccessInventory = {
         1,
         2,
         4,
-        5,
-        7
+        5
       ],
       "found": {
         "1": [
@@ -507,10 +446,7 @@ export const ACCESS_INVENTORY: AccessInventory = {
           "hasConsent(",
           "revoked_at IS NULL"
         ],
-        "5": [],
-        "7": [
-          "audit("
-        ]
+        "5": []
       },
       "missing": [],
       "exempt": []
@@ -523,8 +459,7 @@ export const ACCESS_INVENTORY: AccessInventory = {
         1,
         2,
         4,
-        5,
-        7
+        5
       ],
       "found": {
         "1": [
@@ -538,10 +473,7 @@ export const ACCESS_INVENTORY: AccessInventory = {
           "hasConsent(",
           "revoked_at IS NULL"
         ],
-        "5": [],
-        "7": [
-          "audit("
-        ]
+        "5": []
       },
       "missing": [],
       "exempt": []
@@ -554,8 +486,7 @@ export const ACCESS_INVENTORY: AccessInventory = {
         1,
         2,
         4,
-        5,
-        7
+        5
       ],
       "found": {
         "1": [
@@ -569,10 +500,7 @@ export const ACCESS_INVENTORY: AccessInventory = {
           "hasConsent(",
           "revoked_at IS NULL"
         ],
-        "5": [],
-        "7": [
-          "audit("
-        ]
+        "5": []
       },
       "missing": [],
       "exempt": []
@@ -585,8 +513,7 @@ export const ACCESS_INVENTORY: AccessInventory = {
         1,
         2,
         4,
-        5,
-        7
+        5
       ],
       "found": {
         "1": [
@@ -600,10 +527,7 @@ export const ACCESS_INVENTORY: AccessInventory = {
           "hasConsent(",
           "revoked_at IS NULL"
         ],
-        "5": [],
-        "7": [
-          "audit("
-        ]
+        "5": []
       },
       "missing": [],
       "exempt": []
@@ -616,8 +540,7 @@ export const ACCESS_INVENTORY: AccessInventory = {
         1,
         2,
         4,
-        5,
-        7
+        5
       ],
       "found": {
         "1": [
@@ -631,10 +554,7 @@ export const ACCESS_INVENTORY: AccessInventory = {
           "hasConsent(",
           "revoked_at IS NULL"
         ],
-        "5": [],
-        "7": [
-          "audit("
-        ]
+        "5": []
       },
       "missing": [],
       "exempt": []
@@ -648,7 +568,6 @@ export const ACCESS_INVENTORY: AccessInventory = {
         2,
         4,
         5,
-        7,
         8
       ],
       "found": {
@@ -664,9 +583,6 @@ export const ACCESS_INVENTORY: AccessInventory = {
           "revoked_at IS NULL"
         ],
         "5": [],
-        "7": [
-          "audit("
-        ],
         "8": [
           "projectionVersion",
           "schemaVersion",
@@ -684,8 +600,7 @@ export const ACCESS_INVENTORY: AccessInventory = {
         1,
         2,
         4,
-        5,
-        7
+        5
       ],
       "found": {
         "1": [
@@ -699,10 +614,7 @@ export const ACCESS_INVENTORY: AccessInventory = {
           "hasConsent(",
           "revoked_at IS NULL"
         ],
-        "5": [],
-        "7": [
-          "audit("
-        ]
+        "5": []
       },
       "missing": [],
       "exempt": []
@@ -715,8 +627,7 @@ export const ACCESS_INVENTORY: AccessInventory = {
         1,
         2,
         4,
-        5,
-        7
+        5
       ],
       "found": {
         "1": [
@@ -730,10 +641,7 @@ export const ACCESS_INVENTORY: AccessInventory = {
           "hasConsent(",
           "revoked_at IS NULL"
         ],
-        "5": [],
-        "7": [
-          "audit("
-        ]
+        "5": []
       },
       "missing": [],
       "exempt": []
@@ -746,8 +654,7 @@ export const ACCESS_INVENTORY: AccessInventory = {
         1,
         2,
         4,
-        5,
-        7
+        5
       ],
       "found": {
         "1": [
@@ -761,10 +668,7 @@ export const ACCESS_INVENTORY: AccessInventory = {
           "hasConsent(",
           "revoked_at IS NULL"
         ],
-        "5": [],
-        "7": [
-          "audit("
-        ]
+        "5": []
       },
       "missing": [],
       "exempt": []
@@ -777,8 +681,7 @@ export const ACCESS_INVENTORY: AccessInventory = {
         1,
         2,
         4,
-        5,
-        7
+        5
       ],
       "found": {
         "1": [
@@ -792,10 +695,7 @@ export const ACCESS_INVENTORY: AccessInventory = {
           "hasConsent(",
           "revoked_at IS NULL"
         ],
-        "5": [],
-        "7": [
-          "audit("
-        ]
+        "5": []
       },
       "missing": [],
       "exempt": []
@@ -808,8 +708,7 @@ export const ACCESS_INVENTORY: AccessInventory = {
         1,
         2,
         4,
-        5,
-        7
+        5
       ],
       "found": {
         "1": [
@@ -823,10 +722,7 @@ export const ACCESS_INVENTORY: AccessInventory = {
           "hasConsent(",
           "revoked_at IS NULL"
         ],
-        "5": [],
-        "7": [
-          "audit("
-        ]
+        "5": []
       },
       "missing": [],
       "exempt": []
@@ -839,8 +735,7 @@ export const ACCESS_INVENTORY: AccessInventory = {
         1,
         2,
         4,
-        5,
-        7
+        5
       ],
       "found": {
         "1": [
@@ -854,10 +749,7 @@ export const ACCESS_INVENTORY: AccessInventory = {
           "hasConsent(",
           "revoked_at IS NULL"
         ],
-        "5": [],
-        "7": [
-          "audit("
-        ]
+        "5": []
       },
       "missing": [],
       "exempt": []
@@ -870,8 +762,7 @@ export const ACCESS_INVENTORY: AccessInventory = {
         1,
         2,
         4,
-        5,
-        7
+        5
       ],
       "found": {
         "1": [
@@ -885,10 +776,7 @@ export const ACCESS_INVENTORY: AccessInventory = {
           "hasConsent(",
           "revoked_at IS NULL"
         ],
-        "5": [],
-        "7": [
-          "audit("
-        ]
+        "5": []
       },
       "missing": [],
       "exempt": []
@@ -901,8 +789,7 @@ export const ACCESS_INVENTORY: AccessInventory = {
         1,
         2,
         4,
-        5,
-        7
+        5
       ],
       "found": {
         "1": [
@@ -916,10 +803,7 @@ export const ACCESS_INVENTORY: AccessInventory = {
           "hasConsent(",
           "revoked_at IS NULL"
         ],
-        "5": [],
-        "7": [
-          "audit("
-        ]
+        "5": []
       },
       "missing": [],
       "exempt": []
@@ -932,8 +816,7 @@ export const ACCESS_INVENTORY: AccessInventory = {
         1,
         2,
         4,
-        5,
-        7
+        5
       ],
       "found": {
         "1": [
@@ -947,10 +830,7 @@ export const ACCESS_INVENTORY: AccessInventory = {
           "hasConsent(",
           "revoked_at IS NULL"
         ],
-        "5": [],
-        "7": [
-          "audit("
-        ]
+        "5": []
       },
       "missing": [],
       "exempt": []
@@ -963,8 +843,7 @@ export const ACCESS_INVENTORY: AccessInventory = {
         1,
         2,
         4,
-        5,
-        7
+        5
       ],
       "found": {
         "1": [
@@ -978,10 +857,7 @@ export const ACCESS_INVENTORY: AccessInventory = {
           "hasConsent(",
           "revoked_at IS NULL"
         ],
-        "5": [],
-        "7": [
-          "audit("
-        ]
+        "5": []
       },
       "missing": [],
       "exempt": []
@@ -994,8 +870,7 @@ export const ACCESS_INVENTORY: AccessInventory = {
         1,
         2,
         4,
-        5,
-        7
+        5
       ],
       "found": {
         "1": [
@@ -1009,10 +884,7 @@ export const ACCESS_INVENTORY: AccessInventory = {
           "hasConsent(",
           "revoked_at IS NULL"
         ],
-        "5": [],
-        "7": [
-          "audit("
-        ]
+        "5": []
       },
       "missing": [],
       "exempt": []
@@ -1025,8 +897,7 @@ export const ACCESS_INVENTORY: AccessInventory = {
         1,
         2,
         4,
-        5,
-        7
+        5
       ],
       "found": {
         "1": [
@@ -1038,10 +909,7 @@ export const ACCESS_INVENTORY: AccessInventory = {
           "hasConsent(",
           "revoked_at IS NULL"
         ],
-        "5": [],
-        "7": [
-          "audit("
-        ]
+        "5": []
       },
       "missing": [],
       "exempt": [
@@ -1056,8 +924,7 @@ export const ACCESS_INVENTORY: AccessInventory = {
         1,
         2,
         4,
-        5,
-        7
+        5
       ],
       "found": {
         "1": [
@@ -1071,10 +938,7 @@ export const ACCESS_INVENTORY: AccessInventory = {
           "hasConsent(",
           "revoked_at IS NULL"
         ],
-        "5": [],
-        "7": [
-          "audit("
-        ]
+        "5": []
       },
       "missing": [],
       "exempt": []
@@ -1087,8 +951,7 @@ export const ACCESS_INVENTORY: AccessInventory = {
         1,
         2,
         4,
-        5,
-        7
+        5
       ],
       "found": {
         "1": [
@@ -1102,10 +965,7 @@ export const ACCESS_INVENTORY: AccessInventory = {
           "hasConsent(",
           "revoked_at IS NULL"
         ],
-        "5": [],
-        "7": [
-          "audit("
-        ]
+        "5": []
       },
       "missing": [],
       "exempt": []
@@ -1118,8 +978,7 @@ export const ACCESS_INVENTORY: AccessInventory = {
         1,
         2,
         4,
-        5,
-        7
+        5
       ],
       "found": {
         "1": [
@@ -1133,10 +992,7 @@ export const ACCESS_INVENTORY: AccessInventory = {
           "hasConsent(",
           "revoked_at IS NULL"
         ],
-        "5": [],
-        "7": [
-          "audit("
-        ]
+        "5": []
       },
       "missing": [],
       "exempt": []
@@ -1149,8 +1005,7 @@ export const ACCESS_INVENTORY: AccessInventory = {
         1,
         2,
         4,
-        5,
-        7
+        5
       ],
       "found": {
         "1": [
@@ -1164,10 +1019,7 @@ export const ACCESS_INVENTORY: AccessInventory = {
           "hasConsent(",
           "revoked_at IS NULL"
         ],
-        "5": [],
-        "7": [
-          "audit("
-        ]
+        "5": []
       },
       "missing": [],
       "exempt": []
@@ -1178,8 +1030,7 @@ export const ACCESS_INVENTORY: AccessInventory = {
       "file": "app/clinician/page.tsx",
       "owed": [
         1,
-        2,
-        5
+        2
       ],
       "found": {
         "1": [
@@ -1188,8 +1039,7 @@ export const ACCESS_INVENTORY: AccessInventory = {
         ],
         "2": [
           "requireClinician("
-        ],
-        "5": []
+        ]
       },
       "missing": [],
       "exempt": []
@@ -1473,13 +1323,17 @@ export const ACCESS_INVENTORY: AccessInventory = {
           "consentActive"
         ],
         "5": [],
-        "7": [],
-        "8": []
+        "7": [
+          "family: \"security\"",
+          "_viewed"
+        ],
+        "8": [
+          "projectionVersion",
+          "schemaVersion",
+          "ProjectionMeta"
+        ]
       },
-      "missing": [
-        7,
-        8
-      ],
+      "missing": [],
       "exempt": []
     },
     {
@@ -1512,7 +1366,9 @@ export const ACCESS_INVENTORY: AccessInventory = {
         ],
         "5": [],
         "7": [
-          "audit("
+          "family: \"security\"",
+          "_viewed",
+          "_opened"
         ]
       },
       "missing": [],
@@ -1548,7 +1404,9 @@ export const ACCESS_INVENTORY: AccessInventory = {
         ],
         "5": [],
         "7": [
-          "audit("
+          "family: \"security\"",
+          "_viewed",
+          "_opened"
         ]
       },
       "missing": [],
@@ -1585,7 +1443,9 @@ export const ACCESS_INVENTORY: AccessInventory = {
         ],
         "5": [],
         "7": [
-          "audit("
+          "family: \"security\"",
+          "_viewed",
+          "_opened"
         ]
       },
       "missing": [],
@@ -1620,11 +1480,12 @@ export const ACCESS_INVENTORY: AccessInventory = {
           "consentActive"
         ],
         "5": [],
-        "7": []
+        "7": [
+          "family: \"security\"",
+          "_viewed"
+        ]
       },
-      "missing": [
-        7
-      ],
+      "missing": [],
       "exempt": []
     },
     {
@@ -1656,11 +1517,12 @@ export const ACCESS_INVENTORY: AccessInventory = {
           "consentActive"
         ],
         "5": [],
-        "7": []
+        "7": [
+          "family: \"security\"",
+          "_viewed"
+        ]
       },
-      "missing": [
-        7
-      ],
+      "missing": [],
       "exempt": []
     },
     {
@@ -1694,7 +1556,9 @@ export const ACCESS_INVENTORY: AccessInventory = {
         ],
         "5": [],
         "7": [
-          "audit("
+          "family: \"security\"",
+          "_viewed",
+          "_opened"
         ]
       },
       "missing": [],
@@ -1731,7 +1595,9 @@ export const ACCESS_INVENTORY: AccessInventory = {
         ],
         "5": [],
         "7": [
-          "audit("
+          "family: \"security\"",
+          "_viewed",
+          "_opened"
         ]
       },
       "missing": [],
@@ -1768,7 +1634,9 @@ export const ACCESS_INVENTORY: AccessInventory = {
         ],
         "5": [],
         "7": [
-          "audit("
+          "family: \"security\"",
+          "_viewed",
+          "_opened"
         ]
       },
       "missing": [],
@@ -1803,11 +1671,12 @@ export const ACCESS_INVENTORY: AccessInventory = {
           "consentActive"
         ],
         "5": [],
-        "7": []
+        "7": [
+          "family: \"security\"",
+          "_viewed"
+        ]
       },
-      "missing": [
-        7
-      ],
+      "missing": [],
       "exempt": []
     },
     {
@@ -1841,7 +1710,9 @@ export const ACCESS_INVENTORY: AccessInventory = {
         ],
         "5": [],
         "7": [
-          "audit("
+          "family: \"security\"",
+          "_viewed",
+          "_opened"
         ]
       },
       "missing": [],
@@ -1878,7 +1749,8 @@ export const ACCESS_INVENTORY: AccessInventory = {
         ],
         "5": [],
         "7": [
-          "audit("
+          "family: \"security\"",
+          "_viewed"
         ]
       },
       "missing": [],
@@ -1913,11 +1785,12 @@ export const ACCESS_INVENTORY: AccessInventory = {
           "consentActive"
         ],
         "5": [],
-        "7": []
+        "7": [
+          "family: \"security\"",
+          "_viewed"
+        ]
       },
-      "missing": [
-        7
-      ],
+      "missing": [],
       "exempt": []
     },
     {
@@ -1949,11 +1822,12 @@ export const ACCESS_INVENTORY: AccessInventory = {
           "consentActive"
         ],
         "5": [],
-        "7": []
+        "7": [
+          "family: \"security\"",
+          "_viewed"
+        ]
       },
-      "missing": [
-        7
-      ],
+      "missing": [],
       "exempt": []
     },
     {
@@ -1985,11 +1859,12 @@ export const ACCESS_INVENTORY: AccessInventory = {
           "consentActive"
         ],
         "5": [],
-        "7": []
+        "7": [
+          "family: \"security\"",
+          "_viewed"
+        ]
       },
-      "missing": [
-        7
-      ],
+      "missing": [],
       "exempt": []
     },
     {
@@ -1998,10 +1873,7 @@ export const ACCESS_INVENTORY: AccessInventory = {
       "file": "app/organization/page.tsx",
       "owed": [
         1,
-        2,
-        5,
-        6,
-        7
+        2
       ],
       "found": {
         "1": [
@@ -2010,15 +1882,9 @@ export const ACCESS_INVENTORY: AccessInventory = {
         ],
         "2": [
           "requireOrganization("
-        ],
-        "5": [],
-        "6": [],
-        "7": []
+        ]
       },
-      "missing": [
-        6,
-        7
-      ],
+      "missing": [],
       "exempt": []
     },
     {
@@ -2046,15 +1912,16 @@ export const ACCESS_INVENTORY: AccessInventory = {
           "SMALL_CELL",
           "suppressed("
         ],
-        "7": [],
+        "7": [
+          "family: \"security\"",
+          "_viewed"
+        ],
         "8": [
           "projectionVersion",
           "schemaVersion"
         ]
       },
-      "missing": [
-        7
-      ],
+      "missing": [],
       "exempt": []
     },
     {
@@ -2081,11 +1948,12 @@ export const ACCESS_INVENTORY: AccessInventory = {
           "SMALL_CELL",
           "suppressed("
         ],
-        "7": []
+        "7": [
+          "family: \"security\"",
+          "_viewed"
+        ]
       },
-      "missing": [
-        7
-      ],
+      "missing": [],
       "exempt": []
     },
     {
@@ -2112,11 +1980,12 @@ export const ACCESS_INVENTORY: AccessInventory = {
           "SMALL_CELL",
           "suppressed("
         ],
-        "7": []
+        "7": [
+          "family: \"security\"",
+          "_viewed"
+        ]
       },
-      "missing": [
-        7
-      ],
+      "missing": [],
       "exempt": []
     },
     {
@@ -2142,11 +2011,12 @@ export const ACCESS_INVENTORY: AccessInventory = {
         "6": [
           "SMALL_CELL"
         ],
-        "7": []
+        "7": [
+          "family: \"security\"",
+          "_viewed"
+        ]
       },
-      "missing": [
-        7
-      ],
+      "missing": [],
       "exempt": []
     },
     {
@@ -2169,13 +2039,15 @@ export const ACCESS_INVENTORY: AccessInventory = {
           "requireOrganization("
         ],
         "5": [],
-        "6": [],
-        "7": []
+        "6": [
+          "SMALL_CELL"
+        ],
+        "7": [
+          "family: \"security\"",
+          "_viewed"
+        ]
       },
-      "missing": [
-        6,
-        7
-      ],
+      "missing": [],
       "exempt": []
     },
     {
@@ -2201,11 +2073,11 @@ export const ACCESS_INVENTORY: AccessInventory = {
         "6": [],
         "7": []
       },
-      "missing": [
+      "missing": [],
+      "exempt": [
         6,
         7
-      ],
-      "exempt": []
+      ]
     },
     {
       "path": "/organization/locations",
@@ -2231,11 +2103,12 @@ export const ACCESS_INVENTORY: AccessInventory = {
           "SMALL_CELL",
           "suppressed("
         ],
-        "7": []
+        "7": [
+          "family: \"security\"",
+          "_viewed"
+        ]
       },
-      "missing": [
-        7
-      ],
+      "missing": [],
       "exempt": []
     },
     {
@@ -2258,13 +2131,15 @@ export const ACCESS_INVENTORY: AccessInventory = {
           "requireOrganization("
         ],
         "5": [],
-        "6": [],
-        "7": []
+        "6": [
+          "SMALL_CELL"
+        ],
+        "7": [
+          "family: \"security\"",
+          "_viewed"
+        ]
       },
-      "missing": [
-        6,
-        7
-      ],
+      "missing": [],
       "exempt": []
     },
     {
@@ -2291,11 +2166,12 @@ export const ACCESS_INVENTORY: AccessInventory = {
           "SMALL_CELL",
           "suppressed("
         ],
-        "7": []
+        "7": [
+          "family: \"security\"",
+          "_viewed"
+        ]
       },
-      "missing": [
-        7
-      ],
+      "missing": [],
       "exempt": []
     },
     {
@@ -2318,13 +2194,15 @@ export const ACCESS_INVENTORY: AccessInventory = {
           "requireOrganization("
         ],
         "5": [],
-        "6": [],
-        "7": []
+        "6": [
+          "countColumns:"
+        ],
+        "7": [
+          "family: \"security\"",
+          "_viewed"
+        ]
       },
-      "missing": [
-        6,
-        7
-      ],
+      "missing": [],
       "exempt": []
     },
     {
@@ -2333,10 +2211,7 @@ export const ACCESS_INVENTORY: AccessInventory = {
       "file": "app/payer/page.tsx",
       "owed": [
         1,
-        2,
-        5,
-        6,
-        7
+        2
       ],
       "found": {
         "1": [
@@ -2345,15 +2220,9 @@ export const ACCESS_INVENTORY: AccessInventory = {
         ],
         "2": [
           "requirePayer("
-        ],
-        "5": [],
-        "6": [],
-        "7": []
+        ]
       },
-      "missing": [
-        6,
-        7
-      ],
+      "missing": [],
       "exempt": []
     },
     {
@@ -2381,15 +2250,16 @@ export const ACCESS_INVENTORY: AccessInventory = {
           "SMALL_CELL",
           "suppressed("
         ],
-        "7": [],
+        "7": [
+          "family: \"security\"",
+          "_viewed"
+        ],
         "8": [
           "projectionVersion",
           "schemaVersion"
         ]
       },
-      "missing": [
-        7
-      ],
+      "missing": [],
       "exempt": []
     },
     {
@@ -2415,11 +2285,12 @@ export const ACCESS_INVENTORY: AccessInventory = {
         "6": [
           "SMALL_CELL"
         ],
-        "7": []
+        "7": [
+          "family: \"security\"",
+          "_viewed"
+        ]
       },
-      "missing": [
-        7
-      ],
+      "missing": [],
       "exempt": []
     },
     {
@@ -2445,11 +2316,11 @@ export const ACCESS_INVENTORY: AccessInventory = {
         "6": [],
         "7": []
       },
-      "missing": [
+      "missing": [],
+      "exempt": [
         6,
         7
-      ],
-      "exempt": []
+      ]
     },
     {
       "path": "/payer/cohorts",
@@ -2471,13 +2342,15 @@ export const ACCESS_INVENTORY: AccessInventory = {
           "requirePayer("
         ],
         "5": [],
-        "6": [],
-        "7": []
+        "6": [
+          "SMALL_CELL"
+        ],
+        "7": [
+          "family: \"security\"",
+          "_viewed"
+        ]
       },
-      "missing": [
-        6,
-        7
-      ],
+      "missing": [],
       "exempt": []
     },
     {
@@ -2504,11 +2377,12 @@ export const ACCESS_INVENTORY: AccessInventory = {
           "SMALL_CELL",
           "suppressed("
         ],
-        "7": []
+        "7": [
+          "family: \"security\"",
+          "_viewed"
+        ]
       },
-      "missing": [
-        7
-      ],
+      "missing": [],
       "exempt": []
     },
     {
@@ -2535,11 +2409,12 @@ export const ACCESS_INVENTORY: AccessInventory = {
           "SMALL_CELL",
           "suppressed("
         ],
-        "7": []
+        "7": [
+          "family: \"security\"",
+          "_viewed"
+        ]
       },
-      "missing": [
-        7
-      ],
+      "missing": [],
       "exempt": []
     },
     {
@@ -2562,13 +2437,15 @@ export const ACCESS_INVENTORY: AccessInventory = {
           "requirePayer("
         ],
         "5": [],
-        "6": [],
-        "7": []
+        "6": [
+          "SMALL_CELL"
+        ],
+        "7": [
+          "family: \"security\"",
+          "_viewed"
+        ]
       },
-      "missing": [
-        6,
-        7
-      ],
+      "missing": [],
       "exempt": []
     },
     {
@@ -2591,13 +2468,15 @@ export const ACCESS_INVENTORY: AccessInventory = {
           "requirePayer("
         ],
         "5": [],
-        "6": [],
-        "7": []
+        "6": [
+          "countColumns:"
+        ],
+        "7": [
+          "family: \"security\"",
+          "_viewed"
+        ]
       },
-      "missing": [
-        6,
-        7
-      ],
+      "missing": [],
       "exempt": []
     },
     {
@@ -2622,17 +2501,19 @@ export const ACCESS_INVENTORY: AccessInventory = {
         ],
         "5": [],
         "6": [],
-        "7": [],
+        "7": [
+          "family: \"security\"",
+          "_viewed"
+        ],
         "8": [
           "projectionVersion",
           "schemaVersion"
         ]
       },
-      "missing": [
-        6,
-        7
-      ],
-      "exempt": []
+      "missing": [],
+      "exempt": [
+        6
+      ]
     },
     {
       "path": "/payer/evidence/cost",
@@ -2655,13 +2536,15 @@ export const ACCESS_INVENTORY: AccessInventory = {
         ],
         "5": [],
         "6": [],
-        "7": []
+        "7": [
+          "family: \"security\"",
+          "_viewed"
+        ]
       },
-      "missing": [
-        6,
-        7
-      ],
-      "exempt": []
+      "missing": [],
+      "exempt": [
+        6
+      ]
     },
     {
       "path": "/payer/data-quality",
@@ -2687,11 +2570,12 @@ export const ACCESS_INVENTORY: AccessInventory = {
           "SMALL_CELL",
           "suppressed("
         ],
-        "7": []
+        "7": [
+          "family: \"security\"",
+          "_viewed"
+        ]
       },
-      "missing": [
-        7
-      ],
+      "missing": [],
       "exempt": []
     },
     {
@@ -2718,11 +2602,12 @@ export const ACCESS_INVENTORY: AccessInventory = {
           "SMALL_CELL",
           "suppressed("
         ],
-        "7": []
+        "7": [
+          "family: \"security\"",
+          "_viewed"
+        ]
       },
-      "missing": [
-        7
-      ],
+      "missing": [],
       "exempt": []
     },
     {
@@ -2759,9 +2644,11 @@ export const ACCESS_INVENTORY: AccessInventory = {
       "found": {
         "1": [
           "requireUser(",
+          "requireReviewer(",
           "requireReviewAccess("
         ],
         "2": [
+          "requireReviewer(",
           "requireReviewAccess("
         ],
         "5": []
@@ -2803,9 +2690,11 @@ export const ACCESS_INVENTORY: AccessInventory = {
       "found": {
         "1": [
           "requireUser(",
+          "requireReviewer(",
           "requireReviewAccess("
         ],
         "2": [
+          "requireReviewer(",
           "requireReviewAccess("
         ],
         "5": []
@@ -2871,9 +2760,11 @@ export const ACCESS_INVENTORY: AccessInventory = {
       "found": {
         "1": [
           "requireUser(",
+          "requireClinician(",
           "requireReviewAccess("
         ],
         "2": [
+          "requireClinician(",
           "requireReviewAccess("
         ],
         "5": []
@@ -2893,9 +2784,11 @@ export const ACCESS_INVENTORY: AccessInventory = {
       "found": {
         "1": [
           "requireUser(",
+          "requireClinician(",
           "requireReviewAccess("
         ],
         "2": [
+          "requireClinician(",
           "requireReviewAccess("
         ],
         "5": []
@@ -2915,9 +2808,11 @@ export const ACCESS_INVENTORY: AccessInventory = {
       "found": {
         "1": [
           "requireUser(",
+          "requireReviewer(",
           "requireReviewAccess("
         ],
         "2": [
+          "requireReviewer(",
           "requireReviewAccess("
         ],
         "5": []
@@ -3113,9 +3008,11 @@ export const ACCESS_INVENTORY: AccessInventory = {
       "found": {
         "1": [
           "requireUser(",
+          "requireReviewer(",
           "requireReviewAccess("
         ],
         "2": [
+          "requireReviewer(",
           "requireReviewAccess("
         ],
         "5": []
@@ -3142,11 +3039,13 @@ export const ACCESS_INVENTORY: AccessInventory = {
           "requireReviewAccess("
         ],
         "5": [],
-        "8": []
+        "8": [
+          "projectionVersion",
+          "schemaVersion",
+          "ProjectionMeta"
+        ]
       },
-      "missing": [
-        8
-      ],
+      "missing": [],
       "exempt": []
     },
     {
@@ -3227,10 +3126,10 @@ export const ACCESS_INVENTORY: AccessInventory = {
         "2": [],
         "5": []
       },
-      "missing": [
+      "missing": [],
+      "exempt": [
         2
-      ],
-      "exempt": []
+      ]
     },
     {
       "path": "/admin/demo",
@@ -3256,16 +3155,16 @@ export const ACCESS_INVENTORY: AccessInventory = {
     }
   ],
   "protectedCount": 112,
-  "complete": 79,
+  "complete": 112,
   "gapsByStep": {
     "1": 0,
-    "2": 1,
+    "2": 0,
     "3": 0,
     "4": 0,
     "5": 0,
-    "6": 12,
-    "7": 31,
-    "8": 2
+    "6": 0,
+    "7": 0,
+    "8": 0
   },
   "unresolved": []
 };

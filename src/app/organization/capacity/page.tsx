@@ -1,7 +1,7 @@
 import { OrgPage } from "@/components/app/OrgPage";
 import { EnvelopeView } from "@/components/presentation/EnvelopeView";
 import { Note, Panel, WithNote } from "@/components/app/surfaces";
-import { Figure, BarList } from "@/components/charts/aggregate";
+import { BarList, Figure, SMALL_CELL } from "@/components/charts/aggregate";
 import { buildOrgCapacity } from "@/lib/intelligence/organization";
 import { resolveOrgTenant } from "@/lib/intelligence/scope";
 
@@ -87,6 +87,15 @@ export default async function OrgCapacityPage() {
                       footnote="Observed demand. Not a forecast."
                     >
                       <BarList bars={c.demand} unit="waiting" />
+                      {c.withheldSites > 0 && (
+                        <p className="mt-3 text-xs text-olive">
+                          {c.withheldSites}{" "}
+                          {c.withheldSites === 1 ? "site is" : "sites are"} not shown: fewer
+                          than {SMALL_CELL} people were waiting there. A bar carries its value
+                          in its length as well as its label, so a small site is withheld
+                          rather than blanked.
+                        </p>
+                      )}
                     </Figure>
                   </Panel>
                   <Panel>

@@ -26,6 +26,7 @@
 
 import { data } from "../data";
 import { verifyAuditChain, type AuditRow, type ChainVerification } from "../audit";
+import type { ProjectionMeta } from "../presentation/envelope";
 
 /** Detail keys that may carry member content or clinician free text. Mirrors
  *  timeline.ts — the two lists are separate on purpose: this one governs a
@@ -146,6 +147,9 @@ function toEntry(r: AuditRow, labels: Map<string, string>): AuditEntry {
   };
 }
 
+/** The contract shape of the audit trace (§30.3's `audit_trace`). */
+export const AUDIT_TRACE_SCHEMA = "audit_trace.v1";
+
 export interface AuditHistory {
   entries: AuditEntry[];
   /** Chain verification over the whole log, so the page can show tamper state
@@ -155,6 +159,14 @@ export interface AuditHistory {
    *  happened" apart from "you cannot see what happened". */
   outOfScope: number;
   kindCounts: Record<AuditKind, number>;
+  /** Which build produced this trace, and how far it reaches (§30.6 step 8).
+   *
+   *  An audit extract is the one artefact in this product whose whole value is
+   *  that somebody can check it later, and it was being handed out with no
+   *  version and no watermark on it. Two extracts of "the same window" taken
+   *  an hour apart are different documents, and without a watermark there is
+   *  nothing on either one that says so. */
+  meta: ProjectionMeta;
 }
 
 /** Explains exactly what the tenant filter does and does not guarantee. Shown
@@ -237,7 +249,11 @@ export async function alertTrail(args: {
   // A foreign-tenant alert is reported as absent, not as forbidden — a "not
   // permitted" response confirms the id exists.
   if (!alert) {
-    return { entries: [], chain: await verifyAuditChain(), outOfScope: 0, kindCounts: { ...EMPTY_COUNTS }, alert: null };
+    // Assembled from no rows rather than hand-built, so the refusal carries
+    // the same shape — and the same version stamp — as a real trace. A
+    // refusal that is structurally distinguishable from an empty result is a
+    // second way to confirm the id exists.
+    return { ...(await assemble([], args.tenantId, [])), alert: null };
   }
 
   const rows = (await c.all(
@@ -296,5 +312,31 @@ async function assemble(
   const kindCounts = { ...EMPTY_COUNTS };
   for (const e of entries) kindCounts[e.kind] += 1;
 
-  return { entries, chain: await verifyAuditChain(), outOfScope, kindCounts };
+  const chain = await verifyAuditChain();
+
+  // THE WATERMARK IS THE NEWEST ENTRY THIS TRACE REACHES, taken across the
+  // rows rather than off the first one: a member history is newest-first and
+  // an alert trail is oldest-first, so `rows[0]` is the newest in one caller
+  // and the oldest in the other. That is exactly the kind of detail that would
+  // be wrong in one of two places and noticed in neither.
+  let watermark: string | null = null;
+  for (const e of entries) if (!watermark || e.at > watermark) watermark = e.at;
+
+  const meta: ProjectionMeta = {
+    schemaVersion: AUDIT_TRACE_SCHEMA,
+    // THE CHAIN STATE TRAVELS IN THE VERSION. A trace read off a log whose
+    // hash chain does not verify is a different artefact from one read off a
+    // log that does, and the difference must survive being pasted into a
+    // document — which the banner on the screen does not.
+    projectionVersion: `${AUDIT_TRACE_SCHEMA}+chain:${chain.ok ? "verified" : "broken"}`,
+    generatedAt: new Date().toISOString(),
+    tenantId,
+    sourceWatermark: watermark,
+    // Not policy-governed, and said rather than filled in with a version
+    // borrowed from somewhere else. The audit log is the record clinical
+    // policy decisions are WRITTEN TO; it does not run under one.
+    policyVersion: "not-policy-governed",
+  };
+
+  return { entries, chain, outOfScope, kindCounts, meta };
 }
