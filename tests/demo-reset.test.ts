@@ -101,7 +101,12 @@ test("no seeded timestamp is in the future", () => {
 
   // Columns that are legitimately in the future: a subscription period has not
   // ended yet, which is what makes it current.
-  const FUTURE_IS_CORRECT = new Set(["current_period_end", "cooldown_until", "retake_allowed_at"]);
+  // An access request's expiry is the same kind of column: a grant that has
+  // not expired yet is what an ACTIVE grant is, and the review screen's whole
+  // point is that approved-and-active and approved-and-expired do not look
+  // alike. Seeding only past expiries would mean the demo could never show the
+  // first of those.
+  const FUTURE_IS_CORRECT = new Set(["current_period_end", "cooldown_until", "retake_allowed_at", "expires_at"]);
 
   const future: string[] = [];
   for (const table of DEMO_DATA_TABLES) {
@@ -221,4 +226,21 @@ test("reset refuses to run outside a demo environment", () => {
   } finally {
     process.env.EMDR_DEMO = saved;
   }
+});
+
+test("a reset leaves an environment that passes its own manifest", async () => {
+  // THE PROPERTY THE CONTROL EXISTS FOR. The admin console blocks external
+  // demonstrations when the manifest fails, and p9's reset is the remedy it
+  // offers — so a reset that rebuilt an environment still failing its own
+  // checks would be a button that moved the problem rather than fixing it.
+  // Checked here rather than in the browser: the reset empties every table,
+  // and the e2e suite runs parallel against one server, so firing it there
+  // would race whatever else is mid-assertion.
+  const db = getDb();
+  resetDemoData(db);
+
+  const { runQualityChecks } = await import("../src/lib/demo-quality");
+  const failed = runQualityChecks(db).filter((r) => !r.pass);
+  assert.deepEqual(failed.map((f) => `${f.check}: ${f.actual}`), [],
+    "the environment a reset produces does not pass the checks that gate demonstrating it");
 });

@@ -208,7 +208,9 @@ test("idempotency keys distinguish actor, subject and action", () => {
 const TODAY: MemberToday = {
   shape: "open", messageKey: "day.open",
   primary: { id: "a", label: "A", href: "/app/session/a", minutes: 5, why: "because" },
-  alternatives: [], support: { label: "Get support", href: "/crisis" }, checkinDue: false,
+  alternatives: [], support: { label: "Get support", href: "/crisis" },
+  companion: { label: "Talk it through with the companion", href: "/app/companion" },
+  checkinDue: false,
 };
 
 test("Today allows one primary and at most two alternatives", () => {

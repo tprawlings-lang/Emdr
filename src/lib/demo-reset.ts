@@ -31,6 +31,7 @@ import type Database from "better-sqlite3";
 import crypto from "node:crypto";
 import { DEMO_SEED_VERSION } from "./demo-seed";
 import { seedDemo, syncIdentitySpine } from "./db";
+import { isEncrypted } from "./crypto";
 
 /** Every table holding data, in an order safe for unconditional deletion.
  *  Children first: SQLite enforces the foreign keys these tables declare, so
@@ -49,12 +50,128 @@ import { seedDemo, syncIdentitySpine } from "./db";
  *  Anything added here needs a reason of that kind. The schema guard in
  *  `tests/demo-reset.test.ts` checks that every table is either cleared or
  *  listed here, so a new table cannot escape the reset by being forgotten. */
-export const PRESERVED_TABLES = ["review_notes"] as const;
+export const PRESERVED_TABLES = [
+  "review_notes",
+  // Policy configuration, not fabricated data. p34 requires a threshold to
+  // carry an owner and an approval date and to be safe from quiet edits — and
+  // a reset that silently rewrites both is exactly a quiet edit, made by a
+  // presenter who was only trying to get back to a clean baseline. The table
+  // refuses DELETE at the schema level, so listing it here is a statement of
+  // intent rather than the mechanism.
+  "policy_thresholds",
+  // Configuration, not fabricated data — and the same reasoning as the
+  // thresholds above. A per-tenant flag records that an organization decided
+  // something about their own environment, with a name and a reason attached;
+  // a reset that quietly returned every screen to the deployment default would
+  // be undoing that decision on their behalf, at the moment somebody was only
+  // trying to get back to a clean baseline. Appendix B says it from the other
+  // side: "turning off presentation does not delete signal, action, or evidence
+  // history" — and turning presentation back on is not the reset's to do either.
+  "tenant_feature_flags",
+] as const;
 
 export const DEMO_DATA_TABLES = [
-  // Payer domain first: claims reference persons, and contract measures
+  // CLEARED, not preserved. `demo_repair` records the verdict of the last
+  // per-boot reconciliation, and a reset rebuilds the dataset through the
+  // normal seeding path — so any previous verdict is about a database that no
+  // longer exists. A stale "failed" row surviving a successful reset would
+  // fail the manifest for a fault that had just been fixed. The manifest reads
+  // an absent row as "no attempt recorded", which is both true and passing.
+  "demo_repair",
+  // CLEARED. A reset log row describes the previous attempt against a database
+  // that no longer exists, and a stale "failed" surviving a successful reset
+  // would keep the environment reading as unfit for a fault that had just been
+  // repaired. The successful reset writes its own row afterwards.
+  "demo_reset_log",
+  // CLEARED, and this one is worth stating from the other direction: a lock
+  // row survives its own walkthrough deliberately (see the schema note), but a
+  // reset ends the environment the walkthrough was running against. Leaving a
+  // held lock behind would block the next reset on a session that no longer
+  // has anything to hold.
+  "demo_environment_lock",
+  // Applied data scenarios. p9 calls a bundle "reversible by reset", and this
+  // line is the whole of that promise: the events a bundle wrote go when the
+  // spine is rebuilt, and the record of having applied it goes here. Leaving
+  // the record behind would tell the next operator that a bundle is in force
+  // over a population that no longer carries it — which is worse than saying
+  // nothing, because they would believe it.
+  "demo_data_scenario_applications",
+  // Handoffs of accountability. Cleared: a transfer names three fabricated
+  // people and is meaningless once they are rebuilt — and a surviving one
+  // would point at users who no longer exist, which is the orphan the data
+  // quality manifest exists to catch. Before `users`, which it references on
+  // three columns.
+  "care_handoffs",
+  // Planning first: a signal review points at its signal, and a signal is
+  // derived entirely from the fabricated population it is about.
+  //
+  // The reviews go WITH the signals rather than surviving like review_notes,
+  // and the difference is what the record means. A review note is a reviewer's
+  // request about the product; a signal review is their judgement about a
+  // specific set of numbers. Rebuilding the numbers and keeping the judgement
+  // would attach a human's decision to evidence they never saw.
+  // The clock goes back to live. p9 makes reset the control that returns the
+  // environment to a known state, and a presenter who resets and then wonders
+  // why every screen still reads as March has been left a trap.
+  "demo_clock",
+  "planning_signal_reviews",
+  "planning_signals",
+  // Operational feeds, rebuilt with the population they describe.
+  "capacity_slots",
+  "review_coverage",
+  // The clinician thinking layer, deepest-referencing first. Evidence points at
+  // an inference; a membership points at a thread AND a memory item; an item
+  // points at a transcript, which points at its thought. Ordered for rather
+  // than disabled, so a mistake in this list fails loudly instead of leaving
+  // orphans — and listed at all because a reset that left a clinician's
+  // recorded thoughts about fabricated patients behind would leave the
+  // environment holding clinical text about people who no longer exist.
+  // Care actions point at signals, and signal evidence points at signals, so
+  // both clear before the signals themselves.
+  "between_visit_care_actions",
+  "clinical_attention_signal_evidence",
+  "clinical_attention_signals",
+  // Trajectory reviews and evidence both point at snapshots, and a snapshot
+  // points at the person. Cleared before the goal and event rows they cite, for
+  // the same reason as the rest of this list: a reset that left a domain state
+  // behind would leave the environment holding a clinical reading of somebody
+  // who no longer exists.
+  // Load reviews and evidence both point at load snapshots; a load snapshot
+  // reads the trajectory, so it clears first.
+  "therapeutic_load_reviews",
+  "therapeutic_load_evidence",
+  "therapeutic_load_snapshots",
+  "recovery_trajectory_reviews",
+  "recovery_trajectory_evidence",
+  "recovery_trajectory_snapshots",
+  // Fingerprint evidence points at snapshots; observations point at instances;
+  // instances point at definitions. Cleared innermost-first.
+  "response_fingerprint_evidence",
+  "response_fingerprint_snapshots",
+  "intervention_response_observations",
+  "intervention_instances",
+  "intervention_definitions",
+  // Observations point at goals, and levels point at goals, so both clear first.
+  "return_to_life_observations",
+  "return_to_life_goal_levels",
+  "return_to_life_goals",
+  "clinical_inference_evidence",
+  "clinical_inferences",
+  "clinical_thread_memberships",
+  "clinical_threads",
+  "clinical_retrieval_documents",
+  "clinical_memory_items",
+  // Before clinician_thoughts: it points at them, so it has to go first or the
+  // delete fails on the foreign key.
+  "clinician_thought_saves",
+  "clinician_thought_transcripts",
+  "clinician_thoughts",
+  // Payer domain next: claims reference persons, and contract measures
   // reference their contract. Ordered for, not disabled — a mistake in this
   // list fails loudly instead of leaving orphans.
+  "export_jobs",
+  // Before persons: person_attributes references them.
+  "person_attributes",
   "claims",
   "cost_model_versions",
   "contract_measures",
@@ -79,6 +196,8 @@ export const DEMO_DATA_TABLES = [
   "autopilot_events",
   "autopilot_plans",
   "autonomous_signoffs",
+  "review_decisions",
+  "access_requests",
   "payments",
   "subscriptions",
   "program_plans",
@@ -96,6 +215,11 @@ export const DEMO_DATA_TABLES = [
   "screenings",
   "consents",
   "audit_log",
+  // Telemetry (§31.7). Cleared, not preserved: a signal row records that a
+  // fabricated person's screen was reached, so it is demonstration data like
+  // every other row above. It references only the tenant, so it goes before
+  // users but has no ordering constraint against it.
+  "telemetry_signals",
   "users",
   // Tenants last — everything above may reference the platform tenant.
   "tenants",
@@ -171,40 +295,60 @@ const VOLATILE_COLUMN = /_at$|^created$|^updated$|^plan_date$|^checkin_date$|^ef
  *  timestamps and encrypted ciphertext: the former move, and the latter differs
  *  on every write because AES-GCM uses a fresh nonce, so hashing it would make
  *  the baseline unstable for a reason unrelated to the data. */
+/**
+ * The time-invariant fingerprint of one table's rows: a header naming the
+ * columns, then one sorted line per row.
+ *
+ * EXTRACTED SO THERE IS ONE DEFINITION of what makes two datasets the same.
+ * The baseline below hashes every demo table together into one value, and the
+ * per-projection hashes (`src/lib/demo/projection-hashes.ts`) hash each
+ * projected table on its own so a drift can name which one moved. Those are
+ * two questions over the same normalization, and a second copy of these rules
+ * would answer them differently the first time either changed.
+ *
+ * Returns an empty array for an empty table, so a caller can tell "no rows"
+ * apart from "no such table" without the hash swallowing the difference.
+ */
+export function tableFingerprint(db: Database.Database, table: string): string[] {
+  const rows = db.prepare(`SELECT * FROM ${table}`).all() as Record<string, unknown>[];
+  if (rows.length === 0) return [];
+
+  const cols = Object.keys(rows[0])
+    .filter((c) => !VOLATILE_COLUMN.test(c))
+    // Ciphertext differs per write (fresh GCM nonce); hash its presence, not
+    // its value, so "a note exists here" is still covered.
+    .sort();
+
+  const lines = rows.map((r) =>
+    cols.map((c) => {
+      const v = r[c];
+      if (v === null || v === undefined) return `${c}=`;
+      const s = String(v);
+      // Values that are non-deterministic BY DESIGN are recorded as present
+      // rather than by content: AES-GCM ciphertext uses a fresh nonce per
+      // write, and password hashes use a fresh salt. Hashing either would
+      // make the baseline unstable for a reason that has nothing to do with
+      // whether the dataset was reproduced correctly — and a baseline that
+      // fails for the wrong reason is one people learn to ignore.
+      return isCiphertext(s) || SALTED_COLUMN.test(c)
+        ? `${c}=<opaque:${s.length > 0 ? "present" : "empty"}>`
+        : `${c}=${s}`;
+    }).join("|")
+  );
+  return [`cols=${cols.join(",")}`, ...lines.sort()];
+}
+
 export function demoBaseline(db: Database.Database): BaselineResult {
   const counts: Record<string, number> = {};
   const hash = crypto.createHash("sha256");
   hash.update(`version=${DEMO_SEED_VERSION}\n`);
 
   for (const table of [...DEMO_DATA_TABLES].sort()) {
-    const rows = db.prepare(`SELECT * FROM ${table}`).all() as Record<string, unknown>[];
-    counts[table] = rows.length;
-    if (rows.length === 0) continue;
-
-    const cols = Object.keys(rows[0])
-      .filter((c) => !VOLATILE_COLUMN.test(c))
-      // Ciphertext differs per write (fresh GCM nonce); hash its presence, not
-      // its value, so "a note exists here" is still covered.
-      .sort();
-
-    hash.update(`table=${table} cols=${cols.join(",")}\n`);
-    const lines = rows.map((r) =>
-      cols.map((c) => {
-        const v = r[c];
-        if (v === null || v === undefined) return `${c}=`;
-        const s = String(v);
-        // Values that are non-deterministic BY DESIGN are recorded as present
-        // rather than by content: AES-GCM ciphertext uses a fresh nonce per
-        // write, and password hashes use a fresh salt. Hashing either would
-        // make the baseline unstable for a reason that has nothing to do with
-        // whether the dataset was reproduced correctly — and a baseline that
-        // fails for the wrong reason is one people learn to ignore.
-        return isCiphertext(s) || SALTED_COLUMN.test(c)
-          ? `${c}=<opaque:${s.length > 0 ? "present" : "empty"}>`
-          : `${c}=${s}`;
-      }).join("|")
-    );
-    for (const line of lines.sort()) hash.update(line + "\n");
+    counts[table] = (db.prepare(`SELECT COUNT(*) AS n FROM ${table}`).get() as { n: number }).n;
+    const fp = tableFingerprint(db, table);
+    if (fp.length === 0) continue;
+    hash.update(`table=${table} ${fp[0]}\n`);
+    for (const line of fp.slice(1)) hash.update(line + "\n");
   }
 
   return { version: DEMO_SEED_VERSION, counts, hash: hash.digest("hex") };
@@ -214,8 +358,18 @@ export function demoBaseline(db: Database.Database): BaselineResult {
 const SALTED_COLUMN = /^password_hash$|^entry_hash$|^prev_hash$/;
 
 /** The envelope produced by lib/crypto.ts encryptField. */
+/**
+ * ASKS THE MODULE THAT WRITES IT. This had its own copy of the test, looking
+ * for a prefix (`enc:`) that `crypto.ts` has never produced — so ciphertext
+ * was hashed by content into a baseline whose entire purpose is to be
+ * reproducible across two resets. Nothing caught it because no seeded table
+ * carried an encrypted column, and the moment one did, two resets disagreed
+ * for a reason that had nothing to do with whether the dataset was rebuilt
+ * correctly. The legacy shape is kept for rows written before the current
+ * format.
+ */
 function isCiphertext(v: string): boolean {
-  return v.startsWith("enc:") || /^v\d+:[A-Za-z0-9+/=]+:/.test(v);
+  return isEncrypted(v) || /^v\d+:[A-Za-z0-9+/=]+:/.test(v);
 }
 
 // ---------------------------------------------------------------------------

@@ -1,6 +1,5 @@
-import Link from "next/link";
 import { ReviewPage } from "@/components/clinical/ReviewPage";
-import { requireClinician } from "@/lib/auth";
+import { requireReviewAccess } from "@/lib/auth";
 import { data } from "@/lib/data";
 import { PLATFORM_TENANT_ID } from "@/lib/db";
 import { scopedAuditFeed, scopeNote } from "@/lib/clinical/audit-history";
@@ -20,10 +19,27 @@ export const dynamic = "force-dynamic";
 //   address verbatim, and correction rationales, alert resolutions, and review
 //   notes are all free text a member never expected a list view to surface.
 export default async function AuditConsolePage() {
-  const clinician = await requireClinician();
+  // THE REVIEW CONSOLE'S OWN GUARD, not the clinician's.
+  //
+  // This called `requireClinician` while its layout calls `requireReviewAccess`,
+  // and the two disagree by exactly one role: a REVIEWER was bounced out of a
+  // screen listed in their own console's navigation, to the console's landing
+  // page, with no explanation. The register calls this a reviewer route, and
+  // §6 gives the security reviewer this exact artefact — "who accessed or
+  // changed what, and can the record be trusted?".
+  //
+  // Found by a performance run, of all things: the gate refuses to time a
+  // redirect, and this route answered 25 out of 25 with one.
+  //
+  // NOBODY GAINS ANYTHING BY THIS. The feed below resolves the tenant from the
+  // ACTING ACCOUNT and filters entries by whose actor or target lives in it, so
+  // a reviewer sees the platform tenant's trail and a clinician still sees only
+  // their organization's. The scope is unchanged; who may open the screen is
+  // what was wrong.
+  const actor = await requireReviewAccess();
 
   const c = await data();
-  const me = (await c.get("SELECT tenant_id FROM users WHERE id = ?", [clinician.id])) as
+  const me = (await c.get("SELECT tenant_id FROM users WHERE id = ?", [actor.id])) as
     | { tenant_id: string } | undefined;
   const tenantId = me?.tenant_id ?? PLATFORM_TENANT_ID;
 
@@ -33,7 +49,7 @@ export default async function AuditConsolePage() {
     <ReviewPage
       layer="audit"
       here="/review/audit"
-      title="Audit and lineage"
+      title="Audit trail"
       lede="Who did what, in order, with the hash chain verified rather than asserted."
     >
       <p className="mt-1 text-sm text-olive">
@@ -52,6 +68,17 @@ export default async function AuditConsolePage() {
             window were outside your organization and are not shown.
           </>
         )}
+      </p>
+
+      {/* §30.6 STEP 8: the version and the watermark, ON the extract.
+          A trace's whole value is that somebody can check it later, and a
+          banner that says the chain verified helps nobody once the table has
+          been pasted into a document. This line travels with the rows. */}
+      <p className="mt-3 font-mono text-[11px] text-olive/70">
+        {feed.meta.projectionVersion} · generated {feed.meta.generatedAt.slice(0, 19).replace("T", " ")} ·{" "}
+        {feed.meta.sourceWatermark
+          ? `newest entry ${feed.meta.sourceWatermark}`
+          : "no entries in scope"}
       </p>
 
       <AuditTable entries={feed.entries} showTarget />

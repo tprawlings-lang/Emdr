@@ -75,6 +75,15 @@ test("no person-scoped table escapes the tenant list", () => {
     "persons", "accounts", "role_assignments", "enrollments",
     "external_identifiers", "longitudinal_events", "audit_log",
     "autonomous_signoffs",
+    // A review decision is a governance record ABOUT THE DEPLOYMENT — a
+    // release gate, a version of member-facing copy, an access request's
+    // outcome. It references users(id) because a decision must name its actor,
+    // which is what brings it here; it carries no tenant_id because its
+    // subject is not any tenant's data. Giving it one would assert that a
+    // release gate or a copy version belongs to a tenant, and then eight gates
+    // would have to be signed off once per tenant to mean the same thing.
+    // Same reasoning as autonomous_signoffs directly above.
+    "review_decisions",
   ]);
   const tables = (db
     .prepare("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'")
@@ -84,7 +93,14 @@ test("no person-scoped table escapes the tenant list", () => {
   for (const t of tables) {
     if (spine.has(t) || (TENANT_SCOPED_TABLES as readonly string[]).includes(t)) continue;
     const cols = (db.prepare(`PRAGMA table_info(${t})`).all() as { name: string }[]).map((c) => c.name);
-    if (cols.includes("user_id") || cols.includes("person_id")) undeclared.push(t);
+    if (cols.includes("user_id") || cols.includes("person_id")) { undeclared.push(t); continue; }
+    // A column NAME is a weak test, and it let one through: export_jobs points
+    // at a person via `requested_by`, so the guard read it as impersonal and
+    // said nothing. What makes a table person-scoped is the REFERENCE, not
+    // what the column is called — so ask the schema instead of the naming
+    // convention.
+    const fks = db.prepare(`PRAGMA foreign_key_list(${t})`).all() as { table: string }[];
+    if (fks.some((f) => f.table === "users" || f.table === "persons")) undeclared.push(t);
   }
   assert.deepEqual(undeclared, [], `person-scoped but not tenant-declared: ${undeclared.join(", ")}`);
 });
@@ -114,7 +130,7 @@ test("existing users are mirrored onto the identity spine, person id == user id"
 
 test("role is a relationship: one person can be both clinician and member", async () => {
   const ctx = platformContext();
-  await createPerson({ tenantId: PLATFORM_TENANT_ID, displayName: "Dual Role", id: "spine-dual" });
+  await createPerson({ tenantId: PLATFORM_TENANT_ID, displayName: "Dual Role", id: "spine-dual", provenance: "fabricated" });
   await assignRole("spine-dual", "member", ctx);
   await assignRole("spine-dual", "clinician", ctx);
   const roles = await rolesFor("spine-dual", ctx);
@@ -127,7 +143,7 @@ test("role is a relationship: one person can be both clinician and member", asyn
 
 test("a person can exist with no account — the Handoff C3 population case", async () => {
   const orgId = await createTenant({ kind: "organization", name: "Test Health System" });
-  const personId = await createPerson({ tenantId: orgId, displayName: "Ingested Member" });
+  const personId = await createPerson({ tenantId: orgId, displayName: "Ingested Member", provenance: "fabricated" });
   const p = await getPerson(personId, { tenantId: orgId });
   assert.ok(p, "person exists");
   const c = await data();
@@ -140,7 +156,7 @@ test("a person can exist with no account — the Handoff C3 population case", as
 test("tenant isolation: a foreign-tenant read returns nothing", async () => {
   const orgA = await createTenant({ kind: "organization", name: "Org A" });
   const orgB = await createTenant({ kind: "organization", name: "Org B" });
-  const personA = await createPerson({ tenantId: orgA, displayName: "A Person" });
+  const personA = await createPerson({ tenantId: orgA, displayName: "A Person", provenance: "fabricated" });
 
   assert.ok(await getPerson(personA, { tenantId: orgA }), "own tenant sees it");
   assert.equal(await getPerson(personA, { tenantId: orgB }), null, "foreign tenant does not");
@@ -165,7 +181,7 @@ test("enterprise enrollment does not duplicate identity", async () => {
 
 test("external identifiers map to canonical persons and are never keys", async () => {
   const org = await createTenant({ kind: "organization", name: "Payer Co" });
-  const personId = await createPerson({ tenantId: org, displayName: "Claims Member" });
+  const personId = await createPerson({ tenantId: org, displayName: "Claims Member", provenance: "fabricated" });
   await linkExternalId({
     personId, tenantId: org, sourceSystem: "payer-x", externalId: "MEM-12345", idType: "member_id",
   });
@@ -263,7 +279,7 @@ test("corrections append and supersede; the original is never mutated", async ()
 test("as-of read reconstructs what was known at a point in time (no future leakage)", async () => {
   const c = await data();
   const personId = "spine-asof";
-  await createPerson({ tenantId: PLATFORM_TENANT_ID, displayName: "As Of", id: personId });
+  await createPerson({ tenantId: PLATFORM_TENANT_ID, displayName: "As Of", id: personId, provenance: "fabricated" });
 
   const e1 = await appendEvent({ personId, type: "daily_checkin.completed", payload: { day: 1 } });
   // Backdate the first event's recorded_at so there is a clear cut point.
@@ -280,7 +296,7 @@ test("as-of read reconstructs what was known at a point in time (no future leaka
 
 test("events are tenant-scoped and filterable by type", async () => {
   const org = await createTenant({ kind: "organization", name: "Event Org" });
-  const orgPerson = await createPerson({ tenantId: org, displayName: "Org Person" });
+  const orgPerson = await createPerson({ tenantId: org, displayName: "Org Person", provenance: "fabricated" });
   await appendEvent({ personId: orgPerson, tenantId: org, type: "session.started", payload: {} });
 
   const orgEvents = await readEvents({ tenantId: org });

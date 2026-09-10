@@ -2,8 +2,6 @@ import Link from "next/link";
 import { MemberPage } from "@/components/member/MemberPage";
 import { redirect } from "next/navigation";
 import { requireMember } from "@/lib/auth";
-import { subscriptionActive } from "@/lib/billing";
-import { hasConsent, screeningComplete } from "@/lib/gating";
 import { getInstrument } from "@/lib/instruments";
 import InstrumentForm from "@/components/InstrumentForm";
 
@@ -14,10 +12,7 @@ export default async function TakeMeasurePage({
 }: {
   params: Promise<{ instrumentId: string }>;
 }) {
-  const user = await requireMember();
-  if (!(await subscriptionActive(user.id))) redirect("/subscribe");
-  if (!(await hasConsent(user.id))) redirect("/app/onboarding");
-  if (!screeningComplete(user.id)) redirect("/app/screening");
+  await requireMember();
 
   const { instrumentId } = await params;
   const instrument = getInstrument(instrumentId);

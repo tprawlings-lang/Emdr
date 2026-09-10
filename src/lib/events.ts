@@ -99,10 +99,205 @@ export const EVENT_TYPES = {
   "coverage.gate_recorded": 1,
   "coverage.gate_responded": 1,
 
+  // Missingness, recorded rather than inferred (handoff 07 §2.7, p28).
+  //
+  // "Create missingness intentionally and record why the value is absent: not
+  // due, skipped, declined, interrupted, failed or unavailable."
+  //
+  // A measure that was never taken and one that was DECLINED look identical in
+  // a table, and only the second is a fact about the person. §29.1 requires
+  // missing, incomplete, late, rejected and suppressed data to stay visible,
+  // and it can only stay visible if it was written down.
+  //
+  // No projector: there is no current-state row for a thing that did not
+  // happen. That is the distinction the coverage.* types were introduced for.
+  "measure.not_completed": 1,
+
   // Clinical action
   "clinician.reviewed": 1,
   "module_unlock.requested": 2,
   "module_unlock.decided": 2,
+
+  // Handoff of accountability (§26: "Keep accountability through transfer").
+  //
+  // TWO EVENTS, NOT ONE, and the pair is the whole point. Ownership already
+  // existed on a work item, and a screen built on ownership alone would be
+  // INFERRING accountability from an assignment nobody agreed to — which is
+  // exactly how a person gets lost between two clinicians who each believed
+  // the other had them. So a transfer is proposed by one person and RESOLVED
+  // by another, and the gap between the two events is a state the product can
+  // see and report rather than a silence.
+  //
+  // `care_handoff.resolved` covers accepted, declined and withdrawn: they are
+  // one decision with three outcomes, and splitting them into three types
+  // would let a reader who filtered for one of them believe the handoff was
+  // still open.
+  "care_handoff.proposed": 1,
+  "care_handoff.resolved": 1,
+
+  // Clinician thoughts and clinical memory (Clinician Thoughts spec §7).
+  //
+  // Phase 1 registers only the three that Phase 1 can emit. The rest of §7's
+  // table — item approval, thread decisions, inference lifecycle — arrive with
+  // the phases that produce them, because an event type registered before
+  // anything writes it is a schema claim nobody has tested, and `appendEvent`
+  // throws on an unregistered type precisely so the set stays honest.
+  //
+  // NONE OF THESE CARRY TRANSCRIPT TEXT. §18: raw protected content stays out
+  // of ordinary logs, and §6.2 permits an event to "point to protected source
+  // records by ID and store hashes and typed metadata". So the payloads carry
+  // ids, versions, hashes and durations — enough to replay which thought
+  // reached which state and when, and not enough to reconstruct what was said.
+  "clinician_thought.recorded": 1,
+  "clinician_thought.transcribed": 1,
+  "clinician_thought.discarded": 1,
+  // Phase 2. Registered now because Phase 2 writes them — the rule above is
+  // that a type appears when something actually emits it.
+  //
+  // The extraction event carries item IDS and never their text, for the reason
+  // stated above: the items are rows a scoped reader can open, and copying a
+  // clinician's private judgement into an append-only ledger would put it
+  // somewhere retention policy can never reach.
+  "clinician_thought.extraction_completed": 1,
+  // Approval carries statementClass. The class IS the claim — an approved
+  // hypothesis and an approved observation are different clinical facts — so a
+  // replay that had to look it up elsewhere would not reproduce the approved
+  // memory state, which is Phase 2's definition of done.
+  "clinical_memory.item_approved": 1,
+  "clinical_memory.item_rejected": 1,
+  "clinical_memory.item_corrected": 1,
+  // Phase 3. `proposed` and `accepted` are separate types rather than one
+  // event with a status, because "the system suggested this" and "a clinician
+  // agreed" are different acts by different actors — and a replay that could
+  // not tell them apart could not reconstruct which connections a person
+  // actually made, which is the whole of "no auto-link in v1".
+  "clinical_thread.created": 1,
+  "clinical_thread.connection_proposed": 1,
+  "clinical_thread.connection_accepted": 1,
+  "clinical_thread.connection_rejected": 1,
+  // Phase 5 — Ask Steady. §7's type, registered because Phase 5 emits it.
+  //
+  // THE QUESTION TEXT IS NOT IN THE PAYLOAD, on the same reasoning that keeps
+  // transcript text out of the events above: a clinician's question about a
+  // patient is free clinical text, and a question log is a second clinical
+  // record that nobody reviews and that retention policy has to reach. What is
+  // recorded is that an answer was produced, from which evidence ids, under
+  // which retrieval and answer versions — enough to replay what an answer
+  // rested on and to attribute a regression, and not enough to reconstruct what
+  // was asked.
+  "clinician_patient_query.answered": 1,
+  // Return-to-Life goals (expansion handoff 01 §6).
+  //
+  // level_changed is its OWN event and carries the observation that caused it.
+  // §3: "goal level changes are evidence events. Do not overwrite the current
+  // level without preserving the observation that caused the change." A replay
+  // that saw only the new level could rebuild the number and not the reason,
+  // and the reason is the clinically meaningful half.
+  "return_goal.created": 1,
+  "return_goal.ladder_set": 1,
+  "return_goal.confirmed": 1,
+  "return_goal.observation_recorded": 1,
+  "return_goal.level_changed": 1,
+  "return_goal.revised": 1,
+  "return_goal.completed": 1,
+  "return_goal.archived": 1,
+
+  // Treatment Response Fingerprint (expansion handoff 02 §7).
+  //
+  // The pair that carries the whole feature's honesty is
+  // `instance_recorded` / `response_observed`. They are two types and not one
+  // because an exposure and what followed it are two facts — §6: "an immediate
+  // distress decrease plus next-day worsening is displayed as mixed response,
+  // not netted into one number", and a single event carrying both would have
+  // had to net them to have one shape.
+  //
+  // `snapshot_computed` carries the policy version in its provenance rather
+  // than only in the payload, so a replay can tell WHICH thresholds produced a
+  // pattern the clinician saw. §13: "all pattern summaries are reproducible
+  // from evidence + policy version." A threshold change makes a new snapshot
+  // beside the old one; it never restates it.
+  //
+  // No benefit or efficacy word appears in any of these payloads, by
+  // construction: the states they can carry are §6's five, and "works",
+  // "effective", "caused" and "contraindicated" are not among them.
+  "intervention.instance_recorded": 1,
+  "intervention.response_observed": 1,
+  "response_fingerprint.snapshot_computed": 1,
+  "response_fingerprint.pattern_reviewed": 1,
+  "response_fingerprint.pattern_corrected": 1,
+
+  // Between-Visit Care Command Center (expansion handoff 03 §17).
+  //
+  // `opened` and `updated` are separate types and that is the lineage rule made
+  // durable. §12: "if a signal changes materially while open, update the row
+  // and expose new-since-review rather than creating duplicates." A ledger with
+  // one "signal" type could not tell a clinician's second look at the same
+  // concern from a second concern.
+  //
+  // `acknowledged` is its own type because §12 is explicit that "opening a row
+  // or drawer does not silently acknowledge it". Acknowledgement is a
+  // clinician's act, and an act nobody recorded is an act nobody can audit.
+  //
+  // NONE OF THESE CARRIES A SAFETY STATE. The cross-feature invariant is that
+  // "safety authority stays deterministic" — these events record review-worthy
+  // work and its lifecycle, and the safety engine's own events remain the only
+  // place a safety obligation begins or ends.
+  //
+  // No patient text travels: statements are on the row a scoped reader can
+  // open, and §18 forbids "patient text, Companion text, goal names, thread
+  // names, or clinical labels in external analytics".
+  "attention_signal.opened": 1,
+  "attention_signal.updated": 1,
+  "attention_signal.acknowledged": 1,
+  "attention_signal.state_changed": 1,
+  "attention_signal.reopened": 1,
+  "between_visit_care.action_recorded": 1,
+  "command_center.summary_generated": 1,
+
+  // Personalized Recovery Trajectory (expansion handoff 04 §11).
+  //
+  // FOUR TYPES, AND THE SPLIT IS THE POINT. A single "trajectory changed" event
+  // could not tell a recomputation that produced the same state from a state
+  // that actually moved, and §8 turns exactly that distinction into whether a
+  // clinician gets a work item — "do not emit work for every stable domain."
+  //
+  // `deviation_proposed` and `deviation_resolved` bracket a period during which
+  // Steady was reading a domain as having changed course. Both ends are needed:
+  // a deviation that quietly stops being computed leaves a record in which
+  // something was wrong and then nothing was said, which reads as unresolved
+  // forever.
+  //
+  // NONE OF THESE IS A SAFETY EVENT and none carries a prediction. A trajectory
+  // state is a statement about observations already recorded, which is what
+  // makes it something a clinician can open and disagree with — and
+  // `reviewed` is where that disagreement lands, beside the state rather than
+  // on top of it.
+  "trajectory.snapshot_computed": 1,
+  "trajectory.deviation_proposed": 1,
+  "trajectory.deviation_resolved": 1,
+  "trajectory.reviewed": 1,
+
+  // Therapeutic Load & Readiness (expansion handoff 05 §11).
+  //
+  // `recommendation_proposed` and `recommendation_changed` are separate from
+  // `snapshot_computed` for the reason §9 makes operational: "do not nag on
+  // every recomputation." A ledger with one event per computation could not
+  // tell a clinician-visible change from the hundredth time the same reading
+  // came back, and the Command Center provider needs exactly that distinction
+  // to avoid becoming a recurring notification about a state that has not
+  // moved since March.
+  //
+  // NONE OF THESE CHANGES ANYTHING. §13: "no system action autonomously
+  // changes treatment intensity, module access, or trauma-processing status."
+  // A snapshot records what was read, `clinician_reviewed` records what a human
+  // made of it, and neither is a decision the system acted on. A
+  // `blockedBySafety` snapshot in particular records the safety engine's
+  // decision being obeyed — the gate's own events remain the only place a
+  // safety state begins or ends.
+  "therapeutic_load.snapshot_computed": 1,
+  "therapeutic_load.recommendation_proposed": 1,
+  "therapeutic_load.recommendation_changed": 1,
+  "therapeutic_load.clinician_reviewed": 1,
 } as const;
 
 export type EventType = keyof typeof EVENT_TYPES;

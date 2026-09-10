@@ -6,7 +6,7 @@ external account/service, or a real-world drill. Code-addressable gaps have been
 implemented separately (see the audit-remediation commits). Grouped by type;
 severity is 🔴 launch-blocking / 🟡 important / ⚪ nice-to-have.
 
-Last updated: 2026-07 (during audit remediation).
+Last updated: 2026-09 (CSP development divergence added to §A).
 
 ## A. Decisions — RESOLVED
 
@@ -20,6 +20,33 @@ Last updated: 2026-07 (during audit remediation).
   Nonce-based CSP shipped (ADR 0008); `'unsafe-inline'` removed from script-src.
 - [ ] **🟡 Autonomous-model claim rewrite** (README §10). ⏳ **Founder will send a
   handoff for this later** — leaving the wording untouched until then.
+- [ ] **🟡 CSP `'unsafe-eval'` in development — needs a conversation.** ⏳ **To
+  discuss.** React's development build calls `eval()` and Next's dev server opens
+  a hot-reload websocket; under the production policy both are blocked with *no
+  visible error* — the page renders, hydration never completes, and every client
+  component on the site is inert. Buttons do nothing, forms never open. That cost
+  us an afternoon of believing a form was broken when the header was.
+
+  Shipped as a narrow fix: `contentSecurityPolicy()` in `src/proxy.ts` adds
+  `'unsafe-eval'` to `script-src` and `ws: wss:` to `connect-src` **only** when
+  `NODE_ENV !== "production"`, and `tests/csp.test.ts` asserts the production
+  string contains neither, that exactly those two directives differ between the
+  two policies, and that no environment variable can weaken it.
+
+  **What to decide together:** whether a development-only divergence in the
+  security header is acceptable at all, given that it means the policy we test
+  against locally is not the policy we ship. The alternatives are (a) keep it,
+  (b) run local work against a production build, which costs hot reload, or
+  (c) a `Content-Security-Policy-Report-Only` dev header so the dev policy is
+  the production one and violations are logged rather than enforced. My
+  recommendation is (a) with the tests as written, but it is a security posture
+  question and it should be your call.
+
+  Related and separate: Next 16 dev refuses `_next/static` chunks when the
+  browser addresses the server as `127.0.0.1` ("Blocked cross-origin request to
+  Next.js dev resource"). Use `http://localhost:3000` when driving the app, or
+  set `allowedDevOrigins` in `next.config.ts`. No product change was made for
+  this — it is a harness quirk, not a policy.
 - [x] **Render instance plan.** ✅ Staying on `starter` (always-on, persistent
   disk). No action.
 

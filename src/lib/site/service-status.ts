@@ -1,3 +1,5 @@
+import { cache } from "react";
+
 import { data } from "@/lib/data";
 import { blsResourcingEnabled } from "@/lib/safety/config";
 
@@ -34,7 +36,17 @@ export interface ServiceStatus {
   degraded: boolean;
 }
 
-export async function readServiceStatus(): Promise<ServiceStatus> {
+// The probe stamps the time it ran, and that stamp is part of the answer: a
+// status page that cannot say when it looked is asserting again rather than
+// measuring. But a render pass is not a probe. React may render a server
+// component more than once for a single request (the HTML pass and the RSC
+// payload), and a bare `new Date()` inside the render gave those two passes
+// timestamps a second apart — the page then hydrated with a mismatch on the
+// one line whose whole job is to be trustworthy. `cache()` scopes the probe to
+// the request, so every pass reports the single moment Steady actually looked.
+export const readServiceStatus = cache(probeServiceStatus);
+
+async function probeServiceStatus(): Promise<ServiceStatus> {
   const functions: ServiceFunction[] = [];
 
   // Grounding and crisis, first and unconditional. They are on this list at

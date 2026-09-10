@@ -5,7 +5,7 @@
 // same database.
 
 import { data } from "../data";
-import { makeSessionToken, type SessionUser } from "../auth";
+import { makeSessionToken, getUserFromToken, type SessionUser } from "../auth";
 import { hashPassword, newId } from "../db";
 import { encryptField } from "../crypto";
 import { audit } from "../audit";
@@ -14,6 +14,8 @@ import { currentConsentSections, currentConsentVersion, currentTermsVersion } fr
 import {
   FITNESS_ITEMS,
   FITNESS_SCREENER_VERSION,
+  screenerApproved,
+  screenerCaveat,
   getFitnessState,
   recordFitnessScreening,
   type FitnessState,
@@ -25,6 +27,9 @@ import { subscriptionActive, startDemoSubscription } from "../billing";
 import { hasConsent, screeningComplete } from "../gating";
 import { getSavedCalmPlace } from "../session-focus";
 import { profileComplete } from "../profile";
+import {
+  createAlert as createClinicalAlert, raiseRiskItemAlert, type AlertSeverity,
+} from "../clinical/alert-create";
 
 // ---------- signup ----------
 
@@ -66,7 +71,11 @@ export async function signupMobile(input: {
     detail: { wellnessAck: "wellness-ack-v1", via: "mobile" },
   });
   const token = await makeSessionToken(userId);
-  return { token, user: { id: userId, email, name, role: "member" } };
+  // Resolved from the token, so the returned user is exactly what that token
+  // authenticates as.
+  const user = await getUserFromToken(token);
+  if (!user) throw new Error("session could not be resolved immediately after issue");
+  return { token, user };
 }
 
 // ---------- subscribe ----------
@@ -105,7 +114,17 @@ export async function grantConsentMobile(userId: string): Promise<{ ok: boolean 
 // ---------- fitness screener ----------
 
 export function screenerInfo() {
-  return { version: FITNESS_SCREENER_VERSION, items: FITNESS_ITEMS };
+  // THE CAVEAT TRAVELS WITH THE VERSION. A client reading
+  // `version: "fit-v1-placeholder"` out of JSON has to already know this
+  // codebase's naming convention to know it is being warned that a live gate
+  // runs on criteria no clinician has ratified. A field that says so in words
+  // needs no convention.
+  return {
+    version: FITNESS_SCREENER_VERSION,
+    approved: screenerApproved(),
+    provisional: screenerCaveat(),
+    items: FITNESS_ITEMS,
+  };
 }
 
 export async function submitScreenerMobile(
@@ -166,9 +185,13 @@ export async function submitMeasureMobile(
     await createAlert(userId, "symptom_worsening", "high",
       `${instrument.id} rose from ${previous.total_score} to ${total} since last measure.`);
   }
+  // A positive risk item raises the same urgent alert as every other submit
+  // path. This path cannot redirect — it answers a mobile client — so it
+  // returns `crisis: true` and the client routes. That is the honest
+  // difference between an API and a page, and it is why the guard in
+  // tests/screening-risk-routing.test.ts accepts either.
   if (riskFlags.length > 0) {
-    await createAlert(userId, "screening_risk_item", "urgent",
-      `${instrument.id}: ${riskFlags.join(", ")} (total ${total})`);
+    await raiseRiskItemAlert({ userId, instrumentId: instrument.id, riskFlags, total });
   }
   return { total, positive, riskFlags, crisis: riskFlags.length > 0 };
 }
@@ -473,8 +496,13 @@ export function profileCatalog() {
 }
 
 // local alert helper (mirrors createAlert in service.ts / actions.ts)
-async function createAlert(userId: string, type: string, severity: "urgent" | "high" | "moderate" | "info", detail: string) {
-  const c = await data();
-  await c.run("INSERT INTO alerts (id, user_id, alert_type, severity, detail) VALUES (?, ?, ?, ?, ?)",
-    [newId(), userId, type, severity, detail]);
+/** Positional wrapper over the one alert writer.
+ *
+ *  This file called an identical local copy with positional arguments — the
+ *  FOURTH copy of the same insert in the codebase. The copies are why the paced
+ *  screening gate ended up with no alert at all: a private writer is one a new
+ *  call site cannot use. The wrapper keeps this file's call style and puts the
+ *  insert in one place. */
+async function createAlert(userId: string, type: string, severity: AlertSeverity, detail: string) {
+  await createClinicalAlert({ userId, type, severity, detail });
 }

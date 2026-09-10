@@ -159,7 +159,7 @@ test("the repository works inside a tenant transaction and stays scoped", async 
   const c = await data();
   await c.run("INSERT INTO users (id, email, name, role, password_hash, tenant_id) VALUES (?, ?, ?, ?, ?, ?)",
     [person, "scoped@test.local", "Scoped", "member", "x", orgA]);
-  await createPerson({ tenantId: orgA, displayName: "Scoped", id: person });
+  await createPerson({ tenantId: orgA, displayName: "Scoped", id: person, provenance: "fabricated" });
 
   const id = newId();
   await withTenantTransaction({ tenantId: orgA }, async () => {

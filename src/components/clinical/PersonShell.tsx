@@ -4,6 +4,7 @@ import { personRail } from "@/lib/app/rails";
 import { ClinicianRailFooter } from "./ClinicianPage";
 import { PriorityBadge, OwnerChip, FreshnessLabel } from "./primitives";
 import type { PriorityBand } from "@/lib/clinical/caseload";
+import type { ProjectionMeta } from "@/lib/presentation/envelope";
 
 // The person record shell (§26, §10.4, and the clinician mockups p59–p63).
 //
@@ -29,26 +30,68 @@ export interface PersonHeader {
   evidenceAt: string | null;
   now: string;
   consentActive: boolean;
+  /** Which build and which policy produced the facts above (§30.6 step 8). */
+  meta: ProjectionMeta;
 }
 
-/** The sub-routes, by the layer each belongs to. Two layers hold more than one
- *  screen, so those get a sibling row under the title; the rest do not need
- *  one. */
+/**
+ * The sub-routes, by the layer each belongs to.
+ *
+ * HANDOFF 09 §5 REGROUPED THIS, and the problem it solved was one this build
+ * created. Expansion handoffs 04 and 05 added Trajectory and Load, taking the
+ * Progress row to five tabs — Measures, Life goals, Sessions, Responses,
+ * Trajectory — which is exactly the "long second horizontal menu that wraps
+ * into several rows" §5 rules out. Every addition was right on its own and the
+ * row got worse with each one.
+ *
+ * §5's grouping: "Person sections should group around Overview, Course,
+ * Sessions, Notes, and Safety where the existing content supports it. Course
+ * can contain measures, life goals, responses, and trajectory through clearly
+ * named local links."
+ *
+ * So Course is a landing that holds those four, and the four are no longer in
+ * this list. NOTHING WAS REMOVED: each still has its own address, its own
+ * screen, and a link from Course with room to say what it is for. What went is
+ * the wrapping row.
+ */
 const SCREENS: Array<{ slug: string; label: string; layer: RailSlug }> = [
   { slug: "", label: "Overview", layer: "overview" },
-  { slug: "/measures", label: "Measures", layer: "progress" },
+  // §5's Course. The four course-shaped screens are reached from here.
+  { slug: "/course", label: "Course", layer: "progress" },
   { slug: "/sessions", label: "Sessions", layer: "progress" },
   { slug: "/safety", label: "Safety", layer: "actions" },
+  // §5 calls this section Notes. The ROUTE keeps its name — renaming a route
+  // breaks every link anybody saved — and the tab carries §5's word.
+  { slug: "/thoughts", label: "Notes", layer: "actions" },
+  // Load and readiness (expansion handoff 05 §8). Under actions: it is a
+  // reading a clinician decides what to do with, and §8's six clinician
+  // actions live on it.
+  { slug: "/load", label: "Load", layer: "actions" },
   { slug: "/plan", label: "Plan", layer: "evidence" },
-  // The full clinical record — timeline, cited summary, review actions. §26's
-  // real split is /measures, /sessions, /plan, /safety and /audit; this is the
-  // holding address for what has not been split out yet, and it is listed
-  // rather than hidden because it is where approve and correct still live.
   { slug: "/record", label: "Full record", layer: "evidence" },
   { slug: "/audit", label: "Audit", layer: "audit" },
 ];
 
+/**
+ * The four screens Course holds, so the layer nav does not.
+ *
+ * Listed here as well as on the Course page because `layerFor` has to resolve
+ * them: a clinician deep-linked to /measures is inside the Progress layer, and
+ * a route the shell does not know renders with the wrong rail item selected.
+ */
+export const COURSE_SECTIONS = ["/measures", "/goals", "/responses", "/trajectory"] as const;
+
+/**
+ * Screens reached from Notes rather than from the rail, for the same reason
+ * Course holds its four: the tab row is the thing §5 shortened, and a bridge
+ * that only makes sense once items are approved belongs behind the screen where
+ * they are approved.
+ */
+export const NOTES_SECTIONS = ["/note"] as const;
+
 export function layerFor(slug: string): RailSlug {
+  if ((COURSE_SECTIONS as readonly string[]).includes(slug)) return "progress";
+  if ((NOTES_SECTIONS as readonly string[]).includes(slug)) return "actions";
   return SCREENS.find((s) => s.slug === slug)?.layer ?? "overview";
 }
 
@@ -91,6 +134,14 @@ export function PersonShell({
               absent-by-omission the rest of the time. */}
           <span className={`text-xs font-medium ${person.consentActive ? "text-state-safe" : "text-state-caution"}`}>
             {person.consentActive ? "◆ Consent active" : "○ No consent on record"}
+          </span>
+          {/* The version the facts on this line were computed under.
+              Recessive on purpose — it is for the reader who is checking a
+              screenshot against the live record, not for the clinician
+              reading the band. Rendered rather than kept in a payload,
+              because a version nobody can see settles no argument. */}
+          <span className="font-mono text-[11px] text-olive/70" title="Projection version">
+            {person.meta.projectionVersion}
           </span>
         </div>
 

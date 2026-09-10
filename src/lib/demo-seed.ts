@@ -1,6 +1,8 @@
 import type Database from "better-sqlite3";
 import crypto from "crypto";
 import { hashPassword } from "./db";
+import { evaluateCheckin } from "./gating";
+import { ALERT_INSERT_SEEDED_SQL, alertValues } from "./clinical/alert-create";
 
 // Rich fictional dataset for demo deployments (EMDR_DEMO=1). Gives both the
 // member and clinician views something realistic to show on first login:
@@ -30,6 +32,166 @@ export function demoId(n: number, version = DEMO_SEED_VERSION): string {
   return [h.slice(0, 8), h.slice(8, 12), h.slice(12, 16), h.slice(16, 20), h.slice(20, 32)].join("-");
 }
 
+/**
+ * The per-role demo password.
+ *
+ * Handoff 07 p5 says never to commit a password to source or a client bundle,
+ * and p7 says to store the secret outside source control and rotate it before
+ * each external review cycle. Both are honoured by the ENVIRONMENT being
+ * authoritative: `EMDR_DEMO_PASSWORD_<ROLE>` overrides any value here, so a
+ * rotation is a deploy variable rather than a commit.
+ *
+ * The fallbacks below are deliberately present and deliberately weak. This
+ * seeds an isolated tenant of fabricated people with no PHI, where the failure
+ * mode of a forgotten password is a reviewer locked out of a demonstration —
+ * and a fallback nobody can guess means a fresh clone cannot be signed into at
+ * all. They are listed in docs/demo/demo-logins.md rather than hidden, because
+ * a credential that is written down in one known place is safer than one
+ * circulated in a chat thread.
+ *
+ * They must never be reused for anything that is not this demo.
+ */
+export const DEMO_PASSWORDS: Record<string, string> = {
+  member: "patient1234",
+  clinician: "clinician1234",
+  reviewer: "reviewer1234",
+  organization: "org1234",
+  payer: "payer1234",
+  demo_admin: "demoadmin1234",
+};
+
+/** The address the scenario scripts and the e2e suite sign in with. */
+export const PATIENT_EMAIL = "patient.demo@steady.local";
+
+export function demoPassword(role: string): string {
+  return process.env[`EMDR_DEMO_PASSWORD_${role.toUpperCase()}`] ?? DEMO_PASSWORDS[role] ?? "demo1234";
+}
+
+function demoHash(role: string): string {
+  return hashPassword(demoPassword(role));
+}
+
+/**
+ * The three narrative personas, by name rather than by position in a counter.
+ *
+ * They were `demoId(0)`, `demoId(1)` and `demoId(2)` — correct, and a trap:
+ * anything outside this file that needed one had to know the insertion order,
+ * and inserting a fourth account at the top would silently repoint every
+ * reference. Handoff 07's Wave 4 needs the clinician's id from two other
+ * modules, so they get names.
+ */
+export const ALEX_ID = demoId(0);
+export const SAM_ID = demoId(1);
+export const DEMO_CLINICIAN_ID = demoId(2);
+/** The colleague a person can be handed to. Deterministic like the rest, so
+ *  the population seed can move them into the same tenant as Dr. Chen — a
+ *  transfer across tenants is refused, correctly, and a recipient in another
+ *  organization would demonstrate the refusal rather than the workflow. */
+export const DEMO_CLINICIAN_2_ID = demoId(8);
+
+/**
+ * The demo accounts, as data rather than as inline inserts.
+ *
+ * Split out so `reconcileDemoAccounts` below can create a MISSING one on an
+ * existing database. `seedDemoData` only runs when the database is empty, so
+ * every account added after the first deployment was invisible in production:
+ * the code shipped, the login screen offered six roles, and none of the
+ * addresses it named existed. That is what the deployed environment did — the
+ * dropdown was there and every credential failed.
+ */
+export interface DemoAccount {
+  seq: number;
+  email: string;
+  name: string;
+  role: string;
+  /** The address this account used to have, if it was renamed. Renaming keeps
+   *  the row — and therefore the whole history hanging off its id — rather
+   *  than creating a second person with the same story. */
+  formerEmail?: string;
+  daysAgo: number;
+}
+
+export const DEMO_ACCOUNTS: DemoAccount[] = [
+  { seq: 0, email: PATIENT_EMAIL, name: "Alex Rivera (fictional)", role: "member", formerEmail: "demo@example.com", daysAgo: 22 },
+  { seq: 1, email: "patient2.demo@steady.local", name: "Sam Okafor (fictional)", role: "member", formerEmail: "demo2@example.com", daysAgo: 2 },
+  { seq: 2, email: "clinician.demo@steady.local", name: "Dr. Maya Chen (fictional)", role: "clinician", formerEmail: "clinician@example.com", daysAgo: 40 },
+  // A SECOND CLINICIAN, and the reason is a whole capability rather than
+  // variety. A handoff needs somebody to hand TO — the screen refuses to offer
+  // a transfer with no recipient who could accept one — so with a single
+  // clinician account the transfer-of-accountability workflow could be built,
+  // tested and never demonstrated. A feature the review environment cannot
+  // show is half-shipped.
+  { seq: 8, email: "clinician2.demo@steady.local", name: "Dr. Tomas Ruiz (fictional)", role: "clinician", daysAgo: 30 },
+  { seq: 3, email: "org.demo@steady.local", name: "Jordan Idowu (fictional)", role: "organization", formerEmail: "operations@example.com", daysAgo: 60 },
+  { seq: 4, email: "payer.demo@steady.local", name: "Priya Raman (fictional)", role: "payer", daysAgo: 60 },
+  { seq: 5, email: "reviewer.demo@steady.local", name: "Dr. Ellis Nakamura (fictional)", role: "reviewer", daysAgo: 75 },
+  { seq: 6, email: "admin.demo@steady.local", name: "Robin Achebe (fictional)", role: "demo_admin", daysAgo: 90 },
+  { seq: 7, email: "network.demo@steady.local", name: "Dana Okonkwo (fictional)", role: "organization", daysAgo: 60 },
+];
+
+/**
+ * Bring an EXISTING database's demo accounts up to date.
+ *
+ * Runs on every boot in the demo environment, and is the answer to a failure
+ * that is specific to seeded demos and easy to miss: `seed()` returns early
+ * when any user exists, so it only ever runs once per database. Everything
+ * added to it afterwards — three new roles, six renamed addresses, six new
+ * passwords — reached the code and never reached the deployed data.
+ *
+ * Three operations, each idempotent:
+ *
+ *   RENAME. An account that still holds its former address is renamed in
+ *   place. The row keeps its id, so consents, check-ins, sessions and every
+ *   event hanging off that id follow it — which is the whole reason to rename
+ *   rather than insert a second account with the same name.
+ *
+ *   CREATE. An account that does not exist at either address is inserted.
+ *
+ *   RE-HASH. The password is set to the role's current value on every boot, so
+ *   rotating `EMDR_DEMO_PASSWORD_*` takes effect at the next restart without a
+ *   reset — which is what p7 means by rotating before an external review
+ *   cycle.
+ *
+ * It does NOT touch a person's history, tenancy or role assignments. Those are
+ * the seed's business, and a reconciliation that quietly rewrote them would be
+ * a migration wearing a smaller name.
+ */
+export function reconcileDemoAccounts(db: Database.Database): { renamed: number; created: number; rehashed: number } {
+  if (process.env.EMDR_DEMO !== "1") return { renamed: 0, created: 0, rehashed: 0 };
+  const out = { renamed: 0, created: 0, rehashed: 0 };
+
+  const byEmail = db.prepare("SELECT id, role FROM users WHERE email = ?");
+  const rename = db.prepare("UPDATE users SET email = ?, name = ?, role = ? WHERE id = ?");
+  const create = db.prepare(
+    `INSERT INTO users (id, email, name, role, password_hash, created_at)
+     VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT(email) DO NOTHING`);
+  const rehash = db.prepare("UPDATE users SET password_hash = ? WHERE email = ?");
+
+  for (const a of DEMO_ACCOUNTS) {
+    const current = byEmail.get(a.email) as { id: string; role: string } | undefined;
+    if (!current && a.formerEmail) {
+      const legacy = byEmail.get(a.formerEmail) as { id: string } | undefined;
+      if (legacy) {
+        // Rename in place: the id is the person, and the address is a label.
+        rename.run(a.email, a.name, a.role, legacy.id);
+        out.renamed++;
+      }
+    }
+    if (!byEmail.get(a.email)) {
+      const t = new Date(Date.now() - a.daysAgo * 86400000);
+      t.setUTCHours(10, 15, 0, 0);
+      create.run(
+        demoId(a.seq), a.email, a.name, a.role, demoHash(a.role),
+        t.toISOString().slice(0, 19).replace("T", " "),
+      );
+      out.created++;
+    }
+    rehash.run(demoHash(a.role), a.email);
+    out.rehashed++;
+  }
+  return out;
+}
+
 export function seedDemoData(db: Database.Database) {
   let seq = 0;
   const id = () => demoId(seq++);
@@ -55,20 +217,84 @@ export function seedDemoData(db: Database.Database) {
   const insertUser = db.prepare(
     "INSERT INTO users (id, email, name, role, password_hash, created_at) VALUES (?, ?, ?, ?, ?, ?)"
   );
+  // ── The six demo identities (handoff 07 §1.2 p6, §1.3 p7) ────────────────
+  //
+  // ONE IDENTITY PER ROLE. p7 is explicit: "do not use one account with a
+  // mutable role claim." Until now `org.demo@steady.local` held the single
+  // `admin` role and served BOTH the organization and the payer console, which
+  // meant the boundary between them existed only in a comment. Two accounts,
+  // two roles, and a reviewer can test the difference by signing in.
+  //
+  // A DISTINCT PASSWORD PER ROLE. Same reasoning at a smaller scale: a shared
+  // password makes "which role am I actually signed in as" a question the
+  // presenter answers from memory. Documented in docs/demo/demo-logins.md and
+  // overridable per role from the environment, so an external review cycle can
+  // rotate them without a commit (p7: "store passwords outside source control;
+  // rotate before each external review cycle").
   const alexId = id();
   const samId = id();
   const clinicianId = id();
-  insertUser.run(alexId, "demo@example.com", "Alex Rivera (fictional)", "member", hashPassword("demo1234"), daysAgo(22));
-  insertUser.run(samId, "demo2@example.com", "Sam Okafor (fictional)", "member", hashPassword("demo1234"), daysAgo(2));
-  insertUser.run(clinicianId, "clinician@example.com", "Dr. Maya Chen (fictional)", "clinician", hashPassword("demo1234"), daysAgo(40));
-  // Steady Intelligence. An AGGREGATE role: this account can read the
-  // organization's operating picture and can read no person's record, which is
-  // §30.6's rule that aggregate access does not create care access. It is a
-  // separate login rather than a mode on the clinician account precisely so
-  // that boundary is something a reviewer can test by signing in.
+  insertUser.run(alexId, PATIENT_EMAIL, "Alex Rivera (fictional)", "member", demoHash("member"), daysAgo(22));
+  insertUser.run(samId, "patient2.demo@steady.local", "Sam Okafor (fictional)", "member", demoHash("member"), daysAgo(2));
+  insertUser.run(clinicianId, "clinician.demo@steady.local", "Dr. Maya Chen (fictional)", "clinician", demoHash("clinician"), daysAgo(40));
+  // The colleague a person can be handed to. Same tenant as Dr. Chen, because
+  // a transfer across tenants is refused — correctly — and a recipient in
+  // another organization would demonstrate the refusal rather than the
+  // workflow.
   insertUser.run(
-    id(), "operations@example.com", "Jordan Idowu (fictional)", "admin",
-    hashPassword("demo1234"), daysAgo(60),
+    DEMO_CLINICIAN_2_ID, "clinician2.demo@steady.local", "Dr. Tomas Ruiz (fictional)",
+    "clinician", demoHash("clinician"), daysAgo(30),
+  );
+
+  // The two AGGREGATE roles, now separate. Each reads a population and can
+  // read no person's record — §30.6's rule that aggregate access does not
+  // create care access — and neither can read the other's tenant.
+  insertUser.run(
+    id(), "org.demo@steady.local", "Jordan Idowu (fictional)", "organization",
+    demoHash("organization"), daysAgo(60),
+  );
+  insertUser.run(
+    id(), "payer.demo@steady.local", "Priya Raman (fictional)", "payer",
+    demoHash("payer"), daysAgo(60),
+  );
+
+  // A SECOND organization account, and it is not a duplicate.
+  //
+  // There are two organization populations in this deployment and they are
+  // deliberately separate: Northside Behavioral Health's 4,820 covered lives,
+  // which have no names by design so an aggregate drilldown is impossible, and
+  // handoff 07's 240 fabricated profiles enrolled with the eight demo care
+  // networks. One account cannot report on both — an organization sees its own
+  // tenant, which is the point — so `org.demo` stays on Northside and this one
+  // operates a demo network.
+  //
+  // p7 anticipates exactly this: "one identity per role and OPTIONAL PRESENTER
+  // IDENTITIES PER AUDIENCE." Two accounts in the same role, in different
+  // tenants, is only possible because scope is now read from the session
+  // rather than deduced by counting organization tenants.
+  insertUser.run(
+    id(), "network.demo@steady.local", "Dana Okonkwo (fictional)", "organization",
+    demoHash("organization"), daysAgo(60),
+  );
+
+  // The reviewer. p6: fixed gates, evidence, replay, corrections and audit —
+  // and NOT routine treatment decisions. The review console was previously
+  // reachable only through an environment access code, which gated the door
+  // without ever saying who walked through it.
+  insertUser.run(
+    id(), "reviewer.demo@steady.local", "Dr. Ellis Nakamura (fictional)", "reviewer",
+    demoHash("reviewer"), daysAgo(75),
+  );
+
+  // Demo administration. p6 grants this role everything inside the fabricated
+  // environment — every tenant, person, event, reset and QA control — and
+  // nothing outside it. The breadth is the point AND the risk, which is why
+  // the page it lands on says so: production administration must use
+  // purpose-limited permissions and break-glass access, and this role's
+  // blanket visibility must never be carried into it.
+  insertUser.run(
+    id(), "admin.demo@steady.local", "Robin Achebe (fictional)", "demo_admin",
+    demoHash("demo_admin"), daysAgo(90),
   );
 
   // --- Alex: three weeks into the program, improving ---
@@ -107,10 +333,24 @@ export function seedDemoData(db: Database.Database) {
     ["[2,1,2,1,2,1,2,0,0,2,1,1,1,1,1,1,0,0]", 16],
   ];
   const pclWeek = [52, 46, 39];
+  // THE PRIMARY OUTCOME INSTRUMENT, REPEATED — not only PCL-5 and ITQ.
+  //
+  // Alex had three weekly PCL-5 and ITQ readings and a single PHQ-9 at intake,
+  // so every screen that reports "baseline → latest" on the primary instrument
+  // had one point to work with and showed no change at all. It looked like it
+  // worked only because those screens took the first and last row of the
+  // screenings table whatever the instrument was, and compared a PC-PTSD-5
+  // total (maximum 5) against a PCL-5 (maximum 80). The environment has one
+  // primary outcome measure; everybody in it needs a series on that one.
+  const phqWeek = [9, 7, 5];
   itqWeek.forEach(([answers, total], w) => {
     const day = 21 - w * 7;
     insScreening.run(id(), alexId, "pcl-5", "standard (past month)", pclWeek[w], "[]", "[]", daysAgo(day));
     insScreening.run(id(), alexId, "itq", "Cloitre et al. (ICD-11)", total, answers, "[]", daysAgo(day));
+    // w === 0 is the intake PHQ-9 already written above, at the same date.
+    if (w > 0) {
+      insScreening.run(id(), alexId, "phq-9", "standard", phqWeek[w], "[]", "[]", daysAgo(day));
+    }
   });
 
   const insCheckin = db.prepare(
@@ -125,11 +365,23 @@ export function seedDemoData(db: Database.Database) {
     const calmer = (21 - d) / 21;
     const activation = Math.max(1, Math.round(6 - 3 * calmer + (d % 3 === 0 ? 1 : 0)));
     const dissociation = d === 9 ? 7 : Math.max(0, Math.round(4 - 3 * calmer));
-    const action =
-      d === 9 ? "grounding_only" : dissociation >= 4 || d % 5 === 4 ? "stabilization" : "processing_ok";
+    // THE PRODUCT'S OWN ROUTING RULE, not a ladder that agrees with it today.
+    // This read `d === 9 ? "grounding_only" : dissociation >= 4 || d % 5 === 4
+    // ? "stabilization" : "processing_ok"` — and the `d % 5 === 4` arm was a
+    // decision the rule does not make on these values. Every seeded row now
+    // carries the answer a member answering the same questions would get.
+    const values = {
+      activation,
+      shutdown: Math.max(0, activation - 2),
+      harm_urge: false,
+      feels_safe: true,
+      dissociation,
+      sleep_quality: d % 4 === 0 ? 3 : 6,
+      substance_flag: false,
+    };
     insCheckin.run(
-      id(), alexId, dateOnly(d), activation, Math.max(0, activation - 2), 0, 1,
-      dissociation, d % 4 === 0 ? 3 : 6, 0, action, daysAgo(d, 8)
+      id(), alexId, dateOnly(d), values.activation, values.shutdown, 0, 1,
+      values.dissociation, values.sleep_quality, 0, evaluateCheckin(values), daysAgo(d, 8)
     );
   }
 
@@ -176,14 +428,19 @@ export function seedDemoData(db: Database.Database) {
     insPostCheck.run(id(), sessionId, alexId, post, 1, 1, Math.min(post, 3), 1, 0, daysAgo(d, 19));
   }
 
-  const insAlert = db.prepare(
-    `INSERT INTO alerts (id, user_id, alert_type, severity, detail, status, reviewed_by, review_note, created_at, reviewed_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-  );
+  // The seeded statement from the one file that owns this table's column list.
+  // It was written out here, which made this the third place `INSERT INTO
+  // alerts` appeared — and a seeded alert is still an alert: the next rule
+  // added to the writer has to reach it too.
+  const insAlert = db.prepare(ALERT_INSERT_SEEDED_SQL);
   // Hard-stop alert, already reviewed by the clinician with a documented note.
   insAlert.run(
-    id(), alexId, "session_hard_stop", "high",
-    "Hard stop in module body-scan: Distress rated 9/10",
+    ...alertValues({
+      // The seed's own deterministic id, so a reset reproduces this row.
+      id: id(),
+      userId: alexId, type: "session_hard_stop", severity: "high",
+      detail: "Hard stop in module body-scan: Distress rated 9/10",
+    }),
     "reviewed", clinicianId,
     "Called member same day. Dissociative spike after poor sleep; agreed to grounding-only week and earlier wind-down. No safety concerns. Follow-up at next weekly review.",
     daysAgo(9, 18), daysAgo(9, 21)

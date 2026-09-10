@@ -16,19 +16,39 @@ import { logout } from "@/lib/actions";
 // audit and referrals look like peers of the daily queue — the exact flattening
 // §26 separates the review role to undo.
 
-/** Which layer each console screen belongs to, and what it is called. */
+/**
+ * Which layer each console screen belongs to, and what it is called.
+ *
+ * FOUR ENTRIES LEFT THIS LIST IN HANDOFF 09 PACKAGE 2. Handoffs, Messages,
+ * Referrals and Schedule were all here, all under Actions, and all four are
+ * pages that say the capability behind them does not exist. §1.1's ruling:
+ *
+ *   "Omit unavailable capabilities from primary navigation entirely. A
+ *    navigation item is a promise; promoting a route that dead-ends is the
+ *    fastest way to lose a clinician's trust in the whole shell."
+ *
+ * That applies to both shells, not only the new one — a clinician using the
+ * current console is promised four things it cannot do, and gating the fix
+ * behind a flag would leave the promise in place for whoever has the flag off.
+ * The routes still exist and still say what is missing; they are reachable by
+ * URL and named on /review/status, which §1.1 calls the "secondary
+ * product-status location" where an honest capability notice belongs.
+ *
+ * The Actions layer is now empty for a clinician, and AppShell already renders
+ * a layer with no destination as plain text rather than a dead link. An empty
+ * layer is the honest state of this console: a clinician's actions happen
+ * INSIDE a person's record and on the Command Center, not on a console-level
+ * screen of their own.
+ */
 export const CONSOLE_SCREENS: Array<{
   href: string;
   label: string;
   layer: RailSlug;
 }> = [
   { href: "/clinician/today", label: "Work queue", layer: "overview" },
+  { href: "/clinician/population", label: "Population", layer: "overview" },
   { href: "/clinician/caseload", label: "Caseload", layer: "progress" },
   { href: "/clinician/patients", label: "Patients", layer: "progress" },
-  { href: "/clinician/handoffs", label: "Handoffs", layer: "actions" },
-  { href: "/clinician/messages", label: "Messages", layer: "actions" },
-  { href: "/clinician/referrals", label: "Referrals", layer: "actions" },
-  { href: "/clinician/schedule", label: "Schedule", layer: "actions" },
   { href: "/clinician/reports", label: "Reports", layer: "evidence" },
 ];
 

@@ -13,14 +13,19 @@ import {
 } from "../companion";
 import { aiCompanionEnabled, generateAiOpening, generateAiReply } from "../companion-ai";
 import { rateLimit } from "../rate-limit";
+import {
+  createAlert as createClinicalAlert, type AlertSeverity,
+} from "../clinical/alert-create";
 
 const COMPANION_MSG_LIMIT = Number(process.env.EMDR_COMPANION_RATE_LIMIT ?? 20);
 const COMPANION_WINDOW_MS = 60_000;
 
-async function createAlert(userId: string, type: string, severity: "urgent" | "high" | "moderate" | "info", detail: string) {
-  const c = await data();
-  await c.run("INSERT INTO alerts (id, user_id, alert_type, severity, detail) VALUES (?, ?, ?, ?, ?)",
-    [newId(), userId, type, severity, detail]);
+/** Positional wrapper over the one alert writer. This was the fifth identical
+ *  copy of the same insert; see src/lib/clinical/alert-create.ts for why that
+ *  mattered — a private writer is one a new call site cannot use, and the
+ *  paced screening gate ended up raising no alert at all. */
+async function createAlert(userId: string, type: string, severity: AlertSeverity, detail: string) {
+  await createClinicalAlert({ userId, type, severity, detail });
 }
 
 export interface ChatMessage { sender: "member" | "companion"; text: string; riskFlag: boolean }

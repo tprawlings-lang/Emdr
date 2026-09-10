@@ -1,6 +1,7 @@
-import Anthropic from "@anthropic-ai/sdk";
-import { newId } from "./db";
+import { newId, tenantForUser } from "./db";
 import { data } from "./data";
+import { invoke } from "./ai-gateway";
+import { PLAN_DRAFT } from "./ai-gateway/registry";
 import { decryptField, encryptField } from "./crypto";
 import { audit } from "./audit";
 import { getMemoryItemsByType } from "./companion";
@@ -145,8 +146,6 @@ async function rulesPlan(userId: string): Promise<ProgramPlan> {
   };
 }
 
-const PLAN_MODEL = process.env.EMDR_COMPANION_MODEL ?? "claude-opus-4-8";
-
 async function aiPlan(userId: string): Promise<ProgramPlan> {
   const triggers = await getActiveTriggers(userId);
   const readiness = await getLatestReadiness(userId);
@@ -179,11 +178,14 @@ async function aiPlan(userId: string): Promise<ProgramPlan> {
     modules: MODULES.map((m) => ({ id: m.id, name: m.name, tier: m.tier, objective: m.objective })),
   };
 
-  const client = new Anthropic();
-  const response = await client.messages.create({
-    model: PLAN_MODEL,
-    max_tokens: 2000,
-    thinking: { type: "adaptive" },
+  const result = await invoke({
+    task: PLAN_DRAFT.id,
+    scope: {
+      tenantId: tenantForUser(userId),
+      personId: userId,
+      purpose: "program_plan_draft",
+      actorId: userId,
+    },
     system: `You draft the working "program plan" for Steady, a self-guided wellness program built on the EMDR method. You are given a member's trigger map (their own words, headline level), readiness, goals, focus areas, and the module catalog.
 
 Produce a plan that sequences their work: which triggers to approach first (always lowest intensity first; anything rated 7+ is specialist-territory and must be marked for specialist review, never self-guided), which module each next step belongs to, and what grounding to keep ready.
@@ -202,11 +204,15 @@ Respond with ONLY a JSON object, no markdown fences, matching:
     messages: [{ role: "user", content: JSON.stringify(context) }],
   });
 
-  const text = response.content
-    .filter((b): b is Anthropic.TextBlock => b.type === "text")
-    .map((b) => b.text)
-    .join("")
-    .trim()
+  // `plan.draft` declares a "refuse" fallback: this function throws, and
+  // `generateProgramPlan` catches and uses the deterministic rules plan. The
+  // outcome is checked rather than the text, because an empty string from a
+  // failed call and an empty string from a model that answered with nothing are
+  // different facts and only the first is a fallback.
+  if (result.outcome !== "answered") {
+    throw new Error(`plan.draft did not answer: ${result.reason || result.outcome}`);
+  }
+  const text = result.text
     .replace(/^```(?:json)?\s*/i, "")
     .replace(/\s*```$/, "");
   const parsed = JSON.parse(text) as ProgramPlan;

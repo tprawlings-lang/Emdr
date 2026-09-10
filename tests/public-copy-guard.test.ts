@@ -17,6 +17,7 @@
 
 import { strict as assert } from "node:assert";
 import test from "node:test";
+import { DEMO_PASSWORDS } from "../src/lib/demo-seed";
 import fs from "node:fs";
 import path from "node:path";
 import {
@@ -221,8 +222,15 @@ test("no public page contains an identifier outside the reserved demo patterns",
   // RFC 2606 reserves example.com/.org/.net and .test/.invalid/.example for
   // exactly this purpose, so a reserved address can never route to a real
   // person's inbox.
+  //
+  // `.local` is admitted on the same grounds rather than as an exception: RFC
+  // 6762 reserves the whole TLD for link-local multicast DNS, so it resolves
+  // to nothing outside a local network and can reach no inbox anywhere. The
+  // guard previously spelled out `test.local` alone, which allowed exactly one
+  // fabricated host and would have rejected the `@steady.local` addresses
+  // handoff 07 p6 specifies — a rule that is right for the wrong reason.
   const EMAIL = /[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g;
-  const RESERVED = /@(?:example\.(?:com|org|net)|test\.local|[a-z0-9-]+\.(?:test|invalid|example))$/i;
+  const RESERVED = /@(?:example\.(?:com|org|net)|[a-z0-9-]+\.(?:local|test|invalid|example))$/i;
 
   for (const { route, src } of publicSources) {
     for (const found of prose(src).match(EMAIL) ?? []) {
@@ -322,7 +330,13 @@ test("no shared credential appears in the global banner", () => {
   // printed on every page of an environment shaped like a clinical record
   // outlives every other access control.
   const layout = fs.readFileSync(path.join(APP, "layout.tsx"), "utf8");
-  assert.doesNotMatch(layout, /demo1234|password\s*[:=]\s*["'][^"']+["']/i,
+  // Every demo password, not one literal. The guard used to name `demo1234`,
+  // and the moment the six roles got six passwords it would have gone on
+  // passing while five of them leaked.
+  const anyDemoPassword = new RegExp(
+    Object.values(DEMO_PASSWORDS).join("|") + `|password\\s*[:=]\\s*["'][^"']+["']`, "i",
+  );
+  assert.doesNotMatch(layout, anyDemoPassword,
     "the global banner exposes a shared credential");
 });
 
@@ -483,7 +497,12 @@ test("a read-only review path is never offered a write-capable persona", () => {
 });
 
 test("every review persona uses a reserved demonstration address", () => {
-  const RESERVED = /@(?:example\.(?:com|org|net)|[a-z0-9-]+\.(?:test|invalid|example))$/i;
+  // Same rule as the public-page guard above, and the same reasoning: RFC 2606
+  // reserves the example domains, RFC 6762 reserves .local. Both are kept here
+  // as a literal rather than shared, because a persona address and a page
+  // address are checked for different reasons and a shared constant invites
+  // loosening one to fix the other.
+  const RESERVED = /@(?:example\.(?:com|org|net)|[a-z0-9-]+\.(?:local|test|invalid|example))$/i;
   for (const p of REVIEW_PATHS) {
     for (const persona of p.personas) {
       assert.match(persona.email, RESERVED,

@@ -15,4 +15,15 @@ regexes = [
   '''ci-build-placeholder''',
   '''load-ci-placeholder''',
   '''dev-only-secret-change-me''',
+  # The test-suite convention: every unit test sets a session secret because
+  # the production config assertion refuses to boot without one, and each is
+  # named for its own file so a leaked one is traceable to nothing.
+  #
+  # MATCHED ON THE CONVENTION, NOT THE DIRECTORY. Allowlisting `tests/` would
+  # hide a real key pasted into a test, which is one of the likelier places for
+  # one to land. This matches the literal words "-test-secret-at-least-32-" —
+  # a string no real credential contains, and one that says what it is at every
+  # call site. 21 findings across 40 files, all of this shape.
+  '''-(test|probe)-secret-at-least-32-''',
+  '''unit-test-data-key-please-ignore''',
 ]

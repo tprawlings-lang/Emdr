@@ -17,7 +17,6 @@
 //   depend on a job having run.
 
 import { data } from "../data";
-import { newId } from "../db";
 import { audit } from "../audit";
 import { activePolicy, type ClinicalPolicy } from "../clinical-policy";
 
@@ -222,7 +221,10 @@ export async function closeAlert(args: {
 
   if (NEVER_AUTO_RESOLVE.includes(band) && resolution.length < 10) {
     throw new AlertClosureError(
-      `A ${band}-band alert closes with a documented action, not an acknowledgement. ` +
+      // "A immediate-band alert" is what a clinician read until this line
+      // existed. Only one of the four bands takes "an", so the article is
+      // chosen rather than assumed.
+      `${band === "immediate" ? "An" : "A"} ${band}-band alert closes with a documented action, not an acknowledgement. ` +
       "Record what was done — who was contacted, what was decided, what follows."
     );
   }

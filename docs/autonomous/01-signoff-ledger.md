@@ -237,3 +237,47 @@ clinician approval. Flagged points:
 - 🔴 Not an emergency service; cannot monitor continuously; must say so.
 - 🔴 Regulatory: education/preparation stays organizationally + technically separate from any
   future regulated clinical function ("one app must not drift across regulatory categories").
+
+---
+
+## House measure — Everyday function (`steady-everyday-function`)
+
+**Status: UNAPPROVED. No clinician has reviewed this, and nothing in the product treats it as
+though one has.**
+
+Steady wrote this measure. It is not PHQ-9, GAD-7, PCL-5, PC-PTSD-5 or the ITQ, all of which are
+published, studied, normed and cited. There is no literature behind this one, no normal range,
+and no cutoff — and the absence of a cutoff is deliberate and load-bearing, because a threshold
+is what turns a number into a claim about a person, and there is nothing here to support such a
+claim.
+
+| | |
+|---|---|
+| What it asks | Four questions about what somebody was able to do in the past week — start the day, keep up with work or home, be around people, do something restorative |
+| Scale | 0–4 per item, total 0–16, **higher is better** — the opposite direction to every validated instrument beside it |
+| Version | `house-1.0.0-unapproved` |
+| Cutoff | **None, and typed `null` so it cannot become a number** |
+| Lives in | `src/lib/measures/house.ts` — a separate file and a separate type from `instruments.ts`, so `getInstrument()` cannot return it |
+
+**Why it asks about function rather than feeling.** It exists beside PHQ-9 rather than
+duplicating it. A function measure that asks about mood is a symptom measure with a different
+name, and a guard fails the build if an item mentions feeling, mood, sadness, anxiety,
+hopelessness or worry.
+
+**What it may do.** Be answered by a member, stored, and shown back to them and to their
+clinician as their own answers over time — including on a chart beside validated instruments,
+on its own scale, with its disclosure rendered on its own panel. A panel drawn beside PHQ-9
+borrows PHQ-9's authority, and this measure has none to borrow, so the disclosure is a property
+of the series rather than a footnote a page might remember.
+
+**What it may not do.** Carry a cutoff, band, severity label or norm. Contribute to a safety
+decision, gate, unlock, eligibility check or routing rule. Be described as a screen, test,
+assessment or diagnosis. Appear in any list of validated instruments. A guard reads
+`gating.ts`, `safety/`, `planning/`, `fitness-screener.ts` and `autopilot.ts` and fails the
+build if its identifier appears in any of them.
+
+**What a reviewer would need to decide.** Whether these four items are the right four; whether a
+weekly recall window is right; whether "as well as I would like" is a defensible top anchor;
+and whether the measure should exist at all, given that a validated functional measure could be
+licensed instead. None of those questions is settled by this entry — it records that they are
+open.

@@ -8,7 +8,6 @@
 // before launch, consistent with Steady's content posture.
 
 import { data } from "./data";
-import { newId } from "./db";
 import { audit } from "./audit";
 import { recordLessonRead, upsertRowId, nowStamp } from "./spine";
 

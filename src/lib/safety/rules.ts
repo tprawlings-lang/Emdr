@@ -10,7 +10,7 @@
 // sign-off (docs/autonomous/01-signoff-ledger.md).
 
 import { AccessTier, RuleCategory, SafetyInputs } from "./types";
-import { INSTRUMENT, DAILY, ACUTE_TRAUMA_EXCLUSION_DAYS, COOLDOWN_HOURS, BETA_CONFIG } from "./config";
+import { INSTRUMENT, DAILY, ACUTE_TRAUMA_EXCLUSION_DAYS, BETA_CONFIG } from "./config";
 
 export interface RuleEffect {
   /** Lower the access ceiling (engine takes the MIN). */

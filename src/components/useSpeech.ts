@@ -1,5 +1,6 @@
 "use client";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { useLatest } from "./useLatest";
 
 // On-device text-to-speech via the Web Speech API. No audio leaves the device;
 // nothing is uploaded. Used to SPEAK the deterministic, output-guard-clean
@@ -57,14 +58,12 @@ function classify(v: SpeechSynthesisVoice | null): VoiceQuality {
 export function useSpeech(enabled: boolean) {
   const supported =
     typeof window !== "undefined" && "speechSynthesis" in window && "SpeechSynthesisUtterance" in window;
-  const enabledRef = useRef(enabled);
-  enabledRef.current = enabled;
+  const enabledRef = useLatest(enabled);
 
   // The chosen voice. Voices load asynchronously on most browsers, so we resolve
   // now and again whenever the list changes.
   const [voice, setVoice] = useState<SpeechSynthesisVoice | null>(null);
-  const voiceRef = useRef<SpeechSynthesisVoice | null>(null);
-  voiceRef.current = voice;
+  const voiceRef = useLatest(voice);
 
   useEffect(() => {
     if (!supported) return;
@@ -124,7 +123,7 @@ export function useSpeech(enabled: boolean) {
         /* no-op — text remains on screen */
       }
     },
-    [supported]
+    [supported, enabledRef, voiceRef]
   );
 
   // Stop any speech when the component using this unmounts.

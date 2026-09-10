@@ -1,0 +1,311 @@
+import Link from "next/link";
+import type { CaseloadState, CaseloadStateRow } from "@/lib/clinical/caseload-state";
+import {
+  FUNCTION_LABEL, RESPONSE_LABEL, FUNCTION_WINDOW_DAYS,
+} from "@/lib/clinical/caseload-state";
+import type { TrajectoryState } from "@/lib/clinical/trajectory-policy";
+import type { LoadState } from "@/lib/clinical/therapeutic-load-policy";
+import { PriorityBadge } from "./primitives";
+
+// The caseload clinical-state table (expansion handoff 03 §6; Phase 4).
+//
+// §6's columns, in §6's order: Patient, Function, Trajectory, Response,
+// Load/Readiness, Last contact. And the rule the whole table is built to
+// satisfy: "every label opens evidence, calculation window, limitations, and
+// source dates."
+//
+// SO EVERY ROW EXPANDS, and what it expands to is not more numbers — it is
+// where the cell came from, what window it covers, and what it cannot support.
+// A table of clinical states whose cells cannot be interrogated is a table that
+// teaches a clinician to trust a label, and the label is exactly the part that
+// compresses hardest.
+//
+// NO COMPOSITE COLUMN, AND NO SORTABLE SCORE. Phase 4's definition of done is
+// "caseload has no composite score", and the temptation is the sort: a table of
+// four descriptive states is harder to order than a table of numbers, so a
+// number appears "just for sorting" and within a month it is the thing people
+// read. The sort is the caseload model's band, decided on the server (§6:
+// "user filters do not rewrite server clinical priority semantics").
+//
+// AN EMPTY CELL SAYS SO. A trajectory or load cell with nothing to report
+// renders "Not computed" with a reason. Never a blank — a blank in a trajectory
+// column reads as flat and a blank in a load column reads as "no concerns",
+// which are clinical claims nobody made.
+//
+// AND A SAFETY HOLD IS NOT A RECOMMENDATION. The load cell tones a
+// blocked-by-safety reading differently from the four states this feature
+// computes, because handoff 05 §1 is that a safety decision "can never" be
+// answered or overridden by a load reading — and a column that rendered them
+// alike would put them on the same footing at a glance.
+//
+// AND THE TRAJECTORY CELL NAMES ITS DOMAIN. The state is one domain's, not the
+// person's, so the cell prints which one. "Moving the other way" on its own is
+// a verdict about somebody; "Moving the other way — Sleep quality" is a
+// description of a reading, and a reader can go and look at it.
+
+function StateCell({
+  label, tone = "neutral",
+}: {
+  label: string;
+  tone?: "neutral" | "settled" | "watch" | "absent";
+}) {
+  // Not colour alone (§19). The word is the state; the tint is decoration, and
+  // the "absent" tone is deliberately the quietest so an unbuilt column does
+  // not compete with a real one.
+  const cls =
+    tone === "settled" ? "bg-emerald-50 text-emerald-900"
+    : tone === "watch" ? "bg-amber-50 text-amber-900"
+    : tone === "absent" ? "text-olive"
+    : "bg-app-accent/40 text-app-ink";
+  return (
+    <span className={`inline-block rounded-full px-2 py-0.5 text-xs ${cls}`}>{label}</span>
+  );
+}
+
+function functionTone(row: CaseloadStateRow): "neutral" | "settled" | "watch" | "absent" {
+  if (row.functionState === "not_set" || row.functionState === "no_evidence") return "absent";
+  if (row.functionState === "improving") return "settled";
+  if (row.functionState === "lost_ground") return "watch";
+  return "neutral";
+}
+
+/** The trajectory states, toned. `stable` is deliberately neutral rather than
+ *  settled: handoff 04 §3 says stable must not read as "not improving", and it
+ *  must not read as good news either — it is a state in its own right. */
+function trajectoryTone(state: TrajectoryState): "neutral" | "settled" | "watch" | "absent" {
+  if (state === "improving") return "settled";
+  if (state === "reversing" || state === "slowing" || state === "stalled") return "watch";
+  return "neutral";
+}
+
+/** The load states, toned. A safety hold gets `watch` and a badge of its own
+ *  wording; `maintain` is neutral because it is the ordinary case, and
+ *  `consider_progression` is `settled` rather than celebratory — it is an
+ *  invitation to read, not a verdict that somebody is ready. */
+function loadTone(state: LoadState): "neutral" | "settled" | "watch" | "absent" {
+  if (state === "blocked_by_safety" || state === "stabilize") return "watch";
+  if (state === "consider_progression") return "settled";
+  if (state === "insufficient_data") return "absent";
+  return "neutral";
+}
+
+function responseTone(row: CaseloadStateRow): "neutral" | "settled" | "watch" | "absent" {
+  if (row.responseState === "insufficient") return "absent";
+  if (row.responseState === "supportive") return "settled";
+  if (row.responseState === "burden") return "watch";
+  return "neutral";
+}
+
+export function CaseloadStateTable({ state }: { state: CaseloadState }) {
+  if (state.rows.length === 0) {
+    return (
+      <p className="measure mt-4 text-sm text-ground">
+        Nobody matches this view right now. That is a statement about the filter, not about your
+        caseload.
+      </p>
+    );
+  }
+
+  return (
+    <div className="mt-4">
+      {/* Wide content scrolls in its own container; the page body never scrolls
+          sideways. */}
+      <div className="overflow-x-auto rounded-3xl border border-ground/10 bg-linen">
+        <table className="w-full min-w-[52rem] border-collapse text-left">
+          <caption className="sr-only">
+            Caseload clinical state. Each person has a separate state per column; there is no
+            combined score.
+          </caption>
+          <thead>
+            <tr className="border-b border-ground/10 text-xs uppercase tracking-wide text-olive">
+              <th scope="col" className="px-4 py-3 font-medium">Person</th>
+              <th scope="col" className="px-4 py-3 font-medium">Function</th>
+              <th scope="col" className="px-4 py-3 font-medium">Trajectory</th>
+              <th scope="col" className="px-4 py-3 font-medium">Response</th>
+              <th scope="col" className="px-4 py-3 font-medium">Load</th>
+              <th scope="col" className="px-4 py-3 font-medium">Last contact</th>
+            </tr>
+          </thead>
+          <tbody>
+            {state.rows.map((r) => (
+              <tr key={r.personId} data-testid="caseload-state-row" className="border-b border-ground/10 last:border-b-0 align-top">
+                <th scope="row" className="px-4 py-3 font-normal">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <PriorityBadge band={r.band} />
+                    <Link
+                      href={`/clinician/member/${r.personId}`}
+                      className="font-medium text-ground underline-offset-2 hover:underline"
+                    >
+                      {r.displayName}
+                    </Link>
+                  </div>
+                </th>
+                <td className="px-4 py-3">
+                  <StateCell label={FUNCTION_LABEL[r.functionState]} tone={functionTone(r)} />
+                </td>
+                <td className="px-4 py-3">
+                  {r.trajectory.present ? (
+                    <>
+                      <StateCell label={r.trajectory.label} tone={trajectoryTone(r.trajectory.state)} />
+                      {/* The domain, always, and on its own line so it cannot be
+                          skimmed past. A state without its domain is a verdict. */}
+                      <span className="mt-1 block text-xs text-olive">{r.trajectory.domainLabel}</span>
+                      {r.trajectory.otherMoved > 0 && (
+                        <span className="block text-xs text-olive">
+                          +{r.trajectory.otherMoved} other domain{r.trajectory.otherMoved === 1 ? "" : "s"} moved
+                        </span>
+                      )}
+                    </>
+                  ) : (
+                    <StateCell label="Not computed" tone="absent" />
+                  )}
+                </td>
+                <td className="px-4 py-3">
+                  <StateCell label={RESPONSE_LABEL[r.responseState]} tone={responseTone(r)} />
+                </td>
+                <td className="px-4 py-3">
+                  {r.load.present ? (
+                    <>
+                      <StateCell label={r.load.label} tone={loadTone(r.load.state)} />
+                      {r.load.blockedBySafety && (
+                        <span className="mt-1 block text-xs text-olive">
+                          Decided on the safety screen, not here
+                        </span>
+                      )}
+                    </>
+                  ) : (
+                    <StateCell label="Not computed" tone="absent" />
+                  )}
+                </td>
+                <td className="px-4 py-3 text-xs text-olive">
+                  {/* Null is its own state. A person nobody has contacted and a
+                      person contacted today must not read the same. */}
+                  {r.lastContactDays === null
+                    ? "None recorded"
+                    : r.lastContactDays === 0
+                      ? "Today"
+                      : `${r.lastContactDays}d`}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {/* §6: "every label opens evidence, calculation window, limitations, and
+          source dates." One disclosure per person rather than one per cell —
+          six expanders on a row is a row nobody expands. */}
+      <div className="mt-4 space-y-2">
+        {state.rows.map((r) => (
+          <details key={r.personId} className="rounded-2xl border border-ground/10 bg-linen px-4 py-3">
+            <summary className="cursor-pointer text-sm text-app-ink">
+              Where {r.displayName}&rsquo;s states come from
+            </summary>
+            <div className="mt-3 space-y-3 text-xs text-ground">
+              <div>
+                <p className="font-medium text-app-ink">Function — {FUNCTION_LABEL[r.functionState]}</p>
+                {r.functionGoalTitle && <p className="text-olive">Goal: {r.functionGoalTitle}</p>}
+                <p className="text-olive">
+                  Window: the last {FUNCTION_WINDOW_DAYS} days
+                  {r.functionEvidenceAt
+                    ? ` · newest accepted evidence ${r.functionEvidenceAt.slice(0, 10)}`
+                    : " · no accepted evidence in it"}
+                </p>
+                {r.functionLimitations.map((l, i) => (
+                  <p key={i} className="measure text-olive">{l}</p>
+                ))}
+                <p className="mt-1">
+                  <Link href={`/clinician/member/${r.personId}/goals`} className="underline">
+                    Open the goals
+                  </Link>
+                </p>
+              </div>
+
+              <div>
+                <p className="font-medium text-app-ink">Response — {RESPONSE_LABEL[r.responseState]}</p>
+                <p className="measure text-olive">{r.responseDetail}</p>
+                <p className="text-olive">
+                  Computed under policy {state.columnVersions.response}. An association in the
+                  record, never a claim about cause.
+                </p>
+                <p className="mt-1">
+                  <Link href={`/clinician/member/${r.personId}/responses`} className="underline">
+                    Open the response record
+                  </Link>
+                </p>
+              </div>
+
+              <div>
+                <p className="font-medium text-app-ink">
+                  Trajectory —{" "}
+                  {r.trajectory.present
+                    ? `${r.trajectory.label}, in ${r.trajectory.domainLabel}`
+                    : "not computed"}
+                </p>
+                <p className="measure text-olive">{r.trajectory.note}</p>
+                {r.trajectory.present && (
+                  <>
+                    <p className="measure text-olive">
+                      One domain, on its own scale, against this person&rsquo;s own earlier windows.
+                      {r.trajectory.otherMoved > 0
+                        ? ` ${r.trajectory.otherMoved} other domain${r.trajectory.otherMoved === 1 ? "" : "s"} also moved — this cell is a selection, not the whole picture.`
+                        : " No other domain changed course in the same period."}
+                    </p>
+                    <p className="text-olive">
+                      Computed under policy {state.columnVersions.trajectory}. A description of
+                      readings, never a prediction.
+                    </p>
+                    <p className="mt-1">
+                      <Link href={`/clinician/member/${r.personId}/trajectory`} className="underline">
+                        Open the trajectory
+                      </Link>
+                    </p>
+                  </>
+                )}
+              </div>
+
+              <div>
+                <p className="font-medium text-app-ink">
+                  Load and readiness — {r.load.present ? r.load.label : "not computed"}
+                </p>
+                <p className="measure text-olive">{r.load.note}</p>
+                {r.load.present && (
+                  <>
+                    <p className="measure text-olive">
+                      {r.load.blockedBySafety
+                        ? "The safety engine is holding something here. That decision is made by rules elsewhere; this column displays it and stops."
+                        : "Decision support. Nothing has been unlocked, scheduled, or changed, and access is decided by the safety engine on its own rules."}
+                    </p>
+                    <p className="text-olive">Computed under policy {state.columnVersions.load}.</p>
+                    <p className="mt-1">
+                      <Link href={`/clinician/member/${r.personId}/load`} className="underline">
+                        Open the load reading
+                      </Link>
+                    </p>
+                  </>
+                )}
+              </div>
+
+              <div>
+                <p className="font-medium text-app-ink">Why they are banded {r.band}</p>
+                {r.reasons.length > 0 ? (
+                  <ul className="list-disc pl-5 text-olive">
+                    {r.reasons.map((reason) => <li key={reason}>{reason}</li>)}
+                  </ul>
+                ) : (
+                  <p className="text-olive">No flags from the caseload model.</p>
+                )}
+              </div>
+            </div>
+          </details>
+        ))}
+      </div>
+
+      <p className="measure mt-4 text-xs text-olive">
+        Each column is its own state from its own source. There is no combined score, and these
+        states are not comparable between people — {state.rows.length} shown, ordered by the
+        caseload model ({state.model}) under policy {state.policyVersion}.
+      </p>
+    </div>
+  );
+}

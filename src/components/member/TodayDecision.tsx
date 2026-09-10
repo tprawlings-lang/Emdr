@@ -95,13 +95,24 @@ export function TodayDecision({ today }: { today: MemberToday }) {
         </div>
       )}
 
-      {/* Support is a peer of the plan, not a footnote under it. Present in
-          every state, including the one where there is nothing else to show. */}
-      <p className="mt-6 border-t border-ground/10 pt-4">
+      {/* Support and the companion are peers of the plan, not footnotes under
+          it. Both present in every state, including the one where there is
+          nothing else to show.
+
+          The companion used to be reachable only from a banner that appears in
+          the moment after a check-in, and from inside the messages screen — so
+          a member who signed in and landed here, which is what a member does,
+          had no route to it. Neither is gated: both are conversation rather
+          than activating content, and a companion that disappears on the days
+          somebody is struggling is exactly backwards. */}
+      <div className="mt-6 flex flex-wrap items-center gap-x-6 gap-y-2 border-t border-ground/10 pt-4">
+        <Link href={today.companion.href} className="font-medium text-state-info underline">
+          {today.companion.label}
+        </Link>
         <Link href={today.support.href} className="font-medium text-state-info underline">
           {today.support.label}
         </Link>
-      </p>
+      </div>
     </section>
   );
 }

@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { ClinicianPage } from "@/components/clinical/ClinicianPage";
-import { notFound } from "next/navigation";
 import { requireClinician } from "@/lib/auth";
 import { loadPersonHeader } from "@/lib/clinical/person-header";
 import { PersonShell } from "@/components/clinical/PersonShell";

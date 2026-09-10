@@ -34,6 +34,12 @@ export type RecommendedAction =
   | "processing_ok"
   | "clinician_contact";
 
+/** The version stamped into the provenance of every event this rule produces.
+ *  It lives beside the rule rather than beside a writer, because two writers
+ *  stamping two literals is how a ledger ends up recording that different
+ *  versions of a rule ran when one function evaluated both. */
+export const CHECKIN_ROUTING_VERSION = "checkin-routing-v1";
+
 export function evaluateCheckin(c: {
   activation: number;
   shutdown: number;

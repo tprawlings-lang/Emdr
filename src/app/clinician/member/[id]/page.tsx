@@ -12,11 +12,27 @@ import { gateDecisionsFor, groupGateDecisions, overrideAllowed } from "@/lib/cli
 import { gateOverrideAction } from "@/lib/clinical/actions";
 import { GateReviewDrawer } from "@/components/clinical/GateReviewDrawer";
 import { PersonShell } from "@/components/clinical/PersonShell";
+import { SessionPrepPanel } from "@/components/clinical/SessionPrepPanel";
+import { ReturnToLifeCard, type GoalCardRow } from "@/components/clinical/ReturnToLifeCard";
+import {
+  ResponseFingerprintCard, type FingerprintCardRow,
+} from "@/components/clinical/ResponseFingerprintCard";
+import { computeFingerprints, displayable } from "@/lib/clinical/response-fingerprint";
+import { computeTrajectory, trajectoryLine } from "@/lib/clinical/recovery-trajectory";
+import { RecoveryTrajectoryCard, type TrajectoryCardRow } from "@/components/clinical/RecoveryTrajectoryCard";
+import { computeTherapeuticLoad, loadContext } from "@/lib/clinical/therapeutic-load";
+import { TherapeuticLoadCard } from "@/components/clinical/TherapeuticLoadCard";
+import { CLASS_LABEL } from "@/lib/clinical/intervention-vocabulary";
+import { goalProjection } from "@/lib/clinical/return-goal-projection";
+import type { TenantContext } from "@/lib/repository";
+import { listGoals } from "@/lib/clinical/return-to-life";
+import { buildSessionPrep } from "@/lib/clinical/session-prep";
+import { thoughtsSurfaceAvailable } from "@/lib/clinical/thoughts-flags";
 import { loadPersonHeader } from "@/lib/clinical/person-header";
 import { MODULES } from "@/lib/modules";
 import { WorkQueueRow } from "@/components/clinical/WorkQueueRow";
 import {
-  PriorityBadge, FreshnessLabel, OwnerChip, ReviewBadge, EmptyState,
+  ReviewBadge, EmptyState,
 } from "@/components/clinical/primitives";
 
 // Person overview (GUI and Decision-Surface Handoff §10.4).
@@ -61,7 +77,7 @@ export default async function PersonOverviewPage({
   if (!personHeader) notFound();
 
   const policy = activePolicy();
-  const [queue, timeline, consent] = await Promise.all([
+  const [queue, timeline] = await Promise.all([
     buildWorkQueue({ clinicianId: clinician.id, tenantId, policy }),
     memberTimeline(person.id, { policy }),
     // Revoked consent must not read as consent, so revoked_at is filtered
@@ -89,6 +105,126 @@ export default async function PersonOverviewPage({
   // symptom and function. It sits above active work because "have they been
   // here" changes how everything below it reads.
   const engagement = await buildEngagement(id, tenantId);
+
+  const ctx: TenantContext = { tenantId, personId: clinician.id };
+
+  // The projection deliberately carries no patient-authored text (§12), so the
+  // card's titles are read from the store. Two reads rather than widening the
+  // projection: a downstream engine must not receive these strings.
+  const goalTitles = new Map(
+    (await listGoals(ctx, id, ["active"])).map((g) => [g.id, g.title])
+  );
+
+  // Return-to-Life goals (expansion handoff 01 §9): the compact card. Read
+  // through the projection rather than the store, so the overview and the
+  // downstream engines see the same shape — and so a card cannot accidentally
+  // render a proposed observation as a level.
+  const goalSet = await goalProjection(ctx, id, { statuses: ["active"] }).catch((err) => {
+    console.error("goal projection failed (non-fatal):", err);
+    return null;
+  });
+  // The fingerprint is computed from evidence already on file; nothing is
+  // synced here. The overview is a reading surface, and a page that rebuilt the
+  // instance timeline on every clinician glance would make a read into a write.
+  const fingerprints = await computeFingerprints(ctx, id);
+  // The trajectory card (§9). Guarded on its own: the overview must survive one
+  // subsystem being unreadable, and a person's record page going blank is a far
+  // worse failure than a missing card.
+  let trajectoryRows: TrajectoryCardRow[] = [];
+  let trajectorySentence: string | null = null;
+  let trajectoryPolicyVersion = "";
+  try {
+    const set = await computeTrajectory(ctx, id);
+    trajectorySentence = trajectoryLine(set);
+    trajectoryPolicyVersion = set.policyVersion;
+    trajectoryRows = set.snapshots
+      .filter((s) => s.state !== "insufficient_data")
+      .map((s) => ({
+        domainType: s.domainType,
+        domainKey: s.domainKey,
+        label: s.label,
+        state: s.state,
+        headline: s.classification.explanation[0] ?? "",
+        limitations: s.classification.limitations,
+      }));
+  } catch (err) {
+    console.error("member overview: trajectory failed:", err instanceof Error ? err.name : "unknown");
+  }
+
+  // The load card (§8's "clinician-only card"). Guarded on its own, and
+  // rendered only when there is a reading — an empty card on every overview
+  // teaches a clinician to stop reading the space, and there is a screen that
+  // explains the emptiness properly when they want it.
+  let loadCard: {
+    state: Awaited<ReturnType<typeof computeTherapeuticLoad>>["state"];
+    bullets: Array<{ label: string; detail: string }>;
+    limitations: string[];
+    policyVersion: string;
+    safetyHeadline: string | null;
+    safeAlternative: string | null;
+  } | null = null;
+  try {
+    const snapshot = await computeTherapeuticLoad(ctx, id);
+    if (snapshot.state !== "insufficient_data") {
+      const context = loadContext(snapshot);
+      loadCard = {
+        state: snapshot.state,
+        bullets: context.bullets.map((b) => {
+          const [label, ...rest] = b.split(": ");
+          return { label, detail: rest.join(": ") };
+        }),
+        limitations: context.limitations.slice(0, 2),
+        policyVersion: snapshot.policyVersion,
+        safetyHeadline: snapshot.safetyConstraint?.headline ?? null,
+        safeAlternative: snapshot.safetyConstraint?.safeAlternative ?? null,
+      };
+    }
+  } catch (err) {
+    console.error("member overview: therapeutic load failed:", err instanceof Error ? err.name : "unknown");
+  }
+  const shown = displayable(fingerprints);
+  const withheldFingerprints = fingerprints.length - shown.length;
+  const fingerprintRows: FingerprintCardRow[] = shown.slice(0, 3).map((f) => ({
+    definitionId: f.definition.id,
+    displayName: f.definition.displayName,
+    classLabel: CLASS_LABEL[f.definition.interventionClass],
+    patternState: f.patternState,
+    supportCount: f.supportCount,
+    missingFollowupCount: f.missingFollowupCount,
+    mixedCount: f.mixedCount,
+  }));
+
+  const goalRows: GoalCardRow[] = (goalSet?.goals ?? []).map((g) => {
+    const latest = g.levels[g.levels.length - 1] ?? null;
+    const prior = g.levels.length >= 2 ? g.levels[g.levels.length - 2] : null;
+    return {
+      goalId: g.goalId,
+      title: goalTitles.get(g.goalId) ?? "This goal",
+      domain: g.domain,
+      currentLevel: g.currentLevel,
+      currentDescription: latest ? g.targetDescription : null,
+      latest: latest ? { occurredAt: latest.occurredAt, evidenceClass: latest.evidenceClass as never } : null,
+      pendingCount: g.pendingCount,
+      changeSinceReview:
+        prior && latest
+          ? latest.level === prior.level
+            ? "no change since the previous reading"
+            : latest.level > prior.level
+              ? "moved up since the previous reading"
+              : "moved down since the previous reading"
+          : null,
+    };
+  });
+
+  // Session Prep (§11). Behind its own flag, and its failure never takes the
+  // overview down: a brief is an aid to the record, and a record that will not
+  // load because its summary threw is a worse trade than a page with no brief.
+  const sessionPrep = thoughtsSurfaceAvailable("CLINICIAN_SESSION_PREP")
+    ? await buildSessionPrep({ tenantId, personId: clinician.id }, id).catch((err) => {
+        console.error("session prep failed (non-fatal):", err);
+        return null;
+      })
+    : null;
   const head = mine[0] ?? null;
 
   return (
@@ -113,6 +249,73 @@ export default async function PersonOverviewPage({
         <p className="mt-4 rounded-2xl border border-state-support/40 bg-state-support-bg/50 px-4 py-3 text-sm text-ground">
           {error}
         </p>
+      )}
+
+      {/* Session Prep (§11) sits at the TOP of the overview and above "since
+          your last review", because it is what a clinician reads in the minute
+          before a session — placing it below the record would mean scrolling
+          past the record to reach the thing that summarises it. */}
+      {goalRows.length > 0 && (
+        <div className="mt-6">
+          <ReturnToLifeCard personId={id} goals={goalRows} />
+        </div>
+      )}
+
+      {/* Observed responses (§9). Beside the life goals rather than under the
+          record, because the question it answers — what has tended to help this
+          person — is read before a session, not looked up during one. It is
+          rendered only when there is something to say: an empty card on every
+          overview teaches a clinician to stop reading the space. */}
+      {(fingerprintRows.length > 0 || withheldFingerprints > 0) && (
+        <div className="mt-6">
+          <ResponseFingerprintCard
+            personId={id}
+            rows={fingerprintRows}
+            withheldCount={withheldFingerprints}
+          />
+        </div>
+      )}
+
+      {/* Recovery trajectory (handoff 04 §9's "compact trajectory card with
+          domain badges and a longitudinal chart link"). After the responses,
+          because it is the layer above them: it reads the measures, the goals
+          and the session record and says whether the course has changed.
+          Rendered only when a domain reached a state — an empty card on every
+          overview teaches a clinician to stop reading the space, and there is a
+          screen that explains the emptiness properly when they want it. */}
+      {trajectoryRows.length > 0 && (
+        <div className="mt-6">
+          <RecoveryTrajectoryCard
+            personId={id}
+            rows={trajectoryRows}
+            line={trajectorySentence}
+            policyVersion={trajectoryPolicyVersion}
+            emptyNote={null}
+          />
+        </div>
+      )}
+
+      {/* Load and readiness (handoff 05 §8). After the trajectory, because it
+          reads the trajectory — and because a clinician should meet the course
+          before they meet a suggestion about how much more of it to do. */}
+      {loadCard && (
+        <div className="mt-6">
+          <TherapeuticLoadCard
+            personId={id}
+            state={loadCard.state}
+            bullets={loadCard.bullets}
+            limitations={loadCard.limitations}
+            policyVersion={loadCard.policyVersion}
+            safetyHeadline={loadCard.safetyHeadline}
+            safeAlternative={loadCard.safeAlternative}
+          />
+        </div>
+      )}
+
+      {sessionPrep && (
+        <div className="mt-6">
+          <SessionPrepPanel prep={sessionPrep} personId={id} />
+        </div>
       )}
 
       <div className="mt-6 grid gap-6 lg:grid-cols-[1fr_18rem]">

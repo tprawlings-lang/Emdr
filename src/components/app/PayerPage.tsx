@@ -7,10 +7,13 @@ import { pct } from "@/components/charts/aggregate";
 import { buildPayerHeader } from "@/lib/intelligence/payer";
 import { resolvePayerTenant } from "@/lib/intelligence/scope";
 import { hasData } from "@/lib/presentation/envelope";
+import { ScopeStrip } from "@/components/aggregate/ScopeStrip";
+import { defaultScope, scopeForRequest } from "@/lib/intelligence/aggregate-scope";
 
 // The payer console shell (§26's ten payer screens, §28's frame).
 
 export const PAYER_SCREENS: Array<{ href: string; label: string; layer: RailSlug }> = [
+  { href: "/payer/population", label: "Population", layer: "overview" },
   { href: "/payer/overview", label: "Population overview", layer: "overview" },
   { href: "/payer/utilization", label: "Utilisation", layer: "overview" },
   { href: "/payer/outcomes", label: "Outcomes", layer: "progress" },
@@ -81,6 +84,33 @@ async function StandingHeader() {
   );
 }
 
+/** The scope strip, above everything. In the shell for the same reason it is
+ *  on the organization side: §6's "carried into every drilldown" is a property
+ *  of the frame, not a habit of thirteen pages. */
+async function Scope() {
+  const tenantId = await resolvePayerTenant();
+  if (!tenantId) return null;
+  const [current, base] = await Promise.all([
+    // From the request, not from a page prop — see the note in src/proxy.ts.
+    scopeForRequest(tenantId),
+    defaultScope({ tenantId }),
+  ]);
+  // NO PERIOD CONTROL HERE, deliberately. The payer projections take no window,
+  // so a control would move a label and no number — the confidently-wrong
+  // screen Package 5 exists to prevent. The strip says so instead, in
+  // `governs` below. This computed the options and passed none of them, which
+  // lint caught and which reads as an unfinished thought rather than a
+  // decision.
+  return (
+    <ScopeStrip
+      scope={current}
+      defaultScope={base}
+      resetHref="/payer/overview"
+      governs="Figures on this console count the whole record; the window is not yet wired into them."
+    />
+  );
+}
+
 export function PayerPage({
   title, lede, layer, here, children, aside,
 }: {
@@ -111,6 +141,7 @@ export function PayerPage({
     >
       <LayerNav layer={layer} here={here} />
       {lede && <p className="measure -mt-2 mb-6 text-olive">{lede}</p>}
+      <Scope />
       <StandingHeader />
       {children}
     </AppShell>

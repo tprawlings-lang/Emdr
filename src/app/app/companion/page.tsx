@@ -1,13 +1,10 @@
 import { MemberPage } from "@/components/member/MemberPage";
 import Link from "next/link";
-import { redirect } from "next/navigation";
 import { requireMember } from "@/lib/auth";
 import { buildMemberDay, DAY_MESSAGE } from "@/lib/member/view";
-import { subscriptionActive } from "@/lib/billing";
-import { hasConsent, screeningComplete } from "@/lib/gating";
-import { profileComplete } from "@/lib/profile";
 import { buildCompanionContext } from "@/lib/companion";
 import CompanionChat from "@/components/CompanionChat";
+import { CompanionEntryNotice } from "@/components/experience/CompanionEntryNotice";
 
 export default async function CompanionPage({
   searchParams,
@@ -15,10 +12,6 @@ export default async function CompanionPage({
   searchParams: Promise<{ from?: string }>;
 }) {
   const user = await requireMember();
-  if (!(await subscriptionActive(user.id))) redirect("/subscribe");
-  if (!(await hasConsent(user.id))) redirect("/app/onboarding");
-  if (!screeningComplete(user.id)) redirect("/app/screening");
-  if (!profileComplete(user.id)) redirect("/app/onboarding/profile");
 
   const { from } = await searchParams;
   const ctx = await buildCompanionContext(user.id);
@@ -48,6 +41,13 @@ export default async function CompanionPage({
           Lifeline) or call 911. The crisis page walks you through it one step at a time.
         </p>
       </details>
+
+      {/* §11's interim condition for keeping the companion where it is: entry
+          states it is AI and names its communication limits. ABOVE the chat, so
+          it is read before the first message rather than under the thread. */}
+      <div className="mt-4">
+        <CompanionEntryNotice />
+      </div>
 
       <div className="mt-6 grid gap-6 md:grid-cols-[1fr_260px]">
         <CompanionChat initialMessages={[]} greeting={greeting} autoStartDaily={dailyChat} />

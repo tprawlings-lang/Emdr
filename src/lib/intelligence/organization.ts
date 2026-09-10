@@ -27,12 +27,19 @@ import { SMALL_CELL, type Count } from "@/components/charts/aggregate";
 //    type makes a bare percentage unrepresentable, so the rule holds by
 //    construction rather than by review.
 
-const PROJECTION_VERSION = "org-projections-2026-08-a";
+/** Exported for the scope strip (handoff 09 §6, Package 5): the version the
+ *  strip prints has to be the one the projections computed under, or the
+ *  screen states a build it did not read. */
+export const PROJECTION_VERSION = "org-projections-2026-08-a";
 
 /** Cohort scope: the organization tenant and every facility under it. A
  *  location is a child tenant, so "the network" is a subtree rather than a
  *  column, and a query that forgets the children silently reports zero. */
-async function scopeIds(orgTenantId: string): Promise<string[]> {
+/** The tenants an organization's numbers are computed over: itself and its
+ *  sites. Exported for the scope strip (handoff 09 §6, Package 5), which has
+ *  to report the freshness of the data the numbers came from rather than of
+ *  the parent row, where no events live. */
+export async function scopeIds(orgTenantId: string): Promise<string[]> {
   const c = await data();
   const kids = (await c.all(
     "SELECT id FROM tenants WHERE parent_tenant_id = ?", [orgTenantId],
@@ -239,6 +246,11 @@ export interface OrgHeader {
   firstContactPrior: number | null;
   engaged: Count;
   measureCoverage: Count;
+  /** The window the two first-contact figures were computed over. Carried so
+   *  the scope strip and the header cannot disagree about what the reader
+   *  chose — a strip stating a window the numbers did not use is a screen that
+   *  is confidently wrong, and nothing about it looks broken. */
+  windowDays: number;
   generatedAt: string;
 }
 
@@ -276,7 +288,22 @@ async function medianFirstContact(
  * is §30.5's StateHeader — "shows current state without interpreting missing
  * values" — for this role.
  */
-export async function buildOrgHeader(orgTenantId: string): Promise<Envelope<OrgHeader>> {
+/**
+ * The standing three.
+ *
+ * `windowDays` IS THE ONLY WINDOW THIS CONSOLE HAS. Every other organization
+ * projection counts over all time — `reach()` takes an optional `sinceDays`
+ * and none of them pass it — so the scope strip's period governs exactly the
+ * two figures below and nothing else. Package 5 found that by putting a period
+ * control on the strip and watching the numbers underneath not move; the fix
+ * is not to pretend the control governs more, it is for the strip to say what
+ * it governs. Widening the window to the rest of the console is real work with
+ * a real cost, and it is not presentation work.
+ */
+export async function buildOrgHeader(
+  orgTenantId: string,
+  windowDays = 90,
+): Promise<Envelope<OrgHeader>> {
   const ids = await scopeIds(orgTenantId);
   const m = meta(orgTenantId, await watermark(ids), "org_header.v2");
 
@@ -285,8 +312,11 @@ export async function buildOrgHeader(orgTenantId: string): Promise<Envelope<OrgH
 
   const started = await reach(ids, "care.started");
   return ready(m, assertAggregate<OrgHeader>({
-    firstContactDays: await medianFirstContact(ids, 90, 0),
-    firstContactPrior: await medianFirstContact(ids, 180, 90),
+    firstContactDays: await medianFirstContact(ids, windowDays, 0),
+    // The equally-long window immediately before it, so the comparison is
+    // between two periods of the same length whatever the reader chose.
+    firstContactPrior: await medianFirstContact(ids, windowDays * 2, windowDays),
+    windowDays,
     engaged: { n: started, of: pop },
     measureCoverage: { n: await reach(ids, "coverage.measure_recorded"), of: started },
     generatedAt: m.generatedAt,
@@ -371,27 +401,57 @@ export async function buildOrgAccess(orgTenantId: string): Promise<Envelope<OrgA
 }
 
 // ---------------------------------------------------------------------------
-// org_capacity.v4 — deliberately partial
+// org_capacity.v5 — both halves of the ratio, at last
 // ---------------------------------------------------------------------------
 
 export interface OrgCapacity {
   demand: { label: string; value: number }[];
+  supply: { label: string; value: number }[];
+  /** Demand over supply, per site. The number this screen exists to give. */
+  ratio: { label: string; value: number }[];
+  /** How stale the freshest reading from the slowest site is, in days. */
+  feedAgeDays: number;
+  /**
+   * Sites withheld from `demand` because fewer than the small-cell threshold
+   * were waiting there (§30.6 step 6).
+   *
+   * WITHHELD RATHER THAN BLANKED, because a bar carries its value twice: in the
+   * label and in its length. Suppressing the number while drawing a bar three
+   * eleventh as long as its neighbour discloses the same thing more quietly,
+   * which is worse. The count of what was withheld goes on the screen, so the
+   * suppression stays visible as suppression.
+   */
+  withheldSites: number;
+}
+
+/** Sites at or above the small-cell threshold, and how many were dropped. */
+function withhold(rows: { label: string; value: number }[]) {
+  const shown = rows.filter((r) => r.value === 0 || r.value >= SMALL_CELL);
+  return { shown, withheld: rows.length - shown.length };
 }
 
 /**
- * Demand is observable; supply is not.
+ * Demand and supply, and therefore a ratio.
  *
- * Referrals awaiting a first visit can be counted from the ledger. Open
- * first-visit SLOTS cannot: there is no scheduling model in this deployment,
- * no calendar and no slot record. §30.8's `partial` is exactly this case —
- * "show present values and list missing sources; do not calculate a clean
- * total from incomplete inputs" — so the screen shows demand and names what is
- * missing, rather than drawing an empty bar beside it that reads as zero
- * capacity.
+ * THIS SCREEN USED TO BE DELIBERATELY PARTIAL, and the note above it said why:
+ * referrals awaiting a first visit could be counted from the ledger and open
+ * first-visit SLOTS could not, because no scheduling model, calendar or slot
+ * record existed anywhere in this deployment. §30.8's `partial` was exactly
+ * that case — "show present values and list missing sources; do not calculate
+ * a clean total from incomplete inputs" — so it drew demand alone and named
+ * the missing source above the chart rather than an empty bar that would read
+ * as zero capacity.
+ *
+ * `capacity_slots` is that missing source, seeded as a fabricated stand-in for
+ * the scheduling integration. So the ratio is computable and the screen is no
+ * longer partial — with one condition carried over from the rule that reads
+ * the same feed: a reading is only as fresh as the SLOWEST site contributing
+ * to it, and a total assembled from a site whose feed froze months ago is
+ * wrong in a way nobody can see. The age travels with the numbers.
  */
 export async function buildOrgCapacity(orgTenantId: string): Promise<Envelope<OrgCapacity>> {
   const ids = await scopeIds(orgTenantId);
-  const m = meta(orgTenantId, await watermark(ids), "org_capacity.v4");
+  const m = meta(orgTenantId, await watermark(ids), "org_capacity.v5");
 
   const c = await data();
   const rows = (await c.all(
@@ -411,16 +471,64 @@ export async function buildOrgCapacity(orgTenantId: string): Promise<Envelope<Or
 
   if (rows.length === 0) return empty(m, "No scheduled visits are awaiting a care start.");
 
-  return partial(
+  // Suppressed once, before either branch returns. A site withheld on the
+  // partial path and shown on the ready one would be a threshold that depends
+  // on whether an unrelated feed happens to be connected.
+  const demand = withhold(rows.map((r) => ({ label: r.label, value: Number(r.n) })));
+
+  const supply = (await c.all(
+    `SELECT t.name AS label, SUM(s.n) AS n, MIN(s.latest) AS latest FROM (
+       SELECT tenant_id, SUM(open_first_visit_slots) AS n, MAX(as_of) AS latest
+         FROM capacity_slots
+        WHERE tenant_id IN (${ids.map(() => "?").join(",")})
+        GROUP BY tenant_id
+     ) s JOIN tenants t ON t.id = s.tenant_id
+     GROUP BY t.name ORDER BY t.name`,
+    ids,
+  )) as { label: string; n: number; latest: string }[];
+
+  // Still partial when the feed is absent. The screen's own history is the
+  // argument for keeping this branch: it was in that state for every
+  // deployment until the feed existed, and it will be again for any tenant
+  // that has not been wired up.
+  if (supply.length === 0) {
+    return partial(
+      m,
+      assertAggregate<OrgCapacity>({
+        demand: demand.shown, withheldSites: demand.withheld,
+        supply: [], ratio: [], feedAgeDays: -1,
+      }),
+      [{
+        source: "Scheduling system — open first-visit slots",
+        reason:
+          "No slot record exists for this organization, so supply cannot be counted. Demand is " +
+          "shown alone; the ratio this screen exists to give is not computed from half of it.",
+      }],
+    );
+  }
+
+  const slotsBySite = new Map(supply.map((s) => [s.label, Number(s.n)]));
+  const oldest = supply.reduce(
+    (acc, s) => Math.min(acc, new Date(`${String(s.latest).slice(0, 10)}T00:00:00Z`).getTime()),
+    Number.POSITIVE_INFINITY);
+  const feedAgeDays = Math.max(0, Math.round((Date.now() - oldest) / 86400000));
+
+  return ready(
     m,
-    assertAggregate<OrgCapacity>({ demand: rows.map((r) => ({ label: r.label, value: r.n })) }),
-    [{
-      source: "Scheduling system — open first-visit slots",
-      reason:
-        "No calendar, slot or clinician-availability record exists in this deployment, so " +
-        "supply cannot be counted. Demand is shown alone; the ratio this screen exists to " +
-        "give is not computed from half of it.",
-    }],
+    assertAggregate<OrgCapacity>({
+      demand: demand.shown, withheldSites: demand.withheld,
+      supply: supply.map((s) => ({ label: s.label, value: Number(s.n) })),
+      // Only where BOTH halves exist. A site with demand and no slot feed gets
+      // no ratio rather than a ratio against zero, which would render as an
+      // infinite shortfall at the site nobody has connected yet.
+      ratio: rows
+        .filter((r) => (slotsBySite.get(r.label) ?? 0) > 0)
+        .map((r) => ({
+          label: r.label,
+          value: Math.round((r.n / slotsBySite.get(r.label)!) * 100) / 100,
+        })),
+      feedAgeDays,
+    }),
   );
 }
 

@@ -11,13 +11,17 @@ test.skip(
   "authenticated flow runs only against the hermetic seeded server",
 );
 
+// The PAYER account. This spec used to sign in with the organization's, and
+// passed — because one `admin` role served both consoles and the boundary
+// between them existed only in a comment. Handoff 07 split them (p6, p50), and
+// this helper is one of the places that was quietly relying on the overlap.
 async function signIn(page: import("@playwright/test").Page) {
   await page.goto("/login");
   await page.waitForLoadState("networkidle");
-  await page.locator('input[name="email"]').fill("operations@example.com");
-  await page.locator('input[name="password"]').fill("demo1234");
+  await page.locator('input[name="email"]').fill("payer.demo@steady.local");
+  await page.locator('input[name="password"]').fill("payer1234");
   await Promise.all([
-    page.waitForURL(/\/organization|\/payer/, { timeout: 30000 }),
+    page.waitForURL(/\/payer/, { timeout: 30000 }),
     page.locator('form button[type="submit"]').click(),
   ]);
 }
@@ -90,16 +94,26 @@ test("the contract report shows a miss as plainly as a hit", async ({ page }) =>
   // The seeded contract deliberately contains a measure that misses, because a
   // report where everything passes demonstrates nothing about one that has to
   // show a failure.
-  // Both outcomes are present and neither is softened. Located by ROW rather
-  // than by the word: the result cell renders a glyph beside the word, so an
-  // exact-text match on "met" finds nothing and a loose one also matches
-  // "not met".
-  const missed = page.getByRole("row", { name: /Median days referral to care start/ });
+  // Both outcomes are present and neither is softened. Asserted on the FIGURE,
+  // which is now the primary surface: the measures are drawn against their own
+  // targets and the table beneath is a disclosure holding the same rows. The
+  // verdict has to be legible where the reader actually looks.
+  //
+  // Located by the row that carries the measure's name rather than by the word
+  // itself: the verdict renders a glyph beside the word, so an exact-text match
+  // on "met" finds nothing and a loose one also matches "not met".
+  const missed = page.getByRole("listitem").filter({ hasText: "Median days referral to care start" });
   await expect(missed).toContainText("not met");
 
-  const hit = page.getByRole("row", { name: /Members who started care/ });
+  const hit = page.getByRole("listitem").filter({ hasText: "Members who started care" });
   await expect(hit).toContainText("met");
   await expect(hit).not.toContainText("not met");
+
+  // And the same rows are still reachable as a table, for a reader who wants
+  // the numbers rather than the comparison.
+  await page.getByText(/same measures as a table/i).click();
+  await expect(page.getByRole("row", { name: /Median days referral to care start/ }))
+    .toContainText("not met");
 });
 
 test("the payer role cannot reach a person-level surface", async ({ page }) => {

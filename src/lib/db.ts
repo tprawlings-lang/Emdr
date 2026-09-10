@@ -2,10 +2,19 @@ import Database from "better-sqlite3";
 import path from "path";
 import fs from "fs";
 import crypto from "crypto";
-import { seedDemoData, demoId } from "./demo-seed";
-import { seedOrgData } from "./demo-org-seed";
-import { seedPayerData } from "./demo-payer-seed";
-import { ulid, NIL_ULID, ulidFrom } from "./ids";
+import { seedDemoData, reconcileDemoAccounts, demoId, demoPassword } from "./demo-seed";
+import { seedPolicyThresholds } from "./planning/policy";
+import { seedOrgData, ORG_TENANT_ID } from "./demo-org-seed";
+import { seedPayerData, PAYER_TENANT_ID } from "./demo-payer-seed";
+import { seedPopulationData, seedOperationalFeeds, orgTenantId } from "./demo-population-seed";
+import { seedReviewConsole } from "./demo-review-seed";
+import { seedClinicianThoughts } from "./demo-thoughts-seed";
+import {
+  generatePopulationHistory, backfillPlanVersions, backfillFunctionMeasure,
+} from "./demo-population-generator";
+import { runAgents } from "./agents/runner";
+import { evaluateCheckin } from "./gating";
+import { NIL_ULID, ulidFrom } from "./ids";
 
 // Resolved lazily inside getDb() (not at module load) so EMDR_DATA_DIR is
 // honored even when set just before the first DB access — e.g. hermetic tests.
@@ -19,7 +28,37 @@ export function getDb(): Database.Database {
   if (db) return db;
   const dir = dataDir();
   fs.mkdirSync(dir, { recursive: true });
-  db = new Database(path.join(dir, "emdr.db"));
+  // BUILT INTO A LOCAL, PUBLISHED ONCE. The module-level handle used to be
+  // assigned on the line that opens the file, before any of the boot path had
+  // run — and that turned any failure in the rest of this function into a
+  // permanent, silent one. The request that hit the failure returned a 500;
+  // every request after it took `if (db) return db` and got a database that
+  // worked, so nothing looked broken, while every step AFTER the failing one
+  // never ran again for the life of the process.
+  //
+  // It was not hypothetical. On the deployed instance this masked two things
+  // at once: the planning thresholds were never seeded, so the planning
+  // console answered 500 on an empty `policy_thresholds` exactly as p34 says
+  // it must; and the population reconciliation below never ran, so a dataset
+  // that had been stale for several waves stayed stale and its repair log
+  // stayed empty. One assignment, two mysteries.
+  //
+  // Publishing only on success means a failed boot is RETRIED by the next
+  // caller instead of being cached. The handle is closed first, because a
+  // retry that inherits a half-open file is a second failure wearing the
+  // first one's clothes.
+  const fresh = new Database(path.join(dir, "emdr.db"));
+  try {
+    return (db = boot(fresh));
+  } catch (err) {
+    try { fresh.close(); } catch { /* already unusable; the original error is the one that matters */ }
+    throw err;
+  }
+}
+
+/** Everything a usable database needs, in order. Separate from `getDb` so the
+ *  handle is published only when all of it has succeeded. */
+function boot(db: Database.Database): Database.Database {
   db.pragma("journal_mode = WAL");
   db.pragma("foreign_keys = ON");
   migrate(db);
@@ -39,6 +78,21 @@ export function getDb(): Database.Database {
   // recorded by a server action vanished before the export route read it.
   // Resetting is an explicit operation (`npm run demo -- reset`), never a side
   // effect of opening the database.
+  // Demo accounts are reconciled on EVERY boot, not only on a fresh seed.
+  // `seed()` returns early when any user exists, so on a deployed database it
+  // has run exactly once — and every account added since then reached the code
+  // and never reached the data. That is precisely what happened: the login
+  // screen offered six roles and none of the addresses it named existed.
+  reconcileDemoAccounts(db);
+  // Planning thresholds are seeded on every boot for the same reason, and with
+  // the same insert-if-absent behaviour: a row that already exists is left
+  // alone, because it may carry an owner and an approval date that a redeploy
+  // has no business overwriting (p34, plan decision D5).
+  seedPolicyThresholds(db);
+  // The fabricated population, reconciled on every boot for the same reason
+  // the demo accounts above are: a deployed database seeds once, and every
+  // wave since that seeding reached the code and never reached the data.
+  reconcilePopulation(db);
   refreshDemoDaily(db);
   return db;
 }
@@ -51,28 +105,53 @@ export function getDb(): Database.Database {
 function refreshDemoDaily(db: Database.Database) {
   if (process.env.EMDR_DEMO !== "1") return;
   const today = new Date().toISOString().slice(0, 10);
-  for (const email of ["demo@example.com", "demo2@example.com"]) {
-    const m = db.prepare("SELECT id FROM users WHERE email = ?").get(email) as { id: string } | undefined;
+  for (const email of ["patient.demo@steady.local", "patient2.demo@steady.local"]) {
+    // The TENANT is read with the id, and that is a correction. This insert
+    // omitted tenant_id and took the column default — the platform tenant —
+    // which was right for exactly as long as every demo member lived there.
+    // Once Alex and Sam moved into NE Care Network A, today's check-in was the
+    // one row of theirs still filed under the old tenant, and replay caught it
+    // immediately: the ledger rebuilt it into the person's tenant while the
+    // live row said platform.
+    const m = db.prepare("SELECT id, tenant_id FROM users WHERE email = ?").get(email) as
+      | { id: string; tenant_id: string } | undefined;
     if (!m) continue;
     const has = db.prepare("SELECT 1 FROM checkins WHERE user_id = ? AND checkin_date = ?").get(m.id, today);
     if (has) continue;
+    // The routing value is COMPUTED, not typed. It was the literal
+    // 'processing_ok', which is what the rule returns for these answers — and a
+    // literal that agrees with the rule today is the shape every routing
+    // divergence in this codebase started as.
+    const values = {
+      activation: 3, shutdown: 1, harm_urge: false, feels_safe: true,
+      dissociation: 1, sleep_quality: 6, substance_flag: false,
+    };
     db.prepare(
-      `INSERT INTO checkins (id, user_id, checkin_date, activation, shutdown, harm_urge, feels_safe,
-         dissociation, sleep_quality, substance_flag, recommended_action)
-       VALUES (?, ?, ?, 3, 1, 0, 1, 1, 6, 0, 'processing_ok')`
+      `INSERT INTO checkins (id, user_id, tenant_id, checkin_date, activation, shutdown, harm_urge,
+         feels_safe, dissociation, sleep_quality, substance_flag, recommended_action)
+       VALUES (?, ?, ?, ?, ?, ?, 0, 1, ?, ?, 0, ?)`
       // Deterministic per member per day, so a reset reproduces it and a
       // second boot on the same day cannot create a duplicate.
-    ).run(demoId(0, `checkin:${m.id}:${today}`), m.id, today);
+    ).run(demoId(0, `checkin:${m.id}:${today}`), m.id, m.tenant_id, today,
+      values.activation, values.shutdown, values.dissociation, values.sleep_quality,
+      evaluateCheckin(values));
   }
 }
 
-function migrate(db: Database.Database) {
-  db.exec(`
+/**
+ * THE SCHEMA, as one named string rather than an anonymous argument.
+ *
+ * Named so it can be READ BACK: `reconcileSchemaColumns` compares what this
+ * declares against what a live database actually has, which is the only way a
+ * column added here after a table shipped ever reaches a deployed disk.
+ * `CREATE TABLE IF NOT EXISTS` does nothing to a table that already exists.
+ */
+export const SCHEMA_SQL = `
   CREATE TABLE IF NOT EXISTS users (
     id TEXT PRIMARY KEY,
     email TEXT UNIQUE NOT NULL,
     name TEXT NOT NULL,
-    role TEXT NOT NULL CHECK (role IN ('member','clinician','admin')),
+    role TEXT NOT NULL CHECK (role IN ('member','clinician','reviewer','organization','payer','demo_admin')),
     password_hash TEXT NOT NULL,
     status TEXT NOT NULL DEFAULT 'active',
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
@@ -364,6 +443,77 @@ function migrate(db: Database.Database) {
   );
   CREATE INDEX IF NOT EXISTS idx_signoffs_rule ON autonomous_signoffs(rule_id, config_version, created_at);
 
+  -- The review decision record (§26 p44 role-level acceptance: "Every decision
+  -- records actor, role, version, evidence and time").
+  --
+  -- ONE table for three screens — clinical language review, release-gate
+  -- sign-off, and the approval half of a scoped access request — because §26
+  -- states the acceptance rule once for all of them and three tables would be
+  -- three chances to satisfy it differently. The review home also needs a
+  -- single queue to read; assembling one from three shapes is where a missing
+  -- decision hides.
+  --
+  -- APPEND-ONLY, LAST WRITE WINS per (subject_kind, subject_id,
+  -- subject_version) — the autonomous_signoffs pattern, generalized. A
+  -- reviewer changing their mind is a new row; the previous decision stays
+  -- readable, because "who approved this and when" must survive the reversal.
+  --
+  -- subject_version IS THE MECHANISM, not bookkeeping. A decision is recorded
+  -- against a specific version of the thing decided, so when that thing
+  -- changes the decision no longer matches and the subject returns to
+  -- unreviewed on its own. This is what makes "release gates cannot be
+  -- bypassed from ordinary admin controls" (§26 p44) structural rather than a
+  -- rule someone has to keep: you cannot approve a gate and then quietly alter
+  -- what you approved, because the approval is bound to the evidence
+  -- fingerprint it was shown.
+  CREATE TABLE IF NOT EXISTS review_decisions (
+    id TEXT PRIMARY KEY,
+    subject_kind TEXT NOT NULL CHECK (subject_kind IN ('clinical_language','release_gate','access_request')),
+    subject_id TEXT NOT NULL,
+    -- The version or evidence fingerprint the decision was made against.
+    subject_version TEXT NOT NULL,
+    decision TEXT NOT NULL CHECK (decision IN ('approved','blocked','changes_requested')),
+    -- Why, in the reviewer's words. Encrypted: a rationale can name a patient
+    -- safety concern or a person, and this table is read by every reviewer.
+    rationale TEXT,
+    -- What the reviewer was looking at, captured at decision time rather than
+    -- re-derived at read time. Re-deriving it would show today's evidence
+    -- beside yesterday's decision and imply the two were connected.
+    evidence_json TEXT NOT NULL DEFAULT '{}',
+    actor_id TEXT REFERENCES users(id),
+    actor_role TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+  CREATE INDEX IF NOT EXISTS idx_review_decisions_subject
+    ON review_decisions(subject_kind, subject_id, subject_version, created_at);
+
+  -- A request for scoped access (§26 p44: "Approve scoped access — Role,
+  -- purpose, expiration — Approve or deny").
+  --
+  -- The REQUEST is a record and the DECISION is a different record, in
+  -- review_decisions. Keeping them apart is what lets a request be denied
+  -- without destroying the evidence that it was made, and lets the same
+  -- request be re-decided later without losing the first answer.
+  --
+  -- expires_at is stored on the REQUEST because the expiry is part of what is
+  -- being asked for and therefore part of what is approved. An approver who
+  -- grants open-ended access and an approver who grants thirty days have not
+  -- made the same decision, and an expiry attached to the grant afterwards
+  -- would let the two be confused.
+  CREATE TABLE IF NOT EXISTS access_requests (
+    id TEXT PRIMARY KEY,
+    tenant_id TEXT NOT NULL REFERENCES tenants(id),
+    requested_by TEXT NOT NULL REFERENCES users(id),
+    -- The role being asked for, and what it is needed for, in the requester's
+    -- own words. Recorded before any decision, because a purpose supplied
+    -- after an approval is a justification rather than a reason.
+    requested_role TEXT NOT NULL,
+    purpose TEXT NOT NULL,
+    expires_at TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+  CREATE INDEX IF NOT EXISTS idx_access_requests_tenant ON access_requests(tenant_id, created_at);
+
   -- Reviewer change requests (Phase 4 testing cycle).
   --
   -- The point of a review environment is that someone walks it and says what
@@ -483,6 +633,24 @@ function migrate(db: Database.Database) {
   -- A human Steady holds data about. MAY EXIST WITHOUT AN ACCOUNT: Handoff C3
   -- ingests covered populations whose members have never logged in. This is the
   -- subject of every clinical record and every longitudinal event.
+  -- A person. FABRICATED OR REAL, and the column has no default on purpose.
+  --
+  -- Until now the separation between the two was three conventions — the
+  -- EMDR_DEMO environment flag, a "fabricated" key inside an event's
+  -- provenance JSON, and a manifest check counting unmarked rows. None of them
+  -- stops a cohort query spanning both, and the Observation type carried no
+  -- provenance at all, so a follow-up completion rate computed over a mixed
+  -- population returned one number with no way to tell.
+  --
+  -- That was survivable while every environment was entirely fabricated. It
+  -- stops being survivable the moment synthetic agents run alongside a study
+  -- with real participants, which is the stated intent.
+  --
+  -- NO DEFAULT, because neither default is safe. Default to 'real' and a seed
+  -- that forgets to mark its rows contaminates a real metric; default to
+  -- 'fabricated' and a signup that forgets marks a real person's data as
+  -- invented. NOT NULL with no default forces every writer to say which it is
+  -- at the point where somebody knows the answer.
   CREATE TABLE IF NOT EXISTS persons (
     id TEXT PRIMARY KEY,
     tenant_id TEXT NOT NULL REFERENCES tenants(id),
@@ -515,7 +683,7 @@ function migrate(db: Database.Database) {
     id TEXT PRIMARY KEY,
     person_id TEXT NOT NULL REFERENCES persons(id),
     tenant_id TEXT NOT NULL REFERENCES tenants(id),
-    role TEXT NOT NULL CHECK (role IN ('member','clinician','care_manager','admin')),
+    role TEXT NOT NULL CHECK (role IN ('member','clinician','care_manager','reviewer','organization','payer','demo_admin')),
     scope TEXT,
     effective_from TEXT NOT NULL DEFAULT (datetime('now')),
     effective_to TEXT,
@@ -658,6 +826,98 @@ function migrate(db: Database.Database) {
   -- the equivalent and one DELETE took 36 seconds at 32k rows.
   CREATE INDEX IF NOT EXISTS idx_claims_supersedes ON claims(supersedes_claim_id);
 
+  -- ── Demographic attributes (handoff 07 §2.3, p13) ────────────────────────
+  --
+  -- A SEPARATE table from 'persons', and the separation is the control.
+  --
+  -- p13 permits these fields for exactly three purposes — representation
+  -- audit, disparity audit, and access/fairness review — and forbids them as
+  -- care-selection rules. Federal nondiscrimination rules (45 CFR 92.210)
+  -- prohibit discriminatory use of patient-care decision-support tools and
+  -- describe an ongoing duty to identify tools that use protected factors, so
+  -- the audit path has to exist even while the first engine is descriptive.
+  --
+  -- Keeping them off 'persons' means a clinical query that selects a person
+  -- does not carry race and ethnicity along by default. Reaching them is a
+  -- join someone has to write, which is the moment a reviewer can ask why.
+  --
+  -- Every column is SELF-DESCRIBED and every one permits unknown or declined
+  -- as a distinct value from missing. p13: show unknown, declined and missing
+  -- separately; do not redistribute them.
+  CREATE TABLE IF NOT EXISTS person_attributes (
+    person_id TEXT PRIMARY KEY REFERENCES persons(id),
+    tenant_id TEXT NOT NULL REFERENCES tenants(id),
+    -- Stored exactly; DISPLAYED as a band. A screen cannot become
+    -- person-identifying by being precise about an age.
+    birth_year INTEGER,
+    age_band TEXT,
+    -- JSON array: p13 permits multiple values, so one column with one value
+    -- would force the collapse it forbids.
+    race_json TEXT NOT NULL DEFAULT '[]',
+    -- A separate field from race, never collapsed into it or inferred.
+    ethnicity TEXT,
+    preferred_language TEXT,
+    interpreter_needed INTEGER NOT NULL DEFAULT 0,
+    -- Functional access needs, not labels alone (p13).
+    access_needs_json TEXT NOT NULL DEFAULT '[]',
+    -- U.S. Census region. A REPORTING dimension. If partner operating regions
+    -- arrive later they get their own column — p11 is explicit that the two
+    -- definitions must never be mixed in one chart.
+    census_region TEXT,
+    state TEXT,
+    -- Authored insurance and access-barrier context. p13 forbids deriving a
+    -- hidden deprivation score for person routing from it.
+    socioeconomic_context TEXT,
+    -- Where the value came from. p13 requires patient-reported provenance on
+    -- a clinician surface, and a field with no provenance is a field that gets
+    -- treated as fact.
+    source TEXT NOT NULL DEFAULT 'self_reported',
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+  CREATE INDEX IF NOT EXISTS idx_person_attributes_tenant
+    ON person_attributes(tenant_id, census_region);
+
+  -- ── Governed exports (§29.1, §30.4, §31.4) ───────────────────────────────
+  --
+  -- An export is a WRITE, not a read, which is why §30.4 gives it a POST. It
+  -- takes data out of this system into a spreadsheet that is copied, emailed
+  -- and outlives the screen it came from — so the record of it has to outlive
+  -- the file too.
+  --
+  -- §31.4's export row names six things, and each is a column here rather than
+  -- a convention: filter parity, cohort version, suppression, purpose, audit
+  -- event, signed file. The one that does the most work is filter_hash: it
+  -- is computed from the filter the SCREEN was showing, so a file can be
+  -- checked against the view that produced it. An export that silently widened
+  -- its own filter is a disclosure nobody authorised, and without the hash
+  -- nobody could tell afterwards.
+  CREATE TABLE IF NOT EXISTS export_jobs (
+    id TEXT PRIMARY KEY,
+    tenant_id TEXT NOT NULL REFERENCES tenants(id),
+    requested_by TEXT NOT NULL REFERENCES users(id),
+    -- What the requester said they needed it for, in their own words. Recorded
+    -- before the file exists, because a purpose supplied afterwards is a
+    -- justification rather than a reason.
+    purpose TEXT NOT NULL,
+    surface TEXT NOT NULL,
+    cohort_version TEXT NOT NULL,
+    filter_json TEXT NOT NULL DEFAULT '{}',
+    filter_hash TEXT NOT NULL,
+    row_count INTEGER NOT NULL DEFAULT 0,
+    -- Cells withheld by small-cell suppression IN THE FILE. Suppression that
+    -- only applies to the rendering is not suppression.
+    suppressed_cells INTEGER NOT NULL DEFAULT 0,
+    content_hash TEXT NOT NULL,
+    signature TEXT NOT NULL,
+    -- No audit_event_id column. The audit log is hash-chained and append-only
+    -- and audit() returns nothing, so such a column could only ever be NULL —
+    -- and a null foreign key that claims to link a disclosure to its record is
+    -- worse than no column, because it looks like the link is there. The tie
+    -- is content_hash, which appears in both rows.
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+  CREATE INDEX IF NOT EXISTS idx_export_jobs_tenant ON export_jobs(tenant_id, created_at);
+
   -- A cost model is an ESTIMATE and its status is the whole point: a draft and
   -- an approved model must never render alike, and a superseded one must stay
   -- readable so an old report can be reproduced.
@@ -677,9 +937,1152 @@ function migrate(db: Database.Database) {
     approved_at TEXT,
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
   );
+
+  -- ── The demo clock (handoff 07 §1.5, p9) ────────────────────────────────
+  --
+  -- p9's second control: "Advance clock — move demo date to a scripted
+  -- milestone. Guard: demo only; clock shown in shell."
+  --
+  -- A ROW, not module state. Next.js instantiates a module more than once per
+  -- process — route bundles carry their own copies — so a clock held in memory
+  -- would read differently depending on which bundle served the request, and a
+  -- presenter would watch two screens disagree about what day it is.
+  --
+  -- ONE ROW, enforced by the primary key. A clock with two values is not a
+  -- clock, and a table that permits one invites a migration that leaves a
+  -- stale row behind for something to read.
+  --
+  -- WHAT THIS MOVES, AND WHAT IT MUST NEVER MOVE. The clock changes the
+  -- READING FRAME: what "the last ninety days" means, which window a metric
+  -- reports, where a retention milestone falls. It does not change the RECORD.
+  -- Audit entries, session issue and expiry, and rate limits stay on the real
+  -- clock, and they have to: a demo clock that could backdate an audit row
+  -- would make the tamper-evident chain a chain of whatever somebody set the
+  -- date to, and one that could advance a session's expiry would be a
+  -- privilege escalation with a friendly name.
+  -- The outcome of the last per-boot population reconciliation.
+  --
+  -- The repair is best-effort and catches its own failure so a bad dataset
+  -- cannot become no demonstration at all. It then said nothing, which is how
+  -- it failed SILENTLY on the deployed instance: the manifest reported the
+  -- dataset was unfit, and nothing anywhere said the repair had been tried and
+  -- had thrown. A best-effort operation has to report its effort.
+  CREATE TABLE IF NOT EXISTS demo_repair (
+    id INTEGER PRIMARY KEY CHECK (id = 1),
+    attempted_at TEXT NOT NULL,
+    status TEXT NOT NULL,
+    detail TEXT
+  );
+
+  -- The outcome of the last reset ATTEMPT (handoff 09 §7.3, Package 4).
+  --
+  -- "A reset failure never displays ready." Until this table existed there was
+  -- nowhere for that fact to live: the reset action caught its own failure and
+  -- wrote an audit row, and the admin console then recomputed environment
+  -- health from the live database and drew whatever it found. A reset that
+  -- threw half-way could leave a database that happens to pass the manifest,
+  -- and the screen would say ready to a presenter whose rebuild did not
+  -- happen.
+  --
+  -- Singleton, like demo_clock and demo_repair: the environment has one last
+  -- reset, and a history of them belongs in the audit chain, which already has
+  -- it. Cleared by a successful reset, which is the point — the row can only
+  -- say "the last attempt failed" while that is still true.
+  CREATE TABLE IF NOT EXISTS demo_reset_log (
+    id INTEGER PRIMARY KEY CHECK (id = 1),
+    attempted_at TEXT NOT NULL,
+    status TEXT NOT NULL CHECK (status IN ('succeeded','failed')),
+    reason TEXT,
+    detail TEXT
+  );
+
+  -- The environment lock (handoff 09 §7.3, Package 4).
+  --
+  -- §7.3: "prevent a reset during another walkthrough unless an authorized
+  -- operator deliberately interrupts. An environment lock is sufficient for
+  -- the first implementation."
+  --
+  -- Sufficient is the operative word. Isolated per-scenario datasets are the
+  -- eventual answer and need their own scope approval; one lock on one shared
+  -- environment is what stops the specific failure this exists for, which is a
+  -- reset landing in the middle of somebody else's investor meeting.
+  --
+  -- Singleton for the same reason: there is one environment.
+  CREATE TABLE IF NOT EXISTS demo_environment_lock (
+    id INTEGER PRIMARY KEY CHECK (id = 1),
+    scenario_id TEXT NOT NULL,
+    scenario_version TEXT NOT NULL,
+    held_by TEXT NOT NULL,
+    held_by_name TEXT,
+    acquired_at TEXT NOT NULL,
+    -- Set when released or interrupted. A row with this null is a live
+    -- walkthrough; the row is kept afterwards so a presenter arriving on a
+    -- just-released environment can see what happened rather than a blank.
+    released_at TEXT,
+    released_reason TEXT
+  );
+
+  -- Applied data scenarios (handoff 07 Wave 8, p9's "Inject data scenario").
+  --
+  -- Not a singleton: several bundles may be in force at once, and which ones
+  -- is the question an operator opening an altered environment needs answered.
+  -- p9 says a bundle is "reversible by reset", and this table is how that is
+  -- true rather than claimed — it is in DEMO_DATA_TABLES, so a reset clears the
+  -- record along with the events it describes, and a guard holds it there.
+  -- Handoff of accountability (§26: "Keep accountability through transfer").
+  --
+  -- WHY A TABLE AND NOT AN OWNER COLUMN. A work item already carries an owner,
+  -- and /clinician/handoffs refused to list anything from it for a stated
+  -- reason: ownership is an assignment one person makes, and accountability is
+  -- something the other person accepts. A screen that showed transfers by
+  -- reading owner changes would be inferring the second from the first, and
+  -- that inference is how people get lost between clinicians.
+  --
+  -- SO THE ROW HOLDS BOTH ENDS AND THE GAP BETWEEN THEM. The state is
+  -- 'proposed' until the receiver decides; until then the SENDER is still
+  -- accountable, which the screen says in those words. A withdrawn handoff is
+  -- resolved rather than deleted: "I asked and thought better of it" is part of
+  -- the record of who was looking after somebody.
+  CREATE TABLE IF NOT EXISTS care_handoffs (
+    id TEXT PRIMARY KEY,
+    tenant_id TEXT NOT NULL REFERENCES tenants(id),
+    person_id TEXT NOT NULL REFERENCES users(id),
+    from_clinician_id TEXT NOT NULL REFERENCES users(id),
+    to_clinician_id TEXT NOT NULL REFERENCES users(id),
+    -- Required, and long enough to be a sentence. A transfer with no stated
+    -- reason is the thing a receiving clinician cannot act on.
+    reason TEXT NOT NULL,
+    -- When the sender needs an answer by. Nullable: not every transfer is
+    -- time-bound, and a fabricated deadline is worse than none.
+    due_at TEXT,
+    state TEXT NOT NULL DEFAULT 'proposed'
+      CHECK (state IN ('proposed','accepted','declined','withdrawn')),
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    decided_at TEXT,
+    -- What the receiver said. Required to decline: a refusal with no reason
+    -- sends the person back to the sender with nothing to act on.
+    decided_note TEXT
+  );
+  CREATE INDEX IF NOT EXISTS idx_handoff_to ON care_handoffs(to_clinician_id, state);
+  CREATE INDEX IF NOT EXISTS idx_handoff_from ON care_handoffs(from_clinician_id, state);
+  CREATE INDEX IF NOT EXISTS idx_handoff_person ON care_handoffs(person_id);
+
+  CREATE TABLE IF NOT EXISTS demo_data_scenario_applications (
+    id TEXT PRIMARY KEY,
+    scenario_id TEXT NOT NULL,
+    -- The VERSION, not just the id: applying the same version twice doubles
+    -- every event in it, and the refusal is keyed on this column.
+    scenario_version TEXT NOT NULL,
+    applied_by TEXT NOT NULL,
+    applied_by_name TEXT,
+    reason TEXT NOT NULL,
+    applied_at TEXT NOT NULL,
+    person_count INTEGER NOT NULL,
+    event_count INTEGER NOT NULL
+  );
+
+  CREATE TABLE IF NOT EXISTS demo_clock (
+    id INTEGER PRIMARY KEY CHECK (id = 1),
+    -- The instant the environment should be READ AS. Null means live: the
+    -- clock is the real one and nothing is overridden.
+    viewing_at TEXT,
+    -- Which scripted milestone this is, when it is one. p9 says "a scripted
+    -- milestone" rather than an arbitrary date, and the name is what a
+    -- presenter says out loud.
+    milestone TEXT,
+    -- p9's guard on the reset control is a typed reason, and the same applies
+    -- here: a clock somebody moved for no recorded purpose is a clock nobody
+    -- can explain afterwards.
+    reason TEXT,
+    set_by TEXT,
+    -- REAL time, always. When somebody moved the clock is a fact about the
+    -- world, and recording it on the clock being moved is circular.
+    set_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+
+  -- ── Operational capacity (handoff 07 §3.4 p34; handoff 06 §26's capacity
+  --    screen) ───────────────────────────────────────────────────────────────
+  --
+  -- Open first-visit slots, by site and week. p34's REGION_CAPACITY rule
+  -- compares demand against this and produces nothing when it is stale or
+  -- absent — which it was, in every deployment, because no scheduling feed
+  -- existed anywhere in the schema. The organization capacity screen rendered
+  -- half a ratio and said so above the chart.
+  --
+  -- This is a FABRICATED STAND-IN for a scheduling integration. It carries an
+  -- as_of for exactly that reason: a capacity number with no age is a
+  -- capacity number somebody will act on next quarter, and p34's staleness
+  -- condition is the guard that stops them.
+  CREATE TABLE IF NOT EXISTS capacity_slots (
+    id TEXT PRIMARY KEY,
+    tenant_id TEXT NOT NULL REFERENCES tenants(id),
+    -- The reporting region, so a rule about regional capacity can group
+    -- without joining through persons.
+    census_region TEXT NOT NULL,
+    -- A FOUR-WEEK period, not a week. The grain has to match the population it
+    -- describes: 240 people over a year generate about three first-visit
+    -- referrals per region per four weeks, and a weekly row for that is a
+    -- column of noughts and ones that rounds away the thing being measured.
+    period_start TEXT NOT NULL,
+    period_days INTEGER NOT NULL DEFAULT 28,
+    open_first_visit_slots INTEGER NOT NULL,
+    -- When the scheduling system last told us. NOT when we wrote the row.
+    --
+    -- A CALENDAR DATE, with no time of day. A feed reports on a day; the hour
+    -- is invented precision, and the seed guard is right to reject a
+    -- fabricated timestamp that does not pin its own clock.
+    as_of TEXT NOT NULL,
+    source_system TEXT NOT NULL DEFAULT 'demo-scheduling',
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    UNIQUE (tenant_id, period_start)
+  );
+  CREATE INDEX IF NOT EXISTS idx_capacity_slots_region
+    ON capacity_slots(census_region, period_start);
+
+  -- ── Staffed review coverage (handoff 07 §3.4, p34) ───────────────────────
+  --
+  -- How many fixed review events the staffed rota can absorb in a week, and
+  -- whether a coverage schedule exists at all. p34's SAFETY_REVIEW_LOAD
+  -- produces nothing without both — "event classification or coverage schedule
+  -- missing" — and until now the second was always missing.
+  --
+  -- Capacity is stated in EVENTS rather than in hours. Hours would need a
+  -- minutes-per-review assumption to be useful, and an assumption buried in a
+  -- unit conversion is an assumption nobody reviews. Same four-week period as
+  -- the slot feed, so the two can be read side by side.
+  CREATE TABLE IF NOT EXISTS review_coverage (
+    id TEXT PRIMARY KEY,
+    tenant_id TEXT NOT NULL REFERENCES tenants(id),
+    census_region TEXT NOT NULL,
+    period_start TEXT NOT NULL,
+    period_days INTEGER NOT NULL DEFAULT 28,
+    staffed_review_capacity INTEGER NOT NULL,
+    -- The rota this capacity assumes. p32 requires the coverage schedule
+    -- displayed beside time-to-review, and this is where that string comes
+    -- from rather than from a constant in the metric.
+    coverage_schedule TEXT NOT NULL DEFAULT 'business hours, weekdays',
+    as_of TEXT NOT NULL,
+    source_system TEXT NOT NULL DEFAULT 'demo-rota',
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    UNIQUE (tenant_id, period_start)
+  );
+  CREATE INDEX IF NOT EXISTS idx_review_coverage_region
+    ON review_coverage(census_region, period_start);
+
+  -- ── Planning policy thresholds (handoff 07 §3.4, p34) ────────────────────
+  --
+  -- p34 prints seven rules with numbers beside them, and then prints the
+  -- sentence that decides where those numbers are allowed to live:
+  --
+  --   THRESHOLDS SHOWN HERE ARE PRODUCT DEFAULTS FOR TESTING, NOT VALIDATED
+  --   CLINICAL CUTOFFS. STORE EVERY THRESHOLD IN POLICY CONFIGURATION, ATTACH
+  --   ITS OWNER AND APPROVAL DATE, AND PREVENT QUIET EDITS.
+  --
+  -- A constant in a rules file satisfies none of that. It has no owner, no
+  -- approval date, and moving 10 to 8 is a one-character diff that reads like
+  -- a tuning adjustment — which is precisely the edit this table exists to
+  -- make impossible to make quietly.
+  --
+  -- APPEND-ONLY, enforced by triggers rather than by convention. A changed
+  -- threshold is a new version row; the old row stays readable, so a signal
+  -- raised last month can still be read against the number that was actually
+  -- in force when it fired. The only column an UPDATE may touch is
+  -- superseded_at, and a DELETE is refused outright.
+  CREATE TABLE IF NOT EXISTS policy_thresholds (
+    key TEXT NOT NULL,
+    version TEXT NOT NULL,
+    rule_id TEXT NOT NULL,
+    value REAL NOT NULL,
+    unit TEXT NOT NULL,
+    -- A person, by name. p34 says "attach its owner"; a foreign key to users
+    -- would tie the record to an account that can be deactivated or renamed,
+    -- and the durability of the accountability is the whole point.
+    owner TEXT NOT NULL,
+    approved_at TEXT NOT NULL,
+    -- What the number is and is not, stored beside it, so a reader who never
+    -- opens p34 still gets p34's caveat.
+    basis TEXT NOT NULL,
+    superseded_at TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    PRIMARY KEY (key, version)
+  );
+  CREATE TRIGGER IF NOT EXISTS policy_thresholds_no_quiet_edit
+    BEFORE UPDATE OF key, version, rule_id, value, unit, owner, approved_at, basis
+    ON policy_thresholds
+  BEGIN
+    SELECT RAISE(ABORT, 'policy_thresholds is append-only: supersede the row and insert a new version');
+  END;
+  CREATE TRIGGER IF NOT EXISTS policy_thresholds_no_delete
+    BEFORE DELETE ON policy_thresholds
+  BEGIN
+    SELECT RAISE(ABORT, 'policy_thresholds is append-only: a threshold is superseded, never deleted');
+  END;
+
+  -- ── Planning signals (handoff 07 §3.5 p35, §5.4 p49) ─────────────────────
+  --
+  -- An aggregate hypothesis about a COHORT. There is no person_id column here
+  -- and there is not going to be one: p46 gives the planning rule engine
+  -- "versioned aggregate triggers and signal lifecycle" and explicitly denies
+  -- it "safety gates or person routing", and p35 closes with the rule that
+  -- makes the lifecycle safe to build at all — no state transition changes a
+  -- patient's permitted activity.
+  --
+  -- The evidence is FROZEN at detection. Re-running detection does not
+  -- overwrite a row: a reviewer who advanced a signal did so against numbers
+  -- they read, and silently refreshing those numbers underneath them attaches
+  -- a human judgement to evidence nobody saw. A later reading that disagrees
+  -- is a new signal, which is also why the id is derived from the rule, the
+  -- cohort and the dataset version rather than from the clock.
+  CREATE TABLE IF NOT EXISTS planning_signals (
+    id TEXT PRIMARY KEY,
+    tenant_id TEXT NOT NULL REFERENCES tenants(id),
+    signal_type TEXT NOT NULL,
+    state TEXT NOT NULL DEFAULT 'draft'
+      CHECK (state IN ('draft','analysis_requested','clinical_review','fairness_review',
+                       'pilot_proposed','pilot_active','decision_recorded','retired')),
+    rule_version TEXT NOT NULL,
+    -- p36's release ladder level. 1 is descriptive, and every rule in this
+    -- build produces level 1 — the permitted wording follows from it.
+    evidence_level INTEGER NOT NULL DEFAULT 1,
+    statement TEXT NOT NULL,
+    cohort_ref TEXT NOT NULL,
+    cohort_hash TEXT NOT NULL,
+    reference_ref TEXT NOT NULL,
+    threshold_json TEXT NOT NULL DEFAULT '{}',
+    observed_json TEXT NOT NULL DEFAULT '{}',
+    metric_refs_json TEXT NOT NULL DEFAULT '[]',
+    limitations_json TEXT NOT NULL DEFAULT '[]',
+    -- Set when a state that p35 gives an entry condition is reached, so the
+    -- signal object can report a review as done rather than merely passed.
+    clinical_review_json TEXT,
+    fairness_review_json TEXT,
+    detected_at TEXT NOT NULL,
+    data_version TEXT NOT NULL,
+    -- WHICH READING POINT PRODUCED THIS. Null when the demo clock was live.
+    --
+    -- Without it, a detection run at the half-year milestone and one run today
+    -- collide: the id derives from rule, cohort, dataset and tenant, the
+    -- insert is conflict-do-nothing, and the evidence is frozen — so whichever
+    -- ran first wins and its numbers sit on the list looking current forever.
+    -- A presenter who walked the clock forward and came back would be shown
+    -- March's findings labelled as today's.
+    --
+    -- "What the console said at the half year" is a different artefact from
+    -- "what it says now", so it gets a different id and says which it is.
+    reading_point TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+  CREATE INDEX IF NOT EXISTS idx_planning_signals_tenant
+    ON planning_signals(tenant_id, state);
+
+  -- Every state change, with who made it and what they said. p44's audit row
+  -- is "every view, comment, state change and export" — the hash-chained
+  -- audit_log holds all four, and this table holds the state changes a second
+  -- time as queryable history, because a signal's own screen has to show its
+  -- trail without granting a reader the audit log.
+  CREATE TABLE IF NOT EXISTS planning_signal_reviews (
+    id TEXT PRIMARY KEY,
+    signal_id TEXT NOT NULL REFERENCES planning_signals(id),
+    tenant_id TEXT NOT NULL REFERENCES tenants(id),
+    from_state TEXT NOT NULL,
+    to_state TEXT NOT NULL,
+    action TEXT NOT NULL,
+    -- The reviewer. NOT the subject: a planning signal has no subject, it has
+    -- a cohort. This column is the accountability record for the transition.
+    actor_id TEXT NOT NULL REFERENCES users(id),
+    actor_role TEXT NOT NULL,
+    comment TEXT,
+    -- p35: a clinical reviewer "comments and sets limits". The limits are a
+    -- separate field because they outlive the comment thread and constrain
+    -- what a later pilot may do.
+    limits TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+  CREATE INDEX IF NOT EXISTS idx_planning_signal_reviews_signal
+    ON planning_signal_reviews(signal_id, created_at);
+
   CREATE INDEX IF NOT EXISTS idx_levents_type ON longitudinal_events(event_type, id);
   CREATE INDEX IF NOT EXISTS idx_levents_correlation ON longitudinal_events(correlation_id);
-  `);
+
+  -- ── Clinician thoughts, clinical memory and threads ──────────────────────
+  --
+  -- The clinician thinking layer (Clinician Thoughts spec §6). A clinician
+  -- speaks after a session, Steady transcribes and organizes, the clinician
+  -- reviews, and approved items become source-backed clinical memory.
+  --
+  -- THE SHAPE IS THE PRODUCT RULE. §5's three layers are three tables on
+  -- purpose: source (audio and transcript versions), clinical memory (small
+  -- approved items), and intelligence (model-created patterns that never become
+  -- clinical truth without an explicit human action). The spec's instruction is
+  -- blunt about the alternative — "do not maintain one AI-written master patient
+  -- summary" — because a summary cannot show its provenance and cannot be
+  -- reconstructed at a point in time.
+  --
+  -- NOTHING HERE IS EVER MUTATED IN PLACE. A transcript correction writes a new
+  -- version; a correction to an approved item writes a replacement carrying
+  -- supersedes_id. §16 requires it, and it is also what makes a clinician's
+  -- earlier judgement still readable after they change their mind.
+  --
+  -- Every table carries tenant_id and person_id (§6.2), so the Postgres mirror
+  -- picks up row-level security automatically: its policy loop enumerates every
+  -- table with a tenant_id column rather than a hand-kept list.
+
+  -- One clinician thought capture.
+  CREATE TABLE IF NOT EXISTS clinician_thoughts (
+    id TEXT PRIMARY KEY,
+    tenant_id TEXT NOT NULL REFERENCES tenants(id),
+    person_id TEXT NOT NULL REFERENCES persons(id),
+    -- The clinician as a PERSON, not as a caller-supplied string (§6.2).
+    clinician_person_id TEXT NOT NULL REFERENCES persons(id),
+    -- SPEC CONFLICT, RESOLVED IN FAVOUR OF THE STATE MACHINE. §6's CHECK lists
+    -- six states; §8.1's diagram produces a seventh —
+    --   processing -- transcript succeeds, extraction fails --> review_transcript_only
+    -- and §17.4 writes the user-facing copy for it ("Your transcript is safe.
+    -- Steady could not organize it yet"). Shipping §6's list verbatim would
+    -- make the database refuse a state the product is specified to reach, and
+    -- the failure would land on the exact path Phase 1's definition of done is
+    -- about: an interrupted processing run losing a completed transcript.
+    status TEXT NOT NULL CHECK (
+      status IN (
+        'capturing','processing','review','review_transcript_only',
+        'saved','discarded','failed'
+      )
+    ),
+    audio_storage_key TEXT,
+    -- Resolved from org policy at capture. Defaults to deletion rather than
+    -- retention: an organization must not acquire an audio archive of its
+    -- clinicians by never making a decision (see clinical/thoughts-flags.ts).
+    audio_retention_policy TEXT NOT NULL DEFAULT 'delete_after_verified_transcript',
+    audio_deleted_at TEXT,
+    current_transcript_id TEXT,
+    source_session_id TEXT,
+    recorded_at TEXT NOT NULL,
+    saved_at TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+  CREATE INDEX IF NOT EXISTS idx_thoughts_person_time
+    ON clinician_thoughts(tenant_id, person_id, recorded_at DESC);
+
+  -- Versioned transcripts. A clinician correction adds a version; extraction
+  -- reruns against the latest and the original stays readable (§16).
+  CREATE TABLE IF NOT EXISTS clinician_thought_transcripts (
+    id TEXT PRIMARY KEY,
+    tenant_id TEXT NOT NULL REFERENCES tenants(id),
+    person_id TEXT NOT NULL REFERENCES persons(id),
+    thought_id TEXT NOT NULL REFERENCES clinician_thoughts(id),
+    version INTEGER NOT NULL,
+    transcript_text TEXT NOT NULL,
+    transcript_hash TEXT NOT NULL,
+    provider TEXT,
+    provider_model TEXT,
+    language TEXT,
+    confidence_json TEXT,
+    created_by TEXT NOT NULL CHECK (created_by IN ('transcription_service','clinician')),
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    UNIQUE(thought_id, version)
+  );
+
+  -- Extracted and approved memory items — layer 2.
+  --
+  -- statement_class is the epistemic-status column, and it is the reason this
+  -- table exists rather than a notes field. §4's rule: "I think this may connect
+  -- to abandonment" is not "abandonment is an active patient theme", and "I am
+  -- not sure she is ready" is not "patient not ready". A schema that stored only
+  -- the text would let the first become the second on the next read.
+  CREATE TABLE IF NOT EXISTS clinical_memory_items (
+    id TEXT PRIMARY KEY,
+    tenant_id TEXT NOT NULL REFERENCES tenants(id),
+    person_id TEXT NOT NULL REFERENCES persons(id),
+    source_thought_id TEXT,
+    source_transcript_id TEXT,
+    source_span_json TEXT,
+    item_type TEXT NOT NULL,
+    statement_class TEXT NOT NULL CHECK (
+      statement_class IN (
+        'clinician_observation','patient_report',
+        'clinician_hypothesis','clinician_uncertainty'
+      )
+    ),
+    normalized_label TEXT,
+    display_text TEXT NOT NULL,
+    status TEXT NOT NULL CHECK (status IN ('candidate','approved','rejected','superseded')),
+    approved_by TEXT,
+    approved_at TEXT,
+    supersedes_id TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+  CREATE INDEX IF NOT EXISTS idx_memory_person_type_status
+    ON clinical_memory_items(tenant_id, person_id, item_type, status);
+  CREATE INDEX IF NOT EXISTS idx_memory_person_label
+    ON clinical_memory_items(tenant_id, person_id, normalized_label);
+
+  -- Save Thoughts idempotency (§8.1: "a repeated Save Thoughts command with
+  -- the same idempotency key must not duplicate approved items").
+  --
+  -- A SEPARATE ROW RATHER THAN A COLUMN ON THE THOUGHT, because a thought can
+  -- be saved more than once across its life — a correction after a transcript
+  -- edit is a second save — and a single column would only remember the last
+  -- one. The retry this defends against is a browser resubmitting the same
+  -- decision set, which is exactly the case where the key is not the newest.
+  --
+  -- The unique constraint is the mechanism. The command inserts the key first,
+  -- inside the same transaction as the approvals: a duplicate insert fails, the
+  -- transaction rolls back, and no second copy of an approved item exists. The
+  -- alternative — checking for the key and then writing — has a window between
+  -- the two where a concurrent retry does the work twice.
+  CREATE TABLE IF NOT EXISTS clinician_thought_saves (
+    id TEXT PRIMARY KEY,
+    tenant_id TEXT NOT NULL REFERENCES tenants(id),
+    thought_id TEXT NOT NULL REFERENCES clinician_thoughts(id),
+    idempotency_key TEXT NOT NULL,
+    -- Which transcript the decisions were made against. §14.1: "a stale browser
+    -- submission must return a conflict rather than writing against an older
+    -- transcript." Stored so a replay can be checked against it too.
+    transcript_version INTEGER NOT NULL,
+    approved_count INTEGER NOT NULL DEFAULT 0,
+    rejected_count INTEGER NOT NULL DEFAULT 0,
+    saved_by TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    UNIQUE(thought_id, idempotency_key)
+  );
+  CREATE INDEX IF NOT EXISTS idx_thought_saves_thought
+    ON clinician_thought_saves(thought_id, created_at);
+
+  -- Return-to-Life goals (Clinical Intelligence Expansion, handoff 01 §4).
+  --
+  -- The functional outcome layer: what does this person want to be able to do
+  -- again, and is their real life expanding. Separate from symptom measures on
+  -- purpose — a PHQ-9 falling and a person going back into a grocery store are
+  -- different facts, and the second is the one the patient came for.
+  --
+  -- THE GOAL IS PATIENT-OWNED. patient_statement is their words and
+  -- why_it_matters is their reason; §1 is explicit that AI "can help draft
+  -- measurable wording but cannot choose what matters to the patient", and §12
+  -- adds that model-drafted language "must not be saved as patient-owned
+  -- language until confirmed". So a draft stays draft until a person confirms
+  -- it, and confirmed_by_person_id records who.
+  --
+  -- current_level IS A PROJECTION, NOT A SETTING. §3: "goal level changes are
+  -- evidence events. Do not overwrite the current level without preserving the
+  -- observation that caused the change." So every level this column ever held
+  -- has an accepted observation behind it, and the column is rebuilt from those
+  -- rather than written to directly.
+  CREATE TABLE IF NOT EXISTS return_to_life_goals (
+    id TEXT PRIMARY KEY,
+    tenant_id TEXT NOT NULL REFERENCES tenants(id),
+    person_id TEXT NOT NULL REFERENCES persons(id),
+    title TEXT NOT NULL,
+    -- The patient's own words. Encrypted: §12 says goal titles and
+    -- why-it-matters "may be highly sensitive".
+    patient_statement TEXT NOT NULL,
+    why_it_matters TEXT,
+    domain TEXT NOT NULL,
+    status TEXT NOT NULL CHECK (status IN ('draft','active','paused','completed','archived')),
+    created_by_person_id TEXT NOT NULL,
+    confirmed_by_person_id TEXT,
+    confirmed_at TEXT,
+    target_review_date TEXT,
+    current_level INTEGER CHECK (current_level BETWEEN -2 AND 2),
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+  CREATE INDEX IF NOT EXISTS idx_rtl_goal_person_status
+    ON return_to_life_goals(tenant_id, person_id, status);
+
+  -- The five-level ladder (§2). UNIQUE(goal_id, level) is the mechanism behind
+  -- "one dimension per goal": a ladder cannot acquire a sixth rung or two
+  -- descriptions of the same rung, so "sleep better, work full time, and stop
+  -- panic" cannot be crammed into one goal by adding levels.
+  CREATE TABLE IF NOT EXISTS return_to_life_goal_levels (
+    id TEXT PRIMARY KEY,
+    tenant_id TEXT NOT NULL REFERENCES tenants(id),
+    person_id TEXT NOT NULL REFERENCES persons(id),
+    goal_id TEXT NOT NULL REFERENCES return_to_life_goals(id),
+    level INTEGER NOT NULL CHECK (level BETWEEN -2 AND 2),
+    description TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    UNIQUE(goal_id, level)
+  );
+
+  -- Evidence about current function (§10).
+  --
+  -- evidence_class IS THE COLUMN THIS TABLE EXISTS FOR. §1: "progress can be
+  -- reported by the patient, observed by a clinician, or supported by system
+  -- evidence. These sources remain separate." A patient saying they managed the
+  -- shop, a clinician seeing them arrive having driven, and a check-in row that
+  -- happens to correlate are three different kinds of fact, and a schema that
+  -- stored only "level 0 reached" would make them interchangeable.
+  --
+  -- model_candidate is the fourth, and it is never accepted by anything but a
+  -- person: §7's hard boundary for the matcher is "proposes evidence only; no
+  -- automatic level change".
+  CREATE TABLE IF NOT EXISTS return_to_life_observations (
+    id TEXT PRIMARY KEY,
+    tenant_id TEXT NOT NULL REFERENCES tenants(id),
+    person_id TEXT NOT NULL REFERENCES persons(id),
+    goal_id TEXT NOT NULL REFERENCES return_to_life_goals(id),
+    observed_level INTEGER CHECK (observed_level BETWEEN -2 AND 2),
+    evidence_class TEXT NOT NULL CHECK (evidence_class IN (
+      'patient_reported','clinician_observed','system_measured','model_candidate'
+    )),
+    -- What kind of record this came from, and which one. Together they are the
+    -- drill-down: an observation nobody can trace back is an assertion.
+    source_type TEXT NOT NULL,
+    source_id TEXT NOT NULL,
+    occurred_at TEXT NOT NULL,
+    note TEXT,
+    status TEXT NOT NULL CHECK (status IN ('proposed','accepted','rejected')),
+    decided_by TEXT,
+    decided_at TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+  CREATE INDEX IF NOT EXISTS idx_rtl_obs_goal_time
+    ON return_to_life_observations(tenant_id, goal_id, occurred_at DESC);
+
+  -- Treatment Response Fingerprint (expansion handoff 02 §4).
+  --
+  -- What has tended to help this person, under what circumstances, and what
+  -- happens afterwards. Note every word of that: TENDED, and AFTERWARDS. §6
+  -- forbids "works", "effective treatment", "caused improvement" and
+  -- "contraindicated" outright, because a table that records what followed an
+  -- intervention is not a table that records what the intervention did.
+  --
+  -- THE CANONICAL REGISTRY IS PER TENANT. A clinician typing "cold water" and
+  -- another typing "ice dive" mean the same thing inside one organization and
+  -- may not across two, so the key is unique per tenant rather than globally —
+  -- and §8 keeps the model out of creating one: it may map wording to a
+  -- CANDIDATE key, never mint a clinical identity when the wording is
+  -- ambiguous.
+  CREATE TABLE IF NOT EXISTS intervention_definitions (
+    id TEXT PRIMARY KEY,
+    tenant_id TEXT NOT NULL REFERENCES tenants(id),
+    canonical_key TEXT NOT NULL,
+    display_name TEXT NOT NULL,
+    intervention_class TEXT NOT NULL,
+    source_scope TEXT NOT NULL,
+    active INTEGER NOT NULL DEFAULT 1,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    UNIQUE(tenant_id, canonical_key)
+  );
+
+  -- One exposure. §3: what, when, source, context.
+  --
+  -- clinician_confirmed is separate from the row existing, because §10 lets
+  -- adapters create instances from session and practice events automatically
+  -- while §8 requires review before a MODEL-derived identity is trusted. An
+  -- instance nobody confirmed is still a real event that happened; it is the
+  -- normalization that is provisional.
+  CREATE TABLE IF NOT EXISTS intervention_instances (
+    id TEXT PRIMARY KEY,
+    tenant_id TEXT NOT NULL REFERENCES tenants(id),
+    person_id TEXT NOT NULL REFERENCES persons(id),
+    intervention_definition_id TEXT NOT NULL REFERENCES intervention_definitions(id),
+    source_type TEXT NOT NULL,
+    source_id TEXT NOT NULL,
+    occurred_at TEXT NOT NULL,
+    ended_at TEXT,
+    dose_json TEXT NOT NULL DEFAULT '{}',
+    context_json TEXT NOT NULL DEFAULT '{}',
+    clinician_confirmed INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+  CREATE INDEX IF NOT EXISTS idx_intervention_instances_person
+    ON intervention_instances(tenant_id, person_id, occurred_at DESC);
+
+  -- What was observed afterwards, in a NAMED WINDOW.
+  --
+  -- window_type is the column that keeps §6's hardest rule honest: "an
+  -- immediate distress decrease plus next-day worsening is displayed as mixed
+  -- response, not netted into one number." Netting requires the two to be
+  -- commensurable, and separate windows are what stop them being treated that
+  -- way. A schema with one "outcome" column would make the averaging both
+  -- possible and tempting.
+  --
+  -- evidence_class travels for the same reason it does on goals and memory
+  -- items: a patient saying it helped, a clinician observing it, and a measured
+  -- SUDS drop are three different facts (§13: "patient report, clinician
+  -- observation, and measured values retain provenance").
+  CREATE TABLE IF NOT EXISTS intervention_response_observations (
+    id TEXT PRIMARY KEY,
+    tenant_id TEXT NOT NULL REFERENCES tenants(id),
+    person_id TEXT NOT NULL REFERENCES persons(id),
+    intervention_instance_id TEXT NOT NULL REFERENCES intervention_instances(id),
+    outcome_type TEXT NOT NULL,
+    window_type TEXT NOT NULL CHECK (window_type IN (
+      'immediate','post_session','same_day','next_day','multi_day','functional'
+    )),
+    value_num REAL,
+    value_text TEXT,
+    unit TEXT,
+    direction TEXT,
+    evidence_class TEXT NOT NULL,
+    source_type TEXT NOT NULL,
+    source_id TEXT NOT NULL,
+    occurred_at TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+  CREATE INDEX IF NOT EXISTS idx_response_obs_instance
+    ON intervention_response_observations(tenant_id, intervention_instance_id, window_type);
+
+  -- A computed pattern, pinned to the policy and the evidence it was computed
+  -- from.
+  --
+  -- §13: "all pattern summaries are reproducible from evidence + policy
+  -- version." The UNIQUE key carries both, so recomputing under the same policy
+  -- over the same cutoff returns the same row rather than a second opinion —
+  -- and a threshold change produces a NEW snapshot beside the old one instead
+  -- of silently restating it.
+  --
+  -- missing_followup_count is its own column and not a derived number, because
+  -- §6 says missing delayed follow-up is REPORTED and never classified as
+  -- recovered. A count that had to be recomputed at read time is a count
+  -- somebody eventually computes as zero.
+  CREATE TABLE IF NOT EXISTS response_fingerprint_snapshots (
+    id TEXT PRIMARY KEY,
+    tenant_id TEXT NOT NULL REFERENCES tenants(id),
+    person_id TEXT NOT NULL REFERENCES persons(id),
+    intervention_definition_id TEXT NOT NULL REFERENCES intervention_definitions(id),
+    policy_version TEXT NOT NULL,
+    evidence_cutoff TEXT NOT NULL,
+    support_count INTEGER NOT NULL,
+    missing_followup_count INTEGER NOT NULL,
+    summary_json TEXT NOT NULL,
+    limitations_json TEXT NOT NULL DEFAULT '[]',
+    computed_at TEXT NOT NULL DEFAULT (datetime('now')),
+    UNIQUE(tenant_id, person_id, intervention_definition_id, policy_version, evidence_cutoff)
+  );
+
+  -- Which records a snapshot was computed from. §13: "every pattern opens
+  -- evidence" — so the link is a row rather than a re-derivation, and a pattern
+  -- whose evidence has been corrected can be told apart from one recomputed
+  -- over different data.
+  -- What a snapshot was computed from. §13: "all pattern summaries are
+  -- reproducible from evidence + policy version", and §9 requires every
+  -- displayed pattern to open its sources — neither is possible without these
+  -- rows, so they are written in the same call as the snapshot rather than by
+  -- a later job.
+  --
+  -- tenant_id is here even though §4's sketch omits it. ADR 0011 §2: every
+  -- durable patient record carries the tenant, and the repository refuses a
+  -- table that does not — which is the point of the refusal. A join table whose
+  -- rows are only reachable through a scoped parent is still a table an
+  -- unscoped query can read directly.
+  CREATE TABLE IF NOT EXISTS response_fingerprint_evidence (
+    tenant_id TEXT NOT NULL REFERENCES tenants(id),
+    snapshot_id TEXT NOT NULL REFERENCES response_fingerprint_snapshots(id),
+    evidence_type TEXT NOT NULL,
+    evidence_id TEXT NOT NULL,
+    PRIMARY KEY(snapshot_id, evidence_type, evidence_id)
+  );
+
+  -- Between-Visit Care Command Center (expansion handoff 03 §9).
+  --
+  -- A SEPARATE TABLE FROM alerts, and §9 says exactly why: "do not overload the
+  -- alerts table with every non-safety intelligence output. Safety alert
+  -- semantics must stay believable." An alerts table that also carries "her
+  -- grounding response has been mixed lately" is an alerts table a clinician
+  -- learns to skim, and the thing they skim past is the safety row.
+  --
+  -- So this holds review-worthiness and the alerts table keeps authority.
+  -- Nothing here can create a safety obligation; the work queue merges the two
+  -- and safety keeps its ordering.
+  --
+  -- STABLE IS NOT A ROW. §9: "Stable / No Action is a projection outcome...
+  -- Do not insert thousands of stable rows into the signal table." A person
+  -- with nothing to do about them is the ABSENCE of a signal, and storing that
+  -- absence would make the table grow with the caseload rather than with the
+  -- work.
+  CREATE TABLE IF NOT EXISTS clinical_attention_signals (
+    id TEXT PRIMARY KEY,
+    tenant_id TEXT NOT NULL REFERENCES tenants(id),
+    person_id TEXT NOT NULL REFERENCES persons(id),
+    signal_type TEXT NOT NULL,
+    source_feature TEXT NOT NULL,
+    -- The lineage key. §12: "if a signal changes materially while open, update
+    -- the row and expose new-since-review rather than creating duplicates."
+    -- UNIQUE per tenant and person is what makes that structural instead of
+    -- something each provider has to remember.
+    dedupe_key TEXT NOT NULL,
+    attention_band TEXT NOT NULL CHECK (attention_band IN (
+      'review_now','review_today','follow_up','watch'
+    )),
+    statement TEXT NOT NULL,
+    change_text TEXT,
+    state TEXT NOT NULL CHECK (state IN (
+      'open','acknowledged','waiting_member','waiting_staff','resolved','dismissed'
+    )),
+    owner_person_id TEXT REFERENCES persons(id),
+    due_at TEXT,
+    first_detected_at TEXT NOT NULL,
+    last_detected_at TEXT NOT NULL,
+    -- The cutoff the provider evaluated against, so a historical view can be
+    -- reconstructed without future-data leakage.
+    evidence_at TEXT NOT NULL,
+    policy_version TEXT NOT NULL,
+    limitations_json TEXT NOT NULL DEFAULT '[]',
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+    UNIQUE(tenant_id, person_id, dedupe_key)
+  );
+  CREATE INDEX IF NOT EXISTS idx_attention_owner_state
+    ON clinical_attention_signals(tenant_id, owner_person_id, state, attention_band, due_at);
+  CREATE INDEX IF NOT EXISTS idx_attention_person_state
+    ON clinical_attention_signals(tenant_id, person_id, state, last_detected_at);
+
+  -- What a signal rests on, in the order a reader should see it. §22's drawer
+  -- test: "every section source-backed". rank is stored rather than derived
+  -- because the provider knows which evidence is the reason and which is the
+  -- corroboration, and a re-sort at read time would lose that.
+  CREATE TABLE IF NOT EXISTS clinical_attention_signal_evidence (
+    tenant_id TEXT NOT NULL REFERENCES tenants(id),
+    signal_id TEXT NOT NULL REFERENCES clinical_attention_signals(id),
+    evidence_type TEXT NOT NULL,
+    evidence_id TEXT NOT NULL,
+    rank INTEGER NOT NULL,
+    PRIMARY KEY(signal_id, evidence_type, evidence_id)
+  );
+  CREATE INDEX IF NOT EXISTS idx_attention_evidence_rank
+    ON clinical_attention_signal_evidence(signal_id, rank);
+
+  -- The care-time ledger (§13).
+  --
+  -- completed_at is NOT NULL and started_at is nullable, which is the right way
+  -- round: an action that happened is the fact, and when the clinician began is
+  -- often unknown. §13 forbids counting "passive browser-open time as clinical
+  -- work", so duration is recorded only when something explicitly bounded it —
+  -- never inferred from how long a page was left open.
+  --
+  -- And §13: "do not mark time billable from Steady alone." There is no
+  -- billable column here, deliberately; a column would eventually be read as
+  -- an assertion.
+  --
+  -- CORRECTIONS APPEND (§13: "clinician can correct or annotate recorded care
+  -- time"; cross-feature invariant: "corrected derived state supersedes prior
+  -- state without erasing history"). A correction is a NEW ROW carrying
+  -- supersedes_id, and the superseded row stays exactly as it was. An UPDATE in
+  -- place would make the ledger a record of what somebody currently believes
+  -- rather than of what they recorded and when — and a care-time ledger that
+  -- can be silently rewritten is one no staffing or reimbursement conversation
+  -- should ever be built on.
+  CREATE TABLE IF NOT EXISTS between_visit_care_actions (
+    id TEXT PRIMARY KEY,
+    tenant_id TEXT NOT NULL REFERENCES tenants(id),
+    person_id TEXT NOT NULL REFERENCES persons(id),
+    clinician_person_id TEXT NOT NULL REFERENCES persons(id),
+    signal_id TEXT REFERENCES clinical_attention_signals(id),
+    action_type TEXT NOT NULL,
+    note TEXT,
+    started_at TEXT,
+    completed_at TEXT NOT NULL,
+    duration_seconds INTEGER,
+    outcome_state TEXT,
+    source_surface TEXT NOT NULL,
+    supersedes_id TEXT REFERENCES between_visit_care_actions(id),
+    correction_reason TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+
+  -- Per-tenant feature switches (expansion handoff 03, Appendix B: "flags
+  -- should be tenant-aware when current configuration permits").
+  --
+  -- AN OVERRIDE, NOT A SOURCE OF TRUTH. The environment variable is still the
+  -- deployment-wide answer; a row here says one organization has decided
+  -- differently. Absence means "no opinion", which is why the enabled column
+  -- is NOT NULL and the ROW is the opinion — a nullable boolean would give
+  -- three states where two are meant.
+  CREATE TABLE IF NOT EXISTS tenant_feature_flags (
+    tenant_id TEXT NOT NULL REFERENCES tenants(id),
+    flag TEXT NOT NULL,
+    enabled INTEGER NOT NULL,
+    -- Who decided and why, because a flag that changed a clinician's screen
+    -- with nobody's name on it is a change nobody can ask about.
+    set_by TEXT,
+    reason TEXT,
+    updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+    PRIMARY KEY (tenant_id, flag)
+  );
+  CREATE INDEX IF NOT EXISTS idx_care_actions_person
+    ON between_visit_care_actions(tenant_id, person_id, completed_at);
+  CREATE INDEX IF NOT EXISTS idx_care_actions_clinician
+    ON between_visit_care_actions(tenant_id, clinician_person_id, completed_at);
+
+  -- Personalized Recovery Trajectory (expansion handoff 04 §5).
+  --
+  -- ONE ROW PER DOMAIN, NEVER ONE PER PERSON. §1: "do not replace that chart
+  -- with one composite recovery score", and a table with a single state column
+  -- keyed by person would be that score with a different name. Sleep can be
+  -- improving while function reverses; §4 requires the disagreement be
+  -- preserved, and it is preserved here by there being two rows.
+  --
+  -- domain_key is what distinguishes series inside a domain type: a goal id for
+  -- function, an instrument id for a measure, the domain's own name where there
+  -- is only one. It is part of the UNIQUE key, so two goals cannot collapse
+  -- into one function verdict.
+  --
+  -- policy_version AND evidence_cutoff are both in the UNIQUE key, which is
+  -- §13's "trajectory state is reproducible from evidence, cutoff, and policy
+  -- version" made structural. Recomputing the same cutoff under the same rules
+  -- lands on the same row; changing a threshold writes a NEW row beside the old
+  -- one rather than restating history under rules it was not computed under.
+  --
+  -- The windows are stored as JSON rather than as columns because what a window
+  -- IS belongs to the policy that computed it. A schema with median and iqr
+  -- columns would have to change every time the engine learned to report
+  -- something else about a window, and old rows would acquire empty columns
+  -- that read as absent values rather than as questions nobody asked yet.
+  CREATE TABLE IF NOT EXISTS recovery_trajectory_snapshots (
+    id TEXT PRIMARY KEY,
+    tenant_id TEXT NOT NULL REFERENCES tenants(id),
+    person_id TEXT NOT NULL REFERENCES persons(id),
+    domain_type TEXT NOT NULL,
+    domain_key TEXT NOT NULL,
+    state TEXT NOT NULL CHECK (state IN (
+      'insufficient_data','improving','stable','slowing','stalled','reversing'
+    )),
+    policy_version TEXT NOT NULL,
+    evidence_cutoff TEXT NOT NULL,
+    current_window_json TEXT NOT NULL,
+    comparison_window_json TEXT,
+    explanation_json TEXT NOT NULL,
+    limitations_json TEXT NOT NULL DEFAULT '[]',
+    computed_at TEXT NOT NULL DEFAULT (datetime('now')),
+    UNIQUE(tenant_id, person_id, domain_type, domain_key, policy_version, evidence_cutoff)
+  );
+
+  -- What a state was computed from, in the order cited. §13 again: a state
+  -- nobody can open is an assertion, and §12's Phase 3 definition of done is
+  -- the single sentence "every state opens evidence".
+  --
+  -- tenant_id is here even though §5's sketch omits it, for the same reason it
+  -- is on the fingerprint evidence table: ADR 0011 requires every durable
+  -- patient record to carry the tenant, and a join table reachable only through
+  -- a scoped parent is still a table an unscoped query can read directly.
+  CREATE TABLE IF NOT EXISTS recovery_trajectory_evidence (
+    tenant_id TEXT NOT NULL REFERENCES tenants(id),
+    snapshot_id TEXT NOT NULL REFERENCES recovery_trajectory_snapshots(id),
+    evidence_type TEXT NOT NULL,
+    evidence_id TEXT NOT NULL,
+    rank INTEGER NOT NULL,
+    PRIMARY KEY(snapshot_id, evidence_type, evidence_id)
+  );
+
+  -- What a clinician made of a state.
+  --
+  -- A DISAGREEMENT IS A ROW, NOT A DELETION. §13 of handoff 05 states the
+  -- shared rule outright: "clinician disagreement is recorded and does not
+  -- erase system evidence." A clinician who thinks the sleep lane is misreading
+  -- a shift-work pattern is adding what Steady did not know; removing the state
+  -- would also remove the record that Steady had been reading it that way for
+  -- six weeks, which is the part worth auditing.
+  CREATE TABLE IF NOT EXISTS recovery_trajectory_reviews (
+    id TEXT PRIMARY KEY,
+    tenant_id TEXT NOT NULL REFERENCES tenants(id),
+    person_id TEXT NOT NULL REFERENCES persons(id),
+    snapshot_id TEXT NOT NULL REFERENCES recovery_trajectory_snapshots(id),
+    clinician_person_id TEXT NOT NULL REFERENCES persons(id),
+    review_state TEXT NOT NULL CHECK (review_state IN (
+      'reviewed','agreed','disagreed','needs_context'
+    )),
+    note TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+  CREATE INDEX IF NOT EXISTS idx_trajectory_snapshots_person
+    ON recovery_trajectory_snapshots(tenant_id, person_id, evidence_cutoff);
+  CREATE INDEX IF NOT EXISTS idx_trajectory_reviews_snapshot
+    ON recovery_trajectory_reviews(tenant_id, snapshot_id, created_at);
+
+  -- Therapeutic Load & Readiness (expansion handoff 05 §5).
+  --
+  -- ONE STATE PER PERSON PER CUTOFF, and unlike the trajectory table that is
+  -- correct here: this IS one recommendation, because it is one question. §3's
+  -- states answer "how much additional intensity appears prudent for a
+  -- clinician to consider", which does not decompose by domain the way a course
+  -- does. What keeps it from becoming a score is that the state is categorical
+  -- and the dimensions behind it are stored beside it, each opening its own
+  -- evidence (§13: "no readiness number is displayed without explanation").
+  --
+  -- safety_constraint_ref is a column and not a flag. §1: "if the safety engine
+  -- blocks an activity, Therapeutic Load displays that external constraint and
+  -- stops." A boolean would record THAT something was blocked; the reference
+  -- records WHICH decision, so a reader a year later can go and look at the
+  -- gate rather than take this table's word for it.
+  --
+  -- The dimensions are JSON for the same reason the trajectory windows are:
+  -- what a dimension is belongs to the policy that computed it, and a schema
+  -- with a column per dimension would give old rows empty columns that read as
+  -- absent findings rather than as questions nobody asked yet.
+  CREATE TABLE IF NOT EXISTS therapeutic_load_snapshots (
+    id TEXT PRIMARY KEY,
+    tenant_id TEXT NOT NULL REFERENCES tenants(id),
+    person_id TEXT NOT NULL REFERENCES persons(id),
+    state TEXT NOT NULL CHECK (state IN (
+      'blocked_by_safety','insufficient_data','stabilize','maintain','consider_progression'
+    )),
+    policy_version TEXT NOT NULL,
+    evidence_cutoff TEXT NOT NULL,
+    load_dimensions_json TEXT NOT NULL,
+    capacity_dimensions_json TEXT NOT NULL,
+    safety_constraint_ref TEXT,
+    explanation_json TEXT NOT NULL,
+    limitations_json TEXT NOT NULL DEFAULT '[]',
+    computed_at TEXT NOT NULL DEFAULT (datetime('now')),
+    UNIQUE(tenant_id, person_id, policy_version, evidence_cutoff)
+  );
+
+  -- What a recommendation was read from, and in what capacity.
+  --
+  -- ROLE IS THE COLUMN THAT MAKES THIS READABLE. §5 gives four:
+  -- load, capacity, constraint, context. A post-session check can appear as
+  -- load evidence for one dimension and capacity evidence for another, and a
+  -- table that stored the citation without saying which would leave a reader
+  -- unable to tell what any of it was doing there. The role is in the primary
+  -- key for exactly that reason.
+  CREATE TABLE IF NOT EXISTS therapeutic_load_evidence (
+    tenant_id TEXT NOT NULL REFERENCES tenants(id),
+    snapshot_id TEXT NOT NULL REFERENCES therapeutic_load_snapshots(id),
+    evidence_type TEXT NOT NULL,
+    evidence_id TEXT NOT NULL,
+    role TEXT NOT NULL CHECK (role IN ('load','capacity','constraint','context')),
+    PRIMARY KEY(snapshot_id, evidence_type, evidence_id, role)
+  );
+
+  -- What a clinician decided. §8's six actions, and every one of them records a
+  -- judgement rather than performing one: §13, "no system action autonomously
+  -- changes treatment intensity, module access, or trauma-processing status."
+  -- There is no column here that a gate, a plan or an unlock reads, and there
+  -- is deliberately no path from a row in this table to one.
+  CREATE TABLE IF NOT EXISTS therapeutic_load_reviews (
+    id TEXT PRIMARY KEY,
+    tenant_id TEXT NOT NULL REFERENCES tenants(id),
+    person_id TEXT NOT NULL REFERENCES persons(id),
+    snapshot_id TEXT NOT NULL REFERENCES therapeutic_load_snapshots(id),
+    clinician_person_id TEXT NOT NULL REFERENCES persons(id),
+    decision TEXT NOT NULL CHECK (decision IN (
+      'acknowledged','agree_stabilize','agree_maintain','review_progression','disagree','defer'
+    )),
+    note TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+  CREATE INDEX IF NOT EXISTS idx_load_snapshots_person
+    ON therapeutic_load_snapshots(tenant_id, person_id, evidence_cutoff);
+  CREATE INDEX IF NOT EXISTS idx_load_reviews_snapshot
+    ON therapeutic_load_reviews(tenant_id, snapshot_id, created_at);
+
+  -- Longitudinal threads.
+  CREATE TABLE IF NOT EXISTS clinical_threads (
+    id TEXT PRIMARY KEY,
+    tenant_id TEXT NOT NULL REFERENCES tenants(id),
+    person_id TEXT NOT NULL REFERENCES persons(id),
+    thread_type TEXT NOT NULL,
+    canonical_label TEXT NOT NULL,
+    status TEXT NOT NULL CHECK (status IN ('active','resolved','archived')),
+    created_by TEXT NOT NULL CHECK (created_by IN ('clinician','system')),
+    first_seen_at TEXT,
+    last_seen_at TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+  CREATE INDEX IF NOT EXISTS idx_threads_person_status
+    ON clinical_threads(tenant_id, person_id, status, last_seen_at DESC);
+
+  -- Thread membership. proposed_by and decided_by are separate columns
+  -- because Phase 3's definition of done is "no auto-link in v1": a model may
+  -- propose, and only a clinician decision moves a membership to accepted.
+  CREATE TABLE IF NOT EXISTS clinical_thread_memberships (
+    id TEXT PRIMARY KEY,
+    tenant_id TEXT NOT NULL REFERENCES tenants(id),
+    person_id TEXT NOT NULL REFERENCES persons(id),
+    thread_id TEXT NOT NULL REFERENCES clinical_threads(id),
+    memory_item_id TEXT NOT NULL REFERENCES clinical_memory_items(id),
+    relationship TEXT NOT NULL DEFAULT 'supports',
+    status TEXT NOT NULL CHECK (status IN ('proposed','accepted','rejected')),
+    proposed_by TEXT NOT NULL CHECK (proposed_by IN ('clinician','model','system')),
+    decided_by TEXT,
+    decided_at TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    UNIQUE(thread_id, memory_item_id)
+  );
+  CREATE INDEX IF NOT EXISTS idx_memberships_thread_status
+    ON clinical_thread_memberships(tenant_id, thread_id, status);
+
+  -- Layer 3: model-created inference, which stays model-derived until a human
+  -- accepts it (§31, "no inference promotion"). expires_at exists so a
+  -- pattern nobody acted on stops being presented rather than accumulating.
+  CREATE TABLE IF NOT EXISTS clinical_inferences (
+    id TEXT PRIMARY KEY,
+    tenant_id TEXT NOT NULL REFERENCES tenants(id),
+    person_id TEXT NOT NULL REFERENCES persons(id),
+    inference_type TEXT NOT NULL,
+    display_text TEXT NOT NULL,
+    status TEXT NOT NULL CHECK (status IN ('proposed','accepted','dismissed','expired')),
+    ai_inference_id TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    expires_at TEXT,
+    decided_by TEXT,
+    decided_at TEXT
+  );
+  CREATE INDEX IF NOT EXISTS idx_inference_person_status
+    ON clinical_inferences(tenant_id, person_id, status, created_at DESC);
+
+  -- Every inference names the records it rests on. Without this table a
+  -- generated claim is unfalsifiable, which is why §11 withholds any claim
+  -- whose citations cannot be resolved.
+  CREATE TABLE IF NOT EXISTS clinical_inference_evidence (
+    inference_id TEXT NOT NULL REFERENCES clinical_inferences(id),
+    evidence_type TEXT NOT NULL,
+    evidence_id TEXT NOT NULL,
+    rank INTEGER NOT NULL,
+    PRIMARY KEY(inference_id, evidence_type, evidence_id)
+  );
+
+  -- Retrieval metadata. The vector itself lives in provider-specific storage;
+  -- what is kept here is what the vector was made FROM, so an embedding can be
+  -- invalidated when its source changes and a stale one cannot answer for a
+  -- record that has since been corrected.
+  CREATE TABLE IF NOT EXISTS clinical_retrieval_documents (
+    id TEXT PRIMARY KEY,
+    tenant_id TEXT NOT NULL REFERENCES tenants(id),
+    person_id TEXT NOT NULL REFERENCES persons(id),
+    source_type TEXT NOT NULL,
+    source_id TEXT NOT NULL,
+    text_for_retrieval TEXT NOT NULL,
+    content_hash TEXT NOT NULL,
+    embedding_model TEXT,
+    embedding_ref TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+    UNIQUE(tenant_id, source_type, source_id)
+  );
+  CREATE INDEX IF NOT EXISTS idx_retrieval_person
+    ON clinical_retrieval_documents(tenant_id, person_id, source_type);
+
+  -- Telemetry signals (§31.7). NINE NAMED SIGNALS, and no person column.
+  --
+  -- There is deliberately no person_id and no free-text column on this table.
+  -- §31.7 gives every signal a privacy rule, and two of those rules are about
+  -- identity rather than content: permission_denied carries the actor's role
+  -- and a policy code and NO SUBJECT IDENTITY, because a denial log naming who
+  -- was being looked at leaks the existence §30.6 step 2 refuses to reveal.
+  -- A column that cannot hold a person is a stronger guarantee than a rule
+  -- saying not to fill one in.
+  --
+  -- The fields column is JSON, but only of values that passed the catalog's
+  -- kind check: codes, roles, references and numbers. A sentence cannot get in.
+  CREATE TABLE IF NOT EXISTS telemetry_signals (
+    id TEXT PRIMARY KEY,
+    tenant_id TEXT NOT NULL REFERENCES tenants(id),
+    signal TEXT NOT NULL,
+    actor_role TEXT,
+    fields TEXT NOT NULL DEFAULT '{}',
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+  CREATE INDEX IF NOT EXISTS idx_telemetry_signal
+    ON telemetry_signals(signal, created_at);
+`;
+
+function migrate(db: Database.Database) {
+  db.exec(SCHEMA_SQL);
 
   // Columns added after initial release; SQLite has no ADD COLUMN IF NOT EXISTS.
   ensureColumn(db, "checkins", "triggers_json", "TEXT NOT NULL DEFAULT '[]'");
@@ -688,6 +2091,37 @@ function migrate(db: Database.Database) {
   // Clinician override: a specialist may open a gated module ahead of the
   // program's pacing (prerequisites + readiness). Daily safety gates still hold.
   ensureColumn(db, "module_unlocks", "override", "INTEGER NOT NULL DEFAULT 0");
+  // Handoff 09 §6, Package 5: "Export is a job, not a button. Review scope and
+  // columns, request, progress, ready, download — with authorization rechecked
+  // at download and expired, failed, and superseded outputs identified."
+  //
+  // ADDED AS COLUMNS RATHER THAN A NEW TABLE, because the row already exists
+  // and already carries the disclosure facts — purpose, filter hash, content
+  // hash, signature. What it lacked was a LIFECYCLE: every row was implicitly
+  // "ready forever", so a file requested in March and downloaded in September
+  // was indistinguishable from one requested a minute ago, and a superseded
+  // export had no way to say so.
+  //
+  // `state` defaults to 'ready' so every export written before this column
+  // existed keeps its meaning: it was created synchronously and it succeeded.
+  // Backfilling it to 'requested' would rewrite history into a queue that
+  // never ran.
+  ensureColumn(
+    db, "export_jobs", "state",
+    "TEXT NOT NULL DEFAULT 'ready' " +
+    "CHECK (state IN ('requested','running','ready','downloaded','failed','expired','superseded'))"
+  );
+  // When the file stops being downloadable. §6 wants an expired output
+  // identified as expired rather than silently missing.
+  ensureColumn(db, "export_jobs", "expires_at", "TEXT");
+  // Set when a later export of the SAME filter and surface replaces this one.
+  ensureColumn(db, "export_jobs", "superseded_by", "TEXT");
+  // Every download, counted. A disclosure downloaded four times is four
+  // disclosures, and §6 is explicit that "browser success is not a disclosure
+  // audit record".
+  ensureColumn(db, "export_jobs", "download_count", "INTEGER NOT NULL DEFAULT 0");
+  ensureColumn(db, "export_jobs", "last_downloaded_at", "TEXT");
+  ensureColumn(db, "export_jobs", "failure_reason", "TEXT");
   // Tamper-evident audit chain: each row carries the hash of the previous row
   // and its own content hash, so retroactive edits/deletions are detectable
   // (see audit.ts verifyAuditChain).
@@ -697,6 +2131,50 @@ function migrate(db: Database.Database) {
   // user ("sign out everywhere" / password change). See auth.ts.
   ensureColumn(db, "users", "token_epoch", "INTEGER NOT NULL DEFAULT 0");
 
+  // ── The fabricated/real boundary ─────────────────────────────────────────
+  //
+  // ALTER TABLE cannot add a NOT NULL column without a default, and neither
+  // default is safe here (see the persons table above), so the column is added
+  // nullable and the requirement is enforced by trigger instead. That is not a
+  // compromise: a trigger can say WHY it refused, and a CHECK cannot.
+  ensureColumn(db, "persons", "provenance", "TEXT");
+  backfillProvenance(db);
+  installProvenanceGuards(db);
+
+  // ── The six demo roles (handoff 07 §1.2, p6) ─────────────────────────────
+  //
+  // `admin` is retired. In this codebase it meant the AGGREGATE reporting role
+  // — it read a population and could reach no person — and it served the
+  // organization AND payer consoles from one account. Handoff 07 needs those
+  // separated, and uses "Demo Admin" for something close to the opposite:
+  // visibility over every fabricated tenant, person and event.
+  //
+  // Keeping the name would have left the most dangerous ambiguity in the
+  // project sitting in a CHECK constraint, so it goes. Existing `admin` rows
+  // become `organization`, which is what the one seeded account actually was.
+  widenRoleCheck(db);
+  widenThoughtStatusCheck(db);
+  addFingerprintEvidenceTenant(db);
+
+  // The care-time correction columns (expansion handoff 03 §13, Phase 6). The
+  // table shipped in Phase 1 without them, and CREATE TABLE IF NOT EXISTS
+  // cannot add a column to a table that already exists — so a database created
+  // by that commit gets them here.
+  //
+  // Both nullable, which is the correction flow's own semantics: an entry with
+  // no supersedes_id is an original, and every row already in the table is one.
+  ensureColumn(db, "between_visit_care_actions", "supersedes_id", "TEXT");
+  ensureColumn(db, "between_visit_care_actions", "correction_reason", "TEXT");
+  // The index lives HERE rather than in SCHEMA_SQL, and that is the bug this
+  // ordering fixes: SCHEMA_SQL runs first, so an index over supersedes_id in it
+  // fails on any database created before the column existed — "no such column",
+  // thrown during boot, on every page. A column added by migration needs its
+  // index added after the migration, not beside the table.
+  db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_care_actions_supersedes
+      ON between_visit_care_actions(tenant_id, supersedes_id);
+  `);
+
   // ── Tenancy backfill (ADR 0011 steps 1–2) ────────────────────────────────
   // Every durable record carries a tenant, not just the ones where it seems
   // relevant — so isolation is a single invariant rather than a per-table
@@ -705,7 +2183,162 @@ function migrate(db: Database.Database) {
   for (const table of TENANT_SCOPED_TABLES) {
     ensureColumn(db, table, "tenant_id", `TEXT NOT NULL DEFAULT '${PLATFORM_TENANT_ID}'`);
   }
+
+  // ── The columns nobody remembered to migrate ─────────────────────────────
+  //
+  // `CREATE TABLE IF NOT EXISTS` does nothing to a table that already exists,
+  // so a column added to a schema block after that table shipped reaches every
+  // FRESH database and no DEPLOYED one. Eight columns above are migrated by
+  // hand for exactly this reason; the ninth was not, and could not be caught
+  // locally, because a fresh database always has it. It surfaced as a planning
+  // console answering 500 on a deployment — "table planning_signals has no
+  // column named reading_point" — four deploy cycles after the column landed.
+  //
+  // So the whole class is closed rather than the one instance. Every column
+  // the schema declares is reconciled against the live table, and one that is
+  // missing is added. The hand-written calls above stay: they carry backfills
+  // and triggers this cannot infer.
+  reconcileSchemaColumns(db, SCHEMA_SQL);
+
   backfillIdentitySpine(db);
+}
+
+/**
+ * Add any column the schema declares and the database does not have.
+ *
+ * DELIBERATELY CONSERVATIVE. It only adds columns SQLite can add to a
+ * populated table — nullable, or carrying a default — and it reports the rest
+ * rather than guessing at a value, because inventing one for an existing row
+ * is how a migration silently changes what the data means. A column it cannot
+ * add is named in the boot log, which is the signal to write the hand-migration
+ * with the backfill it needs.
+ */
+export function reconcileSchemaColumns(
+  db: Database.Database, schema: string,
+): { added: string[]; refused: string[] } {
+  const added: string[] = [];
+  const refused: string[] = [];
+
+  // Constraint lines, not columns. A table-level PRIMARY KEY or FOREIGN KEY
+  // sits in the same list and starts with a word, so it has to be excluded by
+  // name rather than by shape.
+  const NOT_A_COLUMN = /^(primary|foreign|unique|check|constraint)\b/i;
+
+  for (const m of schema.matchAll(
+    /CREATE TABLE IF NOT EXISTS\s+([A-Za-z_][A-Za-z0-9_]*)\s*\(([\s\S]*?)\n\s*\);/g,
+  )) {
+    const table = m[1];
+    const exists = db.prepare(
+      "SELECT 1 AS n FROM sqlite_master WHERE type = 'table' AND name = ?").get(table);
+    if (!exists) continue; // the CREATE just made it, or it is not ours
+
+    const live = new Set((db.prepare(`PRAGMA table_info(${table})`).all() as { name: string }[])
+      .map((c) => c.name));
+
+    // One definition per line is this schema's own convention, which keeps the
+    // parser honest: anything cleverer would be guessing at SQL it did not
+    // write.
+    for (const raw of m[2].split("\n")) {
+      const line = raw.replace(/--.*$/, "").trim().replace(/,$/, "");
+      if (!line || NOT_A_COLUMN.test(line)) continue;
+      const name = /^([A-Za-z_][A-Za-z0-9_]*)\s+(.+)$/.exec(line);
+      if (!name || live.has(name[1])) continue;
+
+      const ddl = name[2];
+      // SQLite refuses a NOT NULL column with no default on a populated table,
+      // and it is right to: there is no correct value for the rows already
+      // there. Reported, not forced.
+      if (/\bNOT\s+NULL\b/i.test(ddl) && !/\bDEFAULT\b/i.test(ddl)) {
+        refused.push(`${table}.${name[1]}`);
+        continue;
+      }
+      try {
+        db.exec(`ALTER TABLE ${table} ADD COLUMN ${name[1]} ${ddl}`);
+        added.push(`${table}.${name[1]}`);
+      } catch {
+        refused.push(`${table}.${name[1]}`);
+      }
+    }
+  }
+
+  if (added.length > 0) console.warn("[schema] added missing column(s):", added.join(", "));
+  if (refused.length > 0) {
+    console.warn(
+      "[schema] column(s) the schema declares that this database cannot gain " +
+      "automatically — each needs a hand-written migration with its backfill:",
+      refused.join(", "),
+    );
+  }
+  return { added, refused };
+}
+
+/**
+ * Give every existing person a provenance, ONCE.
+ *
+ * A one-time inference for rows written before the column existed, and the
+ * reasoning is stated here rather than left to be reconstructed: every
+ * environment this code has ever run in is a demonstration environment, in
+ * which every person is fabricated. Outside one, nothing was seeded and the
+ * only persons present came through signup, so they are real.
+ *
+ * This is the only place the environment is allowed to decide a person's
+ * provenance. Every row written after this states it at the insert, because by
+ * then somebody knows the answer and the environment is a poor proxy for it —
+ * the whole point of the column is that a demonstration environment is about
+ * to contain both.
+ */
+function backfillProvenance(db: Database.Database) {
+  const pending = db.prepare(
+    "SELECT COUNT(*) AS n FROM persons WHERE provenance IS NULL").get() as { n: number };
+  if (pending.n === 0) return;
+  const inferred = process.env.EMDR_DEMO === "1" ? "fabricated" : "real";
+  db.prepare("UPDATE persons SET provenance = ? WHERE provenance IS NULL").run(inferred);
+}
+
+/**
+ * Make contamination impossible at the write, rather than detectable at the
+ * read.
+ *
+ * Three triggers, each refusing one way the boundary can be crossed:
+ *
+ *   A PERSON MUST STATE WHICH THEY ARE. No default, so a writer that has not
+ *   thought about it fails loudly at the insert instead of quietly at the
+ *   first metric.
+ *
+ *   A PERSON DOES NOT BECOME REAL. Provenance is immutable. Allowing an update
+ *   would mean a fabricated cohort could be relabelled after the fact and its
+ *   history would join a real denominator — which is precisely the thing this
+ *   exists to prevent, done deliberately.
+ *
+ *   A REAL PERSON CANNOT RECEIVE A FABRICATED EVENT. The direction that
+ *   matters: a synthetic agent writing into a real participant's ledger. The
+ *   reverse — a fabricated person with an unmarked event — is a labelling gap
+ *   rather than contamination, and p29's manifest already counts it.
+ */
+function installProvenanceGuards(db: Database.Database) {
+  db.exec(`
+    CREATE TRIGGER IF NOT EXISTS persons_provenance_required
+      BEFORE INSERT ON persons
+      WHEN NEW.provenance IS NULL OR NEW.provenance NOT IN ('fabricated', 'real')
+    BEGIN
+      SELECT RAISE(ABORT, 'persons.provenance must be stated as fabricated or real at the insert');
+    END;
+
+    CREATE TRIGGER IF NOT EXISTS persons_provenance_immutable
+      BEFORE UPDATE OF provenance ON persons
+      WHEN OLD.provenance IS NOT NULL AND NEW.provenance IS NOT OLD.provenance
+    BEGIN
+      SELECT RAISE(ABORT, 'a person does not become real: provenance is immutable once stated');
+    END;
+
+    CREATE TRIGGER IF NOT EXISTS events_no_fabricated_into_real
+      BEFORE INSERT ON longitudinal_events
+      WHEN json_extract(NEW.provenance, '$.fabricated') = 1
+       AND (SELECT provenance FROM persons WHERE id = NEW.person_id) = 'real'
+    BEGIN
+      SELECT RAISE(ABORT, 'a fabricated event cannot be written into a real person''s ledger');
+    END;
+  `);
 }
 
 /** The reserved platform tenant. Direct-to-consumer records live here so the
@@ -724,11 +2357,90 @@ export const TENANT_SCOPED_TABLES = [
   "program_plans", "care_tracks", "care_track_intake", "practice_completions",
   "upsell_events", "autopilot_plans", "autopilot_events", "lesson_reads",
   "review_notes", "screening_progress",
+  // An access request is raised inside one tenant and names the person who
+  // raised it, the role they want and what they want it for. Reading another
+  // tenant's would show who is asking for what access there — which is exactly
+  // the reconnaissance the request record exists to make reviewable, not
+  // available.
+  "access_requests",
+  // An export names the person who asked for it. It is a disclosure record
+  // rather than care data, but it is scoped to exactly one tenant and reading
+  // another's would show their cohorts, filters and stated purposes.
+  "export_jobs",
+  // A handoff names THREE people — the subject, the clinician giving them up
+  // and the one being asked to take them — and carries a free-text reason
+  // written for a colleague. Reading another tenant's would disclose who is
+  // being transferred, between whom, and why, which is more than most care
+  // tables give away in one row. Scoped from creation and listed here so the
+  // repository's scoping applies and the schema guard keeps counting it.
+  "care_handoffs",
+  // Demographic attributes are the most sensitive person-scoped table in the
+  // schema. p13 permits them for representation, disparity and access audit
+  // only, and a query that forgets the tenant reads another organization's.
+  "person_attributes",
   // Claims are person-scoped: a claim belongs to one covered life, and a query
   // that forgets the tenant reads another plan's members. It carries tenant_id
   // from creation rather than by backfill, but it belongs on this list so the
   // repository's scoping applies and the schema guard keeps counting it.
   "claims",
+  // A planning signal is about a cohort, not a person — but the cohort belongs
+  // to one tenant, and reading another's would show which groups they are
+  // comparing and what they suspect. Scoped for that reason rather than for
+  // the usual one.
+  "planning_signals",
+  // The reviewer named on a state change is a person, so this table is
+  // person-scoped by the schema guard's rule (it references users) even though
+  // its subject is not.
+  "planning_signal_reviews",
+  // Operational feeds. Not person-scoped — a slot is not anybody's — but
+  // scoped to one organization, and reading another's would show their
+  // staffing and their backlog.
+  "capacity_slots",
+  "review_coverage",
+  // The clinician thinking layer. Every one of these carries a patient's
+  // clinical content or a clinician's private judgement about them, and §19's
+  // tenancy row requires "foreign tenant person ID returns not-found, foreign
+  // write refused, search and retrieval cannot enumerate another tenant".
+  // Listed here from the day the tables exist rather than after the first read
+  // path is written: the repository's scoping and the schema guard both work
+  // off this list, so a table missing from it is a table nothing is checking.
+  "clinician_thoughts",
+  "clinician_thought_transcripts",
+  // A person's functional goals, their ladder and the evidence behind them.
+  // As person-scoped as anything in the product.
+  "intervention_definitions",
+  "intervention_instances",
+  "intervention_response_observations",
+  "response_fingerprint_snapshots",
+  "response_fingerprint_evidence",
+  "clinical_attention_signals",
+  "clinical_attention_signal_evidence",
+  "between_visit_care_actions",
+  "tenant_feature_flags",
+  // Recovery trajectory. Domain states, their evidence, and what a clinician
+  // made of them — every one of them a statement about one person's course.
+  "recovery_trajectory_snapshots",
+  "recovery_trajectory_evidence",
+  "recovery_trajectory_reviews",
+  // Therapeutic load. A recommendation about how much intensity a clinician
+  // might consider is as person-scoped as anything in the product, and the
+  // reviews carry a clinician's judgement about somebody by name.
+  "therapeutic_load_snapshots",
+  "therapeutic_load_evidence",
+  "therapeutic_load_reviews",
+  "return_to_life_goals",
+  "return_to_life_goal_levels",
+  "return_to_life_observations",
+  "clinician_thought_saves",
+  "clinical_memory_items",
+  "clinical_threads",
+  "clinical_thread_memberships",
+  "clinical_inferences",
+  // `clinical_inference_evidence` is deliberately absent: it is a join table
+  // with no tenant_id of its own, reachable only through an inference that has
+  // one. Giving it a column nothing sets would make the guard count a
+  // protection that does not exist.
+  "clinical_retrieval_documents",
 ] as const;
 
 /** Create the platform tenant and mirror `users` onto the identity spine
@@ -762,7 +2474,13 @@ function backfillIdentitySpine(db: Database.Database) {
   if (users.length === 0) return;
 
   const insPerson = db.prepare(
-    `INSERT INTO persons (id, tenant_id, display_name) VALUES (?, ?, ?)
+    // Reconstructing rows whose provenance nobody recorded, so the same
+    // one-time inference `backfillProvenance` uses applies: this path exists
+    // to mirror pre-existing `users` onto the spine, and every user that
+    // predates the column came from a seed in a demonstration environment or
+    // from a signup outside one. New persons do not come through here — the
+    // signup path calls `provisionPerson`, which states 'real' at the insert.
+    `INSERT INTO persons (id, tenant_id, display_name, provenance) VALUES (?, ?, ?, ?)
      ON CONFLICT(id) DO NOTHING`
   );
   const insAccount = db.prepare(
@@ -776,7 +2494,8 @@ function backfillIdentitySpine(db: Database.Database) {
 
   db.transaction(() => {
     for (const u of users) {
-      insPerson.run(u.id, PLATFORM_TENANT_ID, u.name);
+      insPerson.run(u.id, PLATFORM_TENANT_ID, u.name,
+        process.env.EMDR_DEMO === "1" ? "fabricated" : "real");
       // Derived, not random: the account and role rows for a given user are
       // reconstructions of facts that already exist, so re-running the backfill
       // — or resetting a demo environment — must produce the same ids. A random
@@ -790,6 +2509,238 @@ function backfillIdentitySpine(db: Database.Database) {
       insRole.run(ulidFrom(0, `role_assignments:${u.id}:${u.role}`), u.id, PLATFORM_TENANT_ID, u.role);
     }
   })();
+}
+
+/**
+ * Widen the role CHECK constraints, and migrate `admin` rows.
+ *
+ * SQLite cannot alter a CHECK constraint, so this is the documented twelve-step
+ * table rebuild, narrowed to what is needed. It runs only when the stored
+ * schema does not already mention a new role, so it is a no-op on every boot
+ * after the first.
+ *
+ * Foreign keys are disabled around it because `users` is referenced by roughly
+ * thirty tables and the swap would otherwise be rejected mid-flight. The
+ * pragma cannot be changed inside a transaction, which is why the ordering
+ * below is exact rather than tidy: pragma off, transaction, rebuild, verify,
+ * commit, pragma on. `foreign_key_check` inside the transaction is what makes
+ * the disabling safe — a rebuild that orphaned a row fails here rather than
+ * silently.
+ */
+function widenRoleCheck(db: Database.Database) {
+  const sqlOf = (t: string): string => {
+    const row = db.prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name = ?").get(t) as
+      | { sql: string } | undefined;
+    return row?.sql ?? "";
+  };
+  // "demo_admin" appears only in the widened constraint. Its presence is the
+  // migration's own idempotence check.
+  const usersStale = sqlOf("users") !== "" && !sqlOf("users").includes("demo_admin");
+  const rolesStale = sqlOf("role_assignments") !== "" && !sqlOf("role_assignments").includes("demo_admin");
+  if (!usersStale && !rolesStale) return;
+
+  db.pragma("foreign_keys = OFF");
+  try {
+    db.transaction(() => {
+      if (usersStale) {
+        const cols = (db.prepare("PRAGMA table_info(users)").all() as { name: string }[])
+          .map((c) => c.name);
+        db.exec(`
+          CREATE TABLE users_rebuild (
+            id TEXT PRIMARY KEY,
+            email TEXT UNIQUE NOT NULL,
+            name TEXT NOT NULL,
+            role TEXT NOT NULL CHECK (role IN ('member','clinician','reviewer','organization','payer','demo_admin')),
+            password_hash TEXT NOT NULL,
+            status TEXT NOT NULL DEFAULT 'active',
+            created_at TEXT NOT NULL DEFAULT (datetime('now')),
+            dob TEXT,
+            token_epoch INTEGER NOT NULL DEFAULT 0,
+            tenant_id TEXT NOT NULL DEFAULT '${PLATFORM_TENANT_ID}'
+          );
+        `);
+        // Copy only the columns that exist on both sides, so a database from
+        // before any given ensureColumn still migrates.
+        const shared = ["id", "email", "name", "role", "password_hash", "status",
+                        "created_at", "dob", "token_epoch", "tenant_id"]
+          .filter((c) => cols.includes(c));
+        // The role rewrite happens here, in the copy, rather than as a later
+        // UPDATE — an UPDATE would have to run against the NEW constraint,
+        // which no longer admits the value it is trying to read.
+        const select = shared
+          .map((c) => (c === "role" ? "CASE role WHEN 'admin' THEN 'organization' ELSE role END AS role" : c))
+          .join(", ");
+        db.exec(`INSERT INTO users_rebuild (${shared.join(", ")}) SELECT ${select} FROM users`);
+        db.exec("DROP TABLE users");
+        db.exec("ALTER TABLE users_rebuild RENAME TO users");
+      }
+
+      if (rolesStale) {
+        db.exec(`
+          CREATE TABLE role_assignments_rebuild (
+            id TEXT PRIMARY KEY,
+            person_id TEXT NOT NULL REFERENCES persons(id),
+            tenant_id TEXT NOT NULL REFERENCES tenants(id),
+            role TEXT NOT NULL CHECK (role IN ('member','clinician','care_manager','reviewer','organization','payer','demo_admin')),
+            scope TEXT,
+            effective_from TEXT NOT NULL DEFAULT (datetime('now')),
+            effective_to TEXT,
+            created_at TEXT NOT NULL DEFAULT (datetime('now')),
+            UNIQUE(person_id, tenant_id, role)
+          );
+          INSERT INTO role_assignments_rebuild
+            (id, person_id, tenant_id, role, scope, effective_from, effective_to, created_at)
+            SELECT id, person_id, tenant_id,
+                   CASE role WHEN 'admin' THEN 'organization' ELSE role END,
+                   scope, effective_from, effective_to, created_at
+              FROM role_assignments;
+          DROP TABLE role_assignments;
+          ALTER TABLE role_assignments_rebuild RENAME TO role_assignments;
+          CREATE INDEX IF NOT EXISTS idx_role_assignments_person ON role_assignments(person_id, tenant_id);
+        `);
+      }
+
+      const broken = db.pragma("foreign_key_check") as unknown[];
+      if (broken.length > 0) {
+        // Thrown inside the transaction, so the rebuild rolls back whole. A
+        // half-migrated role table is worse than an un-migrated one.
+        throw new Error(
+          `role migration would orphan ${broken.length} row(s); rolled back`,
+        );
+      }
+    })();
+  } finally {
+    db.pragma("foreign_keys = ON");
+  }
+}
+
+/**
+ * Widen clinician_thoughts' status CHECK to admit `review_transcript_only`.
+ *
+ * THE BUG THIS FIXES STRANDS A CLINICIAN'S WORDS. §8.1's state machine sends a
+ * thought whose transcript succeeded and whose organization failed to
+ * `review_transcript_only`, and §17.4 writes the copy for it — "Your transcript
+ * is safe. Steady could not organize it yet." The schema in this file has
+ * always listed that state. A database CREATED BEFORE IT WAS ADDED has not,
+ * because CREATE TABLE IF NOT EXISTS is a no-op on an existing table and SQLite
+ * cannot alter a CHECK in place.
+ *
+ * So on any such database the transition throws, the caller's catch swallows
+ * it, and the thought sits in `processing` behind a spinner forever — which is
+ * the precise outcome the state was added to prevent. It is invisible in demo
+ * because the fixture extractor always succeeds; it appears the moment a real
+ * transcript is organized, or a clinician types a note.
+ *
+ * Same shape as `widenRoleCheck` above, and for the same reason: a CHECK
+ * constraint can only be changed by rebuilding the table.
+ */
+/** Give response_fingerprint_evidence its tenant column (ADR 0011 §2).
+ *
+ *  The table shipped one commit earlier following §4's sketch, which omits the
+ *  tenant — and `CREATE TABLE IF NOT EXISTS` cannot add a column to a table
+ *  that already exists, so a database created by that commit needs the rebuild.
+ *
+ *  The tenant is derived from the parent snapshot rather than defaulted: an
+ *  evidence row belongs to whichever tenant's snapshot cites it, and guessing
+ *  a platform default would put one organization's evidence rows inside
+ *  another organization's scope the first time a query used them.
+ */
+function addFingerprintEvidenceTenant(db: Database.Database) {
+  const row = db.prepare(
+    "SELECT sql FROM sqlite_master WHERE type='table' AND name = 'response_fingerprint_evidence'"
+  ).get() as { sql: string } | undefined;
+  const sql = row?.sql ?? "";
+  // Presence of the column is the migration's own idempotence check.
+  if (sql === "" || sql.includes("tenant_id")) return;
+
+  db.pragma("foreign_keys = OFF");
+  try {
+    db.transaction(() => {
+      db.exec(`
+        CREATE TABLE response_fingerprint_evidence_rebuild (
+          tenant_id TEXT NOT NULL REFERENCES tenants(id),
+          snapshot_id TEXT NOT NULL REFERENCES response_fingerprint_snapshots(id),
+          evidence_type TEXT NOT NULL,
+          evidence_id TEXT NOT NULL,
+          PRIMARY KEY(snapshot_id, evidence_type, evidence_id)
+        );
+      `);
+      db.exec(`
+        INSERT INTO response_fingerprint_evidence_rebuild
+          (tenant_id, snapshot_id, evidence_type, evidence_id)
+        SELECT s.tenant_id, e.snapshot_id, e.evidence_type, e.evidence_id
+          FROM response_fingerprint_evidence e
+          JOIN response_fingerprint_snapshots s ON s.id = e.snapshot_id
+      `);
+      db.exec("DROP TABLE response_fingerprint_evidence");
+      db.exec(
+        "ALTER TABLE response_fingerprint_evidence_rebuild RENAME TO response_fingerprint_evidence"
+      );
+    })();
+  } finally {
+    db.pragma("foreign_keys = ON");
+  }
+}
+
+function widenThoughtStatusCheck(db: Database.Database) {
+  const row = db.prepare(
+    "SELECT sql FROM sqlite_master WHERE type='table' AND name = 'clinician_thoughts'"
+  ).get() as { sql: string } | undefined;
+  const sql = row?.sql ?? "";
+  // Its presence is the migration's own idempotence check, exactly as
+  // "demo_admin" is for the role widening.
+  if (sql === "" || sql.includes("review_transcript_only")) return;
+
+  db.pragma("foreign_keys = OFF");
+  try {
+    db.transaction(() => {
+      db.exec(`
+        CREATE TABLE clinician_thoughts_rebuild (
+          id TEXT PRIMARY KEY,
+          tenant_id TEXT NOT NULL REFERENCES tenants(id),
+          person_id TEXT NOT NULL REFERENCES persons(id),
+          clinician_person_id TEXT NOT NULL REFERENCES persons(id),
+          status TEXT NOT NULL CHECK (
+            status IN (
+              'capturing','processing','review','review_transcript_only',
+              'saved','discarded','failed'
+            )
+          ),
+          audio_storage_key TEXT,
+          audio_retention_policy TEXT NOT NULL DEFAULT 'delete_after_verified_transcript',
+          audio_deleted_at TEXT,
+          current_transcript_id TEXT,
+          source_session_id TEXT,
+          recorded_at TEXT NOT NULL,
+          saved_at TEXT,
+          created_at TEXT NOT NULL DEFAULT (datetime('now')),
+          updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+        );
+      `);
+      // Only the columns present on both sides, so a database from before any
+      // later ensureColumn still migrates.
+      const cols = (db.prepare("PRAGMA table_info(clinician_thoughts)").all() as { name: string }[])
+        .map((c) => c.name);
+      const shared = [
+        "id", "tenant_id", "person_id", "clinician_person_id", "status",
+        "audio_storage_key", "audio_retention_policy", "audio_deleted_at",
+        "current_transcript_id", "source_session_id", "recorded_at", "saved_at",
+        "created_at", "updated_at",
+      ].filter((c) => cols.includes(c));
+      db.exec(
+        `INSERT INTO clinician_thoughts_rebuild (${shared.join(", ")}) ` +
+        `SELECT ${shared.join(", ")} FROM clinician_thoughts`
+      );
+      db.exec("DROP TABLE clinician_thoughts");
+      db.exec("ALTER TABLE clinician_thoughts_rebuild RENAME TO clinician_thoughts");
+      db.exec(`
+        CREATE INDEX IF NOT EXISTS idx_thoughts_person_time
+          ON clinician_thoughts(tenant_id, person_id, recorded_at DESC);
+      `);
+    })();
+  } finally {
+    db.pragma("foreign_keys = ON");
+  }
 }
 
 function ensureColumn(db: Database.Database, table: string, column: string, ddl: string) {
@@ -827,8 +2778,192 @@ export function newId(): string {
  *  it through the same path a fresh environment uses, so the two can never
  *  drift into producing subtly different datasets. */
 export function seedDemo(db: Database.Database) {
-  db.transaction(() => { seedDemoData(db); seedOrgData(db); seedPayerData(db); })();
+  db.transaction(() => {
+    seedDemoData(db);
+    seedOrgData(db);
+    seedPayerData(db);
+    populationChain(db);
+    // NOT part of populationChain: this binds the two AGGREGATE OPERATOR
+    // accounts to the tenants they report on, which is account wiring rather
+    // than population data. It also has to stay out of the per-boot
+    // reconciliation — by the time that runs the demo accounts have been
+    // reconciled, so the bind would succeed where it previously no-opped and
+    // move a NAMED operator person into the organization's tenant. That
+    // tenant's 4,820 have no names on purpose, so that an aggregate drilldown
+    // is impossible rather than merely refused.
+    bindAggregateAccounts(db);
+  })();
   refreshDemoDaily(db);
+}
+
+/**
+ * The fabricated population, from manifest to lived fortnight, in one place.
+ *
+ * ONE DEFINITION, THREE CALLERS — a first boot, a reset, and the per-boot
+ * reconciliation below. It was three copies of a five-call sequence, and they
+ * had already drifted: one of them called `seedOperationalFeeds` twice. A
+ * sequence that must stay identical in three places is a sequence that will
+ * not.
+ *
+ * EVERY STEP IS IDEMPOTENT, and deliberately so — each one asks the database
+ * whether its own work is already there and returns if it is. That is what
+ * makes it safe to run on every boot: nothing here deletes, so a database that
+ * already has a population pays four existence checks and writes nothing.
+ */
+export function populationChain(db: Database.Database) {
+  seedPopulationData(db);       // tenants, clinicians, 240 persons, attributes
+  seedOperationalFeeds(db);     // capacity slots and review coverage
+  generatePopulationHistory(db); // accounts, consents, six months of history
+  // ITS OWN STEP, with its own existence check. `generatePopulationHistory`
+  // short-circuits on "does the first profile have a check-in", which is right
+  // for the history it writes and wrong for anything added to the generator
+  // afterwards: a deployed database already has check-ins, so new rows never
+  // arrive and the screen needing them stays empty on the one instance anybody
+  // looks at. Anything added later belongs here, guarded by its own table.
+  backfillPlanVersions(db);
+  backfillFunctionMeasure(db);
+  // HERE rather than in `seedDemo`, for the reason stated above this function.
+  // It was in seedDemo first, which runs on a first boot and on a reset — so
+  // every already-deployed database would have kept an empty review console
+  // for good, and the one instance anybody opens is exactly an already-deployed
+  // one. Its own existence check makes it free on the boots where it has
+  // nothing to do.
+  seedReviewConsole(db, PLATFORM_TENANT_ID);
+  // After the review console for no reason other than order-of-reading; it has
+  // its own existence check and depends only on the demo persons.
+  seedClinicianThoughts(db, PLATFORM_TENANT_ID);
+  // The reserved tail, LIVED rather than written: the last fortnight of every
+  // person's history goes through the check-in routing rule and the safety
+  // gate engine, so the window every metric and every planning rule reads is
+  // one the engine actually saw.
+  runAgents(db);
+}
+
+/**
+ * Give a deployed demonstration the population its code expects.
+ *
+ * THE FAILURE THIS EXISTS FOR. `seed()` returns the moment any user exists,
+ * which is right for accounts and wrong for a dataset. The deployed
+ * demonstration keeps a persistent disk, so it seeded once — while only the
+ * manifest existed — and every wave since shipped CODE onto a database that
+ * could not exercise it. Checked on the deployed instance: 240 profiles, and
+ * between them zero check-ins, zero measures, zero modules and zero accounts.
+ * Four of the nineteen data-quality checks failed and the console correctly
+ * refused to demonstrate, which is the gate working and the dataset still
+ * being wrong.
+ *
+ * NOTHING HERE DELETES. The repair is additive because every step of the chain
+ * is idempotent, so a database missing its history gains it and a database
+ * that has it is untouched. That matters more than it sounds: this runs
+ * unattended on every boot, and a rebuild-on-boot would be a deployment that
+ * can destroy data while nobody is watching. Replacing an OLD population with
+ * a new one is a different operation — it deletes, so it belongs behind the
+ * admin console's reset button and a typed reason, not here.
+ *
+ * BEST-EFFORT, AND SAID SO. A failure here is logged and the boot continues,
+ * because the authority on whether a dataset is fit to demonstrate is the p29
+ * manifest on the admin page, which is computed live and blocks external
+ * demonstrations on its own. A repair that took the process down instead
+ * would turn a bad dataset into no demonstration at all.
+ */
+function reconcilePopulation(db: Database.Database) {
+  const record = (status: string, detail: string | null) => {
+    try {
+      db.prepare(
+        `INSERT INTO demo_repair (id, attempted_at, status, detail) VALUES (1, ?, ?, ?)
+         ON CONFLICT(id) DO UPDATE SET attempted_at = excluded.attempted_at,
+           status = excluded.status, detail = excluded.detail`,
+      ).run(new Date().toISOString().slice(0, 19).replace("T", " "), status, detail);
+    } catch { /* the log must never be the thing that breaks the boot */ }
+  };
+  // WRITTEN BEFORE THE ATTEMPT, not only after it. The first version recorded
+  // only the two outcomes, and the deployed instance then reported "no attempt
+  // recorded" — which is a third state the code could not distinguish from
+  // "never called". A marker written first separates a repair that crashed
+  // from one that never ran.
+  if (process.env.EMDR_DEMO !== "1") {
+    // Recorded rather than a bare return: "this is not a demo environment" and
+    // "the repair never ran" are different answers, and only one of them is a
+    // problem.
+    record("skipped_not_demo", `EMDR_DEMO=${JSON.stringify(process.env.EMDR_DEMO ?? null)}`);
+    return;
+  }
+  record("running", null);
+  try {
+    populationChain(db);
+    record("ok", null);
+  } catch (err) {
+    // WRITTEN DOWN, not only logged. This caught its own failure and said
+    // nothing, so on the deployed instance the manifest reported an unfit
+    // dataset and no surface anywhere said a repair had been attempted and had
+    // thrown. Container logs are not a surface a presenter has.
+    const detail = err instanceof Error ? `${err.message}` : String(err);
+    record("failed", detail.slice(0, 500));
+    console.error("[demo] population reconcile failed:", detail);
+  }
+}
+
+/** The last repair attempt, for the admin console. */
+export function lastPopulationRepair(db: Database.Database):
+  { attempted_at: string; status: string; detail: string | null } | null {
+  try {
+    return (db.prepare("SELECT attempted_at, status, detail FROM demo_repair WHERE id = 1")
+      .get() ?? null) as { attempted_at: string; status: string; detail: string | null } | null;
+  } catch (err) {
+    // NOT a silent null. A swallowed read error is indistinguishable from "no
+    // attempt was made", and those are different problems — one is a missing
+    // table, the other a repair that never ran.
+    return {
+      attempted_at: "unknown",
+      status: "unreadable",
+      detail: err instanceof Error ? err.message : String(err),
+    };
+  }
+}
+
+/**
+ * Bind the two aggregate accounts to the tenants they report on.
+ *
+ * This has to run AFTER the org and payer seeds, because it points at tenants
+ * they create — which is why it is a third step rather than a column set at
+ * insert time.
+ *
+ * It exists so scope stops being inferred. `resolveOrgTenant()` used to count
+ * tenants and return the single organization-kind one, failing closed when
+ * there was not exactly one. That worked for as long as there was exactly one,
+ * and broke the moment the payer seed added a second — every organization
+ * screen would have rendered "no organization in scope". It was patched by
+ * excluding tenants that hold a payer contract, which is a second inference
+ * standing on the first, and it would break again the moment handoff 07's Wave
+ * 2 adds eight demo organizations.
+ *
+ * An account belongs to a tenant. That is a fact worth storing rather than
+ * deducing, and §30.6 step 1 says to resolve it before anything else.
+ */
+function bindAggregateAccounts(db: Database.Database) {
+  // Computed HERE, not at module load. A top-level `const NE_NETWORK_A =
+  // orgTenantId("NE", "A")` forced demo-population-seed to finish evaluating
+  // during this module's own evaluation — and that module imports
+  // PLATFORM_TENANT_ID back from here, so the cycle resolved with one side
+  // still undefined. It surfaced as "cannot read DATASET_VERSION of
+  // undefined" in an unrelated test file, which is how import cycles always
+  // announce themselves.
+  const neNetworkA = orgTenantId("NE", "A");
+  const bind = db.prepare("UPDATE users SET tenant_id = ? WHERE email = ? AND role = ?");
+  bind.run(ORG_TENANT_ID, "org.demo@steady.local", "organization");
+  bind.run(PAYER_TENANT_ID, "payer.demo@steady.local", "payer");
+  // The network operator reports on a demo care network rather than on
+  // Northside — the two organization populations are separate by design (the
+  // 4,820 have no names; the 240 do), and one account cannot see both.
+  bind.run(neNetworkA, "network.demo@steady.local", "organization");
+  // The identity spine mirrors users onto persons, so the person row has to
+  // move with the account or the two disagree about which tenant it is in.
+  const bindPerson = db.prepare(
+    "UPDATE persons SET tenant_id = ? WHERE id = (SELECT id FROM users WHERE email = ?)",
+  );
+  bindPerson.run(ORG_TENANT_ID, "org.demo@steady.local");
+  bindPerson.run(PAYER_TENANT_ID, "payer.demo@steady.local");
+  bindPerson.run(neNetworkA, "network.demo@steady.local");
 }
 
 function seed(db: Database.Database) {
@@ -840,18 +2975,38 @@ function seed(db: Database.Database) {
       seedDemoData(db);
       seedOrgData(db);
       seedPayerData(db);
+      populationChain(db);
+      bindAggregateAccounts(db);
       return;
     }
     const insert = db.prepare(
       "INSERT INTO users (id, email, name, role, password_hash) VALUES (?, ?, ?, ?, ?)"
     );
     const memberId = newId();
-    insert.run(memberId, "demo@example.com", "Demo Member", "member", hashPassword("demo1234"));
-    insert.run(newId(), "clinician@example.com", "Dr. Demo Clinician", "clinician", hashPassword("demo1234"));
+    insert.run(memberId, "patient.demo@steady.local", "Demo Member", "member", hashPassword(demoPassword("member")));
+    insert.run(newId(), "clinician.demo@steady.local", "Dr. Demo Clinician", "clinician", hashPassword(demoPassword("clinician")));
     // Dev member gets an active membership so local flows skip checkout.
     db.prepare(
       `INSERT INTO subscriptions (user_id, plan, status, price_cents, currency, provider, current_period_end)
        VALUES (?, 'monthly', 'active', 3499, 'usd', 'demo', datetime('now', '+1 month'))`
     ).run(memberId);
   })();
+}
+
+/** The tenant a user's records live in.
+ *
+ *  Added because the gateway records every inference against a tenant, and the
+ *  call sites that needed one were each about to write their own query — which
+ *  is how `PLATFORM_TENANT_ID` ends up hardcoded as a "temporary" default in
+ *  four places. Falls back to the platform tenant for a user who predates
+ *  tenancy, which is the same inference `backfillProvenance` makes and is
+ *  recorded here rather than assumed at the call site. */
+export function tenantForUser(userId: string): string {
+  try {
+    const row = getDb().prepare("SELECT tenant_id FROM users WHERE id = ?").get(userId) as
+      | { tenant_id: string | null } | undefined;
+    return row?.tenant_id || PLATFORM_TENANT_ID;
+  } catch {
+    return PLATFORM_TENANT_ID;
+  }
 }

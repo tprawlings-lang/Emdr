@@ -1,14 +1,12 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireClinician } from "@/lib/auth";
 import { data } from "@/lib/data";
 import { MODULES } from "@/lib/modules";
-import { audit } from "@/lib/audit";
 import { scoreItq } from "@/lib/instruments";
 import { decryptField } from "@/lib/crypto";
-import { getProgramPlan } from "@/lib/program-plan";
 import { clinicianCloseModule, clinicianOpenModule } from "@/lib/actions";
-import TrendChart from "@/components/TrendChart";
+import { ClinicalFigure, SmallMultiples } from "@/components/charts/clinical";
+import { EVERYDAY_FUNCTION } from "@/lib/measures/house";
 import { loadPersonHeader } from "@/lib/clinical/person-header";
 import { PersonShell } from "@/components/clinical/PersonShell";
 
@@ -43,13 +41,11 @@ export default async function MemberDetailPage({
   if (!person) notFound();
 
   // Record-access events belong in the audit trail too.
-  await audit({
-    actorId: clinician.id,
-    actorRole: "clinician",
-    family: "security",
-    type: "member_record_viewed",
-    target: member.id,
-  });
+  // The generic access event that used to be written here now comes from
+  // `loadPersonHeader`, which every person tab passes through — eight of the
+  // fifteen were writing none at all, and this one wrote its own. The
+  // specific events the other tabs write (what was opened, and how much of it)
+  // stay where they are: they say something this one does not.
 
   const screenings = await c.all("SELECT instrument, total_score, answers_json, risk_flags_json, created_at FROM screenings WHERE user_id = ? ORDER BY created_at DESC", [id]) as {
     instrument: string;
@@ -59,10 +55,54 @@ export default async function MemberDetailPage({
     created_at: string;
   }[];
 
-  const pcl5Series = screenings
-    .filter((s) => s.instrument === "pcl-5")
-    .reverse()
-    .map((s) => ({ date: s.created_at.slice(0, 10), value: s.total_score }));
+  // EVERY validated instrument on file, not the two that happened to have a
+  // chart. PHQ-9 is the repeated outcome measure across this programme, and it
+  // was reaching the screen only as a row in the table below — so a person
+  // whose whole outcome series is PHQ-9 had an "Outcome trends" section that
+  // drew nothing, or drew a single intake dot from an instrument taken once.
+  const INSTRUMENTS: {
+    id: string; label: string; unit: string; max: number; lowerIsBetter: boolean;
+    disclosure?: string;
+  }[] = [
+    { id: "phq-9", label: "PHQ-9", unit: "total, 0–27", max: 27, lowerIsBetter: true },
+    { id: "gad-7", label: "GAD-7", unit: "total, 0–21", max: 21, lowerIsBetter: true },
+    { id: "pcl-5", label: "PCL-5", unit: "total, 0–80", max: 80, lowerIsBetter: true },
+    // THE HOUSE MEASURE, last and labelled. It is drawn in the same frame as
+    // the three above, which is exactly why it carries its disclosure: a panel
+    // beside PHQ-9 borrows PHQ-9's authority, and this one has none to borrow.
+    // It also runs the other way — higher is better — so an unlabelled reader
+    // would take its rise for a decline.
+    {
+      id: EVERYDAY_FUNCTION.id,
+      label: EVERYDAY_FUNCTION.title,
+      unit: `total, 0–${EVERYDAY_FUNCTION.max}`,
+      max: EVERYDAY_FUNCTION.max,
+      lowerIsBetter: false,
+      disclosure: EVERYDAY_FUNCTION.disclosure,
+    },
+  ];
+  const measureSeries = INSTRUMENTS.map((i) => ({
+    label: i.label,
+    unit: i.unit,
+    max: i.max,
+    lowerIsBetter: i.lowerIsBetter,
+    disclosure: i.disclosure,
+    points: screenings
+      .filter((s) => s.instrument === i.id)
+      .map((s) => ({ date: s.created_at.slice(0, 10), value: s.total_score }))
+      .sort((a, b) => a.date.localeCompare(b.date)),
+  })).filter((m) => m.points.length > 0);
+
+  // The shared window: the whole span of readings on file, so every panel is
+  // drawn against the same dates.
+  // Whether anything has been repeated at all. Everything the figure claims —
+  // its title, its summary, its footnote — turns on this, because a record with
+  // no repeated instrument has no trend and should not be framed as having one.
+  const anyTrend = measureSeries.some((m) => m.points.length > 1);
+  const allDates = measureSeries.flatMap((m) => m.points.map((p) => p.date)).sort();
+  const windowFrom = allDates[0] ?? member.created_at.slice(0, 10);
+  const windowTo = allDates[allDates.length - 1] ?? windowFrom;
+
   const itqSeries = screenings
     .filter((s) => s.instrument === "itq")
     .reverse()
@@ -103,7 +143,20 @@ export default async function MemberDetailPage({
   const consents = await c.all("SELECT policy_version, scope, granted_at, revoked_at FROM consents WHERE user_id = ?", [id]) as { policy_version: string; scope: string; granted_at: string; revoked_at: string | null }[];
 
   const moduleName = (mid: string) => MODULES.find((m) => m.id === mid)?.name ?? mid;
-  const planRow = await getProgramPlan(member.id);
+
+  // EVERY plan version, not only the current one. `program_plans` is
+  // append-only — a revision is a new row — so the history is already there,
+  // and it is what the plan-response half of the progress view annotates
+  // against. Dates only: the plan's CONTENT belongs on the plan tab, and
+  // putting it on the chart would turn a mark into an argument.
+  const planVersions = (await c.all(
+    `SELECT created_at FROM program_plans WHERE user_id = ? ORDER BY created_at`,
+    [member.id],
+  )) as { created_at: string }[];
+  const planMarks = planVersions.map((v, i) => ({
+    date: v.created_at.slice(0, 10),
+    label: i === 0 ? "Plan written" : `Plan revised (version ${i + 1})`,
+  }));
 
   // Latest unlock row per module (unlocks are ordered newest-first), so the
   // specialist controls show current access state.
@@ -129,38 +182,53 @@ export default async function MemberDetailPage({
           already says who this is. */}
       <p className="text-sm text-olive">In the programme since {member.created_at.slice(0, 10)}</p>
 
-      {(pcl5Series.length > 0 || itqSeries.length > 0) && (
+      {measureSeries.length > 0 && (
         <section className="mt-8">
-          <h2 className="type-display text-2xl font-medium">Outcome trends</h2>
-          <div className="mt-2 grid gap-4 md:grid-cols-2">
-            {pcl5Series.length > 0 && (
-              <TrendChart
-                title="PCL-5 total"
-                max={80}
-                series={[{ label: "PCL-5", color: "#2f3a33", points: pcl5Series }]}
+          {/* The heading follows the data. "Outcome trends" over a record where
+              every instrument was taken once promises a reading the page cannot
+              give, and that is the majority of records here. */}
+          <h2 className="type-display text-2xl font-medium">
+            {anyTrend ? "Outcome trends" : "Measures on file"}
+          </h2>
+          {/* ALIGNED SMALL MULTIPLES, one panel per instrument on one shared
+              date axis.
+
+              This was a two-column grid of independent charts, each of which
+              placed a reading by its INDEX in its own series. Two instruments
+              measured on different days therefore put the same date in
+              different places, and a series of three readings stretched across
+              the same width as one of twelve — so reading across the panels,
+              which is the only thing small multiples are for, compared
+              positions that meant nothing. A three-month gap also drew exactly
+              as wide as a one-week gap, which turns an absence of data into a
+              smooth decline.
+
+              Scales stay separate: a PHQ-9 and a PCL-5 do not share a y axis. */}
+          <div className="mt-3 rounded-3xl border border-ground/10 bg-linen p-5 shadow-soft">
+            <ClinicalFigure
+              title={anyTrend ? "Validated measures over time" : "Validated measures on file"}
+              summary={
+                anyTrend
+                  ? `${measureSeries.length} instrument${measureSeries.length === 1 ? "" : "s"} on file, each on its own scale and all on one date axis from ${windowFrom} to ${windowTo}.`
+                  // A record where nothing has been repeated has no trend to
+                  // show, and a figure titled "over time" spanning one day
+                  // promises one. Most records here are in this state.
+                  : `${measureSeries.length} instrument${measureSeries.length === 1 ? "" : "s"} on file, each taken once. Nothing has been repeated yet, so there is no change to read.`
+              }
+              footnote={`${anyTrend ? "Readings taken, joined in order — no fitted line and no value between two readings. Each panel is scaled to its own instrument, so the panels are read down the dates rather than across the heights." : "Each panel is scaled to its instrument's full range. A single reading is shown as a number rather than plotted, because one point is not a trend."}${
+                planMarks.length > 0 ? ` ${planMarks.length} plan version${planMarks.length === 1 ? "" : "s"} on record.` : ""
+              }`}
+            >
+              <SmallMultiples
+                series={measureSeries}
+                from={windowFrom}
+                to={windowTo}
+                annotations={planMarks.filter((m) => m.date >= windowFrom && m.date <= windowTo)}
               />
-            )}
-            {itqSeries.length > 0 && (
-              <TrendChart
-                title="ITQ symptom sums"
-                max={24}
-                series={[
-                  {
-                    label: "PTSD",
-                    color: "#5c7884",
-                    points: itqSeries.map((s) => ({ date: s.date, value: s.ptsdSum })),
-                  },
-                  {
-                    label: "DSO",
-                    color: "#c9a98f",
-                    points: itqSeries.map((s) => ({ date: s.date, value: s.dsoSum })),
-                  },
-                ]}
-              />
-            )}
+            </ClinicalFigure>
           </div>
           {itqSeries.length > 0 && (
-            <p className="mt-2 text-sm text-olive">
+            <p className="mt-3 text-sm text-olive">
               Latest ITQ classification:{" "}
               <span className="font-semibold">{itqSeries[itqSeries.length - 1].label}</span>{" "}
               (provisional, screen-based — diagnosis remains a clinical decision)

@@ -1,0 +1,10 @@
+process.env.EMDR_DATA_DIR = process.env.EMDR_DATA_DIR ?? "/tmp/steady-demo-w6b";
+process.env.EMDR_DEMO = "1";
+process.env.EMDR_SESSION_SECRET = process.env.EMDR_SESSION_SECRET ?? "quality-check-secret-at-least-32-chars";
+process.env.EMDR_DATA_KEY = process.env.EMDR_DATA_KEY ?? "k";
+import { getDb } from "../../src/lib/db";
+import { runQualityChecks, qualitySummary } from "../../src/lib/demo-quality";
+const r = runQualityChecks(getDb());
+const s = qualitySummary(r);
+console.log(`p29 manifest: ${s.passed} passed, ${s.failed} failed`);
+for (const c of r) console.log(`  ${c.pass ? "ok  " : "FAIL"} ${c.check.padEnd(34)} expected ${String(c.expected).padEnd(12)} actual ${c.actual}`);

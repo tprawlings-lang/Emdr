@@ -36,6 +36,7 @@ import {
 } from "@/lib/actions";
 import { getMemoryItemsByType, hasOnboardingConversation } from "@/lib/companion";
 import CompanionChat from "@/components/CompanionChat";
+import { CompanionEntryNotice } from "@/components/experience/CompanionEntryNotice";
 
 const STEPS = [
   "welcome",
@@ -595,7 +596,16 @@ export default async function ProfileOnboardingPage({
             can aim at the right things. Headlines are enough; nothing here asks you to
             relive anything, and you can pass on any question.
           </p>
-          <div className="mt-6 rounded-3xl border border-ground/10 bg-ivory p-5 shadow-soft">
+          {/* §11's entry condition applies wherever the companion is entered,
+              and this is the entry that matters most: the intake conversation
+              asks a person to describe what they are carrying, during setup,
+              before they have used anything else. Somebody typing that deserves
+              to know first that the replies are generated and that nobody is
+              reading them. */}
+          <div className="mt-6">
+            <CompanionEntryNotice />
+          </div>
+          <div className="mt-4 rounded-3xl border border-ground/10 bg-ivory p-5 shadow-soft">
             <CompanionChat
               initialMessages={[]}
               contextType="onboarding"

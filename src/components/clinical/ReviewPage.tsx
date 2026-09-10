@@ -13,16 +13,30 @@ import { logout } from "@/lib/actions";
 // to one shell of their own, which was better and still not the frame the
 // handoff draws. Now they share the product's.
 //
-// §26 lists thirteen review screens. Five exist. The layer nav lists what
+// §26 lists thirteen review screens. Six exist. The layer nav lists what
 // resolves, because a nav item that goes nowhere reads as a missing feature
 // rather than a missing link.
 
 export const REVIEW_SCREENS: Array<{ href: string; label: string; layer: RailSlug }> = [
   { href: "/review", label: "Review home", layer: "overview" },
+  { href: "/review/access", label: "Access requests", layer: "actions" },
+  { href: "/review/clinical", label: "Clinical language", layer: "actions" },
+  { href: "/review/release", label: "Release gates", layer: "actions" },
   { href: "/review/testing", label: "Testing console", layer: "actions" },
+  { href: "/review/safety", label: "Safety rule results", layer: "evidence" },
+  { href: "/review/planning", label: "Planning signals", layer: "evidence" },
   { href: "/review/bls", label: "BLS oversight", layer: "evidence" },
   { href: "/review/autonomous", label: "Autonomous flow", layer: "evidence" },
-  { href: "/review/audit", label: "Audit and lineage", layer: "audit" },
+  { href: "/review/status", label: "Service status", layer: "evidence" },
+  { href: "/review/demo-data", label: "Demo data", layer: "evidence" },
+  { href: "/review/research", label: "Research workspace", layer: "evidence" },
+  { href: "/review/fairness", label: "Fairness audit", layer: "evidence" },
+  { href: "/review/models", label: "Model registry", layer: "evidence" },
+  { href: "/review/telemetry", label: "Telemetry", layer: "evidence" },
+  { href: "/review/security", label: "Access enforcement", layer: "audit" },
+  { href: "/review/performance", label: "Performance budgets", layer: "evidence" },
+  { href: "/review/audit", label: "Audit trail", layer: "audit" },
+  { href: "/review/lineage", label: "Lineage trace", layer: "audit" },
 ];
 
 function LayerNav({ layer, here }: { layer: RailSlug; here?: string }) {

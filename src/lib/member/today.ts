@@ -55,6 +55,21 @@ export interface MemberToday {
   alternatives: TodayAction[];
   /** Always present, always reachable, in every envelope state. */
   support: { label: string; href: string };
+  /**
+   * The companion, on the same terms as support.
+   *
+   * It was reachable from two places: a banner that appears only in the moment
+   * after a check-in, and a link inside the messages screen. A member who
+   * signs in and lands here — which is what a member does — had no route to it
+   * at all. For a surface described as a large part of the experience, that is
+   * not a small omission; it is the difference between a feature existing and
+   * a feature being available.
+   *
+   * NOT GATED, and it belongs beside support for the same reason support is
+   * not gated: it is conversation, not activating content. A companion that
+   * disappears on the days somebody is struggling is exactly backwards.
+   */
+  companion: { label: string; href: string };
   /** Whether today's check-in is still outstanding. §10.1: "If the check-in is
    *  due, it becomes the primary action." */
   checkinDue: boolean;
@@ -63,6 +78,7 @@ export interface MemberToday {
 export class MemberTodayError extends Error {}
 
 const SUPPORT = { label: "Get support", href: "/crisis" } as const;
+const COMPANION = { label: "Talk it through with the companion", href: "/app/companion" } as const;
 
 function actionFor(p: PracticeRef, why: string): TodayAction {
   return { id: p.id, label: p.name, href: `/app/session/${p.id}`, minutes: p.minutes, why };
@@ -140,6 +156,7 @@ export async function buildMemberToday(args: {
     primary,
     alternatives,
     support: SUPPORT,
+    companion: COMPANION,
     checkinDue,
   };
   assertTodayShape(today);

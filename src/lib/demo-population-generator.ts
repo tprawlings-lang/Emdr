@@ -1,0 +1,1323 @@
+import crypto from "crypto";
+import type Database from "better-sqlite3";
+import { hashPassword } from "./db";
+import { evaluateCheckin } from "./gating";
+import {
+  ALERT_INSERT_IDEMPOTENT_SQL, alertValues, checkinSafetyAlert,
+} from "./clinical/alert-create";
+import { encryptField } from "./crypto";
+import { EVERYDAY_FUNCTION } from "./measures/house";
+import {
+  MANIFEST, DATASET_VERSION, seedFor, type ManifestRow, type Archetype,
+} from "./demo-population-manifest";
+import { tenantForRow, clinicianPersonId } from "./demo-population-seed";
+import { accessProfileFor } from "./demo-population-disparity";
+import {
+  CALENDAR_DAYS, MIN_MEASURES, PERSON_DAYS, demoEpoch, enrolmentDayFor, exposureDaysFor,
+  generatedDaysFor, scaledRange,
+} from "./demo-population-calendar";
+import {
+  MEMBER_NOTES, OPERATIONAL_NOTES, CLINICIAN_COMMENTS, pick,
+} from "./demo-population-dictionaries";
+
+// The deterministic event generator (handoff 07 §2.4 p14, §2.7 p28).
+//
+// p14's rule is the one everything here serves:
+//
+//   ALL TIMESTAMPS DERIVE FROM demo_epoch PLUS SEEDED OFFSETS. RANDOMNESS USES
+//   A DOCUMENTED PSEUDORANDOM GENERATOR AND ONE STABLE SEED PER PROFILE.
+//   RE-RUNNING THE SAME VERSION MUST PRODUCE THE SAME EVENT IDS, TIMESTAMPS,
+//   VALUES AND PROJECTION HASHES.
+//
+// HOW THE EVENTS GET WRITTEN. This module writes CURRENT-STATE ROWS —
+// check-ins, measures, module completions, sessions — and lets the existing
+// genesis backfill derive the ledger from them. That is not a shortcut around
+// p28's pseudocode; it is the only way to satisfy the replay guard, which
+// requires every event carrying a projector to name the row it rebuilds. The
+// organization seed learned this the expensive way: it wrote clinical event
+// types for people who had no clinical records, and the guard reported 8,008
+// events that claimed rows they could not reconstruct.
+//
+// Events with no current-state row — safety gates, clinician actions,
+// corrections, missingness — are written here directly, because they carry
+// history the current-state tables never held.
+
+// ---------------------------------------------------------------------------
+// The pseudorandom generator
+// ---------------------------------------------------------------------------
+
+/**
+ * mulberry32 — a small, fast, well-distributed 32-bit generator.
+ *
+ * DOCUMENTED, as p14 requires, and the documentation is the point rather than
+ * the algorithm. `Math.random()` is unseedable, so a dataset built on it can
+ * never be reproduced; a generator whose implementation is not written down
+ * cannot be reimplemented if this file is ported. mulberry32 is nine lines and
+ * its behaviour is fully determined by its 32-bit state.
+ *
+ * The seed is `sha256(dataset_version:profile_seed)` folded to 32 bits, so
+ * bumping the dataset version reshuffles every profile — which is what makes a
+ * version bump a NEW population rather than the old one with edits.
+ */
+export class StableRandom {
+  private state: number;
+
+  constructor(seed: number, version = DATASET_VERSION) {
+    const h = crypto.createHash("sha256").update(`${version}:${seed}`).digest();
+    this.state = h.readUInt32BE(0);
+  }
+
+  /** [0, 1). */
+  next(): number {
+    this.state = (this.state + 0x6d2b79f5) | 0;
+    let t = this.state;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  }
+
+  /** Integer in [lo, hi]. */
+  int(lo: number, hi: number): number {
+    return lo + Math.floor(this.next() * (hi - lo + 1));
+  }
+
+  /** True with probability p. */
+  chance(p: number): boolean {
+    return this.next() < p;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// The calendar
+// ---------------------------------------------------------------------------
+
+// The calendar lives in `demo-population-calendar.ts` and is re-exported here
+// because callers have imported `DEMO_DAYS` and `demoEpoch` from this module
+// since Wave 3. `DEMO_DAYS` now means what it always said it meant — how long
+// one person is observed for — and no longer doubles as the length of the
+// generated calendar, which is what made a rolling intake impossible.
+export { demoEpoch, CALENDAR_DAYS, PERSON_DAYS, enrolmentDayFor, exposureDaysFor, scaledRange };
+export const DEMO_DAYS = PERSON_DAYS;
+
+function dayStamp(epoch: Date, day: number, hour: number): string {
+  const t = new Date(epoch.getTime() + day * 86400000);
+  t.setUTCHours(hour, 0, 0, 0);
+  return t.toISOString().slice(0, 19).replace("T", " ");
+}
+
+/**
+ * A timestamp for a column the baseline hash does NOT exclude.
+ *
+ * `demoBaseline` drops columns ending in `_at`, so a stamp on one of those may
+ * carry any time of day. A value in any other column is hashed, and a seed
+ * that took the time of day from the clock made two resets a second apart
+ * disagree — intermittently, about one run in three. The convention across the
+ * seed is minute 15, second 00, and the guard in `tests/demo-reset.test.ts`
+ * enforces it on every seeded row.
+ */
+function pinnedStamp(epoch: Date, day: number, hour: number): string {
+  const t = new Date(epoch.getTime() + day * 86400000);
+  t.setUTCHours(hour, 15, 0, 0);
+  return t.toISOString().slice(0, 19).replace("T", " ");
+}
+
+function dayDate(epoch: Date, day: number): string {
+  return new Date(epoch.getTime() + day * 86400000).toISOString().slice(0, 10);
+}
+
+// ---------------------------------------------------------------------------
+// Archetype activity paths
+// ---------------------------------------------------------------------------
+
+/**
+ * How each of p12's eight patterns behaves, as numbers rather than prose.
+ *
+ * p28's constraint is the reason this table exists: "do not sample outcomes
+ * independently from event history — follow-up values must match the authored
+ * archetype and activity path." A generator that drew engagement from one
+ * distribution and improvement from another would produce people who improved
+ * without attending, which every chart in the product would then faithfully
+ * report.
+ *
+ * So one archetype fixes both: how often the person shows up, AND the shape of
+ * the curve between the manifest's baseline and follow-up values.
+ */
+interface Path {
+  /** How many of the 180 days carry a check-in, as an explicit range.
+   *
+   *  A RANGE rather than a rate, and inside p14's 18–90 bound by construction.
+   *  The first version used a per-day probability, which produced 1 check-in
+   *  for one person and 134 for another — both outside the specification, and
+   *  neither visible without counting. A target that emerges from a rate is a
+   *  target nobody is holding. */
+  checkIns: [number, number];
+  /** Module completions across the window. p14: 8–55. */
+  modules: [number, number];
+  /** Simulated support sessions. p14: 0–8, never trauma-processing proof. */
+  sessions: [number, number];
+  /** Where in the window the measure change happens, as a fraction. A value
+   *  of 0.25 means most of the movement is done by day 45. */
+  changeMidpoint: number;
+  /** How abrupt the change is. Higher is steeper. */
+  changeSteepness: number;
+  /** Probability a due measure is not completed. */
+  missRate: number;
+  /** Days with no activity at all, as [startDay, length] — an authored gap
+   *  rather than an absence that happens to occur. */
+  gap?: [number, number];
+}
+
+/** Exported so the agent behaviour layer reads the SAME archetype definitions.
+ *  Two behaviour models for one population would show up as a discontinuity
+ *  two weeks wide on every trend on the console. */
+export const PATHS: Record<Archetype, Path> = {
+  "Early response":  { checkIns: [62, 88], modules: [30, 55], sessions: [3, 8], changeMidpoint: 0.22, changeSteepness: 9,  missRate: 0.08 },
+  "Steady response": { checkIns: [48, 72], modules: [22, 40], sessions: [2, 6], changeMidpoint: 0.50, changeSteepness: 4,  missRate: 0.10 },
+  "Late response":   { checkIns: [38, 60], modules: [18, 34], sessions: [1, 5], changeMidpoint: 0.72, changeSteepness: 8,  missRate: 0.14 },
+  "No change":       { checkIns: [30, 52], modules: [14, 28], sessions: [0, 3], changeMidpoint: 0.50, changeSteepness: 3,  missRate: 0.16 },
+  // Irregular by definition, and the incomplete follow-up is the point: p12
+  // calls it "irregular check-ins and incomplete follow-up", so the miss rate
+  // is what distinguishes it rather than the total.
+  "Sporadic use":    { checkIns: [18, 34], modules: [10, 22], sessions: [0, 2], changeMidpoint: 0.55, changeSteepness: 3,  missRate: 0.42 },
+  // High use, low response. The one archetype where engagement and outcome
+  // deliberately disagree — and the reason a chart must never read one from
+  // the other.
+  "Module mismatch": { checkIns: [52, 78], modules: [38, 55], sessions: [1, 4], changeMidpoint: 0.50, changeSteepness: 3,  missRate: 0.12 },
+  // Missed activity linked to authored access events, not to disengagement.
+  "Access barrier":  { checkIns: [18, 30], modules: [8, 18],  sessions: [0, 2], changeMidpoint: 0.60, changeSteepness: 4,  missRate: 0.34, gap: [40, 45] },
+  // A fixed safety event, a pause, a review, and bounded re-entry.
+  "Safety pause":    { checkIns: [34, 58], modules: [12, 30], sessions: [0, 4], changeMidpoint: 0.62, changeSteepness: 5,  missRate: 0.18, gap: [95, 21] },
+};
+
+/** The measure value on a given day, interpolated between the manifest's
+ *  baseline and follow-up along the archetype's curve. A logistic rather than
+ *  a straight line, because "early response" and "late response" differ in
+ *  WHEN the change happens, and a linear path cannot express that. */
+export function measureOn(row: ManifestRow, dayFraction: number): number {
+  const path = PATHS[row.archetype];
+  const t = (dayFraction - path.changeMidpoint) * path.changeSteepness;
+  const progress = 1 / (1 + Math.exp(-t));
+  // Normalised so the curve starts at the baseline and ends at the follow-up
+  // exactly, rather than approaching them asymptotically — the manifest's two
+  // numbers are the authored truth and the curve has to hit both.
+  const p0 = 1 / (1 + Math.exp(path.changeMidpoint * path.changeSteepness));
+  const p1 = 1 / (1 + Math.exp(-(1 - path.changeMidpoint) * path.changeSteepness));
+  const norm = (progress - p0) / (p1 - p0);
+  return Math.round(row.baseline + (row.followUp - row.baseline) * Math.max(0, Math.min(1, norm)));
+}
+
+/** Whether a day falls inside this archetype's authored inactive stretch.
+ *
+ *  `day` is PERSON-RELATIVE — days since this profile enrolled, not days since
+ *  the fabricated service opened. The gap offsets in `PATHS` were always
+ *  person-relative ("a 45-day stretch starting on day 40 of their journey");
+ *  they were compared against an absolute day and matched only because every
+ *  profile enrolled within a fortnight of the epoch. Under a rolling intake
+ *  that comparison would put a person's authored gap before they existed. */
+function inGap(row: ManifestRow, dayFromEnrolment: number, exposure = PERSON_DAYS): boolean {
+  const g = gapFor(row, exposure);
+  return g !== null && dayFromEnrolment >= g[0] && dayFromEnrolment < g[0] + g[1];
+}
+
+/**
+ * The authored gap, placed proportionally inside the person's own window.
+ *
+ * The offsets in `PATHS` are written against a full six months — "a 45-day
+ * stretch starting on day 40". Somebody observed for six weeks has not had a
+ * day 40, and a gap placed there falls outside their window entirely. The
+ * first version of the rolling intake did exactly that and put safety events
+ * up to eleven weeks in the FUTURE, which the seeded-timestamp guard caught.
+ *
+ * So the gap keeps its POSITION and its SHARE of the journey rather than its
+ * day count: a pause that happens 53% of the way through and lasts a quarter
+ * of the window is the same story at any exposure, and it is always inside it.
+ */
+function gapFor(row: ManifestRow, exposure: number): [number, number] | null {
+  const g = PATHS[row.archetype].gap;
+  if (g === undefined) return null;
+  const share = Math.min(1, exposure / PERSON_DAYS);
+  const start = Math.max(1, Math.round(g[0] * share));
+  const length = Math.max(1, Math.round(g[1] * share));
+  // Never runs past the person's last day: a gap that swallows the end of the
+  // window would leave them with no final measure to pin the follow-up to.
+  return [Math.min(start, Math.max(1, exposure - 2)), Math.min(length, Math.max(1, exposure - start - 1))];
+}
+
+// ---------------------------------------------------------------------------
+// Missingness
+// ---------------------------------------------------------------------------
+
+/** p28's six reasons, verbatim. A missing value with no reason is
+ *  indistinguishable from one that was never due, and §29.1 requires missing,
+ *  incomplete, late, rejected and suppressed data to stay visible. */
+export const MISSING_REASONS = [
+  "not_due", "skipped", "declined", "interrupted", "failed", "unavailable",
+] as const;
+export type MissingReason = (typeof MISSING_REASONS)[number];
+
+function missingReason(row: ManifestRow, day: number, rng: StableRandom): MissingReason {
+  // The reason follows the archetype rather than being drawn at random: an
+  // access-barrier person's measure is unavailable, a safety-paused one's is
+  // interrupted. A uniformly random reason would make the missingness
+  // breakdown on every chart meaningless.
+  if (row.archetype === "Access barrier") return inGap(row, day) ? "unavailable" : "failed";
+  if (row.archetype === "Safety pause" && inGap(row, day)) return "interrupted";
+  if (row.archetype === "Sporadic use") return rng.chance(0.6) ? "skipped" : "declined";
+  return rng.chance(0.5) ? "skipped" : "not_due";
+}
+
+// ---------------------------------------------------------------------------
+// Generation
+// ---------------------------------------------------------------------------
+
+function popId(kind: string, key: string): string {
+  return crypto.createHash("sha256")
+    .update(`${DATASET_VERSION}:${kind}:${key}`)
+    .digest("hex").slice(0, 32).toUpperCase();
+}
+
+export interface GeneratedCounts {
+  accounts: number;
+  consents: number;
+  subscriptions: number;
+  profiles: number;
+  /** Intake-battery screenings. Counted apart from `measures`, because they
+   *  are a different thing: taken once at enrolment to open the product, where
+   *  a measure is the repeated outcome reading p14 sets a range for. */
+  intake: number;
+  checkins: number;
+  measures: number;
+  measuresMissing: number;
+  modules: number;
+  sessions: number;
+  safetyEvents: number;
+  /** Urgent alerts raised because a seeded check-in routed to crisis. Counted
+   *  because this number was zero on a history that routed people to crisis. */
+  safetyAlerts: number;
+  clinicianActions: number;
+  corrections: number;
+}
+
+/**
+ * THE OUTCOME INSTRUMENT.
+ *
+ * One instrument carries the repeated measure, and every "baseline → latest"
+ * in the product means this one. Naming it is not tidiness: the trend queries
+ * used to take the first and last row of `screenings` whatever they were, so a
+ * person with an intake battery had their PC-PTSD-5 (max 5) compared against a
+ * PHQ-9 (max 27) and the console reported the difference as improvement. The
+ * deployed demonstration was showing exactly that — "5 → 16" — before the 240
+ * had any intake battery at all.
+ */
+export const OUTCOME_INSTRUMENT = "phq-9";
+
+/** Scored range per instrument, so an intake score is drawn against the right
+ *  ceiling rather than reusing the PHQ-9's. */
+export const INSTRUMENTS: Record<string, { max: number; version: string }> = {
+  "phq-9":      { max: 27, version: "standard" },
+  "gad-7":      { max: 21, version: "standard" },
+  "pcl-5":      { max: 80, version: "dsm-5" },
+  "itq":        { max: 24, version: "v1" },
+  "pc-ptsd-5":  { max: 5,  version: "2021" },
+};
+
+/** The four the outcome series does not supply. `screeningComplete` requires
+ *  all five before a member may reach the product. */
+export const INTAKE_INSTRUMENTS = ["pc-ptsd-5", "pcl-5", "itq", "gad-7"] as const;
+
+/** Onboarding answers by archetype, so a profile reads as the person the rest
+ *  of their history describes rather than as the same paragraph 240 times. */
+const ONBOARDING_GOALS: Record<Archetype, {
+  therapistStatus: string; emdrExperience: string; goals: string[]; traumaAreas: string[];
+}> = {
+  "Early response":  { therapistStatus: "currently", emdrExperience: "some",
+    goals: ["Keep the progress going", "Understanding triggers"], traumaAreas: ["Relationships"] },
+  "Steady response": { therapistStatus: "previously", emdrExperience: "no",
+    goals: ["Daily grounding", "Processing trauma safely"], traumaAreas: ["Childhood"] },
+  "Late response":   { therapistStatus: "previously", emdrExperience: "no",
+    goals: ["Sleeping through the night", "Processing trauma safely"], traumaAreas: ["Accident"] },
+  "No change":       { therapistStatus: "currently", emdrExperience: "some",
+    goals: ["Finding something that works"], traumaAreas: ["Childhood", "Loss"] },
+  "Sporadic use":    { therapistStatus: "no", emdrExperience: "no",
+    goals: ["Trying this out"], traumaAreas: [] },
+  "Module mismatch": { therapistStatus: "no", emdrExperience: "no",
+    goals: ["Getting unstuck", "Daily grounding"], traumaAreas: ["Work", "Relationships"] },
+  "Access barrier":  { therapistStatus: "no", emdrExperience: "no",
+    goals: ["Getting started"], traumaAreas: ["Loss"] },
+  "Safety pause":    { therapistStatus: "currently", emdrExperience: "no",
+    goals: ["Staying steady", "Daily grounding"], traumaAreas: ["Childhood", "Relationships"] },
+};
+
+/**
+ * What each archetype's working plan says, and what its revision says.
+ *
+ * WELLNESS LANE, not treatment. `program-plan.ts` states the rule this has to
+ * respect: "this is a *program* plan (sequencing, focus, preparation), never a
+ * treatment plan. It must not diagnose, name conditions the member hasn't
+ * named, or promise outcomes." So none of these names a condition, and none of
+ * them predicts a result — the revision changes the SEQUENCING in response to
+ * what the readings did, which is the only thing a plan revision honestly is.
+ */
+const PLAN_FOCUS: Record<Archetype, {
+  opening: string;
+  revised: string;
+  targets: string[];
+  approach: string;
+  steps: { moduleId: string; focus: string; why: string }[];
+  grounding: string[];
+}> = {
+  "Early response": {
+    opening: "Build a daily grounding habit first, then begin preparation work.",
+    revised: "Preparation is holding. Keep the daily practice and lengthen the sessions.",
+    targets: ["Sleep and routine", "Noticing early activation"],
+    approach: "Preparation and pacing",
+    steps: [{ moduleId: "grounding", focus: "Twice daily", why: "It is the practice everything else rests on" }],
+    grounding: ["Orienting", "Paced breathing"],
+  },
+  "Steady response": {
+    opening: "Short, regular sessions rather than long ones.",
+    revised: "Steady progress. Widen the focus to a second area at the same pace.",
+    targets: ["Consistency", "Managing the day after a session"],
+    approach: "Preparation and pacing",
+    steps: [{ moduleId: "preparation", focus: "Weekly", why: "Regularity is doing more here than intensity" }],
+    grounding: ["Container", "Paced breathing"],
+  },
+  "Late response": {
+    opening: "Stabilisation first. No activating work until the daily picture settles.",
+    revised: "The daily picture has settled enough to begin preparation.",
+    targets: ["Sleep", "Getting through the evening"],
+    approach: "Stabilisation",
+    steps: [{ moduleId: "grounding", focus: "Daily", why: "Ordinary days first, then anything else" }],
+    grounding: ["Orienting", "Calm place"],
+  },
+  "No change": {
+    opening: "Preparation, with a review of whether the focus is the right one.",
+    revised: "Readings have not moved. Change the focus rather than the intensity.",
+    targets: ["Finding a focus that fits", "Keeping the practice going"],
+    approach: "Review and re-focus",
+    steps: [{ moduleId: "learning", focus: "Before the next session", why: "The focus is worth revisiting before the pace is" }],
+    grounding: ["Orienting"],
+  },
+  "Sporadic use": {
+    opening: "One small practice a day, chosen to be easy to keep.",
+    revised: "Attendance is uneven. Make the practice smaller rather than asking for more.",
+    targets: ["A practice that survives a bad week"],
+    approach: "Low-burden preparation",
+    steps: [{ moduleId: "breathing", focus: "Two minutes", why: "Short and kept beats long and abandoned" }],
+    grounding: ["Paced breathing"],
+  },
+  "Module mismatch": {
+    opening: "Start with preparation and see which modules fit.",
+    revised: "The opened modules are not the ones being used. Re-sequence around what is.",
+    targets: ["Matching the work to the week"],
+    approach: "Re-sequencing",
+    steps: [{ moduleId: "support", focus: "This fortnight", why: "What is actually being opened is the better guide" }],
+    grounding: ["Container"],
+  },
+  "Access barrier": {
+    opening: "Begin with what can be done without an appointment.",
+    revised: "Sessions are still hard to reach. Keep the plan to self-guided work for now.",
+    targets: ["Something workable between contacts"],
+    approach: "Self-guided preparation",
+    steps: [{ moduleId: "grounding", focus: "Daily", why: "It does not depend on a booking" }],
+    grounding: ["Orienting", "Paced breathing"],
+  },
+  "Safety pause": {
+    opening: "Grounding and support only. No activating content.",
+    revised: "Re-entry, at a slower pace than before the pause.",
+    targets: ["Staying steady", "Knowing what to do on a hard day"],
+    approach: "Stabilisation and re-entry",
+    steps: [{ moduleId: "support", focus: "Alongside the daily check-in", why: "The pause is the plan until a person clears it" }],
+    grounding: ["Orienting", "Calm place", "Container"],
+  },
+};
+
+/** p14's per-person targets, checked after generation rather than assumed. */
+export const TARGETS = {
+  checkins: [18, 90] as const,
+  measures: [4, 8] as const,
+  modules: [8, 55] as const,
+  sessions: [0, 8] as const,
+  safetyEvents: [0, 3] as const,
+  clinicianActions: [1, 12] as const,
+  corrections: [0, 2] as const,
+};
+
+/**
+ * The working plan and its revisions, as a step that can run on its own.
+ *
+ * SEPARATE FROM THE GENERATOR ON PURPOSE, and the reason is a failure this
+ * repeated. `generatePopulationHistory` short-circuits on "does the first
+ * profile have a check-in", which is right for the six months of history it
+ * writes and wrong for anything ADDED to the generator afterwards: a deployed
+ * database already has check-ins, so the new rows never arrive and the screen
+ * that needs them stays empty on the one instance anybody looks at. Plan
+ * versions were exactly that — written by the generator, invisible on the
+ * deployment, and a reset the only remedy.
+ *
+ * So a dataset added later gets its OWN existence check and its own step in
+ * the chain. It is additive and idempotent like every other step, which is
+ * what lets the per-boot reconciliation fix a stale deployment without
+ * deleting anything.
+ */
+export function backfillPlanVersions(db: Database.Database): { written: number } {
+  // Its own check, against its own table.
+  const already = db.prepare("SELECT COUNT(*) AS n FROM program_plans WHERE user_id = ?")
+    .get(popId("person", MANIFEST[0].id)) as { n: number };
+  if (already.n > 0) return { written: 0 };
+
+  const epoch = demoEpoch();
+  const insPlan = db.prepare(
+    `INSERT INTO program_plans (id, user_id, plan_json, generated_by, source, created_at)
+     VALUES (?, ?, ?, 'rules', 'trigger_map', ?)
+     ON CONFLICT(id) DO NOTHING`);
+
+  let written = 0;
+  db.transaction(() => {
+    for (const row of MANIFEST) {
+      const personId = popId("person", row.id);
+      // A person the generator has not created yet has nothing to plan for.
+      const exists = db.prepare("SELECT 1 AS n FROM users WHERE id = ?").get(personId);
+      if (!exists) continue;
+
+      const seed = seedFor(row);
+      const path = PATHS[row.archetype];
+      const startDay = enrolmentDayFor(row);
+      const exposure = exposureDaysFor(row);
+      const exposureGenerated = generatedDaysFor(row);
+      const since = (day: number) => (day - startDay) / Math.max(1, exposure);
+      // ── The working plan, and its revisions ────────────────────────────
+      //
+      // Two or three versions across the person's enrolment, because a plan that
+      // was written once and never revisited is not a plan anybody worked from —
+      // and because the plan-response chart's whole subject is what the measures
+      // did either side of a revision.
+      //
+      // A REVISION IS A NEW ROW. The table is append-only and `getProgramPlan`
+      // reads the newest, so the history stays readable: what the plan said in
+      // May is still there in June, which is what makes "since the last plan
+      // version" a question with an answer.
+      const revisions = 1 + (seed % 2) + (path.changeMidpoint < 0.4 ? 1 : 0);
+      for (let v = 0; v < revisions; v++) {
+        // The first sits at enrolment; the rest at even intervals through the
+        // person's own exposure, never past the day their history ends.
+        const day = startDay + Math.round((v / Math.max(1, revisions)) * exposureGenerated);
+        const focus = PLAN_FOCUS[row.archetype];
+        const plan = {
+          summary: v === 0 ? focus.opening : focus.revised,
+          targets: focus.targets.map((t, i) => ({
+            name: t,
+            // Intensity eases as the plan is revised, in step with the measure
+            // curve rather than independently of it: a plan whose targets soften
+            // while the readings do not is a plan describing somebody else.
+            intensity: Math.max(1, Math.round(measureOn(row, since(day)) / 3) - i),
+            approach: focus.approach,
+          })),
+          nextSteps: focus.steps.map((st) => ({
+            moduleId: st.moduleId, focus: st.focus, why: st.why,
+          })),
+          grounding: focus.grounding,
+        };
+        insPlan.run(
+          popId("plan", `${row.id}:${v}`), personId,
+          encryptField(JSON.stringify(plan)), dayStamp(epoch, day, 10));
+        written += 1;
+      }
+    }
+  })();
+  return { written };
+}
+
+/**
+ * The house function measure, written for every outcome reading already on
+ * file.
+ *
+ * ITS OWN STEP, for the reason the previous one documented and this one then
+ * ignored: `generatePopulationHistory` short-circuits on "does the first
+ * profile have a check-in", so anything added to it later reaches a fresh
+ * database and never a deployed one. The function series was written inside
+ * the generator, shipped, and drew nothing on the live instance — the same
+ * mistake, one commit after writing down the rule against it.
+ *
+ * IT READS THE OUTCOME SERIES rather than recomputing dates. One writer, one
+ * code path: a backfill that re-derived the schedule would be a second
+ * generator quietly disagreeing with the first about which weeks a person was
+ * measured in.
+ *
+ * The fraction comes from the reading's INDEX, not from its date. A date-
+ * derived fraction would move every day, because the epoch does — and a score
+ * that changes daily makes the reproducible baseline unstable for a reason
+ * that has nothing to do with the data.
+ */
+export function backfillFunctionMeasure(db: Database.Database): { written: number } {
+  const already = db.prepare(
+    "SELECT COUNT(*) AS n FROM screenings WHERE instrument = ?")
+    .get(EVERYDAY_FUNCTION.id) as { n: number };
+  if (already.n > 0) return { written: 0 };
+
+  const outcomes = db.prepare(
+    `SELECT id, created_at FROM screenings WHERE user_id = ? AND instrument = ?
+      ORDER BY created_at, id`);
+  const insFn = db.prepare(
+    `INSERT INTO screenings (id, user_id, tenant_id, instrument, instrument_version,
+       total_score, answers_json, risk_flags_json, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, '[]', '[]', ?)
+     ON CONFLICT(id) DO NOTHING`);
+
+  let written = 0;
+  db.transaction(() => {
+    for (const row of MANIFEST) {
+      const personId = popId("person", row.id);
+      const tenant = tenantForRow(row);
+      const readings = outcomes.all(personId, OUTCOME_INSTRUMENT) as
+        { id: string; created_at: string }[];
+      if (readings.length === 0) continue;
+
+      readings.forEach((r, i) => {
+        const frac = i / Math.max(1, readings.length - 1);
+        insFn.run(
+          popId("function", `${row.id}:${i}`), personId, tenant,
+          EVERYDAY_FUNCTION.id, EVERYDAY_FUNCTION.version,
+          functionScore(row, frac), r.created_at);
+        written += 1;
+      });
+    }
+  })();
+  return { written };
+}
+
+/**
+ * Function, derived from the same curve as the symptoms and lagged behind it.
+ *
+ * A person whose symptom readings improve while their function scores wander
+ * at random is not a person; it is two generators. The relationship is
+ * deliberately loose — function follows a change rather than moving with it,
+ * which is the ordinary picture and the reason the two are worth drawing
+ * separately at all. A function score that is exactly the maximum minus the
+ * PHQ-9 would not be a second measure.
+ *
+ * Deterministic from the profile and the reading index, with no shared random
+ * state: the same person always gets the same series, whichever step writes it.
+ */
+function functionScore(row: ManifestRow, frac: number): number {
+  const ceiling = Math.max(1, INSTRUMENTS[OUTCOME_INSTRUMENT].max);
+  const symptom = measureOn(row, frac) / ceiling;
+  const lagged = measureOn(row, Math.max(0, frac - 0.12)) / ceiling;
+  const base = 1 - (symptom * 0.4 + lagged * 0.6);
+
+  // A PER-PERSON OFFSET, never zero.
+  //
+  // Symptom severity and functional impairment are correlated and far from
+  // identical: two people with the same PHQ-9 can be holding down very
+  // different weeks, and the gap between the two is the reason a clinician
+  // would look at both. Without this the two series were the same number in
+  // different units — for anyone whose curve is flat, exactly the maximum
+  // minus their symptom score, which is not a second measure. A guard fails
+  // the build if any person's function series is a deterministic mirror.
+  //
+  // It is also what makes the demonstration's most useful conversation
+  // possible: somebody whose symptoms improved while their function did not.
+  const offsets = [-3, -2, -1, 1, 2, 3];
+  const offset = offsets[seedFor(row) % offsets.length];
+
+  // A small, stable wobble on top, so the series is not a smooth function of
+  // the other one — two measures of one person agree in direction, not detail.
+  const jitter = ((seedFor(row) + Math.round(frac * 100)) % 3) - 1;
+  return Math.max(0, Math.min(EVERYDAY_FUNCTION.max,
+    Math.round(base * EVERYDAY_FUNCTION.max) + offset + jitter));
+}
+
+export function generatePopulationHistory(db: Database.Database): GeneratedCounts {
+  return db.transaction(() => generateInner(db))();
+}
+
+function generateInner(db: Database.Database): GeneratedCounts {
+  const counts: GeneratedCounts = {
+    accounts: 0, consents: 0, subscriptions: 0, profiles: 0, intake: 0,
+    checkins: 0, measures: 0, measuresMissing: 0,
+    modules: 0, sessions: 0, safetyEvents: 0, safetyAlerts: 0,
+    clinicianActions: 0, corrections: 0,
+  };
+
+  // Idempotent: a second call on a generated database is a no-op.
+  const firstId = popId("person", MANIFEST[0].id);
+  const already = db.prepare("SELECT COUNT(*) AS n FROM checkins WHERE user_id = ?").get(firstId) as { n: number };
+  if (already.n > 0) return counts;
+
+  const epoch = demoEpoch();
+  // One password hash for all 240, computed once. They are accounts in the
+  // schema's sense — p14's "1 account" per profile — and a presenter may sign
+  // in as any of them to show a specific archetype. 240 separate hashes would
+  // cost 240 scrypt runs for no additional property.
+  const sharedHash = hashPassword(process.env.EMDR_DEMO_PASSWORD_MEMBER ?? "patient1234");
+
+  const insUser = db.prepare(
+    `INSERT INTO users (id, email, name, role, password_hash, tenant_id, created_at)
+     VALUES (?, ?, ?, 'member', ?, ?, ?) ON CONFLICT(id) DO NOTHING`);
+  const insConsent = db.prepare(
+    `INSERT INTO consents (id, user_id, tenant_id, policy_version, scope, granted_at)
+     VALUES (?, ?, ?, ?, ?, ?)`);
+  const insCheckin = db.prepare(
+    `INSERT INTO checkins (id, user_id, tenant_id, checkin_date, activation, shutdown,
+       harm_urge, feels_safe, dissociation, sleep_quality, substance_flag,
+       recommended_action, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
+  // The alert a crisis-routed check-in raises, prepared from the product's own
+  // statement.
+  //
+  // WHAT THIS WAS. Seventeen fabricated people reported a harm urge in their
+  // seeded history, every one of them routed to crisis on the row, and the
+  // alerts table held nothing. They band "immediate" on the caseload with a
+  // reason read off the check-in, and a clinician opening one finds nothing to
+  // act on and nothing to close — the same shape as the live defect in the
+  // paced screening gate, in fabricated history rather than in a member's.
+  const insAlert = db.prepare(ALERT_INSERT_IDEMPOTENT_SQL);
+  const insScreening = db.prepare(
+    `INSERT INTO screenings (id, user_id, tenant_id, instrument, instrument_version,
+       total_score, answers_json, risk_flags_json, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, '[]', ?)`);
+  const insPractice = db.prepare(
+    `INSERT INTO practice_completions (id, user_id, tenant_id, practice_id, practice_type,
+       duration_sec, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`);
+  const insSession = db.prepare(
+    `INSERT INTO therapy_sessions (id, user_id, tenant_id, module_id, status,
+       pre_suds, post_suds, started_at, ended_at)
+     VALUES (?, ?, ?, ?, 'completed', ?, ?, ?, ?)`);
+  const insEvent = db.prepare(
+    `INSERT INTO longitudinal_events
+       (id, tenant_id, person_id, event_type, payload_version, payload, actor_id,
+        actor_type, occurred_at, recorded_at, source_system, provenance,
+        correlation_id, supersedes_event_id)
+     VALUES (?, ?, ?, ?, 1, ?, ?, ?, ?, ?, 'demo-generator', ?, ?, ?)`);
+  // ── Onboarding: what a person had to do BEFORE any of the above ────────
+  //
+  // A profile with six months of history and no onboarding is not a person
+  // who used the product — it is rows next to an account that cannot sign in.
+  // `/app/today` refuses a member on four gates (membership, consent,
+  // screening battery, profile), and until this was written the 240 passed one
+  // of them: signing in as any of them landed on the paywall.
+  const insSubscription = db.prepare(
+    `INSERT INTO subscriptions (user_id, plan, status, price_cents, currency, provider,
+       current_period_end, created_at)
+     VALUES (?, 'monthly', 'active', 3499, 'usd', 'demo', ?, ?)
+     ON CONFLICT(user_id) DO NOTHING`);
+  const insProfile = db.prepare(
+    `INSERT INTO user_profiles (user_id, therapist_status, emdr_experience, goals_json,
+       trauma_areas_json, restricted_topics_json, profile_complete, created_at)
+     VALUES (?, ?, ?, ?, ?, '[]', 1, ?)
+     ON CONFLICT(user_id) DO NOTHING`);
+
+  const PROV = JSON.stringify({ fabricated: true, dataset_version: DATASET_VERSION });
+
+  const MODULES = [
+    ["grounding", "grounding"], ["breathing", "breathing"], ["learning", "learning"],
+    ["preparation", "preparation"], ["support", "support"],
+  ] as const;
+
+  for (const row of MANIFEST) {
+    const seed = seedFor(row);
+    const rng = new StableRandom(seed);
+    const personId = popId("person", row.id);
+    const tenant = tenantForRow(row);
+    const path = PATHS[row.archetype];
+    // The authored access model (see demo-population-disparity.ts). It never
+    // changes the archetype's SHAPE — the curve between the manifest's
+    // baseline and follow-up is p28's authored truth and stays exactly as
+    // written. What it changes is how reliably the service reached this
+    // person: how quickly a first appointment was arranged, how many measures
+    // were delivered, how often they showed up.
+    const access = accessProfileFor(row);
+    // WHEN THIS PERSON JOINED, and how long they have been here. Both come
+    // from the calendar module so the seed and the generator cannot disagree
+    // about an enrolment date — they did once, and the result was a person
+    // whose first check-in preceded their own account.
+    const startDay = enrolmentDayFor(row);
+    const exposure = exposureDaysFor(row);
+    // Every offset below is measured from `startDay`. A curve, an authored
+    // gap, a measure schedule and a safety event are all facts about a
+    // person's own journey, and before the calendar split they were offsets
+    // from the day the fabricated service opened — which was only ever right
+    // because everybody opened with it.
+    // The generator stops short of the calendar's end. The reserved tail
+    // belongs to the agent behaviour layer, which lives those days through the
+    // product rather than writing them into the tables — so the window every
+    // metric and every planning rule reads is one the gate engine actually saw.
+    const exposureGenerated = generatedDaysFor(row);
+    const lastDay = startDay + exposureGenerated;
+    // Over the person's FULL exposure, not the generated part: the archetype's
+    // curve describes their whole journey, and normalising it to the shortened
+    // window would compress the trajectory and land the follow-up value two
+    // weeks early.
+    const since = (day: number) => (day - startDay) / Math.max(1, exposure);
+
+    // ── Enrolment: one account, one consent set (p14) ────────────────────
+    insUser.run(
+      personId, `${row.id.toLowerCase()}@steady.local`,
+      // Reuses the display name already seeded onto the person, so the account
+      // and the person cannot disagree about who this is.
+      (db.prepare("SELECT display_name AS n FROM persons WHERE id = ?").get(personId) as { n: string }).n,
+      sharedHash, tenant, dayStamp(epoch, startDay, 8),
+    );
+    counts.accounts++;
+    for (const [version, scope] of [
+      ["demo-consent-v1", "care_program_full"],
+      ["demo-consent-v1", "measurement"],
+    ] as const) {
+      insConsent.run(popId("consent", `${row.id}:${scope}`), personId, tenant, version, scope, dayStamp(epoch, startDay, 8));
+      counts.consents++;
+    }
+
+    // Membership, intake battery and profile — all dated to the day they
+    // enrolled, because that is when a person does them.
+    insSubscription.run(
+      personId,
+      // A period end in the future, so the membership reads as active rather
+      // than as one that lapsed the day the dataset was built. PINNED, because
+      // `current_period_end` is not a `_at` column and so is hashed into the
+      // baseline — this is the exact column that once made two resets disagree.
+      pinnedStamp(epoch, CALENDAR_DAYS + 30, 8), dayStamp(epoch, startDay, 8));
+    counts.subscriptions++;
+
+    const goals = ONBOARDING_GOALS[row.archetype];
+    insProfile.run(
+      personId, goals.therapistStatus, goals.emdrExperience,
+      JSON.stringify(goals.goals), JSON.stringify(goals.traumaAreas),
+      dayStamp(epoch, startDay, 8));
+    counts.profiles++;
+
+    // THE INTAKE BATTERY. `screeningComplete` requires all five instruments,
+    // and the outcome series below supplies only one of them. These are taken
+    // once, at enrolment, and scored from the SAME baseline the archetype
+    // already fixes — a person whose PHQ-9 opens at 18 does not open at 2 on
+    // the PCL-5, and drawing them independently would produce a population
+    // whose instruments disagree about the same person on the same day.
+    const severity0 = measureOn(row, 0) / Math.max(1, INSTRUMENTS["phq-9"].max);
+    for (const instrument of INTAKE_INSTRUMENTS) {
+      const spec = INSTRUMENTS[instrument];
+      insScreening.run(
+        popId("intake", `${row.id}:${instrument}`), personId, tenant,
+        instrument, spec.version,
+        Math.max(0, Math.min(spec.max, Math.round(severity0 * spec.max))),
+        "[]", dayStamp(epoch, startDay, 9));
+      counts.intake++;
+    }
+
+    // ── The access pathway (handoff 06 §26's funnel) ─────────────────────
+    //
+    // Referral, contact, visit, care start. Not in handoff 07's p14 recipe,
+    // and required by the same claim it makes: the organization console's
+    // existing screens count these events, so without them a demo care network
+    // whose every member is engaged reports "0 of 44 started care". The e2e
+    // suite caught exactly that — a header reading 0% over a population that
+    // is fully active.
+    //
+    // In the order they happened, because a funnel whose stages are
+    // simultaneous is four numbers rather than a pathway. Referral and contact
+    // sit before enrolment; the visit and the care start move with the access
+    // model's drag, so for somebody it took three extra weeks to schedule they
+    // land after it — which is what a delayed start actually looks like. The
+    // Access-barrier archetype stalls between contact and visit, which is what
+    // "missed activity linked to authored access events" means (p12).
+    const stalls = row.archetype === "Access barrier" && rng.chance(0.45);
+    // The drag lands between CONTACT and VISIT, which is where an access delay
+    // actually sits: the referral arrives on time and the appointment is the
+    // thing that cannot be arranged. Putting it on the referral instead would
+    // have made it look like a demand problem.
+    // Drawn around the mean, with a spread wide enough that every band holds
+    // both a person who started the next day and a person who took a month.
+    // Two draws rather than one, so the shape is triangular rather than flat —
+    // most people near the mean, a thinner tail either side, which is what a
+    // wait for an appointment actually looks like.
+    const drag = Math.max(0, access.startDragMean + rng.int(-4, 4) + rng.int(-3, 3));
+    const pathway: Array<[string, number]> = [
+      ["referral.received", -12],
+      ["contact.attempted", -9],
+      ["contact.made", -6],
+      ...(stalls ? [] : [["visit.scheduled", -3 + drag] as [string, number], ["care.started", drag] as [string, number]]),
+    ];
+    for (const [type, offset] of pathway) {
+      const day = Math.max(0, startDay + offset);
+      insEvent.run(
+        popId("pathway", `${row.id}:${type}`), tenant, personId, type,
+        JSON.stringify({ fabricated: true }), null, "integration",
+        dayStamp(epoch, day, 9), dayStamp(epoch, day, 9), PROV, null, null,
+      );
+    }
+
+    // ── Check-ins: an explicit count, placed across the window ──────────
+    //
+    // The count is drawn first and then placed, rather than emerging from a
+    // per-day coin flip. p14 specifies 18–90 per person and a rate cannot
+    // promise that: the first version produced 1 for one person and 134 for
+    // another.
+    // Scaled by the access model, then clamped to p14's GLOBAL per-person
+    // bound rather than to the archetype's own band. The distinction matters:
+    // p14 states 18–90 check-ins for a person and the quality manifest
+    // enforces that number, while the per-archetype band is this generator's
+    // own subdivision of it. Clamping to the narrower one would let the floor
+    // absorb the whole effect for anyone already near it — the multiplier
+    // would apply to the people it least needed to and not to the people it
+    // did.
+    // SCALED TO EXPOSURE. p14's 18–90 describes a person observed for six
+    // months; somebody who joined three weeks ago cannot have eighteen
+    // check-ins, and requiring it is what forced the whole population into a
+    // single fortnight of intake. The rate is held constant instead, and the
+    // quality manifest checks against the scaled bound so a shortchanged
+    // recent arrival still fails.
+    const checkInBound = scaledRange(TARGETS.checkins, exposure);
+    const wantCheckIns = Math.max(
+      checkInBound[0],
+      Math.min(checkInBound[1], Math.round(
+        rng.int(path.checkIns[0], path.checkIns[1]) * access.engagementFactor
+        * (exposureGenerated / PERSON_DAYS),
+      )),
+    );
+    // The first check-in cannot precede the first appointment, so the access
+    // model's start drag moves this window too. Without it the drag would move
+    // only the pathway events and activation — "acted within seven days of
+    // enrolling" — would be identical for everybody, which is the half of the
+    // age reversal that makes the other half interesting.
+    const openDays: number[] = [];
+    for (let day = startDay + 1 + drag; day < lastDay; day++) {
+      if (!inGap(row, day - startDay, exposure)) openDays.push(day);
+    }
+    // Fisher-Yates on the seeded generator, then take the first N and re-sort.
+    // Sampling with rejection would draw a different number of times depending
+    // on collisions, which makes the generator's state — and therefore every
+    // value after it — depend on how lucky the draws were.
+    for (let i = openDays.length - 1; i > 0; i--) {
+      const j = rng.int(0, i);
+      [openDays[i], openDays[j]] = [openDays[j], openDays[i]];
+    }
+    const checkInDays = openDays.slice(0, Math.min(wantCheckIns, openDays.length)).sort((a, b) => a - b);
+
+    let checkins = 0;
+    for (const day of checkInDays) {
+      const frac = since(day);
+      const measure = measureOn(row, frac);
+      // Daily state tracks the measure trajectory rather than being drawn
+      // separately — p28: outcomes are not sampled independently of the
+      // history that produced them.
+      const severity = Math.max(0, Math.min(10, Math.round(measure / 3)));
+      const rel = day - startDay;
+      const gap = gapFor(row, exposure);
+      const paused = row.safety === "Fixed pause" && gap !== null && rel > gap[0] - 3 && rel < gap[0] + 1;
+
+      // THE PRODUCT'S OWN ROUTING RULE, on the values about to be written.
+      //
+      // This used to be a hand-written ladder — `paused ? "crisis" : severity
+      // >= 7 ? "grounding_only" : "steady"` — and it disagreed with the product
+      // in both directions. "steady" IS NOT A ROUTING DECISION the product can
+      // make: `evaluateCheckin` returns crisis, grounding_only, stabilization or
+      // processing_ok, and nothing else. Seven and a half thousand rows of
+      // seeded history carried a value no live check-in has ever produced, and
+      // the clinician's measures table rendered it to a reader as though the
+      // engine had decided it. The ladder also drew its grounding threshold at
+      // severity 7 where the rule draws it at activation 8, and never reached
+      // `stabilization` at all.
+      //
+      // Computed from the row rather than asserted over it, so seeded history
+      // and a member answering the same questions today land in the same place.
+      const checkinValues = {
+        activation: severity,
+        shutdown: Math.max(0, severity - rng.int(0, 2)),
+        harm_urge: paused,
+        feels_safe: !paused,
+        dissociation: row.archetype === "Safety pause" && paused ? 7 : rng.int(0, 3),
+        sleep_quality: Math.max(0, Math.min(10, 8 - Math.round(severity / 2) + rng.int(-1, 1))),
+        substance_flag: false,
+      };
+      const action = evaluateCheckin(checkinValues);
+      insCheckin.run(
+        popId("checkin", `${row.id}:${day}`), personId, tenant, dayDate(epoch, day),
+        checkinValues.activation, checkinValues.shutdown,
+        checkinValues.harm_urge ? 1 : 0,
+        checkinValues.feels_safe ? 1 : 0,
+        checkinValues.dissociation,
+        checkinValues.sleep_quality,
+        checkinValues.substance_flag ? 1 : 0,
+        action,
+        dayStamp(epoch, day, 7 + (seed % 4)),
+      );
+      // And what the rule decided reaches somebody, exactly as it does on the
+      // web and mobile paths.
+      if (action === "crisis") {
+        insAlert.run(...alertValues(checkinSafetyAlert({
+          id: popId("checkin-alert", `${row.id}:${day}`),
+          userId: personId,
+          harmUrge: checkinValues.harm_urge,
+          via: "seeded history",
+        })));
+        counts.safetyAlerts++;
+      }
+      checkins++;
+    }
+    counts.checkins += checkins;
+
+    // ── Measures: 4–8 completed, 0–3 partial, with reasons (p14, p28) ────
+    // ── Measures: 4–8 completed, plus recorded missingness (p14, p28) ───
+    //
+    // The COMPLETED count is drawn inside p14's range and the misses are added
+    // on top, rather than subtracted from a due count — otherwise a person
+    // with a high miss rate falls below the specified minimum, which is
+    // exactly what happened first time.
+    const measureBound = scaledRange(TARGETS.measures, exposure, MIN_MEASURES);
+    const wantMeasures = Math.max(
+      // FULL exposure, not the generated portion. The measure schedule is a
+      // property of a person's whole journey and the generator owns all of it:
+      // the agent layer deliberately writes no measures, because a
+      // three-weekly cadence split across two writers double-counts at the
+      // seam and pushes people past p14's ceiling of eight. Measures also
+      // touch no gate, so they are not what the agent layer is for.
+      measureBound[0], Math.min(measureBound[1], Math.round(rng.int(4, 8) * (exposure / PERSON_DAYS))),
+    );
+    // TWO KINDS OF MISS, kept apart all the way down to the reason on the
+    // event, because they are two different problems with two different fixes.
+    //
+    //   A SKIP is the person's side: the measure arrived and was not
+    //   completed. It follows the archetype, scaled by the access model's
+    //   adherence factor.
+    //
+    //   A DELIVERY FAILURE is the service's side: the measure never went out.
+    //   It follows the access model alone — an interpreter who could not be
+    //   booked, an instrument that has not been translated, a person the
+    //   product does not accommodate.
+    //
+    // Both raise the denominator of follow-up completion and only one of them
+    // is about the person. A console that reports the rate without the reasons
+    // cannot tell them apart, which is precisely why p32 puts the five states
+    // in that metric's required display.
+    const missCount = Math.min(3, Math.round(wantMeasures * path.missRate * 1.4 * access.adherenceFactor));
+    const deliveryMisses = Math.min(5, Math.round(wantMeasures * access.deliveryFailure * 4));
+    const dueCount = wantMeasures + missCount + deliveryMisses;
+    // Which of the due slots are missed. Never the first or last: those two
+    // carry the manifest's authored baseline and follow-up.
+    //
+    // Chosen by shuffling the eligible slots and taking the first N, so
+    // exactly `missCount` land. Drawing N times into a Set collapses
+    // collisions, which silently produced FEWER misses and therefore more
+    // completed measures than p14's ceiling — a person with ten.
+    const eligible: number[] = [];
+    for (let i = 1; i <= dueCount - 2; i++) eligible.push(i);
+    for (let i = eligible.length - 1; i > 0; i--) {
+      const j = rng.int(0, i);
+      [eligible[i], eligible[j]] = [eligible[j], eligible[i]];
+    }
+    const missedSlots = new Set(eligible.slice(0, Math.min(missCount, eligible.length)));
+    // Drawn from what the skips did not take, so the two never land on the
+    // same slot and the counts stay exactly what was computed above.
+    const undeliveredSlots = new Set(
+      eligible.slice(missedSlots.size, missedSlots.size + Math.max(0, deliveryMisses)),
+    );
+
+    let completed = 0;
+    for (let i = 0; i < dueCount; i++) {
+      const day = Math.round(startDay + ((exposure - 1) * i) / Math.max(1, dueCount - 1));
+      if (undeliveredSlots.has(i)) {
+        // The service's side. p28's "unavailable", and the mechanisms that
+        // produced it are named ON THE EVENT — so a reviewer who opens a
+        // single missing measure sees why it is missing, rather than having to
+        // infer it from a rate three screens away.
+        insEvent.run(
+          popId("undelivered", `${row.id}:${i}`), tenant, personId, "measure.not_completed",
+          JSON.stringify({
+            instrument: "phq-9", dueOn: dayDate(epoch, day),
+            reason: "unavailable",
+            cause: "service",
+            mechanisms: access.mechanisms,
+            fabricated: true,
+          }),
+          null, "system", dayStamp(epoch, day, 12), dayStamp(epoch, day, 12), PROV, null, null,
+        );
+        counts.measuresMissing++;
+        continue;
+      }
+      if (missedSlots.has(i)) {
+        // Missingness is RECORDED, with the reason. An absent row and a
+        // declined one look identical in a table, and only one of them is a
+        // fact about the person.
+        insEvent.run(
+          popId("missing", `${row.id}:${i}`), tenant, personId, "measure.not_completed",
+          JSON.stringify({
+            instrument: "phq-9", dueOn: dayDate(epoch, day),
+            reason: missingReason(row, day, rng), cause: "person", fabricated: true,
+          }),
+          null, "system", dayStamp(epoch, day, 12), dayStamp(epoch, day, 12), PROV, null, null,
+        );
+        counts.measuresMissing++;
+        continue;
+      }
+      insScreening.run(
+        popId("screening", `${row.id}:${i}`), personId, tenant, "phq-9", "standard",
+        // The first and last are pinned to the manifest exactly: those two
+        // numbers are the authored truth, and a curve that only approaches
+        // them would make the follow-up on every chart disagree with the row
+        // it came from.
+        i === 0 ? row.baseline : i === dueCount - 1 ? row.followUp : measureOn(row, since(day)),
+        "[]", dayStamp(epoch, day, 12),
+      );
+      completed++;
+    }
+    counts.measures += completed;
+
+    // ── Modules (p14: 8–55) ──────────────────────────────────────────────
+    const moduleBound = scaledRange(TARGETS.modules, exposure);
+    const moduleCount = Math.max(
+      moduleBound[0],
+      Math.min(moduleBound[1], Math.round(rng.int(path.modules[0], path.modules[1]) * (exposureGenerated / PERSON_DAYS))),
+    );
+    for (let i = 0; i < moduleCount; i++) {
+      let day = startDay + 1 + Math.floor(rng.next() * Math.max(1, exposureGenerated - 2));
+      if (inGap(row, day - startDay, exposure)) {
+        day = Math.min(lastDay - 1, day + (gapFor(row, exposure)?.[1] ?? 0));
+      }
+      const [id, type] = MODULES[rng.int(0, MODULES.length - 1)];
+      insPractice.run(
+        popId("practice", `${row.id}:${i}`), personId, tenant, id, type,
+        rng.int(90, 600), dayStamp(epoch, day, 10),
+      );
+    }
+    counts.modules += moduleCount;
+
+    // ── Support sessions (p14: 0–8, never trauma-processing proof) ───────
+    const sessionCount = rng.int(path.sessions[0], path.sessions[1]);
+    for (let i = 0; i < sessionCount; i++) {
+      const day = startDay + 5 + Math.floor(rng.next() * Math.max(1, exposureGenerated - 6));
+      if (inGap(row, day - startDay, exposure)) continue;
+      // A SUPPORT session. p14 is explicit that these are "never treated as
+      // trauma-processing proof", so the module is resourcing and the SUDS
+      // pair records a settling rather than a desensitisation.
+      const pre = Math.max(1, Math.min(10, Math.round(measureOn(row, since(day)) / 3)));
+      insSession.run(
+        popId("session", `${row.id}:${i}`), personId, tenant, "resourcing",
+        pre, Math.max(0, pre - rng.int(0, 2)),
+        dayStamp(epoch, day, 15), dayStamp(epoch, day, 16),
+      );
+      counts.sessions++;
+    }
+
+    // ── Safety: 0–3 fixed gate events (p14) ──────────────────────────────
+    // Deterministic inputs produce the expected gate output. The manifest's
+    // safety column is the authored expectation; these events are what a
+    // reviewer replays against it.
+    if (row.safety !== "No active gate") {
+      const gap = gapFor(row, exposure);
+      // Every one of these three days is clamped inside the person's own
+      // window. A gate, its response and its re-entry are a sequence, and the
+      // last of them has to land before the window closes or the seeded
+      // timestamp is in the future — which is how this was found.
+      const gateDay = Math.min(lastDay - 2, startDay + (gap?.[0] ?? Math.floor(exposure * 0.6)));
+      const kind = row.safety === "Fixed pause" ? "safety_state.changed" : "clinician.reviewed";
+      insEvent.run(
+        popId("gate", `${row.id}:open`), tenant, personId, kind,
+        JSON.stringify({
+          state: row.safety === "Fixed pause" ? "paused" : "under_review",
+          reason: row.safety === "Fixed pause" ? "fixed_scenario_pause" : "scheduled_review",
+          expected: row.safety, fabricated: true,
+        }),
+        null, row.safety === "Fixed pause" ? "system" : "clinician",
+        dayStamp(epoch, gateDay, 9), dayStamp(epoch, gateDay, 9), PROV, popId("corr", row.id), null,
+      );
+      counts.safetyEvents++;
+
+      // The DOCUMENTED RESPONSE to the gate, within a day or two.
+      //
+      // p32's time-to-review metric measures "elapsed time from a fixed review
+      // event to a documented response", and without this event there was
+      // nothing to measure to: the query paired a pause with the next
+      // clinician action of any kind, which is scattered across six months, so
+      // the median read 593 hours. That is not a latency, it is the average
+      // distance between two unrelated things.
+      const responseHours = 6 + (seed % 42);
+      const responseDay = Math.min(lastDay - 1, gateDay + Math.floor(responseHours / 24));
+      const resolveDay = Math.min(lastDay - 1, gateDay + (gap?.[1] ?? 21));
+      insEvent.run(
+        popId("gate", `${row.id}:response`), tenant, personId, "clinician.reviewed",
+        JSON.stringify({
+          kind: "safety_response",
+          respondsTo: popId("gate", `${row.id}:open`),
+          note: pick(CLINICIAN_COMMENTS, seed, 0),
+          fabricated: true,
+        }),
+        clinicianPersonId(row.clinician), "clinician",
+        dayStamp(epoch, responseDay, 9 + (responseHours % 12)),
+        dayStamp(epoch, responseDay, 9 + (responseHours % 12)),
+        PROV, popId("corr", row.id), null,
+      );
+      counts.clinicianActions++;
+
+      if (row.safety === "Fixed pause") {
+        // Bounded re-entry, not an indefinite hold. A pause with no recorded
+        // end is a lockout wearing a different word.
+        insEvent.run(
+          popId("gate", `${row.id}:reentry`), tenant, personId, "safety_state.changed",
+          JSON.stringify({ state: "re_entered", reason: "reviewed_and_agreed", fabricated: true }),
+          null, "clinician",
+          // Clamped to the person's last day. The resolution of a pause that
+          // began near the end of a short window would otherwise be dated
+          // after the window closed — which is to say, in the future.
+          dayStamp(epoch, resolveDay, 9),
+          dayStamp(epoch, resolveDay, 9), PROV, popId("corr", row.id), null,
+        );
+        counts.safetyEvents++;
+      }
+    }
+
+    // ── Clinician actions: 1–12 (p14) ────────────────────────────────────
+    const actionCount = rng.int(1, 8);
+    for (let i = 0; i < actionCount; i++) {
+      const day = startDay + 3 + Math.floor(rng.next() * Math.max(1, exposureGenerated - 4));
+      insEvent.run(
+        popId("action", `${row.id}:${i}`), tenant, personId, "clinician.reviewed",
+        JSON.stringify({
+          kind: ["review", "message", "note", "assign"][rng.int(0, 3)],
+          // Free text from a FIXED dictionary. p28: never ask a language model
+          // to invent uncontrolled clinical narratives at runtime.
+          note: pick(CLINICIAN_COMMENTS, seed, i),
+          operational: pick(OPERATIONAL_NOTES, seed, i + 1),
+          fabricated: true,
+        }),
+        // NE-C1 resolves to the demo clinician account, so a presenter signing
+        // in sees these reviews as their own rather than a stranger's.
+        clinicianPersonId(row.clinician), "clinician",
+        dayStamp(epoch, day, 14), dayStamp(epoch, day, 14), PROV, null, null,
+      );
+      counts.clinicianActions++;
+    }
+
+    // ── Corrections: 0–2, appended and superseding (p14) ─────────────────
+    const correctionCount = rng.int(0, 2);
+    for (let i = 0; i < correctionCount; i++) {
+      const originalId = popId("action", `${row.id}:${i}`);
+      if (i >= actionCount) break;
+      const day = lastDay - 5 - i;
+      insEvent.run(
+        popId("correction", `${row.id}:${i}`), tenant, personId, "memory.patient_corrected",
+        JSON.stringify({
+          corrects: originalId,
+          note: pick(MEMBER_NOTES, seed, i + 2),
+          fabricated: true,
+        }),
+        personId, "patient",
+        dayStamp(epoch, day, 11), dayStamp(epoch, day, 11), PROV, null,
+        // A correction APPENDS and supersedes the prior display value; it never
+        // edits the original row. That is what makes the ledger replayable and
+        // the correction itself auditable.
+        originalId,
+      );
+      counts.corrections++;
+    }
+  }
+
+  writeEdgeCases(db, epoch);
+  return counts;
+}
+
+// ---------------------------------------------------------------------------
+// Edge-case fixtures (p28)
+// ---------------------------------------------------------------------------
+
+/**
+ * "Include edge cases: duplicate event, late arrival, correction, stale
+ * projection, partial measure, revoked consent and cross-tenant request."
+ *
+ * Authored onto NAMED profiles rather than sprinkled by probability, so a
+ * reviewer can be shown one. An edge case that occurs somewhere in 240 people
+ * is an edge case nobody can demonstrate.
+ *
+ * Three of p28's seven are not data and are deliberately absent here: a stale
+ * projection is a rebuild that has not run, and a cross-tenant request is a
+ * denied read — both are exercised by tests rather than seeded, because
+ * seeding them would mean writing the very rows the system exists to prevent.
+ * The duplicate, the late arrival, the correction, the partial measure and the
+ * revoked consent are all facts about a person, so they live here.
+ */
+export const EDGE_CASE_PROFILES = {
+  duplicate: "ST-NE-002",
+  lateArrival: "ST-MW-013",
+  partialMeasure: "ST-SO-021",
+  revokedConsent: "ST-WE-044",
+} as const;
+
+function writeEdgeCases(db: Database.Database, epoch: Date): void {
+  const insEvent = db.prepare(
+    `INSERT INTO longitudinal_events
+       (id, tenant_id, person_id, event_type, payload_version, payload, actor_id,
+        actor_type, occurred_at, recorded_at, source_system, provenance,
+        correlation_id, supersedes_event_id)
+     VALUES (?, ?, ?, ?, 1, ?, ?, ?, ?, ?, 'demo-generator', ?, ?, ?)`);
+  const PROV = JSON.stringify({ fabricated: true, dataset_version: DATASET_VERSION, edge_case: true });
+  const find = (id: string) => MANIFEST.find((r) => r.id === id)!;
+
+  // DUPLICATE. The same clinical fact arriving twice with different ids, which
+  // is what an at-least-once integration produces. The correlation id is what
+  // makes them recognisable as one event rather than two.
+  {
+    const row = find(EDGE_CASE_PROFILES.duplicate);
+    const person = popId("person", row.id);
+    const tenant = tenantForRow(row);
+    const corr = popId("corr", `${row.id}:dup`);
+    for (const n of [1, 2]) {
+      insEvent.run(
+        popId("edge", `${row.id}:dup:${n}`), tenant, person, "coverage.reviewed",
+        JSON.stringify({ note: "delivered twice by the feed", duplicateOf: corr, fabricated: true }),
+        null, "integration",
+        dayStamp(epoch, 120, 9), dayStamp(epoch, 120, 9 + n), PROV, corr, null,
+      );
+    }
+  }
+
+  // LATE ARRIVAL. Occurred long before it was recorded — the shape that makes
+  // a recent month look empty and then fill in, and the reason the payer
+  // console withholds incomplete months rather than plotting them low.
+  {
+    const row = find(EDGE_CASE_PROFILES.lateArrival);
+    const person = popId("person", row.id);
+    insEvent.run(
+      popId("edge", `${row.id}:late`), tenantForRow(row), person, "coverage.measure_recorded",
+      JSON.stringify({ instrument: "phq-9", lagDays: 74, fabricated: true }),
+      null, "integration",
+      dayStamp(epoch, 96, 9), dayStamp(epoch, 170, 9), PROV, null, null,
+    );
+  }
+
+  // PARTIAL MEASURE. Started and not finished. Distinct from a missed one:
+  // some items were answered, so a total cannot be scored but the attempt is
+  // real. §29.1 requires partial data to stay visible rather than be rounded
+  // into complete or absent.
+  {
+    const row = find(EDGE_CASE_PROFILES.partialMeasure);
+    insEvent.run(
+      popId("edge", `${row.id}:partial`), tenantForRow(row), popId("person", row.id),
+      "measure.not_completed",
+      JSON.stringify({
+        instrument: "phq-9", dueOn: dayDate(epoch, 150), reason: "interrupted",
+        partial: true, itemsAnswered: 4, itemsTotal: 9, fabricated: true,
+      }),
+      null, "patient", dayStamp(epoch, 150, 12), dayStamp(epoch, 150, 12), PROV, null, null,
+    );
+  }
+
+  // REVOKED CONSENT. Recorded as an event AND on the consent row, because the
+  // two answer different questions: the row says what is true now, the event
+  // says when it changed and therefore which past readings were authorised.
+  {
+    const row = find(EDGE_CASE_PROFILES.revokedConsent);
+    const person = popId("person", row.id);
+    db.prepare("UPDATE consents SET revoked_at = ? WHERE user_id = ? AND scope = 'measurement'")
+      .run(dayStamp(epoch, 160, 10), person);
+    insEvent.run(
+      popId("edge", `${row.id}:revoke`), tenantForRow(row), person, "consent.withdrawn",
+      // `projectionId` names the consent row this event updates. Without it
+      // the replay guard reports a gap — an event that claims a current-state
+      // row it cannot identify — which is exactly what it did when this
+      // fixture was first written, and exactly what it is for.
+      JSON.stringify({
+        projectionId: popId("consent", `${row.id}:measurement`),
+        scope: "measurement", policyVersion: "demo-consent-v1", fabricated: true,
+      }),
+      person, "patient", dayStamp(epoch, 160, 10), dayStamp(epoch, 160, 10), PROV, null, null,
+    );
+  }
+}

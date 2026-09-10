@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { Practice } from "@/lib/practices";
 import { useSpeech } from "./useSpeech";
+import { MAIN_ID } from "@/lib/experience/quality";
 
 // Guided-meditation player (roadmap F2). Steps through a practice's segments,
 // reading each aloud on-device (optional) and holding it on screen for its
@@ -21,7 +22,16 @@ export default function MeditationPlayer({
   const [idx, setIdx] = useState(0);
   const [playing, setPlaying] = useState(true);
   const [voiceOn, setVoiceOn] = useState(voiceDefault);
-  const startedAt = useRef(Date.now());
+  // Set on MOUNT, not in the ref's initial-value argument. That argument is
+  // evaluated on every render even though only the first result is ever kept,
+  // so the practice's start time was being recomputed and discarded on each
+  // one — harmless by luck rather than by design, and wrong the moment anything
+  // reads it before the ref is written. Mount is also the more accurate answer
+  // to "when did this practice start" than first render.
+  const startedAt = useRef(0);
+  useEffect(() => {
+    startedAt.current = Date.now();
+  }, []);
   const { speak, cancel, supported } = useSpeech(voiceOn);
 
   // Advance through segments while playing. Each segment is spoken once on
@@ -59,7 +69,7 @@ export default function MeditationPlayer({
   }
 
   return (
-    <main className="mx-auto flex min-h-[80vh] max-w-md flex-col items-center justify-between gap-8 px-6 py-12 text-center">
+    <main id={MAIN_ID} className="mx-auto flex min-h-[80vh] max-w-md flex-col items-center justify-between gap-8 px-6 py-12 text-center">
       <div className="w-full">
         <div className="h-1.5 w-full overflow-hidden rounded-full bg-moss">
           <div className="h-full rounded-full bg-sage-deep transition-all duration-500" style={{ width: `${progress}%` }} />

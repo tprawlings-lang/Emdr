@@ -127,6 +127,65 @@ body {
   line-height: 1.6;
 }
 
+/* The member support dock, and §1.6's one hard geometric rule:
+   "No fixed element may obscure a focused control at 320 CSS pixels."
+
+   TWO ELEMENTS ARE FIXED TO THE BOTTOM OF A MEMBER SCREEN and they were fitted
+   at different times. The dock is a full-width bar of support routes; the SOS
+   panic button is a 56px circle in the corner that predates it. Stacked with no
+   coordination, the circle sat squarely on top of the dock's third entry at
+   320px — visible in a screenshot, invisible to a type-checker.
+
+   AND THE SPACER CANNOT LIVE IN THE DOCK COMPONENT. It did, and it protected
+   only the page: the root layout renders the site footer AFTER the page, so
+   the last thing on a member screen — the 988 notice and the policy links —
+   still went under the bar. The reserve has to be on the body, which is where
+   the document actually ends.
+
+   `:has()` is what makes both of these work with no prop threading and no
+   client JavaScript: the rules apply exactly on the screens where a dock is
+   mounted, and nothing has to be told about anything.
+
+   The 128px below is DOCK_RESERVE_PX in src/lib/experience/activity-shell.ts.
+   One number in two languages, so a guard asserts they agree. */
+body:has([data-support-dock]) {
+  padding-bottom: 128px;
+}
+
+body:has([data-support-dock]) [data-sos-button] {
+  bottom: calc(128px + 1rem);
+}
+
+/* §8.6: "Sticky toolbars, bottom navigation, and drawers must not obscure a
+   component receiving keyboard focus, at any zoom level or narrow width."
+
+   RESERVING SPACE AT THE END OF THE DOCUMENT IS NOT THE SAME CLAIM, and the
+   difference was measured rather than reasoned about: at 320px on /app/today,
+   tabbing through the page left four controls sitting underneath the dock —
+   two activity links and the footer's policy links. The padding above keeps the
+   document's END clear, which is a different problem from a control in the
+   middle of a long page.
+
+   WHY THE SCROLLPORT RATHER THAN THE CONTROLS. The obvious fix is
+   `scroll-margin-bottom` on everything focusable, and it is the wrong one: it
+   only takes effect when a scroll happens at all, and the browser does not
+   scroll for a control it already considers visible. An element at y=504 in a
+   640px viewport IS visible by that test, and also entirely behind a dock that
+   starts at y=512. That was measured too — with the margin rule in and this one
+   out, one activity link stayed covered, and with this rule in and the margin
+   rule out, nothing was. So the margin rule is not here.
+
+   `scroll-padding-bottom` insets the scrollport instead, so the bottom strip
+   counts as out of view both when the browser decides whether to scroll and
+   when it decides where to stop. It goes on the scrolling element — <html> in
+   standards mode — not on the body.
+
+   Same 128px as above, plus the 1rem gap the SOS button uses, so a focused
+   control never arrives flush against the dock's top edge. */
+html:has([data-support-dock]) {
+  scroll-padding-bottom: calc(128px + 1rem);
+}
+
 /* The display optical role. Same family; scale, weight, and tracking carry the
    difference. Inter needs negative tracking at large sizes or it reads loose
    and accidental — that tightening is what makes one family read as two

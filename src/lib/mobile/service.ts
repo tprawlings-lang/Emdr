@@ -11,7 +11,7 @@
 // mirrored here 1:1. Keep them in lockstep when either changes.
 
 import { data } from "../data";
-import { makeSessionToken, type SessionUser } from "../auth";
+import { makeSessionToken, getUserFromToken, type SessionUser } from "../auth";
 import { newId, verifyPassword } from "../db";
 import {
   checkModuleAccess,
@@ -39,6 +39,7 @@ import { getSavedCalmPlace } from "../session-focus";
 import { shadowDecide } from "../safety/decide";
 import { generateProgramPlan } from "../program-plan";
 import { encryptField } from "../crypto";
+import { createAlert, raiseCheckinSafetyAlert } from "../clinical/alert-create";
 
 // ---------- shared shapes (the mobile API contract) ----------
 
@@ -83,24 +84,6 @@ export interface GatingSnapshot {
   calmPlace: string | null;            // saved calm-place word, so the phone can restore it
 }
 
-// ---------- alerts (mirrors the private createAlert in lib/actions.ts) ----------
-
-async function createAlert(args: {
-  userId: string;
-  type: string;
-  severity: "urgent" | "high" | "moderate" | "info";
-  detail: string;
-}) {
-  const c = await data();
-  await c.run("INSERT INTO alerts (id, user_id, alert_type, severity, detail) VALUES (?, ?, ?, ?, ?)", [
-    newId(),
-    args.userId,
-    args.type,
-    args.severity,
-    args.detail,
-  ]);
-}
-
 // ---------- auth ----------
 
 export async function loginMobile(
@@ -120,7 +103,13 @@ export async function loginMobile(
   }
   await audit({ actorId: row.id, actorRole: row.role, family: "identity", type: "login_success", detail: { via: "mobile" } });
   const token = await makeSessionToken(row.id);
-  return { token, user: { id: row.id, email: row.email, name: row.name, role: row.role } };
+  // Resolved FROM the token rather than assembled beside it. The two used to
+  // be built separately, so a session could describe a user the token would
+  // not actually authenticate as — a discrepancy nothing would have surfaced
+  // until it mattered.
+  const user = await getUserFromToken(token);
+  if (!user) return null;
+  return { token, user };
 }
 
 // ---------- gating snapshot + module access ----------
@@ -247,12 +236,7 @@ export async function submitCheckinMobile(
   });
 
   if (action === "crisis") {
-    await createAlert({
-      userId, type: "checkin_safety_positive", severity: "urgent",
-      detail: values.harm_urge
-        ? "Member reported urge to harm self or others on daily check-in (mobile)."
-        : "Member reported not feeling safe where they are (mobile).",
-    });
+    await raiseCheckinSafetyAlert({ userId, harmUrge: values.harm_urge, via: "mobile" });
   }
   return { action, date };
 }

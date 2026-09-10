@@ -12,6 +12,20 @@ import crypto from "crypto";
 
 const PREFIX = "enc1:";
 
+/**
+ * Whether a stored value is one of ours.
+ *
+ * EXPORTED so nothing has to guess the prefix. The demo baseline had its own
+ * copy of this test, looking for `enc:` — a format this file has never
+ * produced — so every encrypted value was hashed BY CONTENT into a baseline
+ * that is supposed to be reproducible. It went unnoticed only because no
+ * seeded table held an encrypted column until one did, and then two resets
+ * disagreed for a reason that had nothing to do with the data.
+ */
+export function isEncrypted(value: string): boolean {
+  return value.startsWith(PREFIX);
+}
+
 let cachedKey: Buffer | null | undefined;
 
 function key(): Buffer | null {

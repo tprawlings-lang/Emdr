@@ -18,12 +18,16 @@
 // turns ADR 0011's step 5 from a data migration into a rename.
 
 import { data } from "./data";
+import type { Role as LoginRole } from "./roles";
 import { ulid } from "./ids";
 import { PLATFORM_TENANT_ID } from "./db";
 
 export { PLATFORM_TENANT_ID };
 
-export type Role = "member" | "clinician" | "care_manager" | "admin";
+// The spine's role vocabulary: the six login roles (src/lib/roles.ts) plus
+// `care_manager`, which is a care-relationship role rather than an account
+// role — nobody signs in as one.
+export type Role = LoginRole | "care_manager";
 
 export interface Person {
   id: string;
@@ -93,13 +97,23 @@ export async function createPerson(args: {
   timezone?: string | null;
   locale?: string | null;
   id?: string;
+  /** Fabricated or real. NOT optional and with no default: the distinction is
+   *  generated-by-the-system versus originated-by-a-person, and a caller that
+   *  has not decided which it is creating has not finished thinking. */
+  provenance: "fabricated" | "real";
 }): Promise<string> {
   const id = args.id ?? ulid();
   const c = await data();
   await c.run(
-    `INSERT INTO persons (id, tenant_id, display_name, timezone, locale)
-     VALUES (?, ?, ?, ?, ?)`,
-    [id, args.tenantId, args.displayName ?? null, args.timezone ?? null, args.locale ?? null]
+    `INSERT INTO persons (id, tenant_id, display_name, timezone, locale, provenance)
+     VALUES (?, ?, ?, ?, ?, ?)`,
+    [
+      id, args.tenantId, args.displayName ?? null, args.timezone ?? null, args.locale ?? null,
+      // REQUIRED, with no default. A caller that has not decided whether it is
+      // creating a fabricated person or a real one has not finished thinking,
+      // and the database refuses the row rather than guessing.
+      args.provenance,
+    ]
   );
   return id;
 }

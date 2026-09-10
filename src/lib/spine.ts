@@ -16,9 +16,11 @@
 // failure must never break a working product path.
 
 import { appendEventSafe, type Provenance } from "./events";
+import type { Role } from "./roles";
 import { data } from "./data";
 import { ulid } from "./ids";
 import { PLATFORM_TENANT_ID, newId } from "./db";
+import { CHECKIN_ROUTING_VERSION } from "./gating";
 
 // ---------- Identity dual-write ----------
 
@@ -36,7 +38,7 @@ export async function provisionPerson(args: {
   userId: string;
   name: string;
   email: string;
-  role: "member" | "clinician" | "admin";
+  role: Role;
   passwordHash?: string | null;
   tenantId?: string;
 }): Promise<void> {
@@ -44,7 +46,12 @@ export async function provisionPerson(args: {
   try {
     const c = await data();
     await c.run(
-      `INSERT INTO persons (id, tenant_id, display_name) VALUES (?, ?, ?)
+      // REAL. This is the signup path: a human filled in a form. The
+      // distinction the provenance column draws is generated-by-the-system
+      // versus originated-by-a-person, not demo versus production — somebody
+      // exploring a demonstration is still a person, and their data must never
+      // be poolable with a synthetic agent's.
+      `INSERT INTO persons (id, tenant_id, display_name, provenance) VALUES (?, ?, ?, 'real')
        ON CONFLICT(id) DO NOTHING`,
       [args.userId, tenantId, args.name]
     );
@@ -145,7 +152,7 @@ export async function recordCheckin(args: {
       via: args.via ?? "web",
     },
     actorType: "patient",
-    provenance: { ruleVersion: "checkin-routing-v1" },
+    provenance: { ruleVersion: CHECKIN_ROUTING_VERSION },
   });
 }
 

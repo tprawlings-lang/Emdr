@@ -1,0 +1,361 @@
+import Link from "next/link";
+import { ReviewPage } from "@/components/clinical/ReviewPage";
+import { Panel, Callout, RecordRows } from "@/components/app/surfaces";
+import { requireReviewAccess } from "@/lib/auth";
+import { planningWindows } from "@/lib/planning/service";
+import { populationTenantIds } from "@/lib/planning/scope";
+import { loadObservations } from "@/lib/metrics/population-metrics";
+import {
+  readComparison, notRecordedCount, COMPARABLE_ATTRIBUTES, ATTRIBUTE_LABEL,
+  type ComparableAttribute,
+} from "@/lib/governance/fairness-read";
+import {
+  AUDIT_DECISIONS, DECISION_LABEL, DECISION_MEANING, WITHHELD_EXPLANATION,
+  EXPLORATORY_LABEL, accountsForEveryGroup, stopsOutput, ordersByMeasurement,
+  type AuditDecision,
+} from "@/lib/governance/fairness-audit";
+
+export const dynamic = "force-dynamic";
+export const metadata = { title: "Fairness audit — Steady Review" };
+
+// The fairness audit screen (handoff 07 §4.4 p43, Wave 7).
+//
+// §4.4 lists nine panels and then constrains all of them at once: "The screen
+// must make it easier to discover uneven access or harm, not easier to
+// stereotype a group. Do not rank races, assign grades to demographic groups or
+// use red and green labels on protected identities."
+//
+// EVERY DASHBOARD REFLEX BREAKS THAT SENTENCE. Sorting worst-first, colouring
+// the low number red, badging each row — all of them are how you would make any
+// other comparison readable, and all of them, applied to protected groups, are
+// the thing the sentence forbids. So the rules live in
+// src/lib/governance/fairness-audit.ts as values a test can hold, and this page
+// is written against them rather than against habit:
+//
+//   • Rows arrive in a DECLARED order that has nothing to do with the numbers,
+//     so position cannot be read as rank. There is no comparator to change.
+//   • Group rows carry ONE tone. Colour belongs to the audit's decision, which
+//     is a statement about the output; a group is not a status.
+//   • The reference is the eligible population, named, so a difference is a
+//     difference FROM something rather than a group being high or low.
+//
+// AND THE SCREEN SAYS WHAT IT DID NOT SHOW. A comparison that renders four
+// groups and drops the fifth because it was small tells a reader the population
+// has four groups.
+
+function pct(v: number | null): string {
+  return v === null ? "—" : `${(v * 100).toFixed(0)}%`;
+}
+
+export default async function FairnessAuditPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ attribute?: string }>;
+}) {
+  await requireReviewAccess();
+  const { attribute: requested } = await searchParams;
+
+  const attribute: ComparableAttribute =
+    COMPARABLE_ATTRIBUTES.includes(requested as ComparableAttribute)
+      ? (requested as ComparableAttribute)
+      : "language";
+
+  const wins = await planningWindows();
+  const window = wins[wins.length - 1];
+  // THE POPULATION, NOT THE SIGNAL STORE. `PLANNING_TENANT_ID` is where a
+  // signal is FILED; the people live in the eight demo organization tenants,
+  // and reading the platform tenant returns an empty population that this
+  // screen would then report, accurately and uselessly, as "no group met the
+  // conditions". Measured: 0 observations before this line was corrected.
+  const tenantIds = populationTenantIds();
+
+  const { comparison, expectedGroups } = await readComparison({
+    tenantIds,
+    attribute,
+    window,
+    runId: "fairness-audit",
+  });
+  const rows = await loadObservations(tenantIds, window);
+  const notRecorded = notRecordedCount(rows, attribute);
+  const accounted = accountsForEveryGroup(comparison, expectedGroups);
+
+  // No decision has been recorded against this comparison. That is a state, not
+  // a blank: §4.4 requires the decision panel, and "nobody has decided" is what
+  // it currently says.
+  const decision: AuditDecision | null = null;
+
+  return (
+    <ReviewPage
+      layer="evidence"
+      here="/review/fairness"
+      title="Fairness audit"
+      lede="Whether access is even across groups, and what was not shown."
+    >
+      {/* Callout renders its children inside its own <p>, so the text goes in
+          as text. Nesting a paragraph here produced invalid HTML and a
+          hydration error — caught by looking at the dev overlay rather than by
+          the type-checker, which has no opinion about which elements may
+          contain which. */}
+      <Callout tone="info" label="What this screen is for, and what it must not become">
+        It exists to make uneven access or harm easier to discover, and it is built so that it
+        cannot be read as a ranking of groups: rows are in a fixed order that has nothing to do
+        with the numbers, no group carries a colour or a grade, and every difference is stated
+        against the eligible population rather than against another group. Protected attributes
+        are used here to audit access and verify representation — never to restrict or select
+        anyone&rsquo;s care, and no correction factor is applied to any of them.
+      </Callout>
+
+      {/* Which comparison. A control rather than a list of screens, because
+          each attribute is the same audit asked of a different column. */}
+      <nav aria-label="Attribute" className="mt-6 flex flex-wrap gap-2">
+        {COMPARABLE_ATTRIBUTES.map((a) => (
+          <Link
+            key={a}
+            href={`/review/fairness?attribute=${a}`}
+            aria-current={a === attribute ? "page" : undefined}
+            className={`rounded-full border px-4 py-2 text-sm ${
+              a === attribute
+                ? "border-ground bg-ground text-ivory"
+                : "border-ground/20 text-ground hover:bg-linen"
+            }`}
+          >
+            {ATTRIBUTE_LABEL[a]}
+          </Link>
+        ))}
+      </nav>
+
+      {/* §4.4 panel 1 — Question */}
+      <Panel
+        title="Question"
+        footnote="The exact metric and the reason for comparing groups. A comparison with no stated reason is a fishing expedition with a version number."
+      >
+        <p className="measure text-sm text-ground">{comparison.question}</p>
+        <div className="mt-3">
+          <RecordRows
+            rows={[
+              { label: "Metric", value: "Follow-up completion" },
+              { label: "Compared across", value: ATTRIBUTE_LABEL[attribute] },
+              { label: "Reference", value: `The eligible population (${comparison.cohortId})` },
+              { label: "Cohort version", value: comparison.cohortVersion },
+              { label: "Window", value: `${comparison.window.start} to ${comparison.window.end}` },
+            ]}
+          />
+        </div>
+        <p className="measure mt-3 text-xs text-olive">{EXPLORATORY_LABEL}</p>
+      </Panel>
+
+      {/* §4.4 panel 2 — Representation */}
+      <Panel
+        title="Representation"
+        // The rule is handoff 07 §3.7: show unknown, declined and missing
+        // separately, and do not redistribute them. The reference stays here;
+        // the footnote says the thing in the reader's words, because
+        // tests/clinician-screens.test.ts holds every surface to that.
+        footnote="Eligible, included, and not recorded — counted separately. A missing attribute is never folded into the groups that were recorded, because that turns a recording gap into a finding about people."
+      >
+        <RecordRows
+          rows={[
+            { label: "Observations in window", value: String(rows.length) },
+            { label: "Groups recorded", value: String(expectedGroups.filter((g) => g !== "Missing").length) },
+            { label: `${ATTRIBUTE_LABEL[attribute]} not recorded`, value: String(notRecorded) },
+            {
+              label: "Every recorded group accounted for",
+              value: accounted.complete
+                ? "Yes — every group is either shown below or listed as withheld"
+                : `No — ${accounted.unaccounted.join(", ")} appear in the data and in neither list`,
+            },
+          ]}
+        />
+      </Panel>
+
+      {/* §4.4 panel 3 — Performance */}
+      <Panel
+        title="Performance"
+        footnote="Point estimate with numerator and denominator. Rows are in a fixed order that does not depend on the values, so their position is not a rank."
+      >
+        {comparison.rows.length === 0 ? (
+          <p className="measure text-sm text-ground">
+            No group in this comparison met the policy conditions for being compared. Every one
+            of them is listed under withheld values below, with which control withheld it.
+          </p>
+        ) : (
+          <div className="overflow-x-auto" data-tabular-scroll>
+            <table className="w-full min-w-[32rem] text-left text-sm">
+              <caption className="sr-only">
+                Follow-up completion by {ATTRIBUTE_LABEL[attribute]}, with numerator and
+                denominator. Rows are in a fixed order that does not reflect the values.
+              </caption>
+              <thead className="border-b border-ground/15 text-xs uppercase tracking-wide text-olive">
+                <tr>
+                  <th scope="col" className="py-2 pr-4 font-medium">{ATTRIBUTE_LABEL[attribute]}</th>
+                  <th scope="col" className="py-2 pr-4 font-medium">Completed</th>
+                  <th scope="col" className="py-2 pr-4 font-medium">Due</th>
+                  <th scope="col" className="py-2 pr-4 font-medium">Rate</th>
+                  <th scope="col" className="py-2 font-medium">Interval</th>
+                </tr>
+              </thead>
+              <tbody>
+                {comparison.rows.map((r) => (
+                  <tr key={r.group} data-testid="fairness-row" className="border-b border-ground/10 last:border-b-0">
+                    {/* No tone, no badge, no colour. The group is not a status. */}
+                    <th scope="row" className="py-2.5 pr-4 font-normal text-ground">{r.group}</th>
+                    <td className="py-2.5 pr-4 font-mono text-ground">{r.numerator}</td>
+                    <td className="py-2.5 pr-4 font-mono text-ground">{r.denominator}</td>
+                    <td className="py-2.5 pr-4 font-mono text-ground">{pct(r.value)}</td>
+                    <td className="py-2.5 text-olive">
+                      {r.interval ? `${pct(r.interval.low)}–${pct(r.interval.high)}` : "None — see below"}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+        <p className="measure mt-3 text-xs text-olive">
+          No confidence intervals. This engine counts the whole recorded population rather than
+          sampling it, so an interval would describe sampling error that does not apply here.
+          Saying so is the honest answer; producing a number would not be.
+        </p>
+        {ordersByMeasurement(comparison.rows) && comparison.rows.length > 2 && (
+          <p className="measure mt-2 text-xs text-state-caution">
+            These rows happen to fall in value order. That is a coincidence of the data and the
+            declared order, not a ranking — the order is fixed and does not consult the values.
+          </p>
+        )}
+      </Panel>
+
+      {/* §4.4 panel 4 — Missingness */}
+      <Panel
+        title="Missingness"
+        footnote="Every state that is not a plain completion, kept apart. A single 'incomplete' bucket hides the difference between somebody who declined and somebody nobody asked."
+      >
+        {comparison.rows.length === 0 ? (
+          <p className="measure text-sm text-ground">Nothing to report: no group was compared.</p>
+        ) : (
+          <ul className="divide-y divide-ground/5">
+            {comparison.rows.map((r) => (
+              <li key={r.group} className="py-2.5">
+                <p className="text-sm text-ground">{r.group}</p>
+                <p className="mt-0.5 text-xs text-olive">
+                  {Object.keys(r.missing).length === 0
+                    ? "No non-completion states recorded in this window."
+                    : Object.entries(r.missing)
+                        .map(([k, v]) => `${k.replace(/_/g, " ")}: ${v}`)
+                        .join(" · ")}
+                </p>
+              </li>
+            ))}
+          </ul>
+        )}
+      </Panel>
+
+      {/* §4.4 panel 5 — Errors */}
+      <Panel
+        title="Errors"
+        footnote="False alarm, failed projection, stale data and workflow error rates by group."
+      >
+        <p className="measure text-sm text-ground">
+          Not computed by group, and this is a gap rather than a finding. The error rates this
+          panel asks for are properties of the planning engine&rsquo;s own output — signals that
+          fired and were rejected, projections that failed to rebuild — and this build has not
+          run long enough under review for any of them to have a per-group denominator worth
+          reporting. A rate over three rejections would be noise presented as an audit.
+        </p>
+        <p className="measure mt-2 text-xs text-olive">
+          Engine-wide data quality, including projection mismatch and drift, is on{" "}
+          <Link href="/review/planning" className="underline">the planning console</Link>.
+        </p>
+      </Panel>
+
+      {/* §4.4 panel 6 — Intersection */}
+      <Panel
+        title="Intersection"
+        footnote="Predeclared two-factor views, where the sample permits them."
+      >
+        <ul className="space-y-3">
+          {comparison.intersections.map((i) => (
+            <li key={i.factors.join("-")} className="rounded-2xl border border-ground/10 bg-linen px-4 py-3">
+              <p className="text-sm font-medium text-ground">
+                {ATTRIBUTE_LABEL[attribute]} by {i.factors[1]}
+              </p>
+              <p className="measure mt-1 text-sm text-olive">{i.note}</p>
+            </li>
+          ))}
+        </ul>
+      </Panel>
+
+      {/* §4.4 panel 7 — Small cells */}
+      <Panel
+        title="Values not shown, and which control withheld each one"
+        footnote="Three different controls produce three different silences. Collapsing them into one blank is how a suppressed cell and a broken query become indistinguishable."
+      >
+        {comparison.withheld.length === 0 ? (
+          <p className="measure text-sm text-ground">
+            Nothing was withheld: every recorded value met the disclosure and analysis
+            conditions.
+          </p>
+        ) : (
+          <dl className="mt-1">
+            {comparison.withheld.map((w) => (
+              <div
+                key={`${w.group}-${w.reason}`}
+                className="grid grid-cols-[1fr_auto] items-baseline gap-x-3 border-b border-ground/5 py-2.5"
+              >
+                <dt className="text-sm text-ground">{w.group}</dt>
+                <dd className="font-mono text-xs text-olive">{w.reason.replace(/_/g, " ")}</dd>
+                <dd className="measure col-span-2 mt-1 text-sm text-olive">
+                  {WITHHELD_EXPLANATION[w.reason]}
+                </dd>
+              </div>
+            ))}
+          </dl>
+        )}
+      </Panel>
+
+      {/* §4.4 panel 8 — Decision */}
+      <Panel
+        title="Decision"
+        footnote="Six states, and none of them is a pass mark. Each says what happens to the OUTPUT — block and retire are the two that stop it reaching anybody, which is this wave's exit condition."
+      >
+        <p className="measure text-sm text-ground">
+          {decision === null
+            ? "No decision has been recorded against this comparison. That is a state, not an omission: nobody has reviewed it, and until somebody does, the comparison stands as evidence rather than as a finding."
+            : DECISION_LABEL[decision]}
+        </p>
+        <dl className="mt-3">
+          {AUDIT_DECISIONS.map((d) => (
+            <div
+              key={d}
+              className="grid grid-cols-[1fr_auto] items-baseline gap-x-3 border-b border-ground/5 py-2"
+            >
+              <dt className="text-sm text-ground">{DECISION_LABEL[d]}</dt>
+              <dd className="text-xs text-olive">{stopsOutput(d) ? "stops the output" : "output continues"}</dd>
+              <dd className="measure col-span-2 text-xs text-olive">{DECISION_MEANING[d]}</dd>
+            </div>
+          ))}
+        </dl>
+      </Panel>
+
+      {/* §4.4 panel 9 — Review trail */}
+      <Panel
+        title="Review trail"
+        footnote="Owner, clinical reviewer, fairness reviewer, comments and date. A decision with no reviewer is an opinion with a timestamp."
+      >
+        <RecordRows
+          rows={[
+            { label: "Owner", value: "Planning governance (fabricated environment)" },
+            { label: "Clinical reviewer", value: "Not recorded" },
+            { label: "Fairness reviewer", value: "Not recorded" },
+            { label: "Comments", value: "None" },
+            { label: "Decided", value: "Not decided" },
+          ]}
+        />
+        <p className="measure mt-3 text-xs text-olive">
+          Recording a decision here is a governance action against a fabricated environment and
+          is not offered until there is a real audit to decide about. A block or a retire
+          recorded against invented data would be a governance record of nothing.
+        </p>
+      </Panel>
+    </ReviewPage>
+  );
+}

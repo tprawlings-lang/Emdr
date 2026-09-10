@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Wordmark } from "@/components/Brand";
+import { MAIN_ID } from "@/lib/experience/quality";
 
 // The shared access states (§26, "Shared access states — 8 screens").
 //
@@ -43,7 +44,7 @@ export function AccessPage({
   secondary?: { href: string; label: string };
 }) {
   return (
-    <main className="mx-auto flex min-h-[60vh] max-w-lg flex-col justify-center px-6 py-16">
+    <main id={MAIN_ID} className="mx-auto flex min-h-[60vh] max-w-lg flex-col justify-center px-6 py-16">
       <Wordmark className="text-3xl" />
 
       <h1 className="type-identity mt-8 text-3xl font-medium text-ground">{title}</h1>

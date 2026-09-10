@@ -1,6 +1,5 @@
-import Link from "next/link";
 import { ReviewPage } from "@/components/clinical/ReviewPage";
-import { requireClinician } from "@/lib/auth";
+import { requireReviewAccess } from "@/lib/auth";
 import {
   PART6_GATES, GATE_STATE_LABEL, rolloutStages, runningConfig, oversightStatus,
   HARD_STOPS, PRE_REGISTERED, REAL_USE_NOTE, type GateState,
@@ -40,7 +39,11 @@ function Flag({ on, label, onText, offText }: {
 }
 
 export default async function BlsOversightPage() {
-  await requireClinician();
+  // THE REVIEW CONSOLE'S OWN GUARD. This called `requireClinician` while its
+  // layout calls `requireReviewAccess`, so a reviewer was bounced out of a
+  // read-only oversight screen listed in their own navigation. There is no
+  // form on this page and no authority to lose.
+  await requireReviewAccess();
 
   const cfg = runningConfig();
   const status = oversightStatus();

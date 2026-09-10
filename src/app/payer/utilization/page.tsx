@@ -1,7 +1,7 @@
 import { PayerPage } from "@/components/app/PayerPage";
 import { EnvelopeView } from "@/components/presentation/EnvelopeView";
 import { Note, Panel, WithNote } from "@/components/app/surfaces";
-import { Figure, Line, num } from "@/components/charts/aggregate";
+import { Figure, Line, people } from "@/components/charts/aggregate";
 import { buildPayerUtilization } from "@/lib/intelligence/payer";
 import { resolvePayerTenant } from "@/lib/intelligence/scope";
 
@@ -50,7 +50,7 @@ export default async function PayerUtilizationPage() {
                   boundary="Observed events, not a savings claim. Nothing here says the programme caused a change, and no month with incomplete claims contributes a value."
                 >
                   <p>
-                    Rates are per 1,000 of {num(u.eligible)} eligible members.{" "}
+                    Rates are per 1,000 of {people(u.eligible)} eligible members.{" "}
                     {u.incompleteMonths.length > 0
                       ? `${u.incompleteMonths.length} recent month(s) are withheld: their claims have not arrived, and a partial month drawn as a value falls.`
                       : "Every month in the window has enough claims received to report."}
@@ -61,7 +61,7 @@ export default async function PayerUtilizationPage() {
               <Panel>
                 <Figure
                   title="Acute behavioural utilisation"
-                  summary={`ED visits and inpatient admissions per 1,000 of ${num(u.eligible)} eligible members, by month of service.`}
+                  summary={`ED visits and inpatient admissions per 1,000 of ${people(u.eligible)} eligible members, by month of service.`}
                   footnote={`Per 1,000 eligible members, by month INCURRED, not received. Contract expects a ${u.expectedLagDays}-day claims lag. Months below 85% of claims received report no value and the line breaks.`}
                 >
                   <Line

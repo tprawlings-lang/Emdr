@@ -1,29 +1,32 @@
 import { MemberPage } from "@/components/member/MemberPage";
+import { memberShellEnabled } from "@/lib/experience/flags";
+import { experienceContextFor } from "@/lib/experience/context";
+import { navigationFor } from "@/lib/experience/navigation";
+import { readMemberDay } from "@/lib/member/day-read";
+import { MemberShell } from "@/components/experience/MemberShell";
+import { MemberTodayView } from "@/components/experience/MemberTodayView";
+import { ResumePrompt } from "@/components/experience/ResumePrompt";
 import { buildMemberToday } from "@/lib/member/today";
+import { noteSignal, noteSurfaceViewed } from "@/lib/telemetry/store";
 import { TodayDecision } from "@/components/member/TodayDecision";
 import { EnvelopeView } from "@/components/presentation/EnvelopeView";
 import Link from "next/link";
-import { redirect } from "next/navigation";
 import { requireMember } from "@/lib/auth";
 import { memberHistory } from "@/lib/member/history";
 import { HistoryStrip } from "@/components/member/HistoryStrip";
-import { subscriptionActive } from "@/lib/billing";
 import { data } from "@/lib/data";
 import { MODULES } from "@/lib/modules";
 import {
   checkModuleAccess,
   getTodayCheckin,
   getUnlock,
-  hasConsent,
   resourcingBlsAvailable,
-  screeningComplete,
-} from "@/lib/gating";
+  } from "@/lib/gating";
 import { getFitnessState } from "@/lib/fitness-screener";
 import {
   getActiveTriggers,
   getSafetyPlan,
-  profileComplete,
-} from "@/lib/profile";
+  } from "@/lib/profile";
 
 function actionLabel(action: string): { label: string; tone: string } {
   switch (action) {
@@ -49,10 +52,57 @@ export default async function DashboardPage({
 }: { searchParams: Promise<{ from?: string }> }) {
   const { from } = await searchParams;
   const user = await requireMember();
-  if (!(await subscriptionActive(user.id))) redirect("/subscribe");
-  if (!(await hasConsent(user.id))) redirect("/app/onboarding");
-  if (!(await screeningComplete(user.id))) redirect("/app/screening");
-  if (!(await profileComplete(user.id))) redirect("/app/onboarding/profile");
+
+  // Package 3's member shell (handoff 09 §4.1, §4.2, §4.4).
+  //
+  // A WHOLE-PAGE BRANCH, taken before anything below is read — the same shape
+  // Package 2 used on the clinician side and for the same reason. §10.1: "Keep
+  // new work behind role-level flags and prove the current experience is
+  // unchanged with each flag off." With the flag off, not one line below this
+  // runs differently, so "unchanged" is a property of the control flow rather
+  // than a claim about a diff.
+  //
+  // AND IT REPLACES THE CATALOG RATHER THAN SITTING ABOVE IT. §3.4's finding
+  // was that the old Today "makes the member decide what matters now. On a hard
+  // day, that choice load is exactly what the system should reduce." Rendering
+  // §4.1's hierarchy above the module grid would have left the choice load
+  // exactly where it was and added a card to it.
+  if (memberShellEnabled()) {
+    const tenant = (await (await data()).get(
+      "SELECT tenant_id FROM users WHERE id = ?",
+      [user.id]
+    )) as { tenant_id: string } | undefined;
+    const experience = experienceContextFor({ ...user, tenantId: tenant?.tenant_id ?? "" });
+    const { view, resume } = await readMemberDay({ userId: user.id });
+
+    // §31.7: the screen was reached, and in which LOAD state.
+    //
+    // Two values, and deliberately not the day's own state. `readMemberDay`
+    // returns one of seven states, and five of them — narrow, stabilizing,
+    // paused, crisis, interrupted — are clinical facts about the person in
+    // front of the screen. A telemetry row carries no person, so recording one
+    // would not identify anybody; it would still be a member's safety state in
+    // an operational table, and §31.7 asks this field for the LOAD, which is
+    // whether the day assembled at all.
+    noteSignal("decision_surface_viewed", {
+      surface: "member_day",
+      loadState: view.state === "service_unavailable" ? "service_unavailable" : "ready",
+    }, { tenantId: tenant?.tenant_id, actorRole: user.role });
+
+    return (
+      <MemberShell
+        navigation={navigationFor(experience)}
+        pathname="/app/today"
+        title={`Hello, ${user.name}`}
+        lede="You are here today. That is enough."
+      >
+        {/* §4.4: offered only after the server was asked, and above the day
+            because somebody who left something unfinished came back for it. */}
+        <ResumePrompt offer={resume} />
+        <MemberTodayView day={view} />
+      </MemberShell>
+    );
+  }
 
   const c = await data();
   const checkin = await getTodayCheckin(user.id);
@@ -82,6 +132,11 @@ export default async function DashboardPage({
     userId: user.id,
     tenantId: tenantRow?.tenant_id ?? "",
   });
+  // §31.7: the screen was reached, and in which load state.
+  noteSurfaceViewed("member_today", todayEnvelope, {
+    tenantId: tenantRow?.tenant_id, actorRole: user.role,
+  });
+
   const history = await memberHistory(user.id, { days: 14 });
 
   // Precompute module access (checkModuleAccess is async now) so the JSX map

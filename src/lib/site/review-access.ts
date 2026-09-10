@@ -49,14 +49,14 @@ export interface PathConfig {
 }
 
 const MEMBER: PersonaOption = {
-  email: "demo@example.com",
+  email: "patient.demo@steady.local",
   label: "Alex Rivera (fabricated member)",
   role: "member",
   description: "Three weeks into the program, improving. Shows the member experience end to end.",
 };
 
 const CLINICIAN: PersonaOption = {
-  email: "clinician@example.com",
+  email: "clinician.demo@steady.local",
   label: "Dr. Maya Chen (fabricated clinician)",
   role: "clinician",
   description: "Sees the caseload, timelines, alerts, cited summaries, and review actions.",

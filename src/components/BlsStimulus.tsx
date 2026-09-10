@@ -1,5 +1,6 @@
 "use client";
-import { useEffect, useRef } from "react";
+import { useEffect } from "react";
+import { useLatest } from "./useLatest";
 import { getAudioContext } from "./media-unlock";
 
 // Bilateral-stimulation generator — auditory (alternating left/right panned tones)
@@ -18,11 +19,12 @@ export default function BlsStimulus({
   onComplete: () => void;
   onFailure: (reason: string) => void;
 }) {
-  // Keep latest callbacks without re-running the set when their identity changes.
-  const completeRef = useRef(onComplete);
-  const failRef = useRef(onFailure);
-  completeRef.current = onComplete;
-  failRef.current = onFailure;
+  // Keep latest callbacks without re-running the set when their identity
+  // changes. Written in a layout effect rather than during render: a discarded
+  // render must not leave a stale handler for a stimulation set to complete
+  // into. See useLatest.
+  const completeRef = useLatest(onComplete);
+  const failRef = useLatest(onFailure);
 
   useEffect(() => {
     let interval: ReturnType<typeof setInterval> | null = null;
@@ -103,7 +105,7 @@ export default function BlsStimulus({
     start();
 
     return cleanup;
-  }, [hz, passes]);
+  }, [hz, passes, completeRef, failRef]);
 
   // Audio/haptic only — nothing visual (no flashing motion).
   return null;

@@ -1,8 +1,9 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { landingFor, isRole, type Role } from "./roles";
 import { revalidatePath } from "next/cache";
-import { hashPassword, newId, verifyPassword } from "./db";
+import { hashPassword, newId, verifyPassword, tenantForUser } from "./db";
 import { data } from "./data";
 import { checkAgeEligibility } from "./age-gate";
 import { safetyRefundAndCancel, setCancelAtPeriodEnd, startDemoSubscription, subscriptionActive } from "./billing";
@@ -22,6 +23,7 @@ import { getModule } from "./modules";
 import { checkModuleAccess, evaluateCheckin, todayISO, liveAvailableFor } from "./gating";
 import { shadowDecide, decideAccess } from "./safety/decide";
 import { currentConsentVersion, currentTermsVersion } from "./policy";
+import { createAlert, raiseRiskItemAlert, raiseCheckinSafetyAlert } from "./clinical/alert-create";
 import {
   ReadinessAnswers,
   computeReadiness,
@@ -43,7 +45,7 @@ import { selectTechniques } from "./therapy-kb";
 import { validateCompanionOutput, SAFE_FALLBACK } from "./safety/companion-guard";
 import {
   composeSessionResponse,
-  buildSessionRephrasePrompt,
+  rephraseSessionLine,
   type SessionResponse,
 } from "./session-companion";
 import { generateProgramPlan } from "./program-plan";
@@ -54,27 +56,22 @@ import { rateLimit } from "./rate-limit";
 const COMPANION_MSG_LIMIT = Number(process.env.EMDR_COMPANION_RATE_LIMIT ?? 20);
 const COMPANION_WINDOW_MS = 60_000;
 
-async function createAlert(args: {
-  userId: string;
-  type: string;
-  severity: "urgent" | "high" | "moderate" | "info";
-  detail: string;
-}) {
-  const c = await data();
-  await c.run("INSERT INTO alerts (id, user_id, alert_type, severity, detail) VALUES (?, ?, ?, ?, ?)", [
-    newId(),
-    args.userId,
-    args.type,
-    args.severity,
-    args.detail,
-  ]);
-}
-
 // ---------- Identity ----------
 
 export async function login(formData: FormData) {
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
   const password = String(formData.get("password") ?? "");
+  // The demo role dropdown (handoff 07 §1.1, p5). Optional: the field does not
+  // exist outside the demo environment, and a sign-in without it is an
+  // ordinary sign-in.
+  //
+  // What it is NOT is an authorization input. p4 states the rule and p7
+  // repeats it: the client may DISPLAY the selected role and must never
+  // calculate authorization from the dropdown, the URL, a hidden field or
+  // local storage. So the value below is only ever compared against the role
+  // already stored on the account — it can narrow a sign-in to a failure, and
+  // it can never widen one to a success.
+  const selectedRole = String(formData.get("role") ?? "").trim();
   const c = await data();
 
   // Lockout (compliance 1.5): 10 failed attempts in 15 minutes locks the
@@ -96,21 +93,38 @@ export async function login(formData: FormData) {
     [email]
   )) as { id: string; role: string; password_hash: string } | undefined;
 
-  if (!user || !verifyPassword(password, user.password_hash)) {
-    await audit({ family: "identity", type: "login_failed", target: email });
+  // Three ways to fail, one answer. p8's first required negative test is that
+  // "clinician credentials plus Admin selection returns the same generic login
+  // failure as any other invalid pairing" — so a role mismatch is folded in
+  // here with the unknown account and the wrong password rather than answered
+  // separately. A distinct message would turn the dropdown into an oracle for
+  // which role an address holds.
+  const roleMismatch =
+    selectedRole !== "" && isRole(selectedRole) && user?.role !== selectedRole;
+  // A selection that is not a role at all is also a failure. It cannot come
+  // from the dropdown, so it came from a crafted request.
+  const roleUnknown = selectedRole !== "" && !isRole(selectedRole);
+
+  if (!user || !verifyPassword(password, user.password_hash) || roleMismatch || roleUnknown) {
+    await audit({
+      family: "identity",
+      type: "login_failed",
+      target: email,
+      // The AUDIT may say which it was — it is the record, not the response,
+      // and a reviewer replaying a failed sign-in needs to tell a typo from an
+      // attempt to enter through the wrong door.
+      detail: { reason: !user ? "no_account" : roleMismatch || roleUnknown ? "role_mismatch" : "bad_password" },
+    });
     redirect("/login?error=1");
   }
   await setSessionCookie(user.id);
   await audit({ actorId: user.id, actorRole: user.role, family: "identity", type: "login_success" });
-  // Three roles, three homes. An admin is a Steady Intelligence account and
-  // lands on the organization's operating picture — sending it to /clinician
-  // would put an aggregate role on a person-level surface, which is the
-  // boundary §30.6 exists to hold.
-  redirect(
-    user.role === "member" ? "/app/today"
-      : user.role === "admin" ? "/organization/overview"
-      : "/clinician",
-  );
+  // Six roles, six homes (handoff 07 p6: "reach its correct landing page in
+  // two actions"). The table lives in src/lib/roles.ts beside the labels the
+  // login dropdown renders, so a role cannot be added to one and forgotten in
+  // the other — which is how an aggregate account would end up on a
+  // person-level surface, the boundary §30.6 exists to hold.
+  redirect(landingFor(user.role as Role));
 }
 
 export async function logout() {
@@ -403,11 +417,8 @@ export async function submitScreening(formData: FormData) {
   // Risk items (e.g., PHQ-9 item 9) never get an autonomous assessment —
   // they route to the crisis screen and queue same-day specialist review.
   if (riskFlags.length > 0) {
-    await createAlert({
-      userId: user.id,
-      type: "screening_risk_item",
-      severity: "urgent",
-      detail: `${instrument.id}: ${riskFlags.join(", ")} (total ${total})`,
+    await raiseRiskItemAlert({
+      userId: user.id, instrumentId: instrument.id, riskFlags, total,
     });
     redirect("/crisis?from=screening");
   }
@@ -918,14 +929,7 @@ export async function submitCheckin(formData: FormData) {
   });
 
   if (action === "crisis") {
-    await createAlert({
-      userId: user.id,
-      type: "checkin_safety_positive",
-      severity: "urgent",
-      detail: values.harm_urge
-        ? "Member reported urge to harm self or others on daily check-in."
-        : "Member reported not feeling safe where they are.",
-    });
+    await raiseCheckinSafetyAlert({ userId: user.id, harmUrge: values.harm_urge });
     redirect("/crisis?from=checkin");
   }
   // §20.2: "The check-in result changes the next action without requiring
@@ -1495,7 +1499,14 @@ export async function speakInSession(args: {
   name: string | null;
 }): Promise<{ ok: boolean; error?: string; response?: SessionResponse }> {
   const user = await requireMember();
-  if (!liveAvailableFor(user.id)) return { ok: false, error: "Live sessions are not enabled." };
+  // AWAITED. This read `if (!liveAvailableFor(user.id))` — and that function is
+  // async, so the expression was `!Promise`, which is always false. The guard
+  // had never once fired: outside a demo environment a live spoken session
+  // could be driven without the voice consent `decideVoiceAvailability`
+  // requires, and without the feature flag being on.
+  if (!(await liveAvailableFor(user.id))) {
+    return { ok: false, error: "Live sessions are not enabled." };
+  }
 
   const c = await data();
   const owned = await c.get("SELECT id FROM therapy_sessions WHERE id = ? AND user_id = ?", [args.sessionId, user.id]);
@@ -1536,34 +1547,16 @@ export async function speakInSession(args: {
     name: args.name,
   });
 
-  let response = base;
-
   // Optional AI phrasing — ONLY reword an already-safe line the responder marked
-  // aiEligible (attunement + cleared techniques; never crisis/grounding), and
-  // only when the model is available. Guarded; falls back to the deterministic
-  // text on any violation or error.
-  if (base.aiEligible && aiCompanionEnabled()) {
-    try {
-      const Anthropic = (await import("@anthropic-ai/sdk")).default;
-      const client = new Anthropic({ maxRetries: 2 });
-      const msg = await client.messages.create({
-        model: "claude-haiku-4-5-20251001",
-        max_tokens: 160,
-        system: buildSessionRephrasePrompt(base, args.calmPlace),
-        messages: [{ role: "user", content: transcript }],
-      });
-      const text = msg.content
-        .filter((b) => b.type === "text")
-        .map((b) => ("text" in b ? b.text : ""))
-        .join(" ")
-        .trim();
-      if (text && validateCompanionOutput(text).ok) {
-        response = { ...base, text, source: "ai" };
-      }
-    } catch {
-      /* keep the deterministic line */
-    }
-  }
+  // aiEligible (attunement + cleared techniques; never crisis/grounding).
+  // Guarded, and falls back to the deterministic text on any violation, model
+  // failure or absent provider. Shared with the mobile path: this call and its
+  // mobile twin were identical, and keeping two copies of a safety behaviour is
+  // how the two products end up differing without anyone deciding they should.
+  let response = await rephraseSessionLine({
+    base, transcript, calmPlace: args.calmPlace,
+    userId: user.id, tenantId: tenantForUser(user.id),
+  });
 
   // Belt-and-braces: never emit an unguarded line.
   if (!validateCompanionOutput(response.text).ok) {
@@ -1628,7 +1621,6 @@ export async function grantProcessingConsent(): Promise<void> {
 
 export async function revokeProcessingConsent(): Promise<void> {
   const user = await requireMember();
-  const c = await data();
   await spineWithdrawConsent({ userId: user.id, scope: "processing_session" });
   await audit({ actorId: user.id, actorRole: "member", family: "consent", type: "processing_consent_revoked", detail: { scope: "processing_session" } });
   revalidatePath("/app/settings/sessions");
@@ -1704,7 +1696,6 @@ export async function recordResourcingEvent(event: "start" | "stop" | "closed"):
 // active voice consents are revoked; the mic path stops being offered at once.
 export async function withdrawVoiceConsent(): Promise<void> {
   const user = await requireMember();
-  const c = await data();
   await spineWithdrawConsent({ userId: user.id, scope: "voice_biometric" });
   await audit({
     actorId: user.id,

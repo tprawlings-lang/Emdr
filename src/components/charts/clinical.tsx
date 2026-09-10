@@ -20,6 +20,273 @@
 import type { ReactNode } from "react";
 
 // ---------------------------------------------------------------------------
+// Aligned small multiples — measures over time (p76)
+// ---------------------------------------------------------------------------
+
+export interface MeasurePoint {
+  /** YYYY-MM-DD. The position on the axis comes from this, not from where the
+   *  reading happens to sit in the list. */
+  date: string;
+  value: number;
+}
+
+export interface MeasureSeries {
+  label: string;
+  /** What the number is in — printed, because every panel has a different one. */
+  unit: string;
+  /** The instrument's own ceiling. Each panel is scaled to ITS instrument. */
+  max: number;
+  /** Stated rather than encoded in colour: for most of these a fall is the
+   *  improvement, and a reader scanning shapes would otherwise guess. */
+  lowerIsBetter: boolean;
+  points: MeasurePoint[];
+  /**
+   * Required for anything this project wrote itself.
+   *
+   * A panel drawn beside PHQ-9 and PCL-5 borrows their authority: same frame,
+   * same marks, same axis. For a validated instrument that is fine. For a
+   * measure with no research behind it, the borrowed authority IS the harm —
+   * so the disclosure is part of the series rather than a note the page might
+   * remember to add, and it renders on the panel itself.
+   */
+  disclosure?: string;
+}
+
+/**
+ * One panel per instrument, all sharing a single date axis.
+ *
+ * TWO RULES PULL IN OPPOSITE DIRECTIONS, and both are honoured here.
+ *
+ *   §29.1 forbids overlaying different clinical scales, so a PHQ-9 (0–27) and
+ *   a PCL-5 (0–80) cannot share a y axis. Each panel is scaled to its own
+ *   instrument, and says which.
+ *
+ *   The page example is ALIGNED small multiples, so they must share the x
+ *   axis. Reading down the panels to ask "what else was happening the week
+ *   this rose" is the entire reason the form exists, and it only works if a
+ *   date is in the same place on every panel.
+ *
+ * THE DEFECT THIS REPLACES. The previous chart placed a point by its INDEX in
+ * its own series: `x = i / (n - 1)`. Two instruments measured on different
+ * days therefore put the same date in different places, and an instrument with
+ * three readings stretched them across the same width as one with twelve. A
+ * clinician comparing the panels was comparing positions that meant nothing —
+ * and a three-month gap between readings drew exactly as wide as a one-week
+ * gap, which quietly turned an absence of data into a smooth decline.
+ *
+ * NO FITTED LINE, and no interpolation. The marks are the readings that were
+ * taken; the segments join consecutive readings and nothing more. With a real
+ * date axis a long gap is simply wide, which is what makes it visible without
+ * a special case.
+ */
+export interface Annotation {
+  date: string;
+  label: string;
+}
+
+export function SmallMultiples({
+  series, from, to, annotations = [],
+}: {
+  series: MeasureSeries[];
+  /** The window, shared by every panel. */
+  from: string;
+  to: string;
+  /**
+   * Dated care events — plan versions, chiefly — marked across every panel.
+   *
+   * §29.1: "Annotations mark sessions, plan versions or care events. They do
+   * not imply cause." The mark is a date and nothing else: no shading of the
+   * period after it, no separate before/after figure, and no arithmetic on the
+   * two sides. Each of those would be an argument about what the plan did,
+   * dressed as a drawing. The sentence saying so is printed by this component
+   * rather than by the page, so a screen cannot show the marks without it.
+   */
+  annotations?: Annotation[];
+}) {
+  const W = 320;
+  // Taller than it was. The plot area now has to hold a visible ceiling as well
+  // as the readings, and at 72 the line and the ceiling sat on top of each
+  // other for any instrument a person scores high on.
+  const H = 84;
+  const PAD = 10;
+
+  const t = (d: string) => Date.parse(`${d}T00:00:00Z`);
+  const start = t(from);
+  const span = Math.max(1, t(to) - start);
+  // The same date lands on the same x in every panel. That is the whole point.
+  const x = (d: string) => PAD + ((t(d) - start) / span) * (W - PAD * 2);
+  const y = (v: number, max: number) => H - PAD - (Math.max(0, Math.min(max, v)) / max) * (H - PAD * 2);
+
+  const months = (() => {
+    const out: { label: string; at: number }[] = [];
+    const first = new Date(start);
+    const cur = new Date(Date.UTC(first.getUTCFullYear(), first.getUTCMonth(), 1));
+    while (cur.getTime() <= t(to)) {
+      if (cur.getTime() >= start) {
+        out.push({
+          label: cur.toLocaleString("en-GB", { month: "short", timeZone: "UTC" }),
+          at: x(cur.toISOString().slice(0, 10)),
+        });
+      }
+      cur.setUTCMonth(cur.getUTCMonth() + 1);
+    }
+    return out;
+  })();
+
+  return (
+    <div className="space-y-5">
+      {series.map((s) => {
+        const pts = [...s.points].sort((a, b) => t(a.date) - t(b.date));
+        const first = pts[0];
+        const last = pts[pts.length - 1];
+        return (
+          <div key={s.label}>
+            <div className="flex flex-wrap items-baseline justify-between gap-x-3">
+              <span className="text-sm font-medium text-ground">{s.label}</span>
+              <span className="text-xs text-olive">
+                {s.unit} · {s.lowerIsBetter ? "lower is better" : "higher is better"}
+              </span>
+            </div>
+            {/* On the panel, not in a footnote. A reader who looks at one
+                series and not the rest still sees what this one is. */}
+            {s.disclosure && (
+              <p className="measure mt-0.5 text-xs text-state-info">{s.disclosure}</p>
+            )}
+
+            {pts.length === 0 ? (
+              // A panel with no readings keeps its place rather than being
+              // dropped: an instrument that was never taken and one that was
+              // taken and is flat are different facts.
+              <p className="mt-1 text-sm text-olive">No reading in this window.</p>
+            ) : pts.length === 1 ? (
+              // ONE READING IS NOT A TREND, so it is not drawn as one. A single
+              // dot in an empty plot area reads as a broken chart — and it is
+              // the COMMON case here, not an edge one: most instruments in this
+              // record have been taken once. The number is the chart.
+              <p className="mt-1 text-sm text-ground">
+                <span className="font-medium">{first.value}</span>
+                <span className="text-olive">
+                  {" "}on {first.date} · one reading, so there is no trend to read yet
+                </span>
+              </p>
+            ) : (
+              <>
+                <svg
+                  viewBox={`0 0 ${W} ${H}`}
+                  className="mt-1 w-full"
+                  role="img"
+                  aria-label={`${s.label}: ${pts.length} reading${pts.length === 1 ? "" : "s"} from ${
+                    first.value} on ${first.date} to ${last.value} on ${last.date}, out of ${s.max}.`}
+                >
+                  {/* Floor and ceiling. Without them a line simply sits
+                      somewhere: 22 out of 27 and 22 out of 80 draw at
+                      completely different heights and neither says which. The
+                      instrument's range is named beside the title; these two
+                      lines are where that range actually is. Recessive, because
+                      the readings are the subject. */}
+                  <line x1={PAD} y1={H - PAD} x2={W - PAD} y2={H - PAD}
+                    stroke="var(--color-ground)" strokeOpacity="0.15" strokeWidth="1" />
+                  <line x1={PAD} y1={PAD} x2={W - PAD} y2={PAD}
+                    stroke="var(--color-ground)" strokeOpacity="0.08" strokeWidth="1" />
+                  {/* The care events, at their dates, on every panel — which is
+                      what the shared axis makes possible and what reading down
+                      the panels is for. */}
+                  {annotations.map((a) => (
+                    <line key={a.date + a.label} x1={x(a.date)} y1={PAD - 4} x2={x(a.date)} y2={H - PAD}
+                      stroke="var(--color-ground)" strokeOpacity="0.35" strokeWidth="1"
+                      strokeDasharray="2 2" />
+                  ))}
+                  {pts.length > 1 && (
+                    <polyline
+                      fill="none"
+                      stroke="var(--color-sage-deep)"
+                      strokeWidth="1.5"
+                      points={pts.map((p) => `${x(p.date)},${y(p.value, s.max)}`).join(" ")}
+                    />
+                  )}
+                  {pts.map((p) => (
+                    <circle key={p.date} cx={x(p.date)} cy={y(p.value, s.max)} r="3"
+                      fill="var(--color-sage-deep)" />
+                  ))}
+                </svg>
+
+                {/* TWO VALUES, NOT EVERY VALUE. A number beside every point is
+                    chaos and goes unread; the ends are what a reader wants from
+                    a trend, and the rest are a keystroke away below. This
+                    replaced a run-on list of every reading, which at eight
+                    readings wrapped to three lines under a chart 84 units
+                    tall. */}
+                <p className="mt-1 text-xs text-ground">
+                  <span className="text-olive">First</span> {first.value} on {first.date}
+                  {" · "}
+                  <span className="text-olive">Latest</span> {last.value} on {last.date}
+                </p>
+
+                {/* Every reading, still in the DOM and still the values
+                    themselves rather than a description of them — so there is
+                    no second copy to drift — but folded away instead of poured
+                    over the panel. */}
+                <details className="mt-1">
+                  <summary className="cursor-pointer text-xs text-olive">
+                    All {pts.length} readings
+                  </summary>
+                  <table className="mt-1 text-xs text-ground">
+                    <caption className="sr-only">{s.label} readings, {s.unit}</caption>
+                    <thead>
+                      <tr>
+                        <th scope="col" className="pr-4 text-left font-normal text-olive">Date</th>
+                        <th scope="col" className="text-left font-normal text-olive">Reading</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {pts.map((p) => (
+                        <tr key={p.date}>
+                          <td className="pr-4">{p.date}</td>
+                          <td>{p.value}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </details>
+              </>
+            )}
+          </div>
+        );
+      })}
+
+      {/* One axis, drawn once, under all of them — because there is only one. */}
+      <div aria-hidden className="relative h-4">
+        {months.map((m) => (
+          <span key={m.label + m.at} className="absolute text-[10px] text-olive"
+            style={{ left: `${(m.at / W) * 100}%`, transform: "translateX(-50%)" }}>
+            {m.label}
+          </span>
+        ))}
+      </div>
+
+      {annotations.length > 0 && (
+        <div className="border-t border-ground/10 pt-3">
+          <p className="text-xs font-medium text-app-ink">Marked on every panel</p>
+          <ul className="mt-1 space-y-0.5">
+            {[...annotations].sort((a, b) => a.date.localeCompare(b.date)).map((a) => (
+              <li key={a.date + a.label} className="text-xs text-ground">
+                <span className="text-olive">{a.date}</span> — {a.label}
+              </li>
+            ))}
+          </ul>
+          {/* PRINTED BY THE COMPONENT, not by the page. A screen cannot show
+              these marks and leave the sentence off. */}
+          <p className="measure mt-2 text-xs font-medium text-state-info">
+            These mark when something was recorded. A change after one of them is not evidence
+            that it caused the change.
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Slope — before and after, per session (p61, p77)
 // ---------------------------------------------------------------------------
 

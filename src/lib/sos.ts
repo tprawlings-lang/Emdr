@@ -7,6 +7,7 @@
 // without storing any of what they were feeling.
 
 import { audit } from "./audit";
+import { noteSignal } from "./telemetry/store";
 import { getSafetyPlan } from "./profile";
 import { getSavedCalmPlace } from "./session-focus";
 import { CRISIS_REGIONS } from "./crisis-resources";
@@ -62,5 +63,9 @@ export async function recordSosOpened(userId: string): Promise<{ ok: true }> {
     family: "safety",
     type: "sos_opened",
   });
+  // §31.7's gate_support_selected: "support option code only". Verifying that
+  // support paths are actually reached is the one measurement question about
+  // safety that this catalog can answer, and it answers it with a single code.
+  noteSignal("gate_support_selected", { supportOption: "sos_panel" }, { actorRole: "member" });
   return { ok: true };
 }

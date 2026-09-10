@@ -7,8 +7,8 @@ test.skip(Boolean(process.env.E2E_BASE_URL), "runs only against the hermetic see
 
 test("calm-place session speaks the member through it (guided narration)", async ({ page }) => {
   await page.goto("/login");
-  await page.locator('input[name="email"]').fill("demo@example.com");
-  await page.locator('input[name="password"]').fill("demo1234");
+  await page.locator('input[name="email"]').fill("patient.demo@steady.local");
+  await page.locator('input[name="password"]').fill("patient1234");
   await page.getByRole("button", { name: "Continue" }).click();
   await expect(page).not.toHaveURL(/\/login/);
 

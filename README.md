@@ -13,61 +13,143 @@
 
 ---
 
-# ▶ RESUME HERE — session handoff, 2026-08-28
+# ▶ RESUME HERE — session handoff, 2026-09-09
 
 **This block is written for a fresh context window.** It is the shortest path from "I have
-just opened this repository" to "I am doing the next useful thing." Everything below is
-current as of commit `c8797ca` plus the handoff-05 work below; the detail
-behind it is in the sections that follow.
+just opened this repository" to "I am doing the next useful thing."
+
+> **Prefer the register over this block.** [`src/lib/app/route-register.ts`](src/lib/app/route-register.ts)
+> is the machine-checked statement of what works: every route, its audience, its job, and
+> whether it is working, unavailable or a redirect — with a test that fails the build when
+> it stops describing the product. This block is prose and can go stale. It did: the
+> version before this one said the Clinical Intelligence Expansion "has not started" when
+> all five of its handoffs were complete, and did not mention handoff 09 at all.
+
+**Handoff 09 (Unified Product Experience) is the live specification.** It governs
+navigation, experience, the visual system and sequencing, and supersedes handoff 08 Rev 2
+and the Astra review for those decisions. It changes no safety authority, no clinical
+threshold, no tenancy boundary and no release gate. Its work is organised as nine packages:
+
+| Package | What | State |
+|---|---|---|
+| 0 | Reconcile and freeze — the route register | **Done** |
+| 1 | Experience contracts | **Done** |
+| 2 | Clinician shell | **Done** |
+| 3 | Member activity shell and interruption states | **Done** |
+| 4 | Demo director and named scenarios | **Done** |
+| 5 | Aggregate scope and evidence | **Done** |
+| 6 | Reviewer decision flow and investor scenario | **Done** |
+| 7 | Cross-role quality | **◐ Substantially built, 2026-09-09** — accessibility, responsive and error-recovery structure landed with guards; §10 says this package closes at the end, and what is left is named below |
+| 8 | Validation and release | Open — **needs human participants**, four of five per audience |
+
+**What Package 7 covers, and what it does not.** Landed: §8.6's structural rules on every
+route (one main landmark, one page-level heading, a skip link written once in the root
+layout), definition lists a screen reader can use, §1.6's rule that no fixed element
+obscures a focused control at 320 CSS px, and §1.10's two target numbers reported
+separately. Enforced by [`tests/cross-role-quality.test.ts`](tests/cross-role-quality.test.ts)
+and [`tests/e2e/cross-role-quality.spec.ts`](tests/e2e/cross-role-quality.spec.ts), which
+audits three role homes and three primary tasks signed in — the half that
+`tests/e2e/a11y.spec.ts` never covered. **The e2e suite is green, 179 of 179**; it had been
+red since Package 2 because five specs described chrome that Packages 2 and 3 replaced, and
+nothing noticed because e2e is not part of `npm run test:safety`. Still open in this
+package: visual-regression baselines, performance budgets (handoff 06 §§30–31 carries the
+numbers), and a manual screen-reader script recorded as a release attestation, which §8.6
+requires and which cannot be produced in code.
+
+**Therapeutic Load is held out of the clinician queue.** Handoff 09 §10.1 allows it into the
+task-provider contract "after its own clinical review", and that review has not happened —
+the provider was registered with no gate and both of its states were reaching a clinician's
+attention queue as work. It is gated in
+[`src/lib/clinical/clinical-review-gate.ts`](src/lib/clinical/clinical-review-gate.ts) and
+what is withheld is stated on `/review/status`. The Load screen is unaffected, deliberately:
+§10.1 gates the queue, not the reading.
+
+**The two earlier programs are complete.** Handoff 06's screen atlas is 80 of 80 screens and
+22 of 22 charts; what remains of it is the non-screen material in §§30–31. The **Clinical
+Intelligence Expansion** — return-to-life goals, treatment-response fingerprint,
+between-visit command centre, recovery trajectory, therapeutic load and readiness — is
+**done, all five handoffs**. Therapeutic Load's own clinical review, required by handoff 09
+§10.1 before its states are exposed outside this environment, is outstanding and cannot be
+closed in code.
+
+**Handoff 07 is at Wave 7.** Waves 0–6 are done: six demo roles with one account each and
+the organization/payer boundary enforced rather than commented; a 240-profile population,
+60 per U.S. Census region across eight demo organizations; six months of deterministic
+history where two independent resets produce the identical baseline hash; six role
+projections over one ledger; a ten-metric dictionary with a cohort registry; and the seven
+planning rules with their eight-state review machine. **All demo logins are in
+[`docs/demo/demo-logins.md`](docs/demo/demo-logins.md)** — start there to sign in as
+anyone. Open: **Wave 7** — fairness controls, the audit screen and the model-registry
+shell. Wave 8's demo control centre and scenario scripts were largely built by handoff 09
+Package 4 and want re-checking against the PDF rather than rebuilding.
+
+**The Clinician Thoughts spec v2.1 is at Phase 5.** Phases 0–4 are built — capture,
+transcript, extraction, candidate items, review cards, the atomic Save Thoughts command,
+longitudinal threads with their Connect / Not related decisions, and the evidence-bound
+Session Prep brief. Notes now attach to the session they came from. **Phase 5 (Ask Steady)
+is the one remaining phase.**
+
+**`docs/handoffs/future-platform-intelligence/` is PARKED / DO NOT IMPLEMENT.** A future
+program, not scope.
+
+**Decisions that are the product owner's, not the build's.** Handoff 09 §11 lists them;
+four were due in Package 3 and are still open: the horizon indicator's moderated clinical
+review, AI companion placement, paused-state retention, and referral export assembly. The
+referral export is explicitly **not to be built** until the last of those is answered.
 
 ## Read these, in this order
 
 The specifications that drive the build are committed at
-**[`docs/handoffs/`](docs/handoffs/)** — they were session uploads and a new window could
-not previously find them. [`docs/handoffs/README.md`](docs/handoffs/README.md) is the index
-and states which are done.
+**[`docs/handoffs/`](docs/handoffs/)**. [`docs/handoffs/README.md`](docs/handoffs/README.md)
+is the index and states which are done.
 
 | Read | Why |
 |---|---|
-| 1. This block | Names the next build item and the guards that encode past decisions |
-| 2. **[Handoff 04 §6](docs/handoffs/04-presentation-layer-v1.pdf)** | **The next thing to build.** §6 is about two pages |
-| 3. [`docs/site/presentation-layer.md`](docs/site/presentation-layer.md) | What handoff 04 already produced, and *why* each rule exists. Read before changing any member surface |
-| 4. [`docs/handoffs/README.md`](docs/handoffs/README.md) | The other three handoffs and the phase order, if the work reaches back into them |
+| 1. This block, then [`src/lib/app/route-register.ts`](src/lib/app/route-register.ts) | The live job, and the machine-checked statement of what actually works |
+| 2. **Handoff 09 (Unified Product Experience)** | **The live specification** for navigation, experience, the visual system and sequencing. §10 is the package order; §11 is the list of decisions that are the product owner's |
+| 3. [`docs/site/gui-decisions.md`](docs/site/gui-decisions.md) | Two deliberate reversals of handoff 04 and how to undo each. Read before changing a member or clinical surface |
+| 4. **[Handoff 06, §24–§31](docs/handoffs/06-web-gui-analytics-and-clinical-presentation.pdf)** | The coding annex — screens and charts. Its atlas is complete; read it when working inside an existing screen |
+| 5. [`docs/site/presentation-layer.md`](docs/site/presentation-layer.md) | What handoff 04 produced and *why* each rule exists |
+| 6. [`docs/handoffs/07-PLAN.md`](docs/handoffs/07-PLAN.md) | Read before any demo-login, synthetic-population or planning work. Its Wave 0 gap list, what to reuse, and five decisions the PDF leaves open |
 
-Do not read all four handoffs front to back. They layer, they are long, and only 04 is
-live work.
+Do not read the handoffs front to back. They layer, they are long, and **09 is the live one**
+for anything about how the product presents itself. Where a later handoff contradicts an
+earlier one the later wins, and where either is stricter on safety, privacy, evidence or
+denominators the stricter one controls.
+
+**Open the drawn pages before writing a screen.** The first pass at handoff 06 was built
+from its text alone and did not resemble it. Pages 54–73 and 76–83 are the examples.
 
 ## Where the work is
 
-Two branches, identical and pushed: `claude/launch-status-vh6vbo` (the designated
-development branch) and `main`.
-
-**`main` is what the site serves.** `render.yaml` sets `branch: main`, so nothing reaches
-the deployed site until `main` moves — and work sitting on the development branch looks,
-from a browser, exactly like work that was never done. This has now caused the same
-confusion twice. Deploy with:
-
-```bash
-git push origin claude/launch-status-vh6vbo:main   # fast-forward; Render builds on push
-```
+| Branch | Role |
+|---|---|
+| `claude/launch-status-vh6vbo` | The designated development branch. All work lands here first |
+| `claude/gifted-keller-501y5d` | **What Render actually builds.** Deploying means merging into it |
+| `main` | Kept current, but **not** what the site serves |
 
 **`render.yaml` says `branch: main`, and the live service does not use it.** That file only
 governs a service created from the Blueprint; the running Render service is wired to
-`claude/gifted-keller-501y5d`, which forked at `f006e97` and carries one commit on top
-(`3071750`, the handoff-06 PDF, also on `main`). Verified against production rather than
-assumed: the site serves `/dashboard` and `/practices`, 404s on `/app/today` and
-`/review/*`, and loads no Literata — exactly that branch, and 17 commits behind `main`.
+`claude/gifted-keller-501y5d`. This was established the expensive way — production sat 17
+commits behind while the README claimed otherwise, and a reviewer signed in twice and saw
+nothing new. Do not trust `render.yaml` to tell you where the site comes from; check the
+deployed app.
 
-Do not trust `render.yaml` to tell you where the site comes from. Check the deployed app:
+Deploy with:
 
 ```bash
-curl -s -o /dev/null -w "%{http_code}\n" https://steady-emdr-demo.onrender.com/app/today
-# 404 => production predates the route migration, whatever main says
+git push -u origin claude/launch-status-vh6vbo          # development branch
+git checkout claude/gifted-keller-501y5d
+git merge --no-ff claude/launch-status-vh6vbo
+git push -u origin claude/gifted-keller-501y5d          # Render builds on this push
 ```
 
+This manual merge is required on every deploy until Render is repointed at `main`. That
+repoint is a Render dashboard change, not a code change, and it is worth making.
+
 ```bash
-npm run test:safety   # 636 pass
-npm run test:e2e      # 127 pass   (PLAYWRIGHT_CHROMIUM_PATH=/opt/pw-browsers/chromium)
+npm run test:safety   # 735 pass
+npm run test:e2e      # 151 pass   (PLAYWRIGHT_CHROMIUM_PATH=/opt/pw-browsers/chromium-1194/chrome-linux/chrome)
 npm run test:rls      # 12 cross-tenant attack cases against a real Postgres cluster
 npm run build         # clean
 npm run demo -- reset # seed AND rebuild the event log — see the warning below
@@ -78,19 +160,288 @@ npm run demo -- reset # seed AND rebuild the event log — see the warning below
 > the event log, and without the genesis backfill they render blank. This was a real
 > defect: every reviewer who opened a record saw three empty sections.
 
-## What was just finished
+**The suite is stable.** Three flakes were diagnosed and fixed during handoff 07's Wave 1,
+each of which had been read as "cold server" and re-run: a sign-in that asserted the URL
+instead of waiting on the navigation; a gate test that required `/app/today` when Sam's
+intake state legitimately routes onward, so the same correct behaviour landed on two URLs
+depending on which specs ran first; and a `getByText` that matched both the shell's role
+label and Next's route announcer, failing strict mode only when the assertion happened to
+run inside that moment. Three consecutive full runs are green.
 
-The **Presentation Layer Handoff** (`Steady_Presentation_Layer_Handoff_v1.pdf`, §-numbers
-below refer to it) drove the last several commits, in its own §9 order:
+# ▶ GUI LAUNCH — the job, its instructions, and what is left
 
-| § | Work | Commit |
+**The job has a name: GUI launch.** It is handoff 06 carried all the way — every screen
+in the atlas, every chart contract, every presentation state, and the fabricated datasets
+that make them real rather than drawn. A screen with no rows behind it is a mockup, so
+the datasets are part of the job, not preparation for it.
+
+### Where the instructions are
+
+[`docs/handoffs/06-web-gui-analytics-and-clinical-presentation.pdf`](docs/handoffs/06-web-gui-analytics-and-clinical-presentation.pdf)
+— 101 pages. Part I (pp. 1–35) reprints handoff 05. **Part II, §24–§31 (pp. 37–101), is
+the coding annex and is the part to work from.** Pages 54–73 and 76–83 are drawn page
+examples; open them before writing a screen, because the text alone rebuilds wrong.
+
+| § | Pages | What it settles |
 |---|---|---|
-| §3 | **The member score boundary** — structural, not a filter | `6672e0d` |
-| §7 | **One type family** (Cormorant retired), 17px floor, 1.6 line-height, global reduced-motion | `dedf7eb` |
-| §8 | **Member components** — `DayCanvas`, `Horizon`, `PracticeCard`, `HistoryStrip` | `dedf7eb` |
-| — | **Navigation** — the product had none at all | `32bc951` |
-| — | **Patient directory**, separate from the caseload | `709b582` |
-| §5 | **The gate as a paced sequence** — one question per screen, resumable | `1ea82c0` |
+| §24 Expanded web and analytics | 37 | Scope of the annex |
+| §25 Visual system and information grammar | 38 | The four information layers — the rail, and why it is the same five items for every role |
+| §26 Screen atlas | **39–46** | All 80 screens, by role, with target route and primary action. Member p40, clinician p41, **organization p42**, **payer p43**, **review and administration p44**, **public site p45**, **shared access states p46** |
+| §27 Presentation architecture | 47–52 | Projection contracts, work-queue ordering, person-overview information order, clinician action and audit response |
+| §28 Worked screen examples | 53–73 | Twenty drawn pages |
+| §29 Charts | **74–83** | §29.1's nine rules (p75) and the **complete chart-screen inventory — 22 charts (p75)**. Worked chart examples pp. 76–83 |
+| §30 Data and API | 84–92 | Event/policy/projection pipeline, data domains, API boundary, permission sequence, gate architecture, the eight presentation states |
+| §31 Delivery | 93–101 | A-to-E integration, **coding waves (p95)**, definition of done (p96), test matrix (p97), acceptance (p98), **release gates (p99)**, telemetry (p100), final rules (p101) |
+
+### Where it stands
+
+**Screens — 80 of 80.** Every screen in §26's atlas is built.
+
+| Role | Spec | Built | §26 page |
+|---|---|---|---|
+| Patient and member | 15 | **15** | 40 |
+| Clinician | 14 | **14** | 41 |
+| Organization | 9 | **9** | 42 |
+| Payer | 10 | **10** | 43 |
+| Shared access states | 8 | **8** | 46 |
+| Review and administration | 13 | **13** | 44 |
+| Public institutional site | 11 | **11** | 45 |
+
+**Charts — 22 of §29's 22 contracts** (inventory on p75). **Complete.**
+
+**Datasets — built and deterministic.** `npm run demo -- reset` rebuilds all of it from
+seed, and prints a baseline hash so a change to the data is visible rather than silent.
+
+| Seed | What it creates |
+|---|---|
+| `src/lib/demo-seed.ts` | The member and clinician demo — accounts, consents, sessions, check-ins, safety plans |
+| `src/lib/demo-org-seed.ts` | Northside Behavioral Health: **4,820 covered lives** across four site tenants. `persons.display_name` is NULL for all of them, so the organization drilldown is impossible rather than refused |
+| `src/lib/demo-payer-seed.ts` | Meridian Health Plan: **12,480 covered lives**, one contract with five measures, four cost-model versions, and **1,635 claims** carrying a log-normal lag around 60 days — the mechanism that makes recent months incomplete |
+
+After a reset: 17,304 persons, 7 tenants, 77,098 longitudinal events. Every figure on
+every aggregate screen is counted from that ledger; nothing is pre-aggregated.
+
+### The four review screens that were missing, and what they needed
+
+`/review/access`, `/review/clinical`, `/review/release` and `/review/research` were the last
+gap in §26's atlas. Three were recorded as blocked on records that did not exist. Two of
+those blockers had in fact been resolved by earlier work and the tracker had not caught up:
+the **cohort registry** was built in handoff 07 Wave 5, and the **export machinery** —
+filter-hash parity, small-cell suppression, signed files, the disclosure register — already
+existed for the organization and payer consoles. `/review/research` needed a screen over
+them, not a new subsystem.
+
+What genuinely had to be built was **one decision record**, in `review_decisions`.
+
+§26 p44 states the acceptance rule once for all three deciding screens — *"every decision
+records actor, role, version, evidence and time"* — so they share one table rather than
+three, and the review home has a single queue to count rather than three shapes to
+reconcile.
+
+**A decision is bound to the version it was made against, and that is the whole design.**
+Approving a release gate approves the *evidence that was on the screen*, not the gate's
+name: the sign-off is recorded against a fingerprint of the evidence, so when the evidence
+moves, the approval stops matching and the gate reopens by itself. This is what makes
+p44's *"release gates cannot be bypassed from ordinary admin controls"* a mechanism instead
+of a rule someone has to remember — the bypass it forecloses is not a villain editing rows,
+it is the ordinary sequence where a gate is signed off on Monday, the evidence changes on
+Tuesday, and nothing anywhere says so. The screen distinguishes *"nobody has reviewed
+this"* from *"somebody reviewed this and then the evidence moved"*, because only one of
+those is anybody's fault.
+
+The same binding runs through the other two. Clinical language decisions are recorded
+against a composite of every policy version that governs the words, so a policy bump
+reopens the review rather than carrying it silently forward. An access decision is bound to
+the role **and** the expiry that were requested, so an edited request cannot inherit an old
+approval.
+
+Three further things the screens refuse rather than discourage: a reviewer cannot approve
+their own access request; a request with no expiry cannot be raised at all, because an
+open-ended grant is not a scope; and an **attested** gate cannot be approved without a
+pointer to where its evidence lives.
+
+**Measured, measured-on-request, and attested evidence never render alike.** Five of the
+eight gates resolve from the running system — the identity scan, the data-quality checks,
+the safety scenario replay, the clinical-copy tally, the claims registry. One is a ledger
+rebuild, too expensive to run on page load, so it is run on request. Three —
+authorization, accessibility, analytics integrity — are things a server component cannot
+check, and they are labelled as one owner's word with a reference, not given a green tick
+that implies the system verified them. A release conversation held over a column of
+identical ticks cannot ask the only question that matters, which is what each tick is
+standing on.
+
+**Every reviewable sentence is read from the module that ships it.** `/review/clinical`
+pulls the six gate-state strings out of `gate-review.ts` rather than transcribing them. A
+registry with its own copy of the words would drift the first time somebody edited one and
+not the other, and would then approve sentences no member reads — while looking exactly as
+convincing as one that worked.
+
+### What comes after GUI launch — handoff 07, in progress
+
+**Handoff 07** — [`docs/handoffs/07-demo-login-synthetic-population-and-planning-engine.pdf`](docs/handoffs/07-demo-login-synthetic-population-and-planning-engine.pdf),
+planned and tracked in [`docs/handoffs/07-PLAN.md`](docs/handoffs/07-PLAN.md). It gives
+these screens a population worth looking at (240 fabricated patients with six months of
+history each, 60 per Census region), a login that reaches all six roles, and a
+deterministic planning layer above them that produces inspectable hypotheses rather than
+care orders.
+
+**Waves 1–6 of 8 are done.** The plan document is the record: each wave lists what was
+built, where it lives, the exit evidence measured rather than asserted, and the defects the
+wave surfaced.
+
+| Wave | What it added | Read |
+|---|---|---|
+| 1 ✅ | Six roles, six accounts, six landing pages, session claims, the aggregate boundary | 07-PLAN "Wave 1" |
+| 2 ✅ | The 240-profile manifest, eight demo organizations, `person_attributes` | "Wave 2" |
+| 3 ✅ | The deterministic generator — six months of history, byte-identical replay | "Wave 3" |
+| 4 ✅ | Role projections — the clinician's panel and the aggregate overview, from one ledger | "Wave 4" |
+| 5 ✅ | The ten-metric dictionary, the cohort registry, and pure arithmetic over typed observations | "Wave 5" |
+| 6 ✅ | **The planning engine** — seven rules, owned thresholds, the eight-state machine, `/review/planning`, and an authored access model that gives it something real to find | "Wave 6" |
+| 7 | Fairness controls, the audit screen, the model registry shell | handoff pp37–38, 43 |
+| 8 ◑ | **The demo clock, the agent behaviour layer and p9's reset control are built** — five scripted milestones shown in the shell, the calendar's last fortnight lived through the real routing rule and gate engine, and a reset with a typed reason on the page that refuses to demonstrate. Three of p9's six controls; the other three, the nightly reset and the presenter scripts remain | handoff pp9, 29, 56 |
+
+**Where the planning engine is.** `/review/planning` lists every one of p34's seven rules
+with what it produced, and for anything that produced nothing, p34's own reason.
+`/review/planning/[id]` is p44's nine-section detail screen. Three of p47's twelve API
+routes are built. Thresholds live in `policy_thresholds` with a named owner and an approval
+date, in a table that refuses an in-place edit.
+
+**Four of the seven rules fire on the fabricated deployment**, two evaluate and correctly
+decline, and one is limited by the size of the fixture:
+
+| Rule | On this deployment |
+|---|---|
+| REGION_CAPACITY | **Fires** — the West is at 1.38× its open first-visit slots. Withholds for the Midwest, whose slot feed is deliberately frozen |
+| SAFETY_REVIEW_LOAD | **Fires** — the West runs 1.17× its staffed review capacity |
+| FOLLOWUP_GAP | **Fires** — 23 points below the eligible population for one language cohort |
+| FAIRNESS_ALERT | **Fires** — the same disparity, routed through fairness review |
+| MODULE_SIGNAL | Evaluates; the confidence interval crosses zero, so no signal |
+| DATA_QUALITY | Evaluates; the environment meets its own limits, so nothing is blocked |
+| ACCESS_GAP | Withheld. A region holds 60 of the 240, so it caps at 30 entrants per window — exactly p37's minimum analysis size. The fixture is too small, and dropping below the minimum is not the answer |
+
+**Fabricated and real data cannot reach the same metric.** `persons.provenance` is stated at
+every insert with no default — the line is *generated by the system* versus *originated by a
+person*, so a human signing up in the demo is `real` and every seed is `fabricated`. Three
+triggers hold the write side (a person must state which they are; a person never becomes real;
+a real person cannot receive a fabricated event) and `assertSingleProvenance` holds the read
+side by **throwing rather than filtering** — a filtered metric is a metric with an undisclosed
+denominator. This is the prerequisite for running synthetic agents alongside a study with real
+participants.
+
+**One assignment was masking two failures on the deployed instance.** `getDb()` published its
+module-level handle on the line that *opens* the file, before the boot path had run — so a
+failure in any later step became permanent and silent: that request 500'd, and every request
+after it took `if (db) return db` and got a database that worked. Nothing looked broken, while
+every step after the failing one never ran again for the life of the process. It hid both open
+problems at once: the planning thresholds were never seeded, so `/review/planning` answered 500
+on an empty table exactly as p34 demands but for the wrong reason; and the population
+reconciliation never ran, so the stale dataset stayed stale and its repair log honestly reported
+"no attempt recorded". The handle is now built into a local and published only when the whole
+boot succeeds, so a failed boot is retried rather than cached.
+
+**The deployed demonstration now gets the dataset its code expects.** Checked on the live
+instance after the agent layer shipped: the code was there and the data was not — 240 profiles
+with zero check-ins, zero measures, zero modules and zero accounts between them. `seed()`
+returns the moment any user exists, which is right for accounts and wrong for a dataset, and
+the deployment keeps a persistent disk: it seeded while only the manifest existed, and every
+wave since reached the code and never reached the data. The population chain is now one
+definition reconciled on every boot, and **it is additive** — every step already asked the
+database whether its own work was there, so a stale deployment gains its history and a complete
+one writes nothing. Nothing deletes: this runs unattended, and a rebuild-on-boot is a deploy
+that can destroy data while nobody is watching. Replacing an old population *does* delete, so it
+belongs behind the reset button and a typed reason.
+
+**And the 240 can now actually sign in.** `/app/today` refuses a member on four gates —
+membership, informed consent, the five-instrument screening battery, a completed profile — and
+the population passed one, so a presenter opening any profile landed on the paywall. They now
+carry the onboarding record with everything else, dated to the day each enrolled: an active
+membership, a profile whose answers vary by archetype, and the four intake instruments the
+outcome series does not supply. 240 of 240 reach the product, and the manifest checks it.
+
+That intake battery exposed a defect it would otherwise have multiplied. Three screens computed
+"baseline → latest" from the first and last row of the screenings table *whatever instrument
+they were* — correct by accident while only one existed. The deployed console was already
+showing the accident: a member's row read "5 → 16", five being a PC-PTSD-5 total whose maximum
+is five, against a PHQ-9. And naming the outcome instrument dropped completion by the fraction
+that had been other instruments' rows, which tipped **DATA_QUALITY** over p34's 30% limit and
+suppressed every other rule. The threshold was not the problem: `metricMissingness` was
+returning one minus the completion rate and calling it missing data — the same mistake found
+earlier for activation, in the same function's default branch. Every non-completion carries a
+recorded reason, so the engine was blocking **FOLLOWUP_GAP, the rule that exists to report those
+barriers**, on the grounds that they existed.
+
+**The last fortnight of the population is lived, not written.** The generator writes rows; the
+agent layer (`src/lib/agents/`) lives days. Fourteen days of the 360-day calendar are reserved,
+and across them each of the 240 fabricated people is asked what they want to do — check in, open
+a module, request a session — and the intent goes through **the product's own machinery**:
+`evaluateCheckin` for routing, `evaluateAccess` for the gate. Until this existed, the strongest
+safety claim the demonstration could make was that ten fixed scenarios replay correctly; the
+gate engine had never been run at population scale, because the generator wrote a check-in and a
+safety event side by side and nobody asked whether the second followed from the first. One run:
+318 check-ins over 3,360 person-days (959 quiet — a population that shows up daily is a cron
+job), 318 gate decisions, **25 person-days of restricted access**, 3 rule-driven refusals, and
+17 requests that stopped at the beta configuration. It is not evidence about care: every intent
+comes from rules we wrote, so it tests the *machinery*, not the medicine. An agent acts only for
+a person whose provenance is `fabricated`, checked before anything is written.
+
+Several things it found. The refusal headline said 20 where 3 were real — the other 17 had no rule
+and no member-facing reason, because autonomous stimulation is simply switched off in beta, and
+logging a global product setting as a per-person safety event would have landed on that person's
+chart as their latest safety state. The gate restricted 25 days and only 3 left a trace, so
+`/clinician/population` could not show that somebody had been routed to crisis resources
+yesterday — and its attention filter, which matched `paused` alone, would have *dropped* a
+paused person off the list the moment a later restriction became their latest state. And a
+per-person check-in floor fired on the length of a person's generated window rather than on what
+was actually in the table for them, which are not the same number for somebody whose enrolment
+drag consumed their whole window. And two console guards had been passing for the wrong reason:
+with the seeded history ending a fortnight before "today", *every* member on the caseload read
+as overdue for contact, so a check that skipped rows banded `none` never skipped anything — it
+compared the enum against a page that renders that band as "Clear" — and the population panel's
+requirement that one group be empty was resting on an attention list with nobody on it.
+
+**All 240 profiles have working logins** — `st-<region>-<nnn>@steady.local`, verified 240 of
+240 — and `src/lib/analysis/power.ts` uses them as the basis for a **detector power analysis**:
+inject an effect of known size, run the real rules against the real thresholds, and measure how
+often each one finds it. Two headline numbers. The false-positive rate is **0% over 1,000 null
+trials** per rule. And a cohort is compared against a population that contains it, so a true gap
+reads as `E × (1 − share)` — meaning **p34's 12-point threshold needs a true gap of about 14.4
+points** to trip reliably at a realistic cohort size. That analysis found a bug in the
+production path: `metricMissingness` was returning activation's *failure* rate as its *missing*
+rate, so ACCESS_GAP withheld exactly when it had something to report.
+
+**The demo clock moves the reading point.** `/admin/demo` sets it to one of five scripted
+milestones and the shell shows it on every console. The population and the signals move with
+it — 21 people and two signals at the opening month, 242 and four today — so the same console
+can be walked through the programme's life. It **moves the reading frame, never the record**:
+audit entries, sessions and rate limits stay on the real clock, guarded by what those modules
+may import.
+
+Getting the rules to fire needed three things the deployment did not have: a **scheduling feed** and a
+**staffed rota** (`capacity_slots`, `review_coverage` — fabricated stand-ins, sized to the
+fixture rather than to a real network), a **confidence interval** on paired change, which
+p32 already required and the metric layer had declined to compute, and **rolling intake**,
+because a population that all enrolled in one fortnight has no stage conversion to compare.
+
+**The 240 now carry realistic disparity, with the ambiguity that comes with it.** The
+manifest is balanced on every dimension p29 checks, so the population it describes had no
+disparity at all and every rule correctly found nothing.
+`src/lib/demo-population-disparity.ts` adds six named real-world mechanisms — interpreter
+capacity, instrument translation coverage, an age gradient that **reverses** between
+activation and follow-up completion, distance, unaccommodated access needs, coverage
+instability. Every one is something the *service* did or a property of a life stage; none
+keys on an identity, and a permutation test over all six races and both ethnicities fails
+the build if one ever does.
+
+The confounds are deliberate. Two language cohorts look like the same finding and are not:
+Spanish's follow-up gap all but vanishes when interpreter need is held out, and Mandarin's
+survives it, because the instrument was never translated. So p44&rsquo;s "Alternative
+explanations" section is **computed** — composition, a stratified recomputation, whether the
+missing measures were the service&rsquo;s or the person&rsquo;s, differential missingness,
+and group size — rather than a list of generic caveats.
+
+**Two of the eighteen rows above closed as a side effect.** Row 1 (`/review/access`) is the
+same binding as Wave 1's session claims, and row 5's cohort registry is the same gap
+handoff 07 specifies on its p33 — built in Wave 5 as `src/lib/metrics/cohorts.ts`.
 
 ## ▶ NOW: handoff 06 — the frame, and the atlas it comes from
 
@@ -138,30 +489,43 @@ about how finished each is.
 | Clinician | 14 | 14 (18 routes) | — |
 | Organization | 9 | 9 | — |
 | Payer | 10 | 10 | — |
-| Review and administration | 13 | 5 | `/review/access`, `/clinical`, `/safety`, `/lineage`, `/research`, `/release`, `/demo-data`, `/status` |
-| Public institutional site | 11 | 9 | `/personal`, `/intelligence`. Nothing links to them — the home page routes the three products to `/platform`, `/clinical`, `/organizations` and `/payers` instead — so this is a naming gap, not a broken link |
+| Review and administration | 13 | 9 | `/review/access`, `/clinical`, `/research`, `/release` |
+| Public institutional site | 11 | **11** | — |
 | Shared access states | 8 | 8 | — |
 
-**Also specified and not built:** §29's chart contracts — 22 chart screens (clinician 7,
-organization 7, payer 8), of which the eight worked examples are pages 76–83. §29.1's
-rules for every chart (denominator with its numerator, the window and refresh time always
-shown, no mixed clinical scales on one surface, no predictive risk score) apply to the
-charts that do exist and are not yet encoded as a guard.
+**§29's chart contracts — 22 specified on p75** (clinician 7, organization 7, payer 8),
+of which the worked examples are pages 76–83. **All 22 are drawn.** §29.1's nine rules are no longer review notes — they fail the
+build:
+
+| Rule | Guard |
+|---|---|
+| A proportion always carries its numerator and denominator | `tests/aggregate-boundary.test.ts` — `pct()` takes a `Count`, and a hand-rolled `* 100` on any organization screen fails |
+| The window and refresh time are always shown | `Figure` requires `summary` and `footnote`; a chart outside a `Figure` fails |
+| Missing data stays visible | The outcomes denominator must keep its missing-follow-up slice; a null in a trend must break the line rather than interpolate |
+| No predictive risk score | `tests/aggregate-boundary.test.ts` and `tests/clinical-charts.test.ts` — a gate rate per site sorted descending is a risk ranking whatever it is called |
+| No mixed clinical scales, no valence colour on a clinical trend | `tests/clinical-charts.test.ts` — the slope chart encodes open/close by shape, not by green and red |
+| An estimate is never rendered as an observed value | `tests/payer-boundary.test.ts` — the modelled register is hatched and may not use the observed series colour |
+| Export matches the filter and writes an audit event | `tests/governed-export.test.ts` and `tests/e2e/governed-export.spec.ts` |
+
+The remainder is derived against p75's inventory screen by screen; see the GUI launch
+table above for which page specifies each.
 
 **Deliberately not built, and why it is not a gap:**
 
 - `/review` shows no review queue. §26 asks for one; scoped access requests, release
   sign-offs and clinical language approvals are not records anywhere in this deployment.
-  An empty queue would claim a channel that is quiet. The screen names the eight missing
+  An empty queue would claim a channel that is quiet. The screen names the four missing
   screens instead.
 - Organization and payer screens are aggregate-only by §30.6 — aggregate access must not
   create person-level care access. That is a data-model requirement, not a page.
 
 ### Steady Intelligence — the organization role
 
-Sign in as **operations@example.com / demo1234**. It is an `admin` account,
-which in this codebase means an AGGREGATE role: it reads a population and it
-cannot reach a person. `/clinician/*` and `/app/*` both bounce it back.
+Sign in as **org.demo@steady.local / org1234**. It holds the `organization`
+role — an AGGREGATE role: it reads a population and cannot reach a person.
+`/clinician/*` and `/app/*` both bounce it back, and so does `/payer/*`: the
+two aggregate consoles are separate accounts since handoff 07's Wave 1, and
+until then one `admin` role opened both.
 
 **The population is real rows, not stored totals.** `src/lib/demo-org-seed.ts`
 seeds a fabricated organization — 4,820 covered lives across four sites, under
@@ -175,13 +539,54 @@ from?" has an answer.
 exist — the drilldown is impossible rather than refused, the same structural
 move as the member score boundary.
 
-Three screens are deliberately not charts:
+Two screens are deliberately not charts:
 
 | Screen | State | Why |
 |---|---|---|
 | Capacity | `partial` | Demand is countable; open first-visit slots are not — no calendar, no slot record. Half a ratio is not a ratio, so the missing source is named above the chart. |
 | Teams | empty | There is no team record in the tenancy model at all. A workload ranking of teams that do not exist, shown to the people who set their budgets, is worse than a blank. |
-| Reports | empty | A governed export needs filter parity, cohort version, suppression, a stated purpose, an audit event and a signature. Until it has all six, the honest control is the absence of a button. |
+
+### The governed export
+
+`/organization/reports` and `/payer/contract` can now produce a file, and the
+word that took the longest to earn is "governed". Both screens carried a panel
+saying export was not built, which was the right call for as long as the only
+alternative was a download button.
+
+An export is a **write**, which is why §30.4 gives it a POST. It takes data out
+of this system into a spreadsheet that gets copied, emailed, pasted into a deck
+and outlives every screen it came from — so the record of it has to outlive the
+file too. §31.4 names six requirements, and each is a column on `export_jobs`
+rather than an intention:
+
+| Requirement | How it is enforced |
+|---|---|
+| Filter parity | `filter_hash` is computed from the filter the **screen** was showing, key-order independent, and travels in the file. An export that silently widened its filter is a disclosure nobody authorised, and without the hash nobody could tell afterwards. |
+| Cohort version | Recorded and written into the file header, so the same report can be reproduced after the cohort definition changes. The payer report carries the contract's cohort, not the network's. |
+| Suppression | Applied to the **rows**, not the rendering. A count below 11 leaves as `under 11`, never as a blank — a blank is indistinguishable from missing data. |
+| Stated purpose | The purpose field *is* the button: there is no path to a file without a sentence of at least twelve characters, and `"report"` is refused. A purpose collected afterwards is a justification, not a reason. |
+| Audit event | Written **before** the file is returned, and again on every download. An unlogged disclosure is worse than a refused one, and a file fetched five times by three people is a different disclosure from one fetched once. |
+| Signed file | HMAC over the content hash, verified at **read** time. A signature checked only at write time cannot catch a record altered afterwards. |
+
+Two decisions are worth keeping:
+
+**The history panel is the disclosure log.** A console that can export but
+cannot show what it has exported has an audit trail nobody can read, so what
+left, under which filter hash, for what stated reason and who asked is on the
+same screen as the button.
+
+**The endpoint checks tenant scope at read time, not only at create time.** An
+export id is a URL: it gets pasted into a ticket and fetched again by whoever
+holds it. Without the read-side check, holding an id was enough to read any
+tenant's cohorts, filters and purposes. Out of scope answers *not found* — a
+403 confirms which ids are real — and is audited before it denies.
+
+The endpoint serves a **manifest**, not the rows: what was released, when, by
+whom and under which hash. That half has to survive independently of the file.
+
+Still by hand: bundling several exports into one signed packet, and scheduling
+one to recur. A recurring export is a standing disclosure, so it needs an
+expiry and a review date before it should exist.
 
 ### The shared access states
 
@@ -247,7 +652,7 @@ cells, and a per-group denominator. None exists here, and an equity screen
 showing only the one dimension that happened to be available would imply the
 others were examined and found unremarkable.
 
-### Waves, per §31.2
+### Waves, per §31.2 (handoff 06, **p95**)
 
 | Wave | | Status |
 |---|---|---|
@@ -255,11 +660,12 @@ others were examined and found unremarkable.
 | 1 | Presentation spine | done |
 | 2 | Member | done |
 | 3 | Clinician | done |
-| — | **The frame** (this work) | done — member, clinician and review |
+| — | **The frame** | done — member, clinician and review |
 | 4 | Aggregate — organization | done — 9 screens, real aggregates |
 | 4 | Aggregate — payer | done — 10 screens, on a real claims model |
-| 5 | Review and public | 5 of 13 review screens |
-| 6 | Hardening — performance, accessibility, security, telemetry | not started |
+| — | **Governed export** | done — both aggregate consoles, six §31.4 requirements as columns |
+| 5 | Review and public | **9 of 13 review screens, 11 of 11 public** — itemised in GUI launch above |
+| 6 | Hardening — performance, accessibility, security, telemetry, export parity, disaster recovery | **not started** — §31.5 p98, §31.6 p99, §31.7 p100 |
 
 ## ✔ DONE: handoff 05, the GUI and decision-surface work
 
@@ -325,9 +731,23 @@ does not certify it. `tests/bls-visual.test.ts` holds all of the above, includin
 reversal did not enable autonomous reprocessing — `autonomousStimulationEnabled` is still
 `false`.
 
-## ▶ THE NEXT THING: §6, the session state machine
+## §6, the session state machine — reconciled 2026-09-09
 
-Everything else in the handoff is done. §6 is not started.
+This section was headed "▶ THE NEXT THING" and said §6 was not started. It had not been
+re-read since 2026-08-28, and handoff 09 Packages 3–5 built across the same ground under a
+different vocabulary. Re-checked line by line, **§6 is largely built**: the domain machine
+is `SessionPhase` in `src/lib/safety/session.ts`, the player renders it under its own phase
+names, and §6's `technical_interruption → recovery` — the part the section below calls out
+as the hardest — was built in Package 3 as the member day's `interrupted` state plus
+`resumeDecision`, which refuses a resume when the gate has since closed. That is exactly
+§6's "respects any safety state that fired before the drop".
+
+**What is genuinely still open** is two single-screen questions inside `SessionPlayer`: the
+explicit confirmation beat on `authorized → set_active`, and whether
+`post_set_reassessment` ever shows the member their previous answer. The full table is in
+[`docs/site/presentation-layer.md`](docs/site/presentation-layer.md).
+
+The scope evidence below is kept because its root-cause finding is still useful reading.
 
 **Scope evidence, gathered 2026-08-28.** The guided flow runs on neither the session reducer
 nor the safety engine — it re-derives its own state from raw profile fields. That is the
@@ -1286,7 +1706,8 @@ seeded dataset and the demo-only roadmap strip are visible. Sign in as the membe
 see the Premium dashboard with the Autopilot plan as its centerpiece.
 
 **Demo accounts** (seeded on first run, development only):
-Member `demo@example.com` / `demo1234` · Clinician `clinician@example.com` / `demo1234`.
+All six demo logins, with what each role can and cannot reach:
+[`docs/demo/demo-logins.md`](docs/demo/demo-logins.md).
 With `EMDR_DEMO=1` a rich fictional dataset seeds instead (Alex pays for **Premium** —
 so the Autopilot plan renders — and Sam is mid **Premium trial** with billing set to
 start on Plus).

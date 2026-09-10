@@ -14,6 +14,7 @@
 // something the human gate blocks) and is flagged for review.
 
 import { decideAccess } from "../safety/decide";
+import { SAFETY_CONFIG_VERSION } from "../safety/governance";
 import { checkModuleAccess } from "../gating";
 import { engineModuleVerdict } from "../safety/module-verdict";
 import { MODULES } from "../modules";
@@ -118,7 +119,7 @@ export async function divergenceReport(nowMs = Date.now()): Promise<DivergenceRe
 
   return {
     generatedAtMs: nowMs,
-    config: "beta-clinrev-2026-07",
+    config: SAFETY_CONFIG_VERSION,
     members: members.length,
     comparisons,
     agree,

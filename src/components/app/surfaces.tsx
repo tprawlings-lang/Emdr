@@ -54,10 +54,18 @@ export function Callout({
   const t = TONE[tone];
   return (
     <div className={`rounded-2xl ${t.bg} px-5 py-4 ${className}`}>
-      <p className="text-sm">
+      {/* A DIV, NOT A PARAGRAPH, and the children are not wrapped in a span.
+          This was `<p><span>{label}</span> <span>{children}</span></p>`, and
+          nine call sites pass a <p> as their child — a paragraph inside a
+          paragraph is invalid HTML, and React regenerates the whole tree on the
+          client when it finds one. Every one of those screens was throwing a
+          hydration error in the browser console and nobody was reading it.
+          Text children still flow inline after the label, so the common case
+          looks the same. */}
+      <div className="text-sm text-ground">
         <span className={`font-semibold ${t.fg}`}>{label}:</span>{" "}
-        <span className="text-ground">{children}</span>
-      </p>
+        {children}
+      </div>
     </div>
   );
 }

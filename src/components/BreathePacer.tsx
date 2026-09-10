@@ -1,5 +1,6 @@
 "use client";
 import { useState, useRef, useEffect, useCallback } from "react";
+import { useLatest } from "./useLatest";
 import type { Practice, BreathPhase } from "@/lib/practices";
 
 const LABEL: Record<BreathPhase["label"], string> = {
@@ -27,15 +28,14 @@ export default function BreathePacer({
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const endedRef = useRef(false);
   const startedRef = useRef(0);
-  const onDoneRef = useRef(onDone);
-  onDoneRef.current = onDone;
+  const onDoneRef = useLatest(onDone);
 
   const end = useCallback(() => {
     if (endedRef.current) return;
     endedRef.current = true;
     if (timerRef.current) clearTimeout(timerRef.current);
     onDoneRef.current(Math.round((Date.now() - startedRef.current) / 1000));
-  }, []);
+  }, [onDoneRef]);
 
   useEffect(() => {
     endedRef.current = false;

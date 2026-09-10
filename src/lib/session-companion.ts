@@ -21,6 +21,8 @@ import { AccessTier } from "./safety/types";
 import type { SelectedTechnique } from "./therapy-kb";
 import { validateCompanionOutput, SAFE_FALLBACK } from "./safety/companion-guard";
 import { detectRisk } from "./companion";
+import { invoke } from "./ai-gateway";
+import { SESSION_REPHRASE } from "./ai-gateway/registry";
 
 export type SessionResponseKind = "crisis" | "ground" | "technique" | "acknowledge";
 
@@ -140,4 +142,43 @@ export function buildSessionRephrasePrompt(base: SessionResponse, calmPlace: str
   ]
     .filter(Boolean)
     .join("\n");
+}
+
+/** The optional warmth pass over an already-safe in-session line.
+ *
+ *  ONE COPY, NOT TWO. The web action and the mobile service each carried their
+ *  own — same model, same prompt, same guard, same fallback — which meant a
+ *  change to the safety behaviour of one silently produced two different
+ *  products. That is the exact drift ADR 0012 predicted for direct provider
+ *  calls, and it had already happened before the gateway landed.
+ *
+ *  Everything about this pass is a narrowing. It runs only on a line the
+ *  responder already marked `aiEligible`, it never composes, and its output has
+ *  to pass the same guard the deterministic line passes — so a model failure,
+ *  a guard violation and an absent API key all land on the same place: the line
+ *  that was already safe. */
+export async function rephraseSessionLine(args: {
+  base: SessionResponse;
+  transcript: string;
+  calmPlace: string | null;
+  userId: string;
+  tenantId: string;
+}): Promise<SessionResponse> {
+  if (!args.base.aiEligible) return args.base;
+
+  const result = await invoke({
+    task: SESSION_REPHRASE.id,
+    scope: {
+      tenantId: args.tenantId,
+      personId: args.userId,
+      purpose: "session_rephrase",
+      actorId: args.userId,
+    },
+    system: buildSessionRephrasePrompt(args.base, args.calmPlace),
+    messages: [{ role: "user", content: args.transcript }],
+  });
+
+  if (result.outcome !== "answered" || !result.text) return args.base;
+  if (!validateCompanionOutput(result.text).ok) return args.base;
+  return { ...args.base, text: result.text, source: "ai" };
 }

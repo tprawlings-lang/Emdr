@@ -15,23 +15,35 @@ test.skip(
 
 async function signInAsOperations(page: import("@playwright/test").Page) {
   await page.goto("/login");
-  // Wait for the page to settle before clicking. On a cold server the first
-  // click can land while React is still hydrating, and the submit is swallowed
-  // — no POST is made at all. It is a race, so it shows up as one spec failing
-  // on the first run of a session and passing on every re-run, which is the
-  // most expensive kind of flake to diagnose.
+  // On a cold server the first click can land while React is still hydrating
+  // and the submit is swallowed — no POST is made at all. `networkidle` does
+  // not cover it, and neither does asserting the URL afterwards: the assertion
+  // retries against a page that was never going to navigate, so it fails once
+  // per session and passes on every re-run. The most expensive kind of flake.
+  //
+  // Waiting on the NAVIGATION is what actually closes it, because the wait and
+  // the click are then racing the same event.
   await page.waitForLoadState("networkidle");
-  await page.locator('input[name="email"]').fill("operations@example.com");
-  await page.locator('input[name="password"]').fill("demo1234");
-  await page.locator('form button[type="submit"]').click();
-  await expect(page).toHaveURL(/\/organization/);
+  await page.locator('input[name="email"]').fill("org.demo@steady.local");
+  await page.locator('input[name="password"]').fill("org1234");
+  await Promise.all([
+    page.waitForURL(/\/organization/),
+    page.locator('form button[type="submit"]').click(),
+  ]);
 }
 
 test("an aggregate account lands on the operating overview, not a clinical console", async ({ page }) => {
   await signInAsOperations(page);
   await expect(page).toHaveURL(/\/organization\/overview$/);
   await expect(page.getByRole("heading", { name: "Operating overview" })).toBeVisible();
-  await expect(page.getByText("Steady Intelligence")).toBeVisible();
+  // Scoped to the shell's banner. A bare getByText matched two elements —
+  // the role label AND Next's route announcer, a live region that carries the
+  // document title for a moment after a client-side navigation. Strict mode
+  // then failed, but only when the assertion happened to run inside that
+  // moment, so it read as an unrelated flake.
+  await expect(
+    page.getByRole("banner").getByText("Steady Intelligence", { exact: true }),
+  ).toBeVisible();
 });
 
 test("the aggregate role cannot reach a person-level surface", async ({ page }) => {

@@ -116,3 +116,46 @@ test("every person sub-route is reachable from the record's own tabs", () => {
     assert.ok(shell.includes(`"${slug}"`), `the person tab strip omits ${slug}`);
   }
 });
+
+test("a shared wrapper never puts a paragraph inside a paragraph", () => {
+  // A REAL DEFECT ON NINE SCREENS, and nobody was reading the console.
+  //
+  // `Callout` wrapped its children in `<p><span>…</span></p>`, and nine call
+  // sites pass a `<p>` as their child — which is invalid HTML. React does not
+  // merely warn: it finds the mismatch on hydration and REGENERATES THE WHOLE
+  // TREE on the client, so every one of those screens was throwing a hydration
+  // error in the browser while looking fine in a screenshot.
+  //
+  // Found twice in this codebase before it was fixed: once on the fairness and
+  // model screens, where the call sites were changed, and once here — at which
+  // point changing call sites was clearly the wrong layer to fix it at.
+  const surfaces = fs.readFileSync(path.join(process.cwd(), "src/components/app/surfaces.tsx"), "utf8");
+  const body = prose(surfaces.slice(surfaces.indexOf("export function Callout"), surfaces.indexOf("export type SummaryCard")));
+  assert.ok(
+    !/<p[\s>][\s\S]*\{children\}/.test(body),
+    "Callout renders its children inside a paragraph, so any block child is invalid HTML"
+  );
+  assert.ok(
+    !/<span[^>]*>\s*\{children\}\s*<\/span>/.test(body),
+    "Callout wraps its children in a span, which cannot contain a paragraph either"
+  );
+  assert.match(body, /\{children\}/, "Callout no longer renders its children");
+});
+
+test("no shared surface wrapper renders block children inside an inline element", () => {
+  // The general form of the rule above, over the wrappers that take children.
+  // A wrapper is free to use a paragraph for its OWN text; what it may not do
+  // is put the caller's children inside one.
+  const surfaces = fs.readFileSync(path.join(process.cwd(), "src/components/app/surfaces.tsx"), "utf8");
+  const offenders: string[] = [];
+  for (const m of surfaces.matchAll(/export function (\w+)\(/g)) {
+    const start = m.index ?? 0;
+    const next = surfaces.indexOf("\nexport ", start + 1);
+    const body = prose(surfaces.slice(start, next < 0 ? undefined : next));
+    if (!body.includes("{children}")) continue;
+    if (/<(p|span)[^>]*>(?:(?!<\/?(?:p|span)\b)[\s\S])*\{children\}/.test(body)) {
+      offenders.push(m[1]);
+    }
+  }
+  assert.deepEqual(offenders, [], `these wrappers nest caller children inside an inline element: ${offenders.join(", ")}`);
+});
