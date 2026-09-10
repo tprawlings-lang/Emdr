@@ -17,8 +17,16 @@ export const metadata = { title: "Consent and sharing — Steady" };
 // What this screen does NOT do: offer a toggle that does nothing. The
 // underlying revocation path is a service action, and building a switch that
 // writes nothing would be the same defect as a Send button with no recipient.
-// So each grant is shown with what it covers and its policy version, and
-// withdrawal routes to the place that actually performs it.
+// So each grant is shown with what it covers and its policy version.
+//
+// AND THE SENTENCE UNDER THEM USED TO CLAIM MORE THAN IT COULD. It said
+// withdrawal "routes to the place that actually performs it", and the three
+// links beneath go to companion memory, who has access, and the privacy policy
+// — none of which withdraws a care-program consent. Self-serve withdrawal is
+// not built, so the screen now says that rather than pointing at three places
+// that cannot do it. Found while building the member care gate: the gate is
+// what makes a withdrawal act on anything, and there is still no member-facing
+// way to trigger one.
 
 export default async function ConsentPage() {
   const user = await requireMember();
@@ -89,6 +97,13 @@ export default async function ConsentPage() {
           Withdrawing consent stops new processing immediately. It does not erase what is
           already recorded — corrections and history append rather than delete, which is what
           makes the record trustworthy for you as well as for a reviewer.
+        </p>
+        <p className="measure mt-3 text-sm text-ground/90">
+          <span className="font-medium">You cannot withdraw it from this screen yet.</span>{" "}
+          There is no self-serve control for it in this build, and a switch that wrote
+          nothing would be worse than none. Ask whoever arranged your access, and it is
+          performed against your record rather than hidden. Everything below stays reachable
+          either way — nothing here is behind the consent it is about.
         </p>
         <p className="mt-3 flex flex-wrap gap-x-6 gap-y-2 text-sm">
           <Link href="/app/settings/memory" className="text-state-info underline">

@@ -1,11 +1,7 @@
 import { MemberPage } from "@/components/member/MemberPage";
 import Link from "next/link";
-import { redirect } from "next/navigation";
 import { requireMember } from "@/lib/auth";
 import { buildMemberDay, DAY_MESSAGE } from "@/lib/member/view";
-import { subscriptionActive } from "@/lib/billing";
-import { hasConsent, screeningComplete } from "@/lib/gating";
-import { profileComplete } from "@/lib/profile";
 import { buildCompanionContext } from "@/lib/companion";
 import CompanionChat from "@/components/CompanionChat";
 import { CompanionEntryNotice } from "@/components/experience/CompanionEntryNotice";
@@ -16,10 +12,6 @@ export default async function CompanionPage({
   searchParams: Promise<{ from?: string }>;
 }) {
   const user = await requireMember();
-  if (!(await subscriptionActive(user.id))) redirect("/subscribe");
-  if (!(await hasConsent(user.id))) redirect("/app/onboarding");
-  if (!(await screeningComplete(user.id))) redirect("/app/screening");
-  if (!(await profileComplete(user.id))) redirect("/app/onboarding/profile");
 
   const { from } = await searchParams;
   const ctx = await buildCompanionContext(user.id);

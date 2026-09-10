@@ -1,7 +1,5 @@
 import { MemberPage } from "@/components/member/MemberPage";
-import { redirect } from "next/navigation";
 import { requireMember } from "@/lib/auth";
-import { hasConsent } from "@/lib/gating";
 import { getActiveTriggers, getCompanionPrefs } from "@/lib/profile";
 import { getMemoryItems } from "@/lib/companion";
 import {
@@ -33,7 +31,6 @@ const SOURCE_LABELS: Record<string, string> = {
 
 export default async function MemoryControlsPage() {
   const user = await requireMember();
-  if (!(await hasConsent(user.id))) redirect("/app/onboarding");
 
   const prefs = await getCompanionPrefs(user.id);
   const memoryEnabled = prefs?.memory_enabled ?? "yes";

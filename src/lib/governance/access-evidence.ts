@@ -228,12 +228,27 @@ export function inventory(): AccessInventory {
       // no marker for it, so an empty cell would report the absence of a thing
       // that was never claimed.
       if (s.proof === "behaviourally") { found[n] = []; continue; }
+
+      // AN EXEMPTION IS CHECKED FIRST, and that ordering is a correction.
+      //
+      // It used to run only when no evidence was found, which made it a
+      // fallback rather than a statement. Then the member tree got a layout —
+      // and because a layout's source is part of every route beneath it, the
+      // walk started finding `requireMember(` and `hasConsent(` on
+      // `/app/ground`, which takes the layout's OPEN branch and calls neither.
+      // The inventory reported grounding as authenticated. That is FALSE
+      // COVERAGE, which is worse than a false gap: a reviewer reads a guard
+      // that does not run.
+      //
+      // A static walk cannot see which branch a layout takes. What it can do is
+      // treat a declared exemption as what it says it is — a statement that the
+      // route does not owe the step — so the answer comes from the decision
+      // somebody wrote down rather than from an import the route never reaches.
+      if (exemption(entry.path, n)) { exempt.push(n); found[n] = []; continue; }
+
       const hits = evidenceIn(src, s);
       found[n] = hits;
       if (hits.length > 0) continue;
-      // A declared exemption is not a gap, and it is not silence either: the
-      // reason travels to the screen beside the route.
-      if (exemption(entry.path, n)) { exempt.push(n); continue; }
       missing.push(n);
       gapsByStep[n] += 1;
     }

@@ -238,6 +238,33 @@ test("every exemption names a real route that would really owe the step", () => 
   }
 });
 
+test("an exemption beats the evidence, rather than filling in behind it", () => {
+  // A CORRECTION THE MEMBER LAYOUT FORCED. The exemption used to run only when
+  // no evidence was found. Then the member tree got a layout — and because a
+  // layout's source is part of every route beneath it, the walk began finding
+  // `requireMember(` and `hasConsent(` on /app/ground, which takes that
+  // layout's OPEN branch and calls neither. The inventory reported grounding as
+  // authenticated: false coverage, which is worse than a false gap, because a
+  // reviewer reads a guard that does not run.
+  //
+  // A static walk cannot see which branch a layout takes. A declared exemption
+  // can say what the route owes, so it is checked first.
+  const row = inv.routes.find((r) => r.path === "/app/ground");
+  assert.ok(row);
+  for (const n of [1, 2, 4]) {
+    assert.ok(row.exempt.includes(n), `grounding no longer declares step ${n} as exempt`);
+    assert.deepEqual(row.found[n], [], `grounding reports evidence for step ${n} that never runs`);
+  }
+  // The rule in general: nothing declared exempt is also reported as shown.
+  const contradictions: string[] = [];
+  for (const r of inv.routes) {
+    for (const n of r.exempt) {
+      if ((r.found[n] ?? []).length > 0) contradictions.push(`${r.path} step ${n}`);
+    }
+  }
+  assert.deepEqual(contradictions, [], `exempt and shown at once: ${contradictions.join(", ")}`);
+});
+
 test("an exemption is rendered, never subtracted", () => {
   // A reviewer who disagrees with one should find it in a list rather than by
   // noticing an absence.
