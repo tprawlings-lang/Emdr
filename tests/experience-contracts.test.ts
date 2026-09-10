@@ -377,6 +377,28 @@ test("a queue row with no attention signal can still be reviewed", () => {
   assert.match(actions, /Nothing was closed/, "a caseload review claims something closed");
 });
 
+test("assignable owners are read from role assignments, not from accounts", () => {
+  // The Assign control renders only when there is somebody to assign to, and
+  // the list read `users` — where a person has a row only if somebody signs in
+  // as them. Every clinician in this product except the demo account is
+  // deliberately a person with a role assignment and no login, so the list was
+  // always empty and the control was never drawn.
+  //
+  // `care_manager` is the same mistake showing twice in one WHERE clause: it is
+  // a care-relationship role that `users.role` cannot hold at all.
+  const page = code(fs.readFileSync(
+    path.join(root, "src/app/clinician/today/page.tsx"), "utf8"));
+  const query = page.slice(page.indexOf("const assignees"), page.indexOf("return (", page.indexOf("const assignees")));
+  assert.match(query, /FROM role_assignments/, "assignees are still read from accounts");
+  assert.match(query, /JOIN persons/, "an owner with no person row would have no name");
+  assert.ok(!/FROM users/.test(query), "the accounts table is still consulted for owners");
+  // Scoped to the tenant, excluding the actor, and excluding an assignment that
+  // has ended — an owner whose role lapsed is not an owner.
+  assert.match(query, /ra\.tenant_id = \?/);
+  assert.match(query, /ra\.person_id != \?/);
+  assert.match(query, /effective_to IS NULL OR ra\.effective_to >/);
+});
+
 test("a confirmation outlives the row it came from", () => {
   // Reviewing an alert-derived row REMOVES it from the queue, because the queue
   // reads the alert's status. The confirmation used to live inside that row, so

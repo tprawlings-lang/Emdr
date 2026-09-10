@@ -128,10 +128,31 @@ export default async function CommandCenterPage({
 
     // Who work could be assigned to. Queried here rather than in the
     // experience layer, which owns no SQL (Package 1's exit evidence).
+    //
+    // READ FROM ROLE ASSIGNMENTS, NOT FROM ACCOUNTS, and that difference is why
+    // the Assign control had never appeared. This read `users`, where a person
+    // has a row only if somebody signs in as them — and the eleven clinicians
+    // beside the demo account are deliberately PERSONS WITH A ROLE ASSIGNMENT
+    // and no login, because eleven unused credentials would be eleven more to
+    // rotate for no demonstration value. So the query found nobody, `assignees`
+    // was empty, and `RowActions` renders Assign only when there is somebody to
+    // assign to. The control was correct; the list behind it was looking in the
+    // wrong place.
+    //
+    // Assignment is to a PERSON in any case: the domain's owner field is
+    // `ownerPersonId`, and being able to sign in has never been a condition of
+    // owning a piece of work. `care_manager` is a care-relationship role that
+    // `users.role` cannot even hold, which is the same mistake showing twice in
+    // one WHERE clause.
     const assignees = (await c.all(
-      `SELECT id, name FROM users
-        WHERE tenant_id = ? AND role IN ('clinician', 'care_manager') AND id != ?
-        ORDER BY name LIMIT 12`,
+      `SELECT ra.person_id AS id, p.display_name AS name
+         FROM role_assignments ra
+         JOIN persons p ON p.id = ra.person_id
+        WHERE ra.tenant_id = ?
+          AND ra.role IN ('clinician', 'care_manager')
+          AND ra.person_id != ?
+          AND (ra.effective_to IS NULL OR ra.effective_to > CURRENT_TIMESTAMP)
+        ORDER BY p.display_name LIMIT 12`,
       [tenantId, clinician.id]
     )) as Array<{ id: string; name: string }>;
 

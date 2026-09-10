@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { ReviewPage } from "@/components/clinical/ReviewPage";
-import { requireClinician } from "@/lib/auth";
+import { requireReviewAccess } from "@/lib/auth";
 import { data } from "@/lib/data";
 import { PLATFORM_TENANT_ID } from "@/lib/db";
 import {
@@ -14,7 +14,7 @@ import { activePolicy, policyBanner } from "@/lib/clinical-policy";
 
 export const dynamic = "force-dynamic";
 
-// The clinician testing console (Phase 4 testing cycle).
+// The testing console (Phase 4 testing cycle).
 //
 // Two jobs. It tells a reviewer what they can exercise and how to reach it, so
 // nobody concludes a feature is missing when it is two clicks away. And it
@@ -38,12 +38,16 @@ export default async function TestingConsole({
 }: {
   searchParams: Promise<{ error?: string; done?: string; show?: string }>;
 }) {
-  const clinician = await requireClinician();
+  // THE REVIEW CONSOLE'S OWN GUARD. This called `requireClinician` while its
+  // layout calls `requireReviewAccess` — on a page whose own docstring says it
+  // "tells a reviewer what they can exercise and how to reach it". The one
+  // audience it named was the one it turned away.
+  const actor = await requireReviewAccess();
   const { error, done, show } = await searchParams;
   const policy = activePolicy();
 
   const c = await data();
-  const me = (await c.get("SELECT tenant_id FROM users WHERE id = ?", [clinician.id])) as
+  const me = (await c.get("SELECT tenant_id FROM users WHERE id = ?", [actor.id])) as
     | { tenant_id: string } | undefined;
   const tenantId = me?.tenant_id ?? PLATFORM_TENANT_ID;
 
@@ -61,7 +65,7 @@ export default async function TestingConsole({
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <p className="text-sm text-olive">
-            What you can exercise, and what you would change · {clinician.name}
+            What you can exercise, and what you would change · {actor.name}
           </p>
         </div>
       </div>

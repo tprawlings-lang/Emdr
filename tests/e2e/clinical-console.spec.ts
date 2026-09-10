@@ -547,6 +547,37 @@ test("completing a review from the queue records it, and says what it recorded",
   await expect(page.getByText(/\d+ items need review\./)).toBeVisible();
 });
 
+test("work can be assigned to a colleague who has no login", async ({ page }) => {
+  // THE ASSIGN CONTROL HAD NEVER RENDERED, and the control was not the defect.
+  // `RowActions` offers Assign only when there is somebody to assign to, and
+  // the list behind it read the `users` table — where a person has a row only
+  // if somebody signs in as them. The eleven clinicians beside the demo account
+  // are deliberately persons with a role assignment and no login, so the query
+  // found nobody and the button was never drawn.
+  //
+  // Assignment is to a PERSON in any case: the domain's owner field is
+  // `ownerPersonId`, and being able to sign in has never been a condition of
+  // owning a piece of work.
+  await signInAsClinician(page);
+  await page.goto("/clinician/today");
+
+  const assign = page.getByRole("button", { name: "Assign" }).first();
+  await expect(assign).toBeVisible();
+  await assign.click();
+
+  // The colleague in this tenant, by the name the population gave them.
+  const colleague = page.getByRole("button", { name: /NE-C\d/ }).first();
+  await expect(colleague).toBeVisible();
+  const name = (await colleague.innerText()).trim();
+  await colleague.click();
+
+  // §5 again: what changed, and — as pointedly — what did not.
+  const confirmations = page.getByTestId("queue-confirmations");
+  await expect(confirmations).toContainText(name, { timeout: 15000 });
+  await expect(confirmations).toContainText(/Nobody has been notified/);
+  await expect(page.getByText("Could not save")).toHaveCount(0);
+});
+
 test("a safety row will not close on an acknowledgement", async ({ page }) => {
   // The rule that survives the fix above. An immediate-band alert closes with a
   // documented action, never an empty note — and the drawer calls the note
