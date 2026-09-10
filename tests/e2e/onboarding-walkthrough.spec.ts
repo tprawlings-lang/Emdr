@@ -138,6 +138,22 @@ test("the clinician sees the person the walkthrough created", async ({ page }) =
 test("the demo admin console counts walkthrough people against the cap", async ({ page }) => {
   // So a presenter can see the environment filling up before the button
   // refuses, and knows a reset is what clears them.
+  //
+  // A WALKTHROUGH IS CREATED FIRST, deliberately. The count renders only when
+  // there is something to count — a line reading "0 of 25" on every visit is
+  // noise on a console whose whole job is to lead with what needs attention —
+  // so asserting it on an untouched environment would be asserting the empty
+  // case. This also makes the assertion mean something: the number moved
+  // because a person was created, not because a constant is on the page.
+  await page.goto("/login");
+  await page.waitForLoadState("networkidle");
+  const start = page.getByRole("button", { name: START });
+  await start.scrollIntoViewIfNeeded();
+  await Promise.all([
+    page.waitForURL(/\/app\/onboarding$/, { timeout: 20_000 }),
+    start.click(),
+  ]);
+
   await page.goto("/login");
   await page.waitForLoadState("networkidle");
   await page.locator('input[name="email"]').fill("admin.demo@steady.local");
@@ -146,6 +162,9 @@ test("the demo admin console counts walkthrough people against the cap", async (
     page.waitForURL(/\/admin\/demo/, { timeout: 20_000 }),
     page.locator('form:has(input[name="password"]) button[type="submit"]').click(),
   ]);
-  await expect(page.locator("main")).toContainText(/Onboarding walkthroughs/i);
-  await expect(page.locator("main")).toContainText(/\d+ of \d+/);
+  const main = page.locator("main");
+  await expect(main).toContainText(/Onboarding walkthroughs/i);
+  // At least the one just created, and the cap named beside it.
+  await expect(main).toContainText(/Onboarding walkthroughs: [1-9]\d* of 25/);
+  await expect(main).toContainText(/A reset clears them/i);
 });

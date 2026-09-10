@@ -142,10 +142,6 @@ export default async function AdminDemoPage() {
           cards={[
             { label: "Tenants", value: String(counts.tenants) },
             { label: "Fabricated people", value: counts.persons.toLocaleString() },
-            {
-              label: "Onboarding walkthroughs",
-              value: `${walkthroughs} of ${WALKTHROUGH_LIMIT}`,
-            },
             { label: "Ledger events", value: counts.events.toLocaleString() },
           ]}
         />
@@ -314,6 +310,25 @@ export default async function AdminDemoPage() {
             fabricated member data. Anything a person originated here is not rebuilt by this and
             is not fabricated data — the manifest reports how many such people exist above.
           </p>
+          {/* Onboarding walkthroughs are the one kind of fabricated person a
+              VISITOR creates rather than the seed, so the count moves with what
+              people did in this environment and the seeded totals do not.
+              Beside the reset rather than in the summary above, for two
+              reasons: `SummaryCards` takes three and refuses a fourth — which
+              is the right rule, a fourth headline is not a headline — and this
+              is only ever read when deciding whether to reset. */}
+          {walkthroughs > 0 && (
+            <p className="measure mt-4 rounded-2xl border border-ground/10 bg-app-surface px-4 py-3 text-sm text-ground">
+              <span className="font-semibold">
+                Onboarding walkthroughs: {walkthroughs} of {WALKTHROUGH_LIMIT}
+              </span>{" "}
+              <span className="text-olive">
+                fabricated people created from the sign-in screen&rsquo;s walkthrough. A reset
+                clears them. At {WALKTHROUGH_LIMIT} the control refuses until one happens.
+              </span>
+            </p>
+          )}
+
           {/* §7.3: "Before reset, show scope, active sessions, and effect."
               Stated from `resetScope()` rather than written here, so the two
               lists and the destructive call cannot describe different
