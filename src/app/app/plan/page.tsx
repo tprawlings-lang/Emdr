@@ -44,7 +44,7 @@ export default async function CarePlanPage() {
           <p className="measure mt-3 text-sm text-olive">
             You have not chosen a path yet. Paths are optional — the sessions and practices
             work without one.{" "}
-            <Link href="/app/paths" className="text-state-info underline">Browse paths</Link>
+            <Link href="/app/paths" className="text-state-info underline">Browse paths</Link>{" · "}<Link href="/app/modules" className="text-state-info underline">Modules a clinician opens</Link>
           </p>
         ) : (
           <ul className="mt-3 space-y-3">

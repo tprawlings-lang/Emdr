@@ -76,6 +76,16 @@ export default async function ClinicalConsole({
       title="Caseload"
       lede={`Everyone assigned to ${clinician.name}, ordered by clinical need. The work queue is what needs doing; this is who you have.`}
     >
+      {/* The caseload has counted unlock requests in its reasons the whole
+          time — "2 unlock requests awaiting a decision" — with nowhere to go.
+          This is where a clinician reads that and wants the queue. */}
+      <p className="mb-4 text-sm text-olive">
+        Module requests from members are answered on the{" "}
+        <Link href="/clinician/unlocks" className="font-medium text-app-ink underline">
+          module requests queue
+        </Link>
+        .
+      </p>
 
       {/* Handoff §2: a screen resembling a live service must never imply approval. */}
       <p className="mt-4 rounded-2xl border border-state-caution/40 bg-state-caution-bg px-4 py-3 text-xs text-ground">
