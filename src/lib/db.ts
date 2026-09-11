@@ -529,6 +529,56 @@ export const SCHEMA_SQL = `
   -- request has to outlive that, because it is feedback about the product, not
   -- a record about a person. A note that vanished when the environment was
   -- refreshed would take the reviewer's hour with it.
+  -- CLINICAL NOTES. A clinician's own account of contact with a person.
+  -- 
+  -- SIGNED NOTES ARE IMMUTABLE, which is the whole design. A clinical record
+  -- that can be silently edited after the fact is not a record — the question
+  -- "what did the clinician believe on the day" stops having an answer. So a
+  -- signed row is never UPDATEd: a correction is a NEW note carrying
+  -- amends_note_id, and both stay readable. The same refusal the event spine
+  -- makes about deleting history, at the table.
+  -- 
+  -- THE CLINICIAN SIGNS, NOT STEADY. signed_by is a person, set only by that
+  -- person's own action. The note bridge at /clinician/member/[id]/note
+  -- deliberately never signed an assembled draft, and it was right: a signature
+  -- attests to somebody's own statement. This does not change that rule — it
+  -- gives the clinician somewhere to make a statement OF THEIR OWN and attest
+  -- to it.
+  -- 
+  -- A DRAFT IS NOT A RECORD. Drafts are editable and are not part of what a
+  -- reviewer reads as the record; only signing makes a note count.
+  CREATE TABLE IF NOT EXISTS clinical_notes (
+    id TEXT PRIMARY KEY,
+    tenant_id TEXT NOT NULL,
+    person_id TEXT NOT NULL REFERENCES users(id),
+    clinician_id TEXT NOT NULL REFERENCES users(id),
+    kind TEXT NOT NULL DEFAULT 'session'
+      CHECK (kind IN ('session','contact','safety','handover')),
+    body TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'draft'
+      CHECK (status IN ('draft','signed')),
+    -- The note this one corrects. Set only on a note written to amend a signed
+    -- one, and never cleared.
+    amends_note_id TEXT REFERENCES clinical_notes(id),
+    signed_at TEXT,
+    signed_by TEXT REFERENCES users(id),
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+  CREATE INDEX IF NOT EXISTS idx_clinical_notes_person ON clinical_notes(person_id, created_at);
+
+  -- A signed note cannot be rewritten. Enforced here rather than only in the
+  -- domain, because the guarantee is worth having against a script, a migration
+  -- or a future writer that never read notes.ts.
+  CREATE TRIGGER IF NOT EXISTS clinical_notes_signed_are_immutable
+  BEFORE UPDATE ON clinical_notes
+  FOR EACH ROW WHEN OLD.status = 'signed'
+    AND (NEW.body <> OLD.body OR NEW.status <> OLD.status
+         OR NEW.kind <> OLD.kind OR NEW.person_id <> OLD.person_id)
+  BEGIN
+    SELECT RAISE(ABORT, 'a signed clinical note cannot be changed — write an amendment instead');
+  END;
+
   CREATE TABLE IF NOT EXISTS review_notes (
     id TEXT PRIMARY KEY,
     reviewer_id TEXT NOT NULL,
@@ -2350,6 +2400,7 @@ export const PLATFORM_TENANT_ID = NIL_ULID;
  *  (ADR 0011 §4). */
 export const TENANT_SCOPED_TABLES = [
   "users", "consents", "screenings", "checkins", "therapy_sessions",
+  "clinical_notes",
   "post_session_checks", "module_unlocks", "alerts", "user_profiles",
   "user_triggers", "early_warning_signs", "readiness_assessments",
   "safety_plans", "ai_companion_preferences", "ai_memory_items",

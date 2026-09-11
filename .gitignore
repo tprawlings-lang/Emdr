@@ -13,6 +13,12 @@
 # testing
 /coverage
 /test-results/
+# Throwaway Playwright drivers. They have to live INSIDE the repo — a script
+# under /tmp cannot resolve `playwright` from node_modules — and they are not
+# work product. Without this they land in the repo root as untracked files and
+# eventually get swept into a commit by `git add -A`, which is how .acts.mjs
+# reached the branch.
+/.scratch/
 /playwright-report/
 /blob-report/
 /.playwright/

@@ -61,6 +61,12 @@ const MEMBER_ROUTES = [
   // them has a reason to carry a score, and the guard below fails the build if
   // a new /app route appears outside this list — which is how these arrived.
   "app/welcome", "app/consent", "app/plan", "app/messages", "app/care-team",
+  // The module request screen. Under guard rather than exempt, and it is
+  // exactly the kind of screen the exemption rule is about: it names gated
+  // modules and a clinician's decision, and the temptation would be to show
+  // a readiness figure as the reason one is closed. It shows the
+  // clinician's words instead.
+  "app/modules",
 ];
 
 /** Identifiers that carry a score, a band, a track, or a criteria label.

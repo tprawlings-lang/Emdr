@@ -132,6 +132,33 @@ export const ACCESS_INVENTORY: AccessInventory = {
       "exempt": []
     },
     {
+      "path": "/app/modules",
+      "audience": "member",
+      "file": "app/app/modules/page.tsx",
+      "owed": [
+        1,
+        2,
+        4,
+        5
+      ],
+      "found": {
+        "1": [
+          "requireUser(",
+          "requireMember("
+        ],
+        "2": [
+          "requireMember("
+        ],
+        "4": [
+          "hasConsent(",
+          "revoked_at IS NULL"
+        ],
+        "5": []
+      },
+      "missing": [],
+      "exempt": []
+    },
+    {
       "path": "/app/plan",
       "audience": "member",
       "file": "app/app/plan/page.tsx",
@@ -1205,6 +1232,28 @@ export const ACCESS_INVENTORY: AccessInventory = {
       "exempt": []
     },
     {
+      "path": "/clinician/unlocks",
+      "audience": "clinician",
+      "file": "app/clinician/unlocks/page.tsx",
+      "owed": [
+        1,
+        2,
+        5
+      ],
+      "found": {
+        "1": [
+          "requireUser(",
+          "requireClinician("
+        ],
+        "2": [
+          "requireClinician("
+        ],
+        "5": []
+      },
+      "missing": [],
+      "exempt": []
+    },
+    {
       "path": "/clinician/handoffs",
       "audience": "clinician",
       "file": "app/clinician/handoffs/page.tsx",
@@ -1713,6 +1762,43 @@ export const ACCESS_INVENTORY: AccessInventory = {
           "family: \"security\"",
           "_viewed",
           "_opened"
+        ]
+      },
+      "missing": [],
+      "exempt": []
+    },
+    {
+      "path": "/clinician/member/[id]/notes",
+      "audience": "clinician",
+      "file": "app/clinician/member/[id]/notes/page.tsx",
+      "owed": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        7
+      ],
+      "found": {
+        "1": [
+          "requireUser(",
+          "requireClinician("
+        ],
+        "2": [
+          "requireClinician("
+        ],
+        "3": [
+          "tenant_id = ?",
+          "loadPersonHeader("
+        ],
+        "4": [
+          "revoked_at IS NULL",
+          "consentActive"
+        ],
+        "5": [],
+        "7": [
+          "family: \"security\"",
+          "_viewed"
         ]
       },
       "missing": [],
@@ -3132,6 +3218,28 @@ export const ACCESS_INVENTORY: AccessInventory = {
       ]
     },
     {
+      "path": "/admin/pilot",
+      "audience": "demo_admin",
+      "file": "app/admin/pilot/page.tsx",
+      "owed": [
+        1,
+        2,
+        5
+      ],
+      "found": {
+        "1": [
+          "requireUser(",
+          "requireDemoAdmin("
+        ],
+        "2": [
+          "requireDemoAdmin("
+        ],
+        "5": []
+      },
+      "missing": [],
+      "exempt": []
+    },
+    {
       "path": "/admin/demo",
       "audience": "demo_admin",
       "file": "app/admin/demo/page.tsx",
@@ -3154,8 +3262,8 @@ export const ACCESS_INVENTORY: AccessInventory = {
       "exempt": []
     }
   ],
-  "protectedCount": 112,
-  "complete": 112,
+  "protectedCount": 116,
+  "complete": 116,
   "gapsByStep": {
     "1": 0,
     "2": 0,

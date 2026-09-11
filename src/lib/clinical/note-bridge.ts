@@ -7,12 +7,17 @@
 // losing data.
 //
 // THE DRAFT IS DERIVED AND NEVER STORED, which is how the third of those is
-// answered rather than promised. There is no note table, no draft row and no
-// bridge state: a draft is assembled from memory items on the way to the screen
-// and exists for exactly as long as the response. Turn CLINICIAN_NOTE_BRIDGE
-// off and a surface disappears; nothing is deleted because nothing was written.
-// A stored draft would have made "disabled without data loss" a promise about
-// a migration.
+// answered rather than promised. This bridge has no table, no draft row and no
+// state of its own: a draft is assembled from memory items on the way to the
+// screen and exists for exactly as long as the response. Turn
+// CLINICIAN_NOTE_BRIDGE off and a surface disappears; nothing is deleted
+// because nothing was written. A stored draft would have made "disabled
+// without data loss" a promise about a migration.
+//
+// `clinical_notes` is not that, and does not weaken it. It holds notes a
+// clinician wrote and signed THEMSELVES, which are meant to survive — losing
+// them on a flag change would be the defect, not the guarantee. This file still
+// stores nothing, so the promise it makes is still a fact about it.
 //
 // SELECTION IS THE WHOLE POINT, and it is the opposite of the referral packet
 // two files away. A referral is compiled passively because the moment of
@@ -22,8 +27,16 @@
 // was never approved is a refusal rather than a silent omission.
 //
 // A DRAFT IS NOT A NOTE. This produces text a clinician reads, edits and puts
-// into the record system that actually holds notes. It cannot sign, and it does
-// not model a signature it has no authority to apply.
+// into a note they write and sign themselves. It cannot sign, and it does not
+// model a signature it has no authority to apply.
+//
+// THE COPY CHANGED WHEN THE RECORD ARRIVED. It used to say "Steady does not
+// hold formal notes and cannot sign one", and the first half of that stopped
+// being true the day clinical_notes existed — a clinician signs their own notes
+// at /clinician/member/[id]/notes now. The half that matters is unchanged and
+// is what the sentence says instead: STEADY will not sign, because a signature
+// on text Steady assembled would be Steady attesting on somebody's behalf. A
+// claim that quietly outlives its subject is the thing §31.8 is about.
 
 import type { MemoryItem } from "./memory-store";
 
@@ -60,10 +73,9 @@ export interface NoteDraft {
  * place so the screen and the tests quote the same words.
  */
 export const SIGNING_IS_ELSEWHERE =
-  "This is a draft. Steady does not hold formal notes and cannot sign one: a signature " +
-  "attests to a clinician's own statement in the record system of truth, and applying one " +
-  "here would be Steady attesting on their behalf. Read it, change what is wrong, and put " +
-  "it into the record yourself.";
+  "This is a draft, and Steady will not sign it: a signature attests to a clinician's own " +
+  "statement, and applying one to text Steady assembled would be Steady attesting on their " +
+  "behalf. Read it, change what is wrong, and write it into a note you sign yourself.";
 
 /**
  * Assemble a draft from the items a clinician selected.

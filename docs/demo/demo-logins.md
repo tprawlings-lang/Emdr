@@ -35,6 +35,7 @@ account mid-session.
 | Organization (demo network) | `network.demo@steady.local` | `org1234` | `/organization/overview` |
 | **Payer** | `payer.demo@steady.local` | `payer1234` | `/payer/overview` |
 | **Demo Admin** | `admin.demo@steady.local` | `demoadmin1234` | `/admin/demo` |
+| Pilot Clinician | `clinician.pilot@steady.local` | `pilotclin1234` | `/clinician/today` |
 
 A distinct password per role is deliberate. A shared one makes "which role am I actually
 signed in as?" a question the presenter answers from memory, in front of an audience.
@@ -91,6 +92,7 @@ A few things worth knowing before a demonstration:
 | `org.demo@steady.local` | Jordan Idowu | Northside Behavioral Health — 4,820 covered lives across four sites, none of them named. Aggregate only |
 | `network.demo@steady.local` | Dana Okonkwo | NE Care Network A — 42 of the 240 fabricated profiles. The account to use for the **Population** screen; `org.demo` reports on a different population and says so |
 | `payer.demo@steady.local` | Priya Raman | Meridian Health Plan — 12,480 covered lives, one contract, five measures, 1,635 claims. Aggregate only |
+| `clinician.pilot@steady.local` | Pilot Clinician | The clinician for the **pilot tenant** — the people who enrolled themselves through the access-coded signup form. A separate account because a clinician belongs to one tenant, and moving `clinician.demo` here would empty the demonstration caseload. Only exists where enrollment has been configured (see [`enrollment.md`](enrollment.md)) |
 | `admin.demo@steady.local` | Robin Achebe | Every fabricated tenant, person and event; environment state and QA |
 
 ---

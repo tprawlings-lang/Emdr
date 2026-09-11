@@ -208,6 +208,11 @@ export const DEMO_DATA_TABLES = [
   "early_warning_signs",
   "user_triggers",
   "user_profiles",
+  // Before users: clinical_notes references them twice (author and signatory).
+  // A signed note is immutable, and a reset is not an edit — it removes the
+  // fabricated population wholesale, notes included, which is the only way the
+  // environment returns to a known state.
+  "clinical_notes",
   "alerts",
   "module_unlocks",
   "therapy_sessions",

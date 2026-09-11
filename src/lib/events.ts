@@ -115,6 +115,17 @@ export const EVENT_TYPES = {
 
   // Clinical action
   "clinician.reviewed": 1,
+  // A clinician's own signed account of contact. NOT "clinician.reviewed",
+  // which records that a queue item was worked: a note is a statement the
+  // clinician attests to, and the two answer different questions about the
+  // same day. Only SIGNING appends — a draft is not a record and nothing in
+  // the ledger should say it was.
+  "clinical_note.signed": 1,
+  // A correction. A signed note is never rewritten, so an amendment is its own
+  // event carrying the id of what it corrects — the ledger has to show both,
+  // or a replay would answer "what did they believe on the day" with today's
+  // version of it.
+  "clinical_note.amended": 1,
   "module_unlock.requested": 2,
   "module_unlock.decided": 2,
 

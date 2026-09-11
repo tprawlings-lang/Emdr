@@ -1212,7 +1212,7 @@ export async function requestUnlock(formData: FormData) {
   const moduleId = String(formData.get("moduleId") ?? "");
   const note = String(formData.get("note") ?? "").slice(0, 500);
   const mod = getModule(moduleId);
-  if (!mod || mod.tier !== "gated") redirect("/app/today");
+  if (!mod || mod.tier !== "gated") redirect("/app/modules");
 
   const c = await data();
   const unlockId = await upsertRowId(
@@ -1248,7 +1248,9 @@ export async function requestUnlock(formData: FormData) {
     target: moduleId,
     detail: { priority },
   });
-  redirect("/app/today?unlock=requested");
+  // Back to the screen that asked, not the dashboard. A request that answers
+  // somewhere else leaves the member unsure whether it was recorded.
+  redirect("/app/modules?requested=1");
 }
 
 // ---------- Clinician actions ----------
@@ -1259,7 +1261,7 @@ export async function decideUnlock(formData: FormData) {
   const decision = String(formData.get("decision") ?? "");
   const reason = String(formData.get("reason") ?? "").slice(0, 1000);
   if (decision !== "unlocked" && decision !== "denied") return;
-  if (!reason.trim()) redirect("/clinician?error=reason_required");
+  if (!reason.trim()) redirect("/clinician/unlocks?error=" + encodeURIComponent("A decision needs a reason the member can read."));
 
   const c = await data();
   const unlock = await c.get("SELECT id, user_id, module_id FROM module_unlocks WHERE id = ?", [unlockId]) as { id: string; user_id: string; module_id: string } | undefined;
@@ -1282,8 +1284,10 @@ export async function decideUnlock(formData: FormData) {
     target: `${unlock.user_id}:${unlock.module_id}`,
     detail: { reason },
   });
-  revalidatePath("/clinician");
-  redirect("/clinician");
+  revalidatePath("/clinician/unlocks");
+  // To the queue the decision was made from, so a clinician working through
+  // several requests stays where the work is.
+  redirect("/clinician/unlocks?decided=" + encodeURIComponent(decision));
 }
 
 // Clinician override: open a gated module ahead of the program's pacing for a
