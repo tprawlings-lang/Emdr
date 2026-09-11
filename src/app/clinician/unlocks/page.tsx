@@ -76,7 +76,7 @@ export default async function UnlockQueuePage({
     <ClinicianPage title="Module requests" layer="actions" here="/clinician/unlocks">
       <div className="space-y-6">
         {error && (
-          <p className="rounded-2xl border border-support/40 bg-support/10 px-4 py-3 text-sm text-support-deep">
+          <p className="rounded-2xl border border-state-support bg-state-support-bg px-4 py-3 text-sm text-state-support">
             {error}
           </p>
         )}
