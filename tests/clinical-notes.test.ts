@@ -1,5 +1,9 @@
 process.env.EMDR_DATA_DIR = `/tmp/steady-clinnotes-${process.pid}-${Date.now()}`;
-process.env.EMDR_DEMO = "1";
+// NOT a demo database. These tests need three users and a tenant, and
+// nothing about the 240-person seeded population — booting with EMDR_DEMO=1
+// rebuilt all twenty thousand of its events on every reset, which took this
+// file from two seconds to two minutes.
+process.env.EMDR_DEMO = "0";
 process.env.EMDR_DATA_KEY = process.env.EMDR_DATA_KEY ?? "clinical-notes-test-key";
 process.env.EMDR_SESSION_SECRET = process.env.EMDR_SESSION_SECRET ?? "clinical-notes-test-secret-not-real";
 
@@ -28,7 +32,6 @@ import fs from "node:fs";
 import path from "node:path";
 
 import { getDb } from "../src/lib/db";
-import { resetDemoData } from "../src/lib/demo-reset";
 import {
   notesFor, noteById, saveDraft, signNote, startAmendment, NoteError, MIN_BODY,
 } from "../src/lib/clinical/notes";
@@ -43,6 +46,17 @@ const code = (rel: string) =>
 const T1 = "TENANT0000000000000000001";
 const T2 = "TENANT0000000000000000002";
 const BODY = "Session note: reviewed the week, sleep improving, no safety concerns raised.";
+
+/** Clear what these tests write. Cheaper and more honest than a full reset:
+ *  a reset rebuilds a population none of this reads. */
+function clear() {
+  const db = getDb();
+  db.prepare("DELETE FROM clinical_notes").run();
+  // AND THE EVENTS THEY APPENDED. The ledger test counts note events for this
+  // person, and without this it counted the previous tests' as well — which is
+  // what a full reset used to hide.
+  db.prepare("DELETE FROM longitudinal_events WHERE event_type LIKE 'clinical_note.%'").run();
+}
 
 function seed() {
   const db = getDb();
@@ -81,7 +95,7 @@ async function signed(body = BODY): Promise<string> {
 // ---------------------------------------------------------------------------
 
 test("the domain refuses to edit a signed note, and says why", async () => {
-  const db = getDb(); resetDemoData(db); seed();
+  clear(); seed();
   const id = await signed();
   await assert.rejects(
     () => saveDraft({ noteId: id, personId: "n-person", tenantId: T1, clinicianId: "n-clin",
@@ -95,7 +109,7 @@ test("the domain refuses to edit a signed note, and says why", async () => {
 test("SQL cannot change it either — the trigger is the real guarantee", async () => {
   // The domain check is a message; this is the promise. A script, a migration
   // or a future writer that never read notes.ts is exactly who this stops.
-  const db = getDb(); resetDemoData(db); seed();
+  const db = getDb(); clear(); seed();
   const id = await signed();
   assert.throws(
     () => db.prepare("UPDATE clinical_notes SET body = ? WHERE id = ?").run("rewritten by hand", id),
@@ -116,7 +130,7 @@ test("SQL cannot change it either — the trigger is the real guarantee", async 
 // ---------------------------------------------------------------------------
 
 test("an amendment is its own note, names what it corrects, and leaves it intact", async () => {
-  const db = getDb(); resetDemoData(db); seed();
+  clear(); seed();
   const original = await signed();
   const amendId = await startAmendment({
     noteId: original, tenantId: T1, clinicianId: "n-clin",
@@ -133,7 +147,7 @@ test("an amendment is its own note, names what it corrects, and leaves it intact
 });
 
 test("an unsigned note is edited directly, not amended", async () => {
-  const db = getDb(); resetDemoData(db); seed();
+  clear(); seed();
   const draft = await saveDraft({
     personId: "n-person", tenantId: T1, clinicianId: "n-clin", kind: "session", body: BODY,
   });
@@ -152,7 +166,7 @@ test("an unsigned note is edited directly, not amended", async () => {
 // ---------------------------------------------------------------------------
 
 test("nobody signs somebody else's note, and nobody edits their draft", async () => {
-  const db = getDb(); resetDemoData(db); seed();
+  clear(); seed();
   const draft = await saveDraft({
     personId: "n-person", tenantId: T1, clinicianId: "n-clin", kind: "session", body: BODY,
   });
@@ -179,7 +193,7 @@ test("nobody signs somebody else's note, and nobody edits their draft", async ()
 // ---------------------------------------------------------------------------
 
 test("a draft appends nothing; signing appends once, and an amendment says so", async () => {
-  const db = getDb(); resetDemoData(db); seed();
+  const db = getDb(); clear(); seed();
   const count = () => (db.prepare(
     "SELECT COUNT(*) AS n FROM longitudinal_events WHERE person_id = 'n-person' AND event_type LIKE 'clinical_note.%'"
   ).get() as { n: number }).n;
@@ -219,7 +233,7 @@ test("a draft appends nothing; signing appends once, and an amendment says so", 
 // ---------------------------------------------------------------------------
 
 test("a note is not readable from another tenant", async () => {
-  const db = getDb(); resetDemoData(db); seed();
+  clear(); seed();
   const id = await signed();
   assert.equal(await noteById(id, T2), null, "a clinical note was readable from another tenant");
   assert.equal((await notesFor({ personId: "n-person", tenantId: T2 })).length, 0);
@@ -227,7 +241,7 @@ test("a note is not readable from another tenant", async () => {
 });
 
 test("an empty gesture cannot be signed", async () => {
-  const db = getDb(); resetDemoData(db); seed();
+  clear(); seed();
   await assert.rejects(
     () => saveDraft({ personId: "n-person", tenantId: T1, clinicianId: "n-clin", kind: "session", body: "   ok  " }),
     (e: Error) => e instanceof NoteError && /needs something in it/i.test(e.message),
