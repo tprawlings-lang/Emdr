@@ -93,8 +93,79 @@ function boot(db: Database.Database): Database.Database {
   // the demo accounts above are: a deployed database seeds once, and every
   // wave since that seeding reached the code and never reached the data.
   reconcilePopulation(db);
+  // THE PILOT, for exactly the reason the demo accounts above are reconciled
+  // here. Its tenant and its clinician used to be created lazily, on the next
+  // enrolment — so a deployment that already had enrollees from before the
+  // feature shipped had a tenant full of people and nobody who could open
+  // them, which is the bug the pilot clinician was added to fix. Observed on
+  // the deployed instance: signing in as clinician.pilot returned the same
+  // generic failure as any unknown address, because the account existed in the
+  // code and not in the data.
+  reconcilePilot(db);
   refreshDemoDaily(db);
   return db;
+}
+
+/** The pilot tenant's own id, and its clinician's. Defined here rather than in
+ *  lib/enrollment/gate.ts because this file is the lower layer — gate.ts
+ *  imports from here, and the reverse would be a cycle. */
+export const PILOT_TENANT_ID_CONST = "PILOT0000000000000000000000";
+export const PILOT_CLINICIAN_ID_CONST = "PILOTCLIN00000000000000000";
+export const PILOT_CLINICIAN_EMAIL_CONST = "clinician.pilot@steady.local";
+
+/**
+ * The pilot's tenant and the clinician who can see it.
+ *
+ * ON EVERY BOOT, and idempotent, for the reason `reconcileDemoAccounts` is:
+ * a deployed database is seeded once, and anything added to the code after
+ * that never reaches the data. The pilot clinician shipped created lazily on
+ * the next enrolment, so an instance that already had enrollees kept a tenant
+ * full of people nobody could open — the exact dead end the account exists to
+ * prevent.
+ *
+ * ONLY WHERE ENROLLMENT IS CONFIGURED. An environment with no access code has
+ * no pilot, and creating a clinician account for one would be a login that
+ * exists for no reason.
+ */
+export function reconcilePilot(db: Database.Database): void {
+  // THE ENV CHECK BELONGS HERE, AT BOOT, AND NOWHERE ELSE. An environment with
+  // no access code has no pilot, and creating a clinician login for one would
+  // be an account that exists for no reason.
+  //
+  // `ensurePilotRows` is deliberately NOT gated: a caller that asks for the
+  // pilot tenant by name has already established there is a pilot — the
+  // enrolment path only reaches it after `checkEnrollment` passed. Gating the
+  // shared helper made `pilotTenantId()` silently return an id for a tenant it
+  // had not created, which is the worst of both.
+  if (!process.env.EMDR_ENROLLMENT_CODE) return;
+  ensurePilotRows(db);
+}
+
+/** The pilot's rows, created if absent. Idempotent, and unconditional — see
+ *  the note on `reconcilePilot` for why the environment check is not here. */
+export function ensurePilotRows(db: Database.Database): void {
+  db.prepare(
+    `INSERT INTO tenants (id, kind, name, parent_tenant_id) VALUES (?, 'program', 'Steady Pilot', ?)
+     ON CONFLICT(id) DO NOTHING`
+  ).run(PILOT_TENANT_ID_CONST, PLATFORM_TENANT_ID);
+  db.prepare(
+    `INSERT INTO users (id, email, name, role, password_hash, status, tenant_id)
+     VALUES (?, ?, 'Pilot Clinician', 'clinician', ?, 'active', ?)
+     ON CONFLICT(id) DO NOTHING`
+  ).run(PILOT_CLINICIAN_ID_CONST, PILOT_CLINICIAN_EMAIL_CONST,
+        hashPassword("pilotclin1234"), PILOT_TENANT_ID_CONST);
+  // The password is reset on every boot, like the demo accounts', so an
+  // environment that was deployed before this existed converges rather than
+  // keeping whatever it had.
+  db.prepare("UPDATE users SET password_hash = ?, tenant_id = ? WHERE id = ?")
+    .run(hashPassword("pilotclin1234"), PILOT_TENANT_ID_CONST, PILOT_CLINICIAN_ID_CONST);
+  // FABRICATED: nobody is described by this account, it is a login. That also
+  // keeps it out of `enrolledCount`, so opening the door does not spend one of
+  // the twenty-five places.
+  db.prepare(
+    `INSERT INTO persons (id, tenant_id, display_name, provenance)
+     VALUES (?, ?, 'Pilot Clinician', 'fabricated') ON CONFLICT(id) DO NOTHING`
+  ).run(PILOT_CLINICIAN_ID_CONST, PILOT_TENANT_ID_CONST);
 }
 
 // Demo data is seeded once onto a persistent disk, so its "today" check-in is
