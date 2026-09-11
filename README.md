@@ -13,7 +13,16 @@
 
 ---
 
-# ▶ RESUME HERE — session handoff, 2026-09-09
+# ▶ RESUME HERE — session handoff, 2026-09-11
+
+> **Newest first: §15 is the current state.** The pilot (gated enrollment, its own tenant
+> and clinician, the participant console), the clinical note record, the module-unlock
+> workflow, and the conventions every clinician-facing screen follows all landed on
+> 2026-09-11 and are documented there. The handoff blocks below are older and describe the
+> specifications rather than what is deployed; where they disagree with §15, §15 is what
+> the code does.
+
+# ▶ Session handoff, 2026-09-09
 
 **This block is written for a fresh context window.** It is the shortest path from "I have
 just opened this repository" to "I am doing the next useful thing."
@@ -1018,7 +1027,7 @@ Tracked so they are not lost between sessions:
 | 6 | Provide the expected vendor inventory (hosting, model, email, storage, monitoring, auth, analytics, support, billing) for the BAA register | Phase 2 |
 | 7 | Repository governance: set `main` as protected default, require PRs and green checks, and close/update/supersede draft **PR #10** (opened against a long-superseded `main`) | Now |
 | 8 | Set `EMDR_REVIEW_ACCESS_CODE` on the deployed instance and hand it to reviewers privately. Unset = the gateway is closed | Before any reviewer session |
-| 9 | Run `npm run demo -- reset` against the deployed instance. Enrollment is now closed, so the reset will hold — run *before* sharing, not after | Before sharing the environment externally |
+| 9 | Run `npm run demo -- reset` against the deployed instance *before* sharing, not after. **Note the reset now REFUSES while enrolled people exist** and makes you tick a separate box — see §15 | Before sharing the environment externally |
 | 10 | Counsel review of the Demo Terms and Demo Privacy Notice, and a screen-reader pass over the institutional pages | Removing the "unreviewed" markings |
 | 11 | Decide whether the horizon element reads as a covert score to a clinician (handoff §10 Q1) | Keeping or removing §7's signature element |
 | 12 | Rewrite two soft leaks in the Autopilot card — "your window looks steady", and the sentence explaining why the day was not adjusted | Closing the last known member-surface leaks |
@@ -1492,9 +1501,12 @@ Dashboard renders the plan as the day's centerpiece for Premium members;
 
 **Replaced 2026-08-27** under the Institutional Website Redesign Handoff. The previous
 surface was a well-built page for a transaction Steady is no longer making: a pricing
-hero, tier cards, a free-trial CTA, and a testimonial band. Public enrollment and
+hero, tier cards, a free-trial CTA, and a testimonial band. Retail enrollment and
 subscription billing are closed, so a page whose primary action is "subscribe" was not
 merely off-message — it was offering something that does not exist.
+
+**Updated 2026-09-11.** Enrollment is no longer simply closed: it is a *gated pilot*, open
+to whoever holds an access code, capped at twenty-five. Billing stays closed. See §15.
 
 The site now addresses four audiences (clinical, organization, payer, security) with
 investor material in a secondary band, and its single call to action is **request a
@@ -1668,6 +1680,135 @@ Blocking before it governs a real member:
    the clinician held.
 4. The `@safety` + safety-core suites (done) stay green; kill switch + fitness screener +
    SUDS rules remain non-negotiable substrate.
+
+---
+
+## 15. The pilot, and how a clinician reads it (2026-09-11)
+
+Everything in this section shipped on 2026-09-11 and is live. It is listed separately from
+the handoff sections above because it answers a different question: not "what does the
+specification ask for" but "what does somebody actually see, and what does it mean".
+
+### 15.1 Enrollment — a gated pilot, not a retail door
+
+§12 closed public enrollment because the form took a real name, address and date of birth
+from whoever found the page. That objection is answered by a lock rather than a shut door:
+
+| | |
+|---|---|
+| **Switch** | `EMDR_ENROLLMENT_CODE` — **unset means closed**, and `/signup` redirects to `/request-review` exactly as before |
+| **Cap** | 25 accounts. The 26th is refused and told the number |
+| **Both doors** | The web form *and* `POST /api/mobile/v1/auth/signup`. The mobile route had been creating accounts with no code and no cap the whole time §12 was in force — a gate on one of two doors is a sign, not a gate |
+| **Order** | The gate runs *before* any validation, so somebody without a code cannot use the "already exists" error to enumerate who is registered |
+| **Boot warning** | A deployment with it set says so in its logs, and a code under 12 characters is **fatal in production** |
+
+**What the signup page tells people, before the first field.** Not a formality — the next
+two screens ask a real person whether they have had suicidal thoughts in the past thirty
+days. So the notice says: this is a prototype and not care; nobody is watching in real
+time; the next screens ask about suicidal thoughts, harm urges, sleep and substance use;
+your answers are read by the people building this; 988 and 911 work whether or not Steady
+does. Two separate acknowledgements, neither pre-checked — "this is not care" and "you
+will read my safety answers" are different things to agree to, and one box lets a reader
+agree to the half they noticed.
+
+### 15.2 Where pilot people live, and why it is a separate tenant
+
+Enrollees are `provenance = 'real'` in their own **Steady Pilot** tenant.
+
+The first attempt put them in NE Care Network A so the demo clinician's caseload would show
+them, and every aggregate screen for that organization began answering 500:
+
+> cohort "all_eligible.v1" spans 42 fabricated people and 1 real ones. A metric over both
+> is a number nobody can interpret: it is neither a finding about the study nor a
+> demonstration of the product. Scope the query to one population.
+
+`assertSingleProvenance` refuses rather than filters, on purpose — a filtered metric has an
+undisclosed denominator and the reader cannot tell a suppressed population from a small
+one. So the separation is at the tenant, which is what every cohort is drawn from. It is
+also the right answer for the pilot itself: what a pilot is for is reading what real people
+did, and that is a different question from what the fabricated population demonstrates.
+
+**The pilot has its own clinician** — `clinician.pilot@steady.local` — because a clinician
+belongs to one tenant, and moving `clinician.demo` here would empty the demonstration
+caseload of its forty-two people. Created on every boot where enrollment is configured, not
+on the next enrolment: the lazy version left a tenant full of people nobody could open.
+
+### 15.3 How information is expressed to a clinician
+
+These are the conventions every clinical surface follows. They are not styling; each one is
+a decision about what a number is allowed to claim.
+
+**Never a bare score.** The caseload bands a person `immediate / high / standard / watch /
+none`, and **every band carries its reason** — the event, the date, and what changed. From
+`caseload.ts`: *"A row that says 'high priority: 34' teaches a clinician to trust a number
+they cannot interrogate. The reason names the event, the date, and what changed, so the
+clinician can disagree with the ranking — which is the only way a ranking earns trust."*
+
+**No composite score anywhere.** The caseload's clinical-state view keeps a separate state
+per column and refuses to combine them. Function, trajectory, response and load each stand
+alone.
+
+**Absence is a named state, never a zero and never blank.** `Not set` (no goal),
+`Not computed`, `Insufficient evidence`, `Held by a safety decision`. A blank cell and a
+zero both read as findings; a named state reads as what it is.
+
+**Ordered by clinical need, never by contract tier.** Priority review is a scheduling
+benefit — a request queues at higher severity so it sorts sooner — and changes nothing
+about the clinical bar. A paying member does not get a lower threshold.
+
+**Immediate and high bands close with a documented action, never an acknowledgement.**
+Opening a record is not acknowledgement, and nothing on a row changes anything until the
+server records what was done.
+
+**Every screen states its provenance.** A person's projection carries a schema version and
+a policy version (`clinician_patient.v1+<policy>`), so two screens showing different
+numbers can be told apart from two screens showing the same number differently.
+
+**Provisional configuration says so, in place.** The active clinical policy renders with
+`— PROVISIONAL, not clinically approved` until somebody signs it, naming the packet that is
+unsubmitted. Same for the fitness screener.
+
+**Scores are forbidden on member surfaces and shown to clinicians.** `/app/progress` is the
+single exemption on the member side, guarded by a test that fails the build when a new
+`/app` route appears outside the list. A cutoff or criteria label on a member screen is a
+defect; on the clinician screen it is the point.
+
+### 15.4 What a clinician can now do that they could not on 2026-09-09
+
+| Surface | What it does |
+|---|---|
+| `/clinician/member/[id]/notes` | **Write, sign and amend a clinical note.** The clinician's own words — nothing assembled, nothing self-signs. A signed note is immutable at a database trigger as well as in the domain; a correction is an amendment that sits beside the original so both what was believed on the day and what is believed now keep their answers. Only signing appends to the ledger; a draft is not a record |
+| `/clinician/unlocks` | **Answer a member's request to open a gated module.** A reason is required and the member reads it on their own screen. An unlock relaxes the clinician gate *only* — the daily check-in, cooldown, per-day cap and kill switch are downstream and still hold |
+| `/app/modules` | The member half: ask, wait, read the answer |
+| `/admin/pilot` | **Read what pilot participants entered** — fit answers with the question text (not an item id), baseline scores, check-ins, and what the rules decided. Counts of whole people, never a percentage: at a cap of 25 a rate reads as a finding |
+| Login screen | **Two entry points** — "Create an account" for a real participant with a code, and "Start an onboarding walkthrough" which generates a fabricated person and no typing, for showing a clinician the flow without creating a real account |
+
+### 15.5 The note bridge's claim, corrected
+
+`/clinician/member/[id]/note` (the draft assembler) used to tell clinicians *"Steady does
+not hold formal notes and cannot sign one."* The first half stopped being true the day
+`clinical_notes` existed. It now says the half that is still true and still matters:
+**Steady will not sign**, because a signature on text Steady assembled would be Steady
+attesting on a clinician's behalf. The clinician signs their own words, elsewhere.
+
+### 15.6 Environment variables added
+
+| Variable | Effect |
+|---|---|
+| `EMDR_ENROLLMENT_CODE` | Unset = enrollment closed. Set = open to code-holders, capped at 25. Under 12 chars is fatal in production |
+| `EMDR_OPEN_GATED` | `0` closes gated modules so the request-and-approve path actually runs. **On by default in demo**, which means a module is reachable while a request waits — both screens say which mode is active so that reads as the switch it is |
+| `ANTHROPIC_API_KEY` | Unset = the companion runs the deterministic rules engine and the status page reports it **degraded**, not absent. Set = model-backed replies and the tool use that records triggers and memory. Crisis routing runs *before* the companion either way |
+
+### 15.7 What is still not done
+
+- **Backups are off.** The pilot now holds real people's safety answers and signed clinical
+  notes, in one place. A lost disk or a ticked-through reset ends them
+- **Nobody is watching.** A real enrollee tripping a hard stop raises an alert on a console
+  no one is required to read. The pilot console says so in those words
+- **The fitness screener is still unratified** — `fit-v1-placeholder`, no EMDR-trained
+  clinician has signed the wording, the hard-stop mapping or the cooldown
+- **A clinician cannot yet type a free note *into* the draft bridge** — the bridge assembles
+  and the notes screen writes; they are two surfaces, not one
 
 ---
 
