@@ -51,7 +51,17 @@ export interface FitAnswer {
 export interface Participant {
   personId: string;
   name: string;
+  /** The address they sign in with. On the screen because the operator needs
+   *  to know which account they are resetting, and in the model because the
+   *  lockout counts by address rather than by person. */
+  email: string;
   joinedAt: string;
+  /** Failed sign-ins still counting against them, and whether that has reached
+   *  the threshold. A locked-out participant looks identical to an inactive
+   *  one on every other column, which is how somebody ends up recorded as
+   *  "stopped engaging" when they were shut out. */
+  failedSignIns: number;
+  lockedOut: boolean;
   stage: Stage;
   /** null when they have not taken the fit questions yet. */
   fit: null | {
@@ -78,7 +88,7 @@ export interface PilotSummary {
   hardStopped: number;
 }
 
-interface UserRow { id: string; name: string; created_at: string }
+interface UserRow { id: string; name: string; email: string; created_at: string }
 
 /**
  * Every pilot participant, with what they have entered.
@@ -92,7 +102,7 @@ interface UserRow { id: string; name: string; created_at: string }
 export async function pilotParticipants(): Promise<Participant[]> {
   const c = await data();
   const users = (await c.all(
-    `SELECT u.id, u.name, u.created_at
+    `SELECT u.id, u.name, u.email, u.created_at
        FROM users u JOIN persons p ON p.id = u.id
       WHERE u.tenant_id = ? AND u.role = 'member' AND p.provenance = 'real'
       ORDER BY u.created_at DESC`,
@@ -121,6 +131,17 @@ export async function pilotParticipants(): Promise<Participant[]> {
         WHERE user_id IN (${marks}) AND scope = 'care_program_full' AND revoked_at IS NULL`,
       ids,
     )) as { user_id: string }[]).map((r) => r.user_id),
+  );
+
+  // N+1, deliberately, against a cap of twenty-five: the lockout's rule is
+  // "failures since the later of the window and the last reset", and folding
+  // that into one grouped query would be a second implementation of it that
+  // could drift from the one the sign-in door actually uses.
+  const { failedSignInsAgainst, LOCKOUT_THRESHOLD } = await import("../auth-lockout");
+  const failures = new Map<string, number>(
+    await Promise.all(
+      users.map(async (u) => [u.id, await failedSignInsAgainst(u.email)] as [string, number]),
+    ),
   );
 
   return users.map((u) => {
@@ -175,10 +196,15 @@ export async function pilotParticipants(): Promise<Participant[]> {
       : consented.has(u.id) ? "consented"
       : "signed_up";
 
+    const failedSignIns = failures.get(u.id) ?? 0;
+
     return {
       personId: u.id,
       name: u.name,
+      email: u.email,
       joinedAt: u.created_at,
+      failedSignIns,
+      lockedOut: failedSignIns >= LOCKOUT_THRESHOLD,
       stage,
       fit,
       measures,

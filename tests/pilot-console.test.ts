@@ -201,24 +201,49 @@ test("the screen says these are real people, before it shows their answers", () 
     "the screen implies a safety positive reached somebody");
 });
 
-test("the screen offers no control that acts on anybody", () => {
+test("the screen offers no control that acts on anybody's care", () => {
   // A list of safety answers laid out like a caseload gets read as a caseload.
-  // The copy says no control here routes anybody — this checks the copy is
-  // true, which is the half a sentence cannot guarantee about itself.
+  // The copy says no control here routes anybody, closes an alert or changes a
+  // gate — this checks the copy is true, which is the half a sentence cannot
+  // guarantee about itself.
+  //
+  // IT IS AN ALLOWLIST OF TWO, NAMED, and it grew by one deliberately.
+  // `logout` is the rail footer every shell in this project renders.
+  // `resetParticipantPasswordAction` sets a participant's password, which is
+  // an ACCOUNT action: it decides nothing about anybody's care, and it exists
+  // because a participant who forgot their password had no way back into their
+  // own account at all.
+  //
+  // Naming them is what keeps this a guard. A rule relaxed to "forms are fine
+  // now" would stop catching the thing it was written for — a "Close with
+  // action" or "Review" button arriving here and quietly turning an operator's
+  // reading screen into a clinical one.
+  const ALLOWED = new Set(["logout", "resetParticipantPasswordAction"]);
   const page = code("src/app/admin/pilot/page.tsx");
-  // THE SIGN-OUT FORM IS ALLOWED and is the only one. Every shell in this
-  // project renders it in the rail footer, so a blanket "no forms" rule fails
-  // against a page that is fine — the question is whether any form acts on a
-  // PARTICIPANT.
+
   const forms = page.match(/<form[^>]*>/g) ?? [];
   for (const f of forms) {
-    assert.match(f, /action=\{logout\}/,
-      `the pilot console carries a form that is not sign-out: ${f}`);
+    const named = /action=\{(\w+)\}/.exec(f);
+    assert.ok(named && ALLOWED.has(named[1]),
+      `the pilot console carries a form that is neither sign-out nor the password reset: ${f}`);
   }
   const actions = page.match(/action=\{(\w+)\}/g) ?? [];
   for (const a of actions) {
-    assert.equal(a, "action={logout}",
-      `the pilot console wires a server action other than sign-out: ${a}`);
+    const name = /action=\{(\w+)\}/.exec(a)![1];
+    assert.ok(ALLOWED.has(name),
+      `the pilot console wires a server action that is not on the allowlist: ${a}`);
+  }
+
+  // AND THE ALLOWED ONE STILL MAY NOT TOUCH CARE. The action's own module is
+  // read here rather than trusted by its name: a reset that also closed an
+  // alert would satisfy every check above.
+  const action = code("src/lib/enrollment/pilot-actions.ts");
+  const domain = code("src/lib/enrollment/pilot-access.ts");
+  for (const [name, src] of [["action", action], ["domain", domain]] as const) {
+    assert.doesNotMatch(src, /alerts|checkins|module_unlocks|screenings|consents/,
+      `the reset ${name} reaches a clinical table`);
+    assert.doesNotMatch(src, /createAlert|decideUnlock|evaluateCheckin|recordCheckin/,
+      `the reset ${name} calls into the clinical domain`);
   }
 });
 

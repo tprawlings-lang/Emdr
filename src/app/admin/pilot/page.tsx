@@ -7,6 +7,8 @@ import { ADMIN_RAIL } from "@/lib/app/rails";
 import { logout } from "@/lib/actions";
 import { FITNESS_ITEMS, screenerCaveat } from "@/lib/fitness-screener";
 import { enrollmentState } from "@/lib/enrollment/gate";
+import { resetParticipantPasswordAction } from "@/lib/enrollment/pilot-actions";
+import { MIN_PASSWORD } from "@/lib/enrollment/pilot-access";
 import {
   pilotParticipants, pilotSummary, STAGE_LABEL, type Participant,
 } from "@/lib/enrollment/pilot-console";
@@ -22,6 +24,12 @@ import {
 // changes a gate — those actions do not exist on this page and the copy does
 // not imply them. It is the operator reading what the pilot produced.
 //
+// ONE CONTROL THAT ACTS, and the copy below says so rather than leaving the
+// claim above overbroad. Setting a participant's password is an account
+// action, not a clinical one — it decides nothing about anybody's care — but
+// it is still a write, and a page that says "no control here acts" while
+// carrying one is a page that has stopped being checkable.
+//
 // COUNTS, NEVER PERCENTAGES. With a cap of twenty-five, a percentage turns two
 // people out of three into "67%", which reads like a finding and is not one.
 
@@ -36,8 +44,13 @@ function StageBadge({ stage }: { stage: Participant["stage"] }) {
   );
 }
 
-export default async function PilotConsolePage() {
+export default async function PilotConsolePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ done?: string; error?: string }>;
+}) {
   await requireDemoAdmin();
+  const { done, error } = await searchParams;
   const rows = await pilotParticipants();
   const summary = pilotSummary(rows);
   const gate = await enrollmentState();
@@ -52,6 +65,17 @@ export default async function PilotConsolePage() {
       railFooter={<form action={logout}><button className="hover:underline">Sign out</button></form>}
     >
       <div className="space-y-6">
+        {error && (
+          <p className="rounded-2xl border border-state-support bg-state-support-bg px-4 py-3 text-sm text-state-support">
+            {error}
+          </p>
+        )}
+        {done && (
+          <p className="rounded-2xl border border-ground/15 bg-app-surface px-4 py-3 text-sm text-app-ink">
+            {done}
+          </p>
+        )}
+
         <Panel title="What this screen is">
           <p className="measure text-sm text-app-ink">
             <strong>These are real people.</strong> Everyone below created their own account
@@ -62,6 +86,13 @@ export default async function PilotConsolePage() {
             No control here routes anybody, closes an alert or changes a safety gate — those
             actions do not exist on this page. It reports what the pilot produced so the
             questions and the rules can be judged against real answers.
+          </p>
+          <p className="measure mt-2 text-sm text-olive">
+            The one thing you can change from here is a participant&rsquo;s password, for when
+            somebody cannot get back into their own account. It is an account action, not a
+            clinical one, and every use of it is written to the audit log against your name.
+            Setting a password also lets you sign in as that person and read everything below
+            as they wrote it — which is why it reaches pilot participants and nobody else.
           </p>
           <p className="measure mt-2 text-sm text-olive">
             Nobody is watching this in real time. A safety positive below did not reach anybody
@@ -132,8 +163,18 @@ export default async function PilotConsolePage() {
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="font-medium text-app-ink">{r.name}</span>
                     <StageBadge stage={r.stage} />
+                    {r.lockedOut && (
+                      // SAID OUT LOUD, because a locked-out participant is
+                      // indistinguishable from a disengaged one on every other
+                      // line of this row — which is how somebody gets written
+                      // up as having stopped using it when they were shut out.
+                      <span className="rounded-full border border-state-support bg-state-support-bg px-2 py-0.5 text-xs text-state-support">
+                        Locked out
+                      </span>
+                    )}
                     <span className="text-xs text-olive">joined {r.joinedAt.slice(0, 10)}</span>
                   </div>
+                  <p className="mt-1 text-xs text-olive">{r.email}</p>
 
                   {r.fit ? (
                     <div className="mt-3 text-sm">
@@ -198,6 +239,50 @@ export default async function PilotConsolePage() {
                       </span>
                     )}
                   </p>
+
+                  <details className="mt-3 border-t border-ground/10 pt-3">
+                    <summary className="cursor-pointer text-sm text-app-ink">
+                      Set a new password
+                      {r.failedSignIns > 0 && (
+                        <span className="text-olive">
+                          {" "}— {r.failedSignIns} failed sign-in
+                          {r.failedSignIns === 1 ? "" : "s"} counting against this address
+                        </span>
+                      )}
+                    </summary>
+                    {/* FOLDED AWAY BY DEFAULT. This is a screen an operator reads,
+                        and a password field open beside every name invites a
+                        reset as the first thing tried rather than the last. */}
+                    <p className="measure mt-2 text-sm text-olive">
+                      Type the password you are about to tell {r.name}, then say it to them
+                      directly. Nothing is emailed — this deployment has no mail channel — and
+                      Steady will not show it back to you afterwards.
+                    </p>
+                    <form action={resetParticipantPasswordAction} className="mt-2 flex flex-wrap items-center gap-2">
+                      <input type="hidden" name="personId" value={r.personId} />
+                      <label className="sr-only" htmlFor={`pw-${r.personId}`}>
+                        New password for {r.name}
+                      </label>
+                      <input
+                        id={`pw-${r.personId}`}
+                        name="newPassword"
+                        type="text"
+                        required
+                        minLength={MIN_PASSWORD}
+                        autoComplete="off"
+                        /* type="text", NOT type="password". The operator is
+                           reading this aloud to somebody beside them, and a
+                           field of dots is how a typo becomes a second lockout
+                           nobody can explain. It is not a secret being
+                           protected from the person typing it. */
+                        placeholder={`at least ${MIN_PASSWORD} characters`}
+                        className="rounded-xl border border-ground/20 bg-app-surface px-3 py-1.5 text-sm text-app-ink"
+                      />
+                      <button className="rounded-xl border border-ground/20 px-3 py-1.5 text-sm text-app-ink hover:underline">
+                        Set it
+                      </button>
+                    </form>
+                  </details>
                 </li>
               ))}
             </ul>

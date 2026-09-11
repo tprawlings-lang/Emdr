@@ -33,6 +33,7 @@ import {
 } from "../profile";
 import { MODULES, getModule, type TherapyModule } from "../modules";
 import { audit } from "../audit";
+import { isLockedOut } from "../auth-lockout";
 import { recordCheckin, recordSessionStarted, recordSessionFinished, upsertRowId, nowStamp } from "../spine";
 import { writeMemory } from "../companion";
 import { getSavedCalmPlace } from "../session-focus";
@@ -91,6 +92,20 @@ export async function loginMobile(
   password: string
 ): Promise<{ token: string; user: SessionUser } | null> {
   const normalized = email.trim().toLowerCase();
+
+  // THE SAME LOCKOUT AS THE WEB FORM, and it was missing here. This function
+  // wrote `login_failed` and never read it back, so the API was an unlimited
+  // guessing channel against every account while the browser form counted to
+  // ten — the count is only a control where it is checked.
+  //
+  // Refused as a null, like any other failed sign-in: the route turns that
+  // into the one generic failure, and a distinct "you are locked out" reply
+  // would tell an unauthenticated caller that the address is real.
+  if (await isLockedOut(normalized)) {
+    await audit({ family: "identity", type: "login_locked", target: normalized, detail: { via: "mobile" } });
+    return null;
+  }
+
   const c = await data();
   const row = (await c.get(
     "SELECT id, email, name, role, password_hash FROM users WHERE email = ? AND status = 'active'",

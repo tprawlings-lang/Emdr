@@ -1799,6 +1799,46 @@ attesting on a clinician's behalf. The clinician signs their own words, elsewher
 | `EMDR_OPEN_GATED` | `0` closes gated modules so the request-and-approve path actually runs. **On by default in demo**, which means a module is reachable while a request waits — both screens say which mode is active so that reads as the switch it is |
 | `ANTHROPIC_API_KEY` | Unset = the companion runs the deterministic rules engine and the status page reports it **degraded**, not absent. Set = model-backed replies and the tool use that records triggers and memory. Crisis routing runs *before* the companion either way |
 
+### 15.6a Getting back into an account (2026-09-11)
+
+Sign-in had no way back. The lockout compliance 1.5 asks for was deployed three ways
+wrong at once, and the three compounded into "locked means locked, forever":
+
+| What it claimed | What it did |
+|---|---|
+| 10 failures in **15 minutes** | 10 failures **since midnight UTC**. The cutoff was written space-separated (`2026-09-11 16:24:32`) and compared as text against rows stored with a `T` (`2026-09-11T16:38:32.923Z`). At position ten, `T` (0x54) sorts after a space (0x20), so *every* row sharing the date counted — including one from ten hours earlier |
+| The account is protected | Only through the browser. `loginMobile` wrote `login_failed` and never read it, so `POST /api/mobile/v1/auth/login` was an unlimited guessing channel against every account while the web form counted to ten |
+| "Try again in 15 minutes" | Nothing in the product changed an existing password — `hashPassword` was called only at account creation — and `/reset` correctly refuses for want of a mail channel. Nothing even linked to it |
+
+All three are fixed, and the counting now lives in one module (`src/lib/auth-lockout.ts`)
+that **both** doors call:
+
+- The window is fifteen minutes again. Comparison normalizes both timestamp shapes the
+  column actually holds (`audit()` writes ISO with `T`/`Z`; `demo-seed` writes
+  space-separated), so it is correct for either rather than for one
+- Failures are counted **since the last password reset** when there is one. Attempts
+  recorded against a password that no longer exists say nothing about whoever is typing
+  now — which is what makes a reset a way back in rather than a second lock
+- An operator can set a pilot participant's password from `/admin/pilot`. It reaches
+  members of the pilot tenant whose provenance is `real` and nothing else — not the demo
+  clinician, not the fabricated population — because whoever can set a password can sign
+  in and read that person's safety answers. Every use writes an audit row naming the
+  operator, the address and the moment; the password is never in it
+- The operator **types** the password rather than being shown a generated one. A generated
+  secret has to be displayed once, which puts it in a redirect, a query string, browser
+  history and whatever logs sit between. They are going to say it aloud to somebody beside
+  them either way
+- The console marks a locked-out participant as **Locked out** and names the failure count.
+  Without it a shut-out participant is indistinguishable from a disengaged one, which is how
+  somebody gets written up as having stopped using it
+- The sign-in screen now says, on **every** failure, that Steady cannot email a reset link
+  here and who to ask. Said only on a real address it would name which addresses exist
+
+Existing sessions are **not** revoked by a reset — sessions are stateless signed tokens
+with no server-side record to invalidate, bounded at 8 hours absolute in demo mode. For
+"they forgot their password" that is the right behaviour; for "kick a compromised session
+out now" it is not, and that would need a token epoch on the user row.
+
 ### 15.7 What is still not done
 
 - **Backups are off.** The pilot now holds real people's safety answers and signed clinical
@@ -1809,6 +1849,10 @@ attesting on a clinician's behalf. The clinician signs their own words, elsewher
   clinician has signed the wording, the hard-stop mapping or the cooldown
 - **A clinician cannot yet type a free note *into* the draft bridge** — the bridge assembles
   and the notes screen writes; they are two surfaces, not one
+- **A password reset does not end existing sessions** (§15.6a). It is the wrong tool for a
+  compromised account, and the screen does not claim otherwise
+- **`/reset` is still a dead end for anyone outside the pilot.** It refuses honestly, and the
+  operator control reaches pilot participants only. A real mail channel is the actual fix
 
 ---
 
