@@ -161,8 +161,17 @@ test("nothing the bridge produces is signed, and nothing can sign it", () => {
     "a code path produces a signed state"
   );
   // And it says why rather than leaving the absence to be read as unfinished.
-  assert.match(SIGNING_IS_ELSEWHERE, /cannot sign/);
-  assert.match(SIGNING_IS_ELSEWHERE, /record system of truth/);
+  // THE CLAIM NARROWED WHEN THE RECORD ARRIVED, and the narrowing is the
+  // point. It used to say Steady "does not hold formal notes and cannot sign
+  // one"; the first half stopped being true the day clinical_notes existed.
+  // What must still be said is that STEADY will not sign — a signature on text
+  // Steady assembled would be Steady attesting on a clinician's behalf.
+  assert.match(SIGNING_IS_ELSEWHERE, /Steady will not sign/i);
+  assert.match(SIGNING_IS_ELSEWHERE, /attesting on their behalf/i);
+  assert.match(SIGNING_IS_ELSEWHERE, /sign yourself/i);
+  // And it must not claim the thing that is no longer true.
+  assert.doesNotMatch(SIGNING_IS_ELSEWHERE, /does not hold formal notes/i,
+    "the screen still claims Steady holds no notes, which stopped being true");
 });
 
 test("a draft records who assembled it, and refuses to exist without that", () => {
@@ -186,12 +195,23 @@ test("the bridge writes nothing at all", () => {
   const src = code("lib/clinical/note-bridge.ts");
   assert.ok(!/INSERT INTO|UPDATE\s+\w+\s+SET|DELETE FROM/i.test(src), "the bridge writes");
   assert.ok(!/from "\.\.\/data"|from "@\/lib\/data"/.test(src), "the bridge reaches the database");
-  // And no table was added for it.
-  const schema = code("lib/db.ts");
-  assert.ok(
-    !/CREATE TABLE IF NOT EXISTS (clinical_)?note/i.test(schema),
-    "a note table exists, so switching the pilot off would now lose something"
-  );
+  // AND THE BRIDGE HAS NO STORAGE OF ITS OWN. The first version of this
+  // asserted that NO note table existed anywhere in the schema, which proved a
+  // local property with a global claim — and it broke the day a clinician got
+  // somewhere to write and sign their own notes.
+  //
+  // `clinical_notes` does not weaken Phase 6's rule. That rule is that turning
+  // the bridge off loses nothing, and it is kept by this file storing nothing:
+  // a draft is still a function of the request. Signed notes are the opposite
+  // kind of thing — a clinician's own attestation, meant to survive — and
+  // losing them on a flag change would be the defect, not the guarantee.
+  //
+  // So what is asserted is the thing the rule is actually about: the bridge
+  // reads and writes no table, and nothing in it references the note record.
+  assert.ok(!/clinical_notes/.test(src),
+    "the bridge references the note record, so a draft could become a stored row");
+  assert.ok(!/\bfrom "\.\/notes"|from "@\/lib\/clinical\/notes"/.test(src),
+    "the bridge imports the note domain, which is where storage would arrive from");
 });
 
 test("the screen assembles the draft from the request and stores nothing", () => {
