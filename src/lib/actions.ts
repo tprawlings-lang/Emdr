@@ -11,6 +11,7 @@ import { provisionPerson, recordCheckin, recordAssessment, recordSessionStarted,
 import { recordFitnessScreening } from "./fitness-screener";
 import { decryptField, encryptField } from "./crypto";
 import { audit } from "./audit";
+import { isLockedOut } from "./auth-lockout";
 import {
   requireUser,
   requireMember,
@@ -76,14 +77,10 @@ export async function login(formData: FormData) {
 
   // Lockout (compliance 1.5): 10 failed attempts in 15 minutes locks the
   // account for 15 minutes. Counted from the append-only audit trail.
-  const lockoutCutoff = new Date(Date.now() - 15 * 60 * 1000).toISOString().slice(0, 19).replace("T", " ");
-  const recentFailures = (await c.get(
-    `SELECT COUNT(*) AS n FROM audit_log
-       WHERE event_type = 'login_failed' AND target = ?
-         AND created_at > ?`,
-    [email, lockoutCutoff]
-  )) as { n: number };
-  if (recentFailures.n >= 10) {
+  //
+  // The counting lives in `auth-lockout` rather than here because the mobile
+  // door needs the same answer and was not getting it — see the note there.
+  if (await isLockedOut(email)) {
     await audit({ family: "identity", type: "login_locked", target: email });
     redirect("/login?error=locked");
   }
