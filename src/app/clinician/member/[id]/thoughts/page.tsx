@@ -209,6 +209,19 @@ export default async function MemberThoughtsPage({
 
   return (
     <PersonShell person={header} active="/thoughts" title="Thoughts">
+      {/* THE SIGNED RECORD IS A DIFFERENT THING FROM THIS SCREEN, and the
+          difference is worth a sentence rather than a tab. Thoughts are a
+          clinician's working memory, private and revisable; a signed note is an
+          attestation that cannot be edited afterwards. Somebody who came here
+          to write something down is exactly who needs to know which of the two
+          they are doing. */}
+      <p className="mb-4 text-sm text-olive">
+        Working notes live here. A clinician&rsquo;s{" "}
+        <a href={`/clinician/member/${id}/notes`} className="font-medium text-app-ink underline">
+          signed clinical notes
+        </a>{" "}
+        are separate: written in your own words, attested by you, and not editable once signed.
+      </p>
       {!available ? (
         <Callout tone="info" label="Not enabled here">
           <p className="measure">

@@ -86,8 +86,13 @@ export const COURSE_SECTIONS = ["/measures", "/goals", "/responses", "/trajector
  * Course holds its four: the tab row is the thing §5 shortened, and a bridge
  * that only makes sense once items are approved belongs behind the screen where
  * they are approved.
+ *
+ * `/notes` is the signed clinical record — a clinician's own account of contact,
+ * written and attested by them. It sits behind the Notes tab rather than taking
+ * a tenth place in the row, and the Notes screen links to it: somebody who came
+ * here to read or write a note is exactly who is looking for it.
  */
-export const NOTES_SECTIONS = ["/note"] as const;
+export const NOTES_SECTIONS = ["/note", "/notes"] as const;
 
 export function layerFor(slug: string): RailSlug {
   if ((COURSE_SECTIONS as readonly string[]).includes(slug)) return "progress";
