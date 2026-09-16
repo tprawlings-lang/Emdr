@@ -135,6 +135,23 @@ export const WORK_REGISTER: WorkEntry[] = [
     test: "tests/demo-daily-checkin.test.ts",
   },
   {
+    id: "demo.seeded-contact-notes",
+    title: "The fabricated population has a contact history",
+    // FOUND BY DRIVING THE FIX. Now that the contact column reads a signed
+    // contact note rather than the member's own check-ins, every one of the
+    // 240 fabricated profiles correctly reads "None recorded" — nobody has
+    // ever contacted them, because the seed writes no contact notes. That is
+    // true and it looks sparse, and a presenter could reasonably read the
+    // empty column as a bug rather than as the honest answer.
+    //
+    // Seeding contact notes would make the demonstration both rich and true.
+    // Filed rather than done: it is seed work, not a correctness fix, and the
+    // column is right either way.
+    state: "proposed",
+    code: null,
+    test: null,
+  },
+  {
     id: "governance.work-register-screen",
     title: "The work register, readable on a review screen",
     // The register's own unfinished business, in the register. Its consumer
