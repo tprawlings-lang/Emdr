@@ -1851,6 +1851,11 @@ out now" it is not, and that would need a token epoch on the user row.
   and the notes screen writes; they are two surfaces, not one
 - **A password reset does not end existing sessions** (§15.6a). It is the wrong tool for a
   compromised account, and the screen does not claim otherwise
+- **A deleted participant still holds their place.** `deleteAccount` anonymizes the row and
+  sets `status = 'deleted'`, but `enrolledCount` counts `persons` by provenance, so the place
+  stays consumed against the cap of 25. The pilot console lists only active accounts, so a
+  deletion now removes somebody from the list without freeing their place — the two numbers
+  can disagree, and the console's "N of 25" is the list, not the cap
 - **`/reset` is still a dead end for anyone outside the pilot.** It refuses honestly, and the
   operator control reaches pilot participants only. A real mail channel is the actual fix
 
