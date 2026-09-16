@@ -282,7 +282,11 @@ function anItem(over: Partial<WorkItem> & { id: string }): WorkItem {
     evidenceAt: "2026-08-13 00:00:00", ownerId: null, ownerName: null,
     dueAt: null, overdue: false, eventCount: 1, action: "contact",
     actionable: true, blockedReason: null, safetyAuthority: false,
-    signalId: null, supportFacts: [], lastContactDays: 22,
+    signalId: null, supportFacts: [],
+    // Distinct on purpose: this fixture has been contacted once, 22 days ago,
+    // and used the app yesterday. Equal values would let a mapping that reads
+    // the wrong one still pass.
+    lastContactDays: 22, lastActivityDays: 1,
     ...over,
   };
 }

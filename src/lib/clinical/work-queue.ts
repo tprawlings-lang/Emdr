@@ -139,10 +139,20 @@ export interface WorkItem {
    *  never padded, because a fact invented to fill a slot is the failure §4's
    *  "never an unexplained score" is guarding against, one level down. */
   supportFacts: string[];
-  /** §4: "last meaningful clinician contact". Null when there has been none,
-   *  which renders as its own state — a person nobody has contacted yet and a
-   *  person contacted today must not look the same. */
+  /** §4: "last meaningful clinician contact" — a signed contact note, and
+   *  nothing else. Null when there has been none, which renders as its own
+   *  state: a person nobody has contacted yet and a person contacted today
+   *  must not look the same.
+   *
+   *  IT USED TO BE THE MEMBER'S OWN CHECK-INS, rendered as "Contacted today".
+   *  The two run in opposite directions, so a clinician scanning for who needs
+   *  outreach was shown the people who use the app most as the people most
+   *  recently spoken to. */
   lastContactDays: number | null;
+  /** Days since the member last used Steady. Beside contact rather than
+   *  instead of it: losing the engagement signal to fix the label would trade
+   *  one absence for another. */
+  lastActivityDays: number | null;
 }
 
 export interface WorkQueue {
@@ -488,6 +498,7 @@ async function mergeAttentionSignals(args: {
       // itself — how much evidence, and what the evidence cannot support.
       supportFacts: signal.limitations.slice(0, 3),
       lastContactDays: row.daysSinceContact,
+      lastActivityDays: row.daysSinceActivity,
     });
   }
 
@@ -591,6 +602,7 @@ export async function buildWorkQueue(args: {
       signalId: null,
       supportFacts: g.alerts.length > 1 ? [`${g.alerts.length} events collapsed into this row`] : [],
       lastContactDays: row?.daysSinceContact ?? null,
+      lastActivityDays: row?.daysSinceActivity ?? null,
     });
   }
 
@@ -626,6 +638,7 @@ export async function buildWorkQueue(args: {
       // already plain sentences, so they travel as they are.
       supportFacts: r.reasons.slice(1, 4),
       lastContactDays: r.daysSinceContact,
+      lastActivityDays: r.daysSinceActivity,
     });
   }
 
@@ -676,6 +689,7 @@ export async function buildWorkQueue(args: {
           signalId: null,
           supportFacts: f.label ? [f.label] : [],
           lastContactDays: row.daysSinceContact,
+          lastActivityDays: row.daysSinceActivity,
         });
       }
     } catch (err) {
