@@ -73,10 +73,19 @@ export async function resetParticipantPassword(args: {
   // THE SCOPE IS THE QUERY, not a check beside it. A row that does not match
   // every clause is not found, so a clinician id, a demo account or a person
   // from the fabricated tenant lands in the same refusal as a typo.
+  //
+  // `status = 'active'` IS PART OF THAT SCOPE, and leaving it out was a bug a
+  // review caught. Deleting an account anonymizes the row but keeps its role,
+  // its tenant and its 'real' person row (`deleteAccount` in actions.ts), so a
+  // deleted participant went on matching every other clause here. Both sign-in
+  // doors require `status = 'active'`, so the reset would have reported
+  // success over an account no password can open — the exact shape of failure
+  // this whole change exists to remove, reintroduced one clause lower down.
   const row = (await c.get(
     `SELECT u.id, u.email, u.name
        FROM users u JOIN persons p ON p.id = u.id
-      WHERE u.id = ? AND u.tenant_id = ? AND u.role = 'member' AND p.provenance = 'real'`,
+      WHERE u.id = ? AND u.tenant_id = ? AND u.role = 'member'
+        AND u.status = 'active' AND p.provenance = 'real'`,
     [args.personId, PILOT_TENANT_ID],
   )) as { id: string; email: string; name: string } | undefined;
 
@@ -89,23 +98,32 @@ export async function resetParticipantPassword(args: {
   const { failedSignInsAgainst } = await import("../auth-lockout");
   const clearedFailures = await failedSignInsAgainst(row.email);
 
-  await c.run("UPDATE users SET password_hash = ? WHERE id = ?", [
-    hashPassword(args.newPassword),
-    row.id,
-  ]);
+  // ONE TRANSACTION, because the audit row is not bookkeeping here — it IS the
+  // lower bound `failedSignInsAgainst` counts from. Written separately, a
+  // failing insert would leave the password changed and every earlier failure
+  // still counting: the old password dead, the new one locked out, and the
+  // person worse off than before the operator tried to help. A review caught
+  // this; `data()`'s ambient transaction means `audit`'s own `tx` nests as a
+  // savepoint on this connection rather than opening a second one.
+  await c.tx(async (t) => {
+    await t.run("UPDATE users SET password_hash = ? WHERE id = ?", [
+      hashPassword(args.newPassword),
+      row.id,
+    ]);
 
-  // TARGET IS THE ADDRESS, because that is what the lockout counts by. A row
-  // targeting the person id would record the reset perfectly and lift nothing.
-  //
-  // The password is not in here, and no `detail` field is a near-miss for it:
-  // its length, its shape and whether it was reused all narrow it.
-  await audit({
-    actorId: args.operatorId,
-    actorRole: "demo_admin",
-    family: "identity",
-    type: PASSWORD_RESET_EVENT,
-    target: row.email,
-    detail: { personId: row.id, clearedFailures },
+    // TARGET IS THE ADDRESS, because that is what the lockout counts by. A row
+    // targeting the person id would record the reset perfectly and lift nothing.
+    //
+    // The password is not in here, and no `detail` field is a near-miss for it:
+    // its length, its shape and whether it was reused all narrow it.
+    await audit({
+      actorId: args.operatorId,
+      actorRole: "demo_admin",
+      family: "identity",
+      type: PASSWORD_RESET_EVENT,
+      target: row.email,
+      detail: { personId: row.id, clearedFailures },
+    });
   });
 
   return { name: row.name, email: row.email, clearedFailures };

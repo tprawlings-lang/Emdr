@@ -93,6 +93,14 @@ interface UserRow { id: string; name: string; email: string; created_at: string 
 /**
  * Every pilot participant, with what they have entered.
  *
+ * ACTIVE ACCOUNTS ONLY. Deleting an account anonymizes the row but keeps its
+ * role, its tenant and its 'real' person row, so a deleted participant listed
+ * here as "Deleted member" — with their answers already erased — would carry a
+ * reset control that cannot restore access to anything. Note the consequence:
+ * `enrolledCount` still counts them, so a deletion frees a row from this list
+ * without freeing its place against the cap. That was true before this filter
+ * and is not fixed by it.
+ *
  * Reads the pilot tenant directly rather than going through the clinical
  * projections: those are tenant-scoped to a care network and shaped for a
  * clinician's decision, and this is neither. Going through them would have
@@ -104,7 +112,8 @@ export async function pilotParticipants(): Promise<Participant[]> {
   const users = (await c.all(
     `SELECT u.id, u.name, u.email, u.created_at
        FROM users u JOIN persons p ON p.id = u.id
-      WHERE u.tenant_id = ? AND u.role = 'member' AND p.provenance = 'real'
+      WHERE u.tenant_id = ? AND u.role = 'member' AND u.status = 'active'
+        AND p.provenance = 'real'
       ORDER BY u.created_at DESC`,
     [PILOT_TENANT_ID],
   )) as UserRow[];

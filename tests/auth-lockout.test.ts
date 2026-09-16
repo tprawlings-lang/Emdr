@@ -327,3 +327,90 @@ test("the pilot console wires the reset action to a form, not just imports it", 
   assert.ok(/name="personId"/.test(page) && /name="newPassword"/.test(page),
     "the form does not carry the fields the action reads");
 });
+
+// ---------------------------------------------------------------------------
+// 6. Three defects a review found, each with the test that would have caught it
+// ---------------------------------------------------------------------------
+
+test("the pause runs for fifteen minutes from the failure that tripped it", async () => {
+  // A ROLLING COUNT IS NOT A PAUSE. Ten attempts spread across fourteen
+  // minutes trip on the last one; under "ten in the last fifteen minutes" the
+  // account unlocks about a minute later, when the first ages out — while the
+  // screen says "paused for 15 minutes — try again then".
+  clear();
+  // Ten failures ending two minutes ago, spread over fourteen minutes.
+  for (let i = 0; i < LOCKOUT_THRESHOLD; i++) {
+    failureAt((2 + i * 14 / 9) * 60 * 1000);
+  }
+  // The oldest is ~17.5 minutes old, so a rolling count sees fewer than ten...
+  assert.ok(await failedSignInsAgainst(ADDR) < LOCKOUT_THRESHOLD,
+    "precondition: the rolling count has already dropped below the threshold");
+  // ...and the account must still be paused, because the tenth failure was two
+  // minutes ago.
+  assert.equal(await isLockedOut(ADDR), true,
+    "the pause lifted early — a rolling count, not the fifteen minutes promised");
+});
+
+test("the pause does lift once fifteen minutes have passed since the last failure", async () => {
+  clear();
+  for (let i = 0; i < LOCKOUT_THRESHOLD; i++) failureAt(16 * 60 * 1000 + i * 1000);
+  assert.equal(await isLockedOut(ADDR), false, "the pause never lifts");
+});
+
+test("ten failures spread wider than the window never trip it", async () => {
+  // One attempt every five minutes is not ten in fifteen.
+  clear();
+  for (let i = 0; i < LOCKOUT_THRESHOLD; i++) failureAt(i * 5 * 60 * 1000);
+  assert.equal(await isLockedOut(ADDR), false,
+    "attempts spread across fifty minutes were treated as a burst");
+});
+
+test("a deleted participant is not offered a reset that cannot work", async () => {
+  // Deleting an account anonymizes the row but keeps role, tenant and the
+  // 'real' person row, so it went on matching every other clause of the scope.
+  // Both sign-in doors require status='active', so the reset would have
+  // reported success over an account no password can open.
+  clear(); seedPilot();
+  getDb().prepare("UPDATE users SET status = 'deleted', name = 'Deleted member' WHERE id = ?").run(PERSON);
+
+  await assert.rejects(
+    () => resetParticipantPassword({ operatorId: OPERATOR, personId: PERSON, newPassword: "a-new-one-they-can-use" }),
+    (e: Error) => e instanceof PilotAccessError,
+    "a deleted account accepted a reset it cannot honour",
+  );
+
+  const { pilotParticipants } = await import("../src/lib/enrollment/pilot-console");
+  const listed = await pilotParticipants();
+  assert.equal(listed.some((r) => r.personId === PERSON), false,
+    "the console lists a deleted account, so it offers a reset control beside it");
+});
+
+test("the password and its reset marker land together or not at all", async () => {
+  // The audit row is not bookkeeping — it IS the bound the lockout counts
+  // from. Written separately, a failing insert leaves the old password dead
+  // and the new one locked out: worse than before the operator tried to help.
+  clear(); seedPilot();
+  for (let i = 0; i < LOCKOUT_THRESHOLD; i++) failureAt(60 * 1000);
+
+  const db = getDb();
+  const before = db.prepare("SELECT password_hash FROM users WHERE id = ?").get(PERSON) as { password_hash: string };
+
+  // Make the audit insert fail, the way a database error would.
+  db.exec(`CREATE TRIGGER audit_insert_explodes BEFORE INSERT ON audit_log
+           FOR EACH ROW WHEN NEW.event_type = 'password_reset'
+           BEGIN SELECT RAISE(ABORT, 'audit is down'); END`);
+  try {
+    await assert.rejects(() => resetParticipantPassword({
+      operatorId: OPERATOR, personId: PERSON, newPassword: "a-new-one-they-can-use",
+    }));
+  } finally {
+    db.exec("DROP TRIGGER audit_insert_explodes");
+  }
+
+  const after = db.prepare("SELECT password_hash FROM users WHERE id = ?").get(PERSON) as { password_hash: string };
+  assert.equal(after.password_hash, before.password_hash,
+    "the password changed even though the reset was never recorded");
+  assert.equal(verifyPassword("originalpassword", after.password_hash), true,
+    "the participant lost the password that still worked");
+  assert.equal(await isLockedOut(ADDR), true, "precondition held: still locked, as before the attempt");
+});
