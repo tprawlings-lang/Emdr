@@ -1870,6 +1870,60 @@ first task is "identify the deployed commit").
   Dockerfile's `EMDR_BUILD_COMMIT`/`_BRANCH`/`_TIME` build args are the fallback for
   anywhere else
 
+### 15.6c The data-class policy, decided (2026-09-16)
+
+`provenance` is the line. `'fabricated'` is the seeded 240 and every demo persona;
+`'real'` is a pilot participant. A trigger enforces the column and
+`assertSingleProvenance` refuses any metric spanning both.
+
+**What may exist here.** Real people's self-entered answers, *and* clinician-authored
+records about them — signed notes, acted-on alerts, unlock decisions — modelled the way
+a clinician's record works. This remains a prototype: nobody is in treatment, every
+banner still says NOT CLINICAL CARE, and no review gate has moved.
+
+**Third parties.** Participants describing trauma will name people who never agreed to
+anything. They are recorded as described, as a clinical record would. The notice asks
+people to write about what happened rather than who; nothing enforces it.
+
+**Egress — all three channels permitted, and they are not equally controllable:**
+
+| Channel | Gate |
+|---|---|
+| Companion → Anthropic | **Enforced**, in `invoke()` — the single door every task passes through. A participant on the earlier notice never reaches a provider; the call returns `unavailable` and the caller falls to the deterministic rules engine |
+| Exports | **Structural.** Exports resolve to `organization`- or `payer`-kind tenants; the pilot tenant is `program` and holds no such account, so they cannot reach a participant |
+| Off-site backups | **Cannot be gated.** `db.backup()` is a whole-database snapshot — there are no rows to exclude. Refusing to back up until everyone re-consents would trade losing everybody's safety answers for a lesser harm, so `/admin/pilot` says so plainly instead |
+
+**Consent is versioned, and permission follows the version each person accepted** —
+not the version currently on the signup page. `wellness-ack-v1` permits neither records
+nor egress; `wellness-ack-v2` permits both. No acknowledgment, and any version this code
+was never taught, fail strict: a future v3 cannot inherit v2's permissions by looking
+newer.
+
+**Everyone on the earlier notice is being asked again** (§15.6d). Nobody is locked out
+for saying no.
+
+**Retention is unchanged and does not distinguish provenance.** The 24-month inactivity
+sweep treats a pilot participant exactly as it treats a fabricated profile. That is a
+decision, not an oversight — recorded here so it is a decision somebody made.
+
+### 15.6d Re-consent
+
+`/app/terms` shows a participant what they agreed to and what is true now, in the
+wording rather than a summary. It is an ask, not a gate: reached from one notice on
+Today, never by redirect, with "decide later" on the page.
+
+- **Declining is recorded**, not left as an absence. Without a record, "said no" and
+  "never asked" look identical and the operator asks again
+- **Declining costs nothing.** Handling stays exactly as it was, they stay in the pilot,
+  and the notice never appears for them again
+- **The operator can record an acceptance** from `/admin/pilot` after speaking to
+  somebody, because there is no mail channel. The audit says *the operator recorded it*,
+  not that they ticked it — a consent record that cannot tell those apart is not
+  evidence of anything
+- `/app/terms` is in `ACCOUNT_ROUTES`, so the care gate does not hold it. Otherwise the
+  people handled under the narrower terms — because they have not finished answering —
+  would be the ones unable to reach the answer
+
 ### 15.7 What is still not done
 
 - **Backups are off.** The pilot now holds real people's safety answers and signed clinical
@@ -1882,6 +1936,8 @@ first task is "identify the deployed commit").
   and the notes screen writes; they are two surfaces, not one
 - **A password reset does not end existing sessions** (§15.6a). It is the wrong tool for a
   compromised account, and the screen does not claim otherwise
+- **Backups cannot honour per-person terms** (§15.6c). Whole-database snapshot; the
+  console says so where the operator can see it
 - **A deleted participant still holds their place.** `deleteAccount` anonymizes the row and
   sets `status = 'deleted'`, but `enrolledCount` counts `persons` by provenance, so the place
   stays consumed against the cap of 25. The pilot console lists only active accounts, so a

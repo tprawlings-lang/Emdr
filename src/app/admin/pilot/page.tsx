@@ -7,6 +7,7 @@ import { ADMIN_RAIL } from "@/lib/app/rails";
 import { logout } from "@/lib/actions";
 import { FITNESS_ITEMS, screenerCaveat } from "@/lib/fitness-screener";
 import { enrollmentState } from "@/lib/enrollment/gate";
+import { backupConfigured } from "@/lib/backup";
 import { resetParticipantPasswordAction } from "@/lib/enrollment/pilot-actions";
 import { recordOfflineAcceptanceAction } from "@/lib/enrollment/terms-actions";
 import { MIN_PASSWORD } from "@/lib/enrollment/pilot-access";
@@ -56,6 +57,7 @@ export default async function PilotConsolePage({
   const summary = pilotSummary(rows);
   const gate = await enrollmentState();
   const screenerProvisional = screenerCaveat();
+  const backupsOn = backupConfigured();
 
   return (
     <AppShell
@@ -256,6 +258,21 @@ export default async function PilotConsolePage({
                           ? "They were asked and said no. Nothing is written about them and nothing of theirs leaves. Do not ask again unless they raise it."
                           : "They agreed to the earlier notice, which said their answers were not a medical record, that nobody would contact them, and that they were not shared. Until they accept the current one, no clinician note can be written about them and nothing of theirs leaves."}
                       </p>
+                      {backupsOn && (
+                        // THE ONE PROMISE THE CODE CANNOT KEEP FOR THEM.
+                        // Backups are a whole-database snapshot — SQLite's
+                        // online backup API — so there are no rows to exclude
+                        // and no gate to write. Refusing to back up until
+                        // everyone has re-consented would trade a certain harm
+                        // (losing everybody's safety answers) for a lesser
+                        // one, so the operator is told instead of being
+                        // protected by a guard that makes things worse.
+                        <p className="measure mt-2 text-sm text-state-support">
+                          Backups are on, and they copy the whole database. This person&apos;s
+                          data is copied off-site whatever notice they hold &mdash; that is the
+                          one thing here that cannot follow their answer.
+                        </p>
+                      )}
                       {r.terms !== "declined" && (
                         <>
                           <p className="measure mt-2 text-sm text-olive">
