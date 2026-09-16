@@ -184,3 +184,24 @@ test("a transfer proposal never claims the recipient was told", () => {
   assert.doesNotMatch(code("src/lib/clinical/handoff.ts"), /\bnotifyRecipient\b|\bsendNotification\b/,
     "something claims to notify a recipient; if a delivery path now exists, the copy above is wrong");
 });
+
+// ---------------------------------------------------------------------------
+// 5. A decision the member can read
+// ---------------------------------------------------------------------------
+
+test("an unlock decision cannot be recorded without a reason the member can read", async () => {
+  // FOUND BY THE WORK REGISTER, which noticed that `decideUnlock` is called by
+  // two screens and named by no test. The rules lived inside the server
+  // action, behind requireClinician, where nothing could reach them.
+  const { unlockDecisionRefusal } = await import("../src/lib/clinical/unlock-rules");
+
+  assert.equal(unlockDecisionRefusal("unlocked", "Ready — we talked it through on Tuesday."), null);
+  assert.equal(unlockDecisionRefusal("denied", "Let's wait until sleep settles."), null);
+
+  assert.match(unlockDecisionRefusal("unlocked", "")!, /reason the member can read/,
+    "a module can be opened with no explanation, leaving the member a changed door and no sentence");
+  assert.match(unlockDecisionRefusal("denied", "   ")!, /reason the member can read/,
+    "whitespace counts as a reason");
+  assert.match(unlockDecisionRefusal("maybe", "a reason")!, /opening the module or declining/,
+    "a value that is neither open nor decline is accepted as a decision");
+});

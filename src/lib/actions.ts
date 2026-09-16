@@ -11,6 +11,7 @@ import { provisionPerson, recordCheckin, recordAssessment, recordSessionStarted,
 import { recordFitnessScreening } from "./fitness-screener";
 import { decryptField, encryptField } from "./crypto";
 import { audit } from "./audit";
+import { unlockDecisionRefusal } from "./clinical/unlock-rules";
 import { isLockedOut } from "./auth-lockout";
 import {
   requireUser,
@@ -1257,8 +1258,14 @@ export async function decideUnlock(formData: FormData) {
   const unlockId = String(formData.get("unlockId") ?? "");
   const decision = String(formData.get("decision") ?? "");
   const reason = String(formData.get("reason") ?? "").slice(0, 1000);
-  if (decision !== "unlocked" && decision !== "denied") return;
-  if (!reason.trim()) redirect("/clinician/unlocks?error=" + encodeURIComponent("A decision needs a reason the member can read."));
+  const refusal = unlockDecisionRefusal(decision, reason);
+  if (refusal) {
+    // An unrecognised decision still returns silently rather than redirecting:
+    // it cannot come from the screen, so it came from a crafted request, and
+    // there is no user to explain anything to.
+    if (decision !== "unlocked" && decision !== "denied") return;
+    redirect("/clinician/unlocks?error=" + encodeURIComponent(refusal));
+  }
 
   const c = await data();
   const unlock = await c.get("SELECT id, user_id, module_id FROM module_unlocks WHERE id = ?", [unlockId]) as { id: string; user_id: string; module_id: string } | undefined;

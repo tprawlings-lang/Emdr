@@ -104,6 +104,12 @@ const OFF_SURFACE: Record<string, string> = {
   "src/lib/presentation/contract.ts":
     "PRE-EXISTING GAP, same shape as action.ts above: the shared presentation contract from §8.2 is defined and unconsumed.",
 
+  // ---- The work register ------------------------------------------------
+  "src/lib/governance/work-register.ts":
+    "The list of what is built and what each claim rests on. Its consumer is the build: tests/work-register.test.ts checks every entry against the source and fails when one stops being true. Surfacing it on a review screen is real work and is tracked as `governance.work-register-screen`, proposed — recorded in the register itself rather than left as an intention, since a register that hides its own gap is the thing it exists to prevent.",
+  "src/lib/governance/work-register-verify.ts":
+    "The check behind the register above: it asks whether each entry's symbol exists, whether a test names it, and whether anything outside its own module refers to it. That last question is what a feature built, tested and reachable from nothing fails — which is how requestUnlock and decideUnlock sat done and unreachable for weeks. Run by the suite, not by a page.",
+
   // ---- Handoff 09 Package 1: the experience contracts -------------------
   //
   // NOT A GAP, AND NOT AN EXCUSE. Package 1's own instruction is "Ship behind
