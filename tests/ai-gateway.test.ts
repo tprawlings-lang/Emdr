@@ -17,6 +17,8 @@ import { strict as assert } from "node:assert";
 import test from "node:test";
 import fs from "node:fs";
 import path from "node:path";
+
+import { getDb } from "../src/lib/db";
 import {
   invoke, registerTask, registeredTasks, getTask, setProvider,
   assertToolAllowed, ProhibitedToolError, PROHIBITED_CAPABILITIES,
@@ -142,6 +144,24 @@ function fakeProvider(responses: Partial<ModelResponse>[]): ModelProvider {
 }
 
 const SCOPE = { tenantId: "t1", personId: "p1", purpose: "test" };
+
+// The gateway refuses to send content it cannot attribute — a scope naming a
+// person who does not exist is a bug in the calling feature, not a reason to
+// call a provider. These tests are about tool allowlists, loop ceilings and
+// provider errors, so they need a person to exist before any of that is
+// reachable. Fabricated, because nothing here is about a real participant and
+// a fabricated person carries no terms to check.
+function ensureScopePerson() {
+  const db = getDb();
+  db.prepare(
+    "INSERT INTO tenants (id, kind, name) VALUES (?, 'program', 'Gateway test') ON CONFLICT(id) DO NOTHING",
+  ).run(SCOPE.tenantId);
+  db.prepare(
+    `INSERT INTO persons (id, tenant_id, display_name, provenance)
+     VALUES (?, ?, 'Gateway test person', 'fabricated') ON CONFLICT(id) DO NOTHING`,
+  ).run(SCOPE.personId, SCOPE.tenantId);
+}
+ensureScopePerson();
 
 test("a task's allowlist is the authority, not the caller's argument", async () => {
   registerTask({

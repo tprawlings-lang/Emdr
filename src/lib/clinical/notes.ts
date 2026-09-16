@@ -114,6 +114,37 @@ export async function noteById(id: string, tenantId: string): Promise<ClinicalNo
 }
 
 /** Start a note, or replace the text of one that is still a draft. */
+/**
+ * Refuse to write about a pilot participant who has not accepted the current
+ * notice.
+ *
+ * FABRICATED PEOPLE ARE EXEMPT, EXPLICITLY. They cannot agree to anything and
+ * nothing about them is disclosed by a note, so gating them would stop
+ * clinicians exercising the workflow on the only population built for it —
+ * which is the whole demonstration. The exemption is a provenance check, not a
+ * fallthrough: if the provenance lookup finds nothing, the answer is to refuse.
+ */
+async function assertMayRecordAbout(personId: string): Promise<void> {
+  const c = await data();
+  const person = (await c.get(
+    "SELECT provenance FROM persons WHERE id = ?",
+    [personId],
+  )) as { provenance: string } | undefined;
+
+  if (!person) {
+    throw new NoteError("That person is not in the record, so nothing can be written about them.");
+  }
+  if (person.provenance !== "real") return;
+
+  const { pilotHandling } = await import("../enrollment/pilot-terms");
+  const handling = await pilotHandling(personId);
+  if (!handling.clinicalRecords) {
+    throw new NoteError(
+      `A note cannot be written about this person yet. ${handling.reason}`,
+    );
+  }
+}
+
 export async function saveDraft(args: {
   noteId?: string | null;
   personId: string;
@@ -127,6 +158,18 @@ export async function saveDraft(args: {
   if (body.length < MIN_BODY) {
     throw new NoteError("A note needs something in it. Write what happened and what follows from it.");
   }
+  // WHAT THIS PERSON AGREED TO, BEFORE ANYTHING IS WRITTEN ABOUT THEM.
+  //
+  // Checked on the DRAFT rather than only at signing, because a draft about
+  // somebody who was told "these are not a medical record" is already the
+  // thing they were told would not happen — the signature is what makes it
+  // permanent, not what makes it exist.
+  //
+  // It applies to real pilot participants and nobody else: the fabricated
+  // population has no terms to hold, and `pilotHandling` returns the strict
+  // default for anyone with no acknowledgment at all, so the fabricated 240
+  // are exempted deliberately below rather than by accident.
+  await assertMayRecordAbout(args.personId);
   const c = await data();
   const at = nowStamp();
 

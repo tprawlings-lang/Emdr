@@ -92,6 +92,41 @@ function unavailable(task: TaskDefinition, reason: string, startedAt: number): G
   };
 }
 
+/**
+ * Whether this person's content may leave the deployment.
+ *
+ * Fabricated people are exempt: nothing about them is disclosed and they have
+ * no terms to hold. The check is on PROVENANCE rather than on tenant, because
+ * a real person moved to another tenant tomorrow is still a real person.
+ */
+async function egressCheck(personId: string): Promise<{ permitted: boolean; reason: string }> {
+  const { data } = await import("../data");
+  const c = await data();
+  const person = (await c.get(
+    "SELECT provenance FROM persons WHERE id = ?",
+    [personId],
+  )) as { provenance: string } | undefined;
+
+  // TWO REFUSALS, SAID DIFFERENTLY. A caller that names nobody and a
+  // participant on the older notice both stop here, and they are not the same
+  // problem: the first is a bug in the calling feature, the second is somebody
+  // exercising a choice. Collapsing them into one message sends whoever
+  // debugs it looking for a consent record that was never the issue.
+  if (!person) {
+    return {
+      permitted: false,
+      reason: `no person record for scope.personId (${personId}) — the caller cannot say whose content this is`,
+    };
+  }
+  if (person.provenance !== "real") return { permitted: true, reason: "" };
+
+  const { pilotHandling } = await import("../enrollment/pilot-terms");
+  const handling = await pilotHandling(personId);
+  return handling.egress
+    ? { permitted: true, reason: "" }
+    : { permitted: false, reason: "participant has not accepted the current notice" };
+}
+
 export async function invoke(call: GatewayInvocation): Promise<GatewayResult> {
   const startedAt = Date.now();
   const task = getTask(call.task);
@@ -105,6 +140,21 @@ export async function invoke(call: GatewayInvocation): Promise<GatewayResult> {
   }
 
   if (!providerConfigured()) return unavailable(task, "no provider configured", startedAt);
+
+  // WHOSE WORDS ARE ABOUT TO LEAVE, and did they agree to that.
+  //
+  // Here rather than in the companion, because this is the only door: every
+  // invocation carries `scope.personId` precisely so a person's ledger can
+  // answer "what did Steady think about me", and the same field answers "may
+  // this leave at all". A check in the companion would protect the one feature
+  // that exists today and none of the ones added later.
+  //
+  // Refused as UNAVAILABLE rather than as an error, so the caller takes the
+  // path it already has for a missing API key — the deterministic rules engine
+  // — instead of failing in front of somebody mid-sentence. Being on the older
+  // notice should cost a person a model-written reply, never a working screen.
+  const egress = await egressCheck(call.scope.personId);
+  if (!egress.permitted) return unavailable(task, egress.reason, startedAt);
 
   // The task's allowlist is the authority, not the caller's argument. A feature
   // passing a tool the registry does not name gets it dropped rather than
