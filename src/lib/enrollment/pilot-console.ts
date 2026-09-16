@@ -25,6 +25,7 @@ import { data } from "../data";
 import { FITNESS_ITEMS, FITNESS_SCREENER_ID } from "../fitness-screener";
 import { INSTRUMENTS } from "../instruments";
 import { PILOT_TENANT_ID } from "./gate";
+import { termsState, type TermsState } from "./pilot-terms";
 
 /** How far through onboarding somebody has actually got. Derived from what
  *  they have written rather than from a stored step number, which would drift
@@ -62,6 +63,11 @@ export interface Participant {
    *  "stopped engaging" when they were shut out. */
   failedSignIns: number;
   lockedOut: boolean;
+  /** Which notice governs this person: the current one, the narrower original,
+   *  a recorded refusal, or nothing recorded at all. It decides whether a
+   *  clinician may write about them, so the operator has to be able to see it
+   *  beside their name rather than infer it from an absence. */
+  terms: TermsState;
   stage: Stage;
   /** null when they have not taken the fit questions yet. */
   fit: null | {
@@ -152,6 +158,9 @@ export async function pilotParticipants(): Promise<Participant[]> {
       users.map(async (u) => [u.id, await failedSignInsAgainst(u.email)] as [string, number]),
     ),
   );
+  const terms = new Map<string, TermsState>(
+    await Promise.all(users.map(async (u) => [u.id, await termsState(u.id)] as [string, TermsState])),
+  );
 
   return users.map((u) => {
     const mine = screenings.filter((s) => s.user_id === u.id);
@@ -214,6 +223,7 @@ export async function pilotParticipants(): Promise<Participant[]> {
       joinedAt: u.created_at,
       failedSignIns,
       lockedOut: failedSignIns >= LOCKOUT_THRESHOLD,
+      terms: terms.get(u.id) ?? "none",
       stage,
       fit,
       measures,

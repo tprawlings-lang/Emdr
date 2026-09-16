@@ -8,6 +8,7 @@ import { logout } from "@/lib/actions";
 import { FITNESS_ITEMS, screenerCaveat } from "@/lib/fitness-screener";
 import { enrollmentState } from "@/lib/enrollment/gate";
 import { resetParticipantPasswordAction } from "@/lib/enrollment/pilot-actions";
+import { recordOfflineAcceptanceAction } from "@/lib/enrollment/terms-actions";
 import { MIN_PASSWORD } from "@/lib/enrollment/pilot-access";
 import {
   pilotParticipants, pilotSummary, STAGE_LABEL, type Participant,
@@ -163,6 +164,14 @@ export default async function PilotConsolePage({
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="font-medium text-app-ink">{r.name}</span>
                     <StageBadge stage={r.stage} />
+                    {r.terms !== "current" && (
+                      // THE MOST CONSEQUENTIAL FACT ABOUT THIS ROW, so it sits
+                      // beside the name rather than inside a panel: it decides
+                      // whether a clinician may write about them at all.
+                      <span className="rounded-full border border-ground/25 px-2 py-0.5 text-xs text-app-ink">
+                        {r.terms === "declined" ? "Declined the current notice" : "On the earlier notice"}
+                      </span>
+                    )}
                     {r.lockedOut && (
                       // SAID OUT LOUD, because a locked-out participant is
                       // indistinguishable from a disengaged one on every other
@@ -239,6 +248,31 @@ export default async function PilotConsolePage({
                       </span>
                     )}
                   </p>
+
+                  {r.terms !== "current" && (
+                    <div className="mt-3 rounded-2xl border border-ground/15 bg-app-surface p-4">
+                      <p className="measure text-sm text-app-ink">
+                        {r.terms === "declined"
+                          ? "They were asked and said no. Nothing is written about them and nothing of theirs leaves. Do not ask again unless they raise it."
+                          : "They agreed to the earlier notice, which said their answers were not a medical record, that nobody would contact them, and that they were not shared. Until they accept the current one, no clinician note can be written about them and nothing of theirs leaves."}
+                      </p>
+                      {r.terms !== "declined" && (
+                        <>
+                          <p className="measure mt-2 text-sm text-olive">
+                            They can accept it themselves from their own Today screen. Record it
+                            here only if you spoke to them and they said yes &mdash; the audit
+                            will say that you recorded it, not that they ticked it.
+                          </p>
+                          <form action={recordOfflineAcceptanceAction} className="mt-3">
+                            <input type="hidden" name="personId" value={r.personId} />
+                            <button className="rounded-xl border border-ground/20 px-3 py-1.5 text-sm text-app-ink hover:underline">
+                              I spoke to {r.name} and they accepted
+                            </button>
+                          </form>
+                        </>
+                      )}
+                    </div>
+                  )}
 
                   <details className="mt-3 border-t border-ground/10 pt-3">
                     <summary className="cursor-pointer text-sm text-app-ink">

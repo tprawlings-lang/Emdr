@@ -118,3 +118,95 @@ export async function participantsOnOldTerms(): Promise<{ userId: string; versio
     .filter((r) => r.version !== PILOT_TERMS_V2)
     .map((r) => ({ userId: r.user_id, version: r.version }));
 }
+
+/** A recorded refusal of a version. Kept in `consents` under its own scope so
+ *  it uses the same versioned, revocable, auditable machinery as a grant —
+ *  and so `pilotHandling`, which reads only the acknowledgment scope, cannot
+ *  accidentally read a refusal as one. */
+export const PILOT_DECLINE_SCOPE = "pilot_terms_declined";
+
+export type TermsState =
+  /** Accepted the notice currently on the signup page. */
+  | "current"
+  /** Accepted an earlier, narrower notice. */
+  | "old_terms"
+  /** Asked, and said no. */
+  | "declined"
+  /** A real participant with no acknowledgment recorded at all. */
+  | "none"
+  /** Not a pilot participant — a fabricated demo persona, or no person row.
+   *  A SEPARATE STATE, not folded into "none": they are not waiting on
+   *  anything and there is nothing to ask them. */
+  | "not_participant";
+
+/** Where this person stands on the current notice — the operator's view and
+ *  the member's own, from one definition rather than two that can disagree. */
+export async function termsState(userId: string): Promise<TermsState> {
+  // FABRICATED PEOPLE ARE NOT WAITING ON ANYTHING, and this check was missing.
+  // Driving the app found it: `pilotHandling` returned "no acknowledgment" for
+  // Alex — a fabricated demo persona with no wellness-ack row, as every
+  // fabricated profile is — which the member notice rendered as "the pilot has
+  // changed since you joined", shown to a fictional character. The unit tests
+  // could not see it because every fixture they built was a pilot participant.
+  if (!(await isRealAccount(userId))) return "not_participant";
+
+  const handling = await pilotHandling(userId);
+  if (handling.version === PILOT_TERMS_V2) return "current";
+
+  const c = await data();
+  const declined = await c.get(
+    `SELECT id FROM consents
+      WHERE user_id = ? AND scope = ? AND policy_version = ? AND revoked_at IS NULL LIMIT 1`,
+    [userId, PILOT_DECLINE_SCOPE, PILOT_TERMS_V2],
+  );
+  if (declined) return "declined";
+  return handling.version === null ? "none" : "old_terms";
+}
+
+/** A refusal an operator reads, not a state a screen branches on. */
+export class PilotTermsError extends Error {}
+
+/**
+ * Refuse to record an acceptance for somebody who is not waiting on one.
+ *
+ * IN THE DOMAIN, NOT THE ACTION, and that move was forced by a mutation: with
+ * the check inside the server action it sat behind `requireDemoAdmin`, which
+ * no unit test can satisfy, so deleting it changed nothing any test could see.
+ * A guard that cannot be exercised is a guard that will be removed by somebody
+ * tidying up, and nobody will notice.
+ *
+ * It is also the whole scope check. The demo clinician, the fabricated
+ * population and anybody already on the current notice are all absent from the
+ * waiting list, so one membership test covers "not a participant", "not real"
+ * and "already accepted" — and makes recording twice a no-op rather than a
+ * second row.
+ */
+export async function assertAwaitingCurrentTerms(personId: string): Promise<void> {
+  const waiting = await participantsOnOldTerms();
+  if (!waiting.some((p) => p.userId === personId)) {
+    throw new PilotTermsError("That person is not waiting on the current notice.");
+  }
+}
+
+/**
+ * Whether this account belongs to a real person.
+ *
+ * IN THE DOMAIN SO IT CAN BE TESTED. The shell's provenance flag needs this
+ * answer, and a component that reads the session and the database inline is a
+ * component whose decision no unit test can reach — the same reason
+ * `assertAwaitingCurrentTerms` moved out of its server action.
+ *
+ * FAILS TOWARD FABRICATED. An account with no person row, or none signed in at
+ * all, is flagged as the demonstration. Wrongly calling a real account
+ * fabricated confuses one participant; wrongly calling a fabricated one real
+ * makes every reader trust invented data.
+ */
+export async function isRealAccount(userId: string | null | undefined): Promise<boolean> {
+  if (!userId) return false;
+  const c = await data();
+  const person = (await c.get(
+    "SELECT provenance FROM persons WHERE id = ?",
+    [userId],
+  )) as { provenance: string } | undefined;
+  return person?.provenance === "real";
+}

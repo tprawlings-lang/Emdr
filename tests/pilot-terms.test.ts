@@ -23,11 +23,14 @@ process.env.EMDR_SESSION_SECRET = process.env.EMDR_SESSION_SECRET ?? "pilot-term
 
 import { strict as assert } from "node:assert";
 import test from "node:test";
+import fs from "node:fs";
+import path from "node:path";
 
 import { getDb } from "../src/lib/db";
 import {
-  pilotHandling, participantsOnOldTerms,
-  PILOT_TERMS_V1, PILOT_TERMS_V2, PILOT_ACK_SCOPE, CURRENT_PILOT_TERMS,
+  pilotHandling, participantsOnOldTerms, termsState,
+  PILOT_TERMS_V1, PILOT_TERMS_V2, PILOT_ACK_SCOPE, PILOT_DECLINE_SCOPE, CURRENT_PILOT_TERMS,
+  assertAwaitingCurrentTerms, PilotTermsError, isRealAccount,
 } from "../src/lib/enrollment/pilot-terms";
 import { PILOT_TENANT_ID } from "../src/lib/enrollment/gate";
 import { saveDraft, NoteError } from "../src/lib/clinical/notes";
@@ -247,4 +250,167 @@ test("a new enrollee is recorded against the CURRENT notice, not the original", 
   assert.equal(h.egress, true);
 
   // Left in place: `clear()` empties the pilot tenant at the start of each test.
+});
+
+// ---------------------------------------------------------------------------
+// 6. Where a person stands, and what a refusal does
+// ---------------------------------------------------------------------------
+
+/** A recorded refusal, written the way the action writes one. */
+function decline(userId: string) {
+  getDb().prepare(
+    "INSERT INTO consents (id, user_id, policy_version, scope) VALUES (?, ?, ?, ?)",
+  ).run(`d-${userId}`, userId, PILOT_TERMS_V2, PILOT_DECLINE_SCOPE);
+}
+
+test("the four states are told apart", async () => {
+  clear();
+  person("terms-s-cur", "real", PILOT_TERMS_V2);
+  person("terms-s-old", "real", PILOT_TERMS_V1);
+  person("terms-s-none", "real", null);
+  person("terms-s-dec", "real", PILOT_TERMS_V1); decline("terms-s-dec");
+
+  assert.equal(await termsState("terms-s-cur"), "current");
+  assert.equal(await termsState("terms-s-old"), "old_terms");
+  assert.equal(await termsState("terms-s-none"), "none");
+  assert.equal(await termsState("terms-s-dec"), "declined");
+});
+
+test("a refusal is recorded, not merely an absence", async () => {
+  // The difference matters operationally: without a record, "said no" and
+  // "never asked" look identical, so the operator asks again — and a question
+  // that keeps returning until it gets the right answer is not a question.
+  clear();
+  const id = person("terms-refuse", "real", PILOT_TERMS_V1);
+  assert.equal(await termsState(id), "old_terms", "precondition");
+  decline(id);
+  assert.equal(await termsState(id), "declined");
+});
+
+test("declining changes nothing about how they are handled", async () => {
+  // Saying no must cost them nothing. They keep the handling they already had:
+  // still no records about them, still no egress — exactly as before.
+  clear();
+  const id = person("terms-nocost", "real", PILOT_TERMS_V1);
+  const before = await pilotHandling(id);
+  decline(id);
+  const after = await pilotHandling(id);
+  assert.deepEqual(
+    { c: after.clinicalRecords, e: after.egress, v: after.version },
+    { c: before.clinicalRecords, e: before.egress, v: before.version },
+    "declining changed this person's handling, so saying no was not free",
+  );
+});
+
+test("a refusal does not count as an acknowledgment", async () => {
+  // The decline is stored in `consents` to reuse the versioned, revocable,
+  // auditable machinery. It must never be read back as a grant — one scope
+  // check away from permitting exactly what was refused.
+  clear();
+  const id = person("terms-notgrant", "real", null);
+  decline(id);
+  const h = await pilotHandling(id);
+  assert.equal(h.version, null, "the refusal was read back as an acknowledgment");
+  assert.equal(h.clinicalRecords, false);
+  assert.equal(h.egress, false);
+});
+
+test("someone who declined is still on the operator's list, marked as declined", async () => {
+  // They stay listed because the operator needs to know not to ask; the state
+  // says which. Dropping them would make "said no" look like "done".
+  clear();
+  person("terms-w-dec", "real", PILOT_TERMS_V1); decline("terms-w-dec");
+  person("terms-w-cur", "real", PILOT_TERMS_V2);
+  const waiting = (await participantsOnOldTerms()).map((r) => r.userId);
+  assert.deepEqual(waiting, ["terms-w-dec"]);
+  assert.equal(await termsState("terms-w-dec"), "declined");
+});
+
+test("the member notice appears for old terms and disappears once decided", async () => {
+  // The component renders nothing for "current" and nothing for "declined" —
+  // the second is what makes it an offer rather than a nag.
+  const { TermsChangedNotice } = await import("../src/components/member/TermsChangedNotice");
+  clear();
+  person("terms-n-old", "real", PILOT_TERMS_V1);
+  person("terms-n-cur", "real", PILOT_TERMS_V2);
+  person("terms-n-dec", "real", PILOT_TERMS_V1); decline("terms-n-dec");
+
+  assert.notEqual(await TermsChangedNotice({ userId: "terms-n-old" }), null,
+    "somebody on the earlier notice is never told it changed");
+  assert.equal(await TermsChangedNotice({ userId: "terms-n-cur" }), null,
+    "somebody already on the current notice is asked again");
+  assert.equal(await TermsChangedNotice({ userId: "terms-n-dec" }), null,
+    "somebody who said no is asked again — that is a nag, not an offer");
+});
+
+test("an operator can only record acceptance for somebody actually waiting", async () => {
+  // One membership test covers three refusals: not a pilot participant, not a
+  // real person, and already on the current notice. Recording twice is a
+  // no-op rather than a second row.
+  clear();
+  person("terms-await-old", "real", PILOT_TERMS_V1);
+  person("terms-await-cur", "real", PILOT_TERMS_V2);
+  person("terms-await-fab", "fabricated", null);
+
+  await assertAwaitingCurrentTerms("terms-await-old");
+
+  for (const id of ["terms-await-cur", "terms-await-fab", "terms-await-ghost"]) {
+    await assert.rejects(
+      () => assertAwaitingCurrentTerms(id),
+      (e: Error) => e instanceof PilotTermsError,
+      `an acceptance could be recorded for ${id}, who is not waiting on one`,
+    );
+  }
+});
+
+test("a fabricated demo persona is never told the pilot changed since they joined", async () => {
+  // FOUND BY DRIVING THE APP, not by a test. Every fabricated profile has no
+  // wellness acknowledgment, so `pilotHandling` answered "none" for Alex and
+  // the member notice rendered — telling a fictional character that the terms
+  // he never agreed to had changed. Every fixture in this file was a pilot
+  // participant, so nothing here could see it.
+  const { TermsChangedNotice } = await import("../src/components/member/TermsChangedNotice");
+  clear();
+  person("terms-fab-none", "fabricated", null);
+
+  assert.equal(await termsState("terms-fab-none"), "not_participant");
+  assert.equal(await TermsChangedNotice({ userId: "terms-fab-none" }), null,
+    "a fabricated demo persona was asked to re-consent to the pilot");
+  // And somebody with no person row at all is equally not a participant.
+  assert.equal(await termsState("terms-nobody"), "not_participant");
+});
+
+test("the provenance flag's decision describes the account, not the environment", async () => {
+  // It said FABRICATED unconditionally, which stopped being true when real
+  // people enrolled — and read worst on /app/terms, where a participant
+  // deciding what a clinician may record about them saw "FABRICATED" in the
+  // corner and "a real account, not a fabricated persona" in the banner above.
+  clear();
+  person("terms-flag-real", "real", PILOT_TERMS_V2);
+  person("terms-flag-fab", "fabricated", null);
+
+  assert.equal(await isRealAccount("terms-flag-real"), true,
+    "a real participant would be labelled fabricated in the frame");
+  assert.equal(await isRealAccount("terms-flag-fab"), false,
+    "a fabricated persona would be labelled real, so invented data reads as somebody's");
+  // FAILS TOWARD THE DEMONSTRATION LABEL. Wrongly calling a real account
+  // fabricated confuses one participant; wrongly calling a fabricated one real
+  // makes a reader trust invented data.
+  assert.equal(await isRealAccount(null), false, "a signed-out frame would claim a real account");
+  assert.equal(await isRealAccount("terms-flag-ghost"), false,
+    "an account whose provenance cannot be read would be labelled real");
+});
+
+test("the shell's flag renders that decision rather than a constant", () => {
+  // The decision is tested above; this is the wiring. A component reading the
+  // session and the database inline is one no unit test can reach, which is
+  // why the decision moved into the domain — and this fails if it moves back
+  // or if either label is lost.
+  const src = fs.readFileSync(
+    path.join(__dirname, "..", "src/components/app/ProvenanceFlag.tsx"), "utf8");
+  assert.match(src, /isRealAccount\(/, "the flag no longer asks the shared decision");
+  assert.match(src, /Real account/, "the real-account label is gone");
+  assert.match(src, /Fabricated/, "the fabricated label is gone");
+  assert.doesNotMatch(src, /SELECT provenance/,
+    "the flag reads the database directly again, putting the decision out of reach of tests");
 });

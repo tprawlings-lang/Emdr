@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ProvenanceFlag } from "./ProvenanceFlag";
 import { DemoClockBadge } from "@/components/app/DemoClockBadge";
 import { MAIN_ID } from "@/lib/experience/quality";
 
@@ -90,9 +91,7 @@ export function AppShell({
           <div className="ml-auto flex items-center gap-3">
             {/* The demonstration boundary, on every screen, in the frame
                 itself rather than as a banner a page can forget. */}
-            <span className="rounded-full bg-app-flag px-3 py-1 text-xs font-semibold uppercase tracking-wide text-app-ink">
-              Fabricated
-            </span>
+            <ProvenanceFlag />
             {/* p9: "clock shown in shell". In the FRAME, beside the fabricated
                 flag, for the same reason that one is there: a reader who does
                 not know the console is showing them March will read every

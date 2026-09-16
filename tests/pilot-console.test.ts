@@ -218,7 +218,17 @@ test("the screen offers no control that acts on anybody's care", () => {
   // now" would stop catching the thing it was written for — a "Close with
   // action" or "Review" button arriving here and quietly turning an operator's
   // reading screen into a clinical one.
-  const ALLOWED = new Set(["logout", "resetParticipantPasswordAction"]);
+  const ALLOWED = new Set([
+    "logout",
+    "resetParticipantPasswordAction",
+    // Recording that a participant accepted the current notice after a
+    // conversation. A CONSENT action, not a clinical one: it decides nothing
+    // about anybody's care, and it exists because this deployment has no mail
+    // channel, so re-consent happens in person and somebody has to write it
+    // down. The audit distinguishes it from the participant ticking it
+    // themselves, which is the part that makes it checkable.
+    "recordOfflineAcceptanceAction",
+  ]);
   const page = code("src/app/admin/pilot/page.tsx");
 
   const forms = page.match(/<form[^>]*>/g) ?? [];
@@ -234,16 +244,31 @@ test("the screen offers no control that acts on anybody's care", () => {
       `the pilot console wires a server action that is not on the allowlist: ${a}`);
   }
 
-  // AND THE ALLOWED ONE STILL MAY NOT TOUCH CARE. The action's own module is
-  // read here rather than trusted by its name: a reset that also closed an
-  // alert would satisfy every check above.
-  const action = code("src/lib/enrollment/pilot-actions.ts");
-  const domain = code("src/lib/enrollment/pilot-access.ts");
-  for (const [name, src] of [["action", action], ["domain", domain]] as const) {
-    assert.doesNotMatch(src, /alerts|checkins|module_unlocks|screenings|consents/,
-      `the reset ${name} reaches a clinical table`);
-    assert.doesNotMatch(src, /createAlert|decideUnlock|evaluateCheckin|recordCheckin/,
-      `the reset ${name} calls into the clinical domain`);
+  // AND THE ALLOWED ONES STILL MAY NOT TOUCH CARE. Each module's own module is
+  // read rather than trusted by its name: a reset that also closed an alert, or
+  // a consent record that also opened a module, would satisfy every check above.
+  //
+  // THE FORBIDDEN SET IS PER MODULE, because "clinical" is not one list. The
+  // password modules may not touch `consents` — a password reset has no
+  // business recording an agreement. The terms modules must, because the
+  // consent ledger is the entire thing they write. A single blanket rule said
+  // both, and the broader half was wrong: it failed the consent module for
+  // doing its job, which is how a guard gets loosened wholesale instead of
+  // corrected.
+  const CARE = /alerts|checkins|module_unlocks|screenings|clinical_notes|therapy_sessions/;
+  const CARE_OR_CONSENT = new RegExp(CARE.source + "|consents");
+
+  const modules = [
+    ["the password action", code("src/lib/enrollment/pilot-actions.ts"), CARE_OR_CONSENT],
+    ["the password domain", code("src/lib/enrollment/pilot-access.ts"), CARE_OR_CONSENT],
+    ["the terms actions", code("src/lib/enrollment/terms-actions.ts"), CARE],
+    ["the terms domain", code("src/lib/enrollment/pilot-terms.ts"), CARE],
+  ] as const;
+
+  for (const [name, src, forbidden] of modules) {
+    assert.doesNotMatch(src, forbidden, `${name} reaches a table it has no business in`);
+    assert.doesNotMatch(src, /createAlert|decideUnlock|evaluateCheckin|recordCheckin|signNote/,
+      `${name} calls into the clinical domain`);
   }
 });
 
