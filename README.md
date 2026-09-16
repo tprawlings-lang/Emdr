@@ -1839,6 +1839,37 @@ with no server-side record to invalidate, bounded at 8 hours absolute in demo mo
 "they forgot their password" that is the right behaviour; for "kick a compromised session
 out now" it is not, and that would need a token epoch on the user row.
 
+### 15.6b Which build is answering (2026-09-16)
+
+`GET /api/version` — unauthenticated, uncached — says what is deployed:
+
+```json
+{ "commit": "a558e7a…", "commitShort": "a558e7a", "branch": "main",
+  "startedAt": "…", "uptimeSeconds": 9, "source": "platform",
+  "environment": { "demo": true, "nodeEnv": "production", "enrollmentOpen": true },
+  "data": { "seedVersion": "demo-2026-08-v2", "datasetVersion": "demo-population-v1" } }
+```
+
+It exists because the question was unanswerable. Asked whether a merged pull request
+had reached production, the only available proxy was comparing hashed asset filenames
+between two fetches — which is wrong in both directions: it moves when nothing
+meaningful changed, and it does **not** move for a server-only release, which was
+exactly the case being asked about. Three findings in the September handoff are the
+same gap wearing different clothes (a demo clock showing a date the code cannot
+produce, live routes differing from inspected source, and a release checklist whose
+first task is "identify the deployed commit").
+
+- **Unauthenticated on purpose.** The question has to be answerable from outside,
+  before anyone signs in. Trying to answer it by signing in is how a demo account got
+  locked out for a day
+- **Honest nulls.** An unknown commit reads as `null` with `detail` explaining why,
+  never as a guess. `source` says whether the platform or the build answered
+- **No secret and no member data.** A commit, a branch, two versions, two booleans —
+  and a test that fails if a secret-shaped value is ever added
+- Render supplies `RENDER_GIT_COMMIT`/`RENDER_GIT_BRANCH` automatically; the
+  Dockerfile's `EMDR_BUILD_COMMIT`/`_BRANCH`/`_TIME` build args are the fallback for
+  anywhere else
+
 ### 15.7 What is still not done
 
 - **Backups are off.** The pilot now holds real people's safety answers and signed clinical

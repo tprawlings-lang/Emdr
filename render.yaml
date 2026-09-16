@@ -14,6 +14,12 @@ services:
       mountPath: /data
       sizeGB: 1
     envVars:
+      # Render sets RENDER_GIT_COMMIT and RENDER_GIT_BRANCH on the running
+      # service automatically — nothing to declare. /api/version reports them,
+      # so "did what I merged actually deploy" is answerable from outside,
+      # without signing in. If the platform ever stops providing them the
+      # endpoint says so rather than guessing, and the Dockerfile's
+      # EMDR_BUILD_* build args are the fallback.
       - key: EMDR_DEMO
         value: "1"
       - key: EMDR_DATA_DIR
