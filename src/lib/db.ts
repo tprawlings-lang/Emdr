@@ -173,7 +173,7 @@ export function ensurePilotRows(db: Database.Database): void {
 // blocks every module (even ones a clinician opened, since an override never
 // bypasses the daily safety read). On each boot, give the demo members a
 // check-in for the ACTUAL today (if missing) so the demo stays usable.
-function refreshDemoDaily(db: Database.Database) {
+export function refreshDemoDaily(db: Database.Database) {
   if (process.env.EMDR_DEMO !== "1") return;
   const today = new Date().toISOString().slice(0, 10);
   for (const email of ["patient.demo@steady.local", "patient2.demo@steady.local"]) {
@@ -197,13 +197,28 @@ function refreshDemoDaily(db: Database.Database) {
       activation: 3, shutdown: 1, harm_urge: false, feels_safe: true,
       dissociation: 1, sleep_quality: 6, substance_flag: false,
     };
+    // ONE ROW THAT MOVES FORWARD, not one per day the server happens to run.
+    //
+    // The id used to carry the date — `checkin:<member>:<today>` — which made
+    // it deterministic per member per day, and made the whole `checkins` table
+    // hash to a different value every calendar day. The projection guard
+    // records an expected hash per dataset version, so it passed only on the
+    // date its hashes were generated and failed for everyone afterwards: a
+    // check whose red means "it is tomorrow" is a check people learn to click
+    // past, and it would have taught exactly that.
+    //
+    // The date is out of the id and the row is upserted instead. What the demo
+    // needs is "Alex and Sam have a check-in dated today", not a pile of
+    // top-ups accumulating one per boot-day — the seeded history already
+    // supplies history, and this row is the live edge of it. `UNIQUE
+    // (user_id, checkin_date)` plus the `has` guard above still make a second
+    // boot on the same day a no-op.
     db.prepare(
       `INSERT INTO checkins (id, user_id, tenant_id, checkin_date, activation, shutdown, harm_urge,
          feels_safe, dissociation, sleep_quality, substance_flag, recommended_action)
-       VALUES (?, ?, ?, ?, ?, ?, 0, 1, ?, ?, 0, ?)`
-      // Deterministic per member per day, so a reset reproduces it and a
-      // second boot on the same day cannot create a duplicate.
-    ).run(demoId(0, `checkin:${m.id}:${today}`), m.id, m.tenant_id, today,
+       VALUES (?, ?, ?, ?, ?, ?, 0, 1, ?, ?, 0, ?)
+       ON CONFLICT(id) DO UPDATE SET checkin_date = excluded.checkin_date`
+    ).run(demoId(0, `checkin:${m.id}:today`), m.id, m.tenant_id, today,
       values.activation, values.shutdown, values.dissociation, values.sleep_quality,
       evaluateCheckin(values));
   }
