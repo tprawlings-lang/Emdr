@@ -4,6 +4,7 @@ import { requireClinician } from "@/lib/auth";
 import { data } from "@/lib/data";
 import { PLATFORM_TENANT_ID } from "@/lib/db";
 import { ClinicianPage } from "@/components/clinical/ClinicianPage";
+import { WorkList } from "@/components/experience/templates";
 import { Panel } from "@/components/app/surfaces";
 import { MODULES } from "@/lib/modules";
 import { decideUnlock } from "@/lib/actions";
@@ -74,19 +75,31 @@ export default async function UnlockQueuePage({
 
   return (
     <ClinicianPage title="Module requests" layer="actions" here="/clinician/unlocks">
+      {/* Through the work-list template: scope and filters, rows, evidence,
+          action result. The result moves ABOVE the rows, which is the one
+          change of substance here — a clinician who has just answered a
+          request was reading the confirmation of what they did, and it sat
+          below however many rows were left. */}
+      <WorkList
+        purpose="Members who have asked to open a gated module, and what you decided."
+        result={
+          error ? (
+            <p className="rounded-2xl border border-state-support bg-state-support-bg px-4 py-3 text-sm text-state-support">
+              {error}
+            </p>
+          ) : decided ? (
+            <p className="rounded-2xl border border-ground/15 bg-app-surface px-4 py-3 text-sm text-app-ink">
+              Recorded as <strong>{decided === "unlocked" ? "opened" : "not opened"}</strong>. The
+              member sees your reason on their own screen.
+            </p>
+          ) : undefined
+        }
+        evidence={{
+          perRow:
+            "Each request carries the member's own words, the moment they asked, and — once answered — the reason you gave and when. This queue has no projection of its own; it reads the request rows directly.",
+        }}
+      >
       <div className="space-y-6">
-        {error && (
-          <p className="rounded-2xl border border-state-support bg-state-support-bg px-4 py-3 text-sm text-state-support">
-            {error}
-          </p>
-        )}
-        {decided && (
-          <p className="rounded-2xl border border-ground/15 bg-app-surface px-4 py-3 text-sm text-app-ink">
-            Recorded as <strong>{decided === "unlocked" ? "opened" : "not opened"}</strong>. The
-            member sees your reason on their own screen.
-          </p>
-        )}
-
         {testOpenGated() && (
           <Panel title="Gated modules are open in this environment">
             <p className="measure text-sm text-app-ink">
@@ -186,6 +199,7 @@ export default async function UnlockQueuePage({
           )}
         </Panel>
       </div>
+      </WorkList>
     </ClinicianPage>
   );
 }

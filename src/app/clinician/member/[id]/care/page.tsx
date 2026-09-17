@@ -6,7 +6,7 @@ import { PLATFORM_TENANT_ID } from "@/lib/db";
 import { audit } from "@/lib/audit";
 import { loadPersonHeader } from "@/lib/clinical/person-header";
 import { PersonShell } from "@/components/clinical/PersonShell";
-import { Panel } from "@/components/app/surfaces";
+import { PersonSummary } from "@/components/experience/templates";
 import { EmptyState } from "@/components/clinical/primitives";
 import { getProgramPlan } from "@/lib/program-plan";
 import { listGoals } from "@/lib/clinical/return-to-life";
@@ -46,6 +46,34 @@ export const metadata = { title: "Care — Steady Clinical" };
 // NAVIGATION; a section that owns it saying plainly that it is not built is
 // the opposite failure mode from a button that does nothing.
 
+/** One sentence for what is active, from the record rather than from a phrase. */
+function activeStatement(
+  plan: { created_at: string } | null, goals: number, pendingHandoffs: number
+): string {
+  const parts: string[] = [];
+  parts.push(plan ? `A care plan was drafted ${plan.created_at.slice(0, 10)}` : "No care plan has been drafted");
+  parts.push(goals === 0 ? "no goals are recorded" : `${goals} goal${goals === 1 ? " is" : "s are"} recorded`);
+  parts.push(
+    pendingHandoffs === 0
+      ? "and no transfer of accountability is in progress"
+      : `and ${pendingHandoffs} transfer${pendingHandoffs === 1 ? "" : "s"} of accountability ${pendingHandoffs === 1 ? "is" : "are"} waiting for an answer`
+  );
+  return `${parts.join(", ")}.`;
+}
+
+/** What this screen does not know. Absence as a named state, never a blank. */
+function missingFor(plan: unknown, goals: number): string[] {
+  const missing: string[] = [];
+  if (!plan) missing.push("a care plan, which nobody has drafted");
+  if (goals === 0) {
+    missing.push(
+      "what this person is trying to get back to — a person with no goal is not a person doing badly, it is a conversation that has not happened"
+    );
+  }
+  missing.push("what between-visit support is assigned, because assigned support is not built");
+  return missing;
+}
+
 export default async function MemberCarePage({
   params,
 }: {
@@ -78,40 +106,43 @@ export default async function MemberCarePage({
 
   return (
     <PersonShell person={header} active="/care" title="Care">
-      {/* The status statement the amendment asks every destination to open
-          with: "a concise status statement ... the reason for the status,
-          evidence freshness, missing information, ownership". Assembled from
-          what is on the record rather than from a phrase, so it cannot say
-          "a plan is active" about a person who has none. */}
-      <Panel title="What is active now">
-        <ul className="space-y-2 text-sm text-ground">
-          <li>
-            <span className="font-medium">Care plan.</span>{" "}
-            {planRow
-              ? `Drafted ${planRow.created_at.slice(0, 10)} by ${planRow.generated_by === "ai" ? "a model, awaiting clinician approval" : "fixed rules"}.`
-              : "Nothing has been drafted for this person."}
-          </li>
-          <li>
-            <span className="font-medium">Life goals.</span>{" "}
-            {goals.length === 0
-              ? "None recorded. A person with no goal is not a person doing badly — it is a conversation that has not happened."
-              : `${goals.length} recorded.`}
-          </li>
-          <li>
-            <span className="font-medium">Accountability.</span>{" "}
-            {pending.length === 0
-              ? `${header.ownerName ?? "Nobody"} ${header.ownerName ? "holds this record" : "is recorded as holding this record"}, with no transfer in progress.`
-              : `${pending.length} transfer${pending.length === 1 ? "" : "s"} proposed and not yet answered.`}
-          </li>
-          <li>
-            <span className="font-medium">Assigned support.</span>{" "}
-            Not built. Between-visit support is assigned through the module
-            request queue today; a clinician-initiated assignment with its own
-            purpose, sharing rule and expiry is separate work and is not
-            available from this screen.
-          </li>
-        </ul>
-      </Panel>
+      {/* The status contract, from the template rather than assembled here.
+          The amendment asks every destination to open with "a concise status
+          statement, one primary action when work exists, the reason for the
+          status, evidence freshness, missing information, ownership, and any
+          real due state" — seven things, which is exactly the list a screen
+          written in a hurry gets five of. PersonSummary's type carries all
+          seven, so this page supplies them or does not compile.
+
+          NO DUE STATE IS PASSED, and that is the type doing its job: `due`
+          carries the deadline AND the policy that created it, and no policy in
+          this build puts a deadline on a care plan. A screen that wanted an
+          urgent-looking date here would have to name a rule that does not
+          exist. */}
+      <PersonSummary
+        status={{
+          statement: activeStatement(planRow, goals.length, pending.length),
+          reason:
+            "Assembled from what is on the record — the latest plan draft, the goals with an open status, and any transfer nobody has answered. Nothing here is computed from a model.",
+          missing: missingFor(planRow, goals.length),
+          primaryAction: pending.length
+            ? { href: "/clinician/handoffs", label: "Answer the transfer" }
+            : goals.length === 0
+              ? { href: `/clinician/member/${id}/goals`, label: "Record a first goal" }
+              : undefined,
+        }}
+      />
+
+      {/* Assigned support: named, with no control beside it. §1.1 keeps an
+          unbuilt capability out of NAVIGATION; a section that owns it saying
+          plainly that it is not built is the opposite failure from a button
+          that does nothing. */}
+      <p className="measure mt-4 text-sm text-olive">
+        <span className="font-medium text-ground">Assigned support.</span> Not built.
+        Between-visit support is assigned through the module request queue today; a
+        clinician-initiated assignment with its own purpose, sharing rule and expiry is separate
+        work and is not available from this screen.
+      </p>
 
       <section aria-labelledby="work" className="mt-8">
         <h2 id="work" className="type-display text-xl font-medium text-ground">

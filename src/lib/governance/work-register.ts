@@ -152,7 +152,33 @@ export const WORK_REGISTER: WorkEntry[] = [
     id: "experience.review-console-legibility",
     title: "The reviewer console meets the same legibility floor as the clinical surfaces",
     state: "proposed",
+    // Stated as null rather than omitted: the type makes both keys required
+    // and nullable, so "there is no code yet" is something an author writes
+    // down rather than something a reader infers from a missing field.
+    code: null,
+    test: null,
     note: "About 30 sub-12px and faded uses across /review. A different audience and a different job, so it was scoped out of the first pass rather than swept blind.",
+  },
+  {
+    id: "experience.page-templates",
+    title: "The handoff's three page templates, with the layout rules in the types",
+    // The rules were already written down and were being broken by people who
+    // had read them, which is what UX 010 reports. One primary action is one
+    // optional object; a due date carries the policy that created it;
+    // limitations will not compile away; the evidence slot must be answered
+    // rather than omitted; prose is measured and work is not.
+    state: "reachable",
+    code: "src/components/experience/templates.tsx#AnalysisReview",
+    test: "tests/page-templates.test.tsx",
+    note: "Applied to Care (PersonSummary), Recovery trajectory (AnalysisReview) and Module requests (WorkList). Command Center still renders its own work-list shape; see experience.command-center-template.",
+  },
+  {
+    id: "experience.command-center-template",
+    title: "Command Center renders through the work-list template",
+    state: "proposed",
+    code: null,
+    test: null,
+    note: "ClinicianHomeView carries its own scope strip, rows, evidence panel and result. Moving it onto WorkList is a real refactor of the busiest clinician screen rather than a wrapper, so it was not folded into the template's first pass.",
   },
   {
     id: "clinical.contact-vs-activity",

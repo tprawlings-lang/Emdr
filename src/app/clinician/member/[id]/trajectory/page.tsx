@@ -7,6 +7,7 @@ import { audit } from "@/lib/audit";
 import { loadPersonHeader } from "@/lib/clinical/person-header";
 import { PersonShell } from "@/components/clinical/PersonShell";
 import { Panel } from "@/components/app/surfaces";
+import { AnalysisReview } from "@/components/experience/templates";
 import { RecoveryTrajectoryCard } from "@/components/clinical/RecoveryTrajectoryCard";
 import { TrajectoryReviewForm } from "@/components/clinical/TrajectoryReviewForm";
 import {
@@ -88,10 +89,36 @@ export default async function MemberTrajectoryPage({
 
   return (
     <PersonShell person={header} active="/trajectory" title="Recovery trajectory">
-      {/* The boundary sentence is the card's, printed once. This page also
-          closes with "What this page does not do", and a screen that states
-          its limits three times in three places teaches the reader to skip
-          all three. */}
+      {/* Through the analysis template, which fixes the order: question,
+          result, limitations, evidence, decision. This page had the parts and
+          had them in its own order — the five things it does not do were the
+          last thing on it, below every window disclosure, which is where a
+          reader who has already formed a conclusion is not looking.
+
+          THE LIMITATIONS ARE A PROP, so they cannot be dropped by a later
+          edit that reorganises the page; the template will not compile without
+          them. That is the difference between this and the paragraph in the
+          handoff asking for the same thing.
+
+          EVIDENCE IS DECLARED AS per-row, which is the honest answer here. A
+          page-level projection panel would be a worse fit than what this
+          screen already does: every domain opens the windows, the counts and
+          the policy it was computed under, beside the state itself. */}
+      <AnalysisReview
+        question="Has this person's course changed, domain by domain, against their own earlier windows?"
+        limitations={[
+          "It does not produce a recovery score. There is no number here that combines two domains, because no exchange rate exists between sleeping better and going out less.",
+          "It does not predict anything. Every state describes readings that have already been recorded, which is what makes it something you can open and disagree with.",
+          "It does not say why anything moved. Things that happened in the same period are context, and context is not cause.",
+          `It does not compare this person to anyone else. Every window here is their own earlier course, under policy ${TRAJECTORY_POLICY.version}.`,
+          "It does not decide safety. Safety stops are decided by rules on the safety screen and nothing on this page can change, clear, or add to them.",
+        ]}
+        evidence={{
+          perRow:
+            "Every state above opens the windows it was computed from — the observation counts, the medians, the policy and the cutoff — beside the state itself rather than in one panel for the page.",
+        }}
+      >
+      {/* The boundary sentence is the card's, printed once. */}
       <Panel title="What has changed, domain by domain">
         <RecoveryTrajectoryCard
           personId={id}
@@ -241,30 +268,7 @@ export default async function MemberTrajectoryPage({
         </Panel>
       )}
 
-      <Panel title="What this page does not do" className="mt-6">
-        <ul className="measure space-y-2 text-sm text-ground">
-          <li>
-            It does not produce a recovery score. There is no number here that combines two
-            domains, because no exchange rate exists between sleeping better and going out less.
-          </li>
-          <li>
-            It does not predict anything. Every state describes readings that have already been
-            recorded, which is what makes it something you can open and disagree with.
-          </li>
-          <li>
-            It does not say why anything moved. Things that happened in the same period are
-            context, and context is not cause.
-          </li>
-          <li>
-            It does not compare this person to anyone else. Every window here is their own earlier
-            course, under policy {TRAJECTORY_POLICY.version}.
-          </li>
-          <li>
-            It does not decide safety. Safety stops are decided by rules on the safety screen and
-            nothing on this page can change, clear, or add to them.
-          </li>
-        </ul>
-      </Panel>
+      </AnalysisReview>
     </PersonShell>
   );
 }
