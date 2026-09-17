@@ -245,6 +245,7 @@ export const ROUTE_REGISTER: RouteEntry[] = [
 
   // ---- Clinician: one person's record -------------------------------------
   { path: "/clinician/member/[id]", audience: "clinician", job: "Get oriented on one person in ten seconds.", workspace: "person_record", state: "working" },
+  { path: "/clinician/member/[id]/care", audience: "clinician", job: "See and change what care is active for this person, and who is accountable for it.", workspace: "person_record", state: "working", evidence: "The 17 September amendment's Care section: \"care plan, goals, assigned support, and handoffs\". Three of the four are here; assigned support is the P3 command and this screen names it as not yet built rather than implying it." },
   { path: "/clinician/member/[id]/course", audience: "clinician", job: "Choose which reading of this person's course to open.", workspace: "person_record", state: "working", evidence: "Handoff 09 §5's Course section. Holds measures, life goals, responses and trajectory as named links, so the person record's tab row is five sections rather than a wrapping second menu." },
   { path: "/clinician/member/[id]/measures", audience: "clinician", job: "Read the instrument scores over time.", workspace: "person_record", state: "working" },
   { path: "/clinician/member/[id]/goals", audience: "clinician", job: "See what this person is trying to get back to, and whether it is moving.", workspace: "person_record", state: "working" },

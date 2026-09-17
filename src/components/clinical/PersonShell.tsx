@@ -1,26 +1,47 @@
 import Link from "next/link";
 import { AppShell, type RailSlug } from "@/components/app/AppShell";
+import { ExperienceShell } from "@/components/experience/ExperienceShell";
 import { personRail } from "@/lib/app/rails";
+import { requireClinician } from "@/lib/auth";
+import { experienceContextFor } from "@/lib/experience/context";
+import { navigationFor, sectionFor } from "@/lib/experience/navigation";
+import { clinicianShellEnabled } from "@/lib/experience/flags";
 import { ClinicianRailFooter } from "./ClinicianPage";
 import { PriorityBadge, OwnerChip, FreshnessLabel } from "./primitives";
 import type { PriorityBand } from "@/lib/clinical/caseload";
 import type { ProjectionMeta } from "@/lib/presentation/envelope";
 
-// The person record shell (§26, §10.4, and the clinician mockups p59–p63).
+// The person record shell.
 //
-// §26 gives one person address with six sub-routes. Before this, opening a
-// member meant landing on whichever of three overlapping records a link
-// happened to point at, each with its own header and its own back-link.
+// WHAT THE 17 SEPTEMBER AMENDMENT CHANGES HERE, and why it is a defect fix
+// rather than a preference:
 //
-// The tab row this used to carry is gone. Inside a person record every one of
-// §25's layers has a destination, so the record IS the rail — which is what
-// p59 through p63 draw, and why the clinician mockups show all five items live
-// while the console-level ones do not.
+//   "Observed and source confirmed. Patient pages replace global navigation
+//    with abstract information layers. Keep global clinician navigation stable
+//    and add patient-local navigation."                              (UX 002)
 //
-// The identity header stays, and stays first. §27.4 orders a person overview
-// identity → what changed → why it matters, and the consent boundary is the
-// line that governs what a clinician may do next, so it must not be something
-// the reader scrolls past to reach the content.
+// That was literally what this file did. It rendered AppShell with
+// `personRail(id)`, so opening somebody REPLACED the console's five rail
+// destinations with five person-scoped ones under the same five abstract
+// labels — Overview, Progress, Actions, Evidence, Audit. A clinician who
+// opened a record lost Command Center, Patients, Reports and Handoffs from the
+// screen, and the words that replaced them named information layers rather
+// than anything a clinician was trying to do.
+//
+// It was also, by then, the OLDER of two shells in one product. Command Center
+// has rendered ExperienceShell — stable global navigation, a local region
+// below it, a labeled return control — since Package 2, so the jump from the
+// queue into a person changed sidebars mid-task.
+//
+// So this renders ExperienceShell too, and the manifest supplies both rows.
+// Nothing about the person record's ADDRESSES changed: all sixteen screens
+// keep their routes, and the sixteen pages that call this component did not
+// change either, which is the reason the props are the same as before.
+//
+// THE OLD SHELL IS STILL HERE, under the flag that has gated this work since
+// §10.1 ("keep new work behind role-level flags and prove the current
+// experience is unchanged with each flag off"). With EMDR_EXPERIENCE_CLINICIAN
+// _SHELL=0 the record renders exactly as it did.
 
 export interface PersonHeader {
   id: string;
@@ -34,64 +55,30 @@ export interface PersonHeader {
   meta: ProjectionMeta;
 }
 
-/**
- * The sub-routes, by the layer each belongs to.
- *
- * HANDOFF 09 §5 REGROUPED THIS, and the problem it solved was one this build
- * created. Expansion handoffs 04 and 05 added Trajectory and Load, taking the
- * Progress row to five tabs — Measures, Life goals, Sessions, Responses,
- * Trajectory — which is exactly the "long second horizontal menu that wraps
- * into several rows" §5 rules out. Every addition was right on its own and the
- * row got worse with each one.
- *
- * §5's grouping: "Person sections should group around Overview, Course,
- * Sessions, Notes, and Safety where the existing content supports it. Course
- * can contain measures, life goals, responses, and trajectory through clearly
- * named local links."
- *
- * So Course is a landing that holds those four, and the four are no longer in
- * this list. NOTHING WAS REMOVED: each still has its own address, its own
- * screen, and a link from Course with room to say what it is for. What went is
- * the wrapping row.
- */
+/** The screens reached by name rather than from the local navigation. */
+const CONTEXTUAL: Array<{ slug: string; label: string }> = [
+  { slug: "/load", label: "Load and readiness" },
+  { slug: "/record", label: "Full record" },
+  { slug: "/audit", label: "Audit" },
+];
+
+// ---------------------------------------------------------------------------
+// The layer shell, kept for the flag-off path
+// ---------------------------------------------------------------------------
+
 const SCREENS: Array<{ slug: string; label: string; layer: RailSlug }> = [
   { slug: "", label: "Overview", layer: "overview" },
-  // §5's Course. The four course-shaped screens are reached from here.
   { slug: "/course", label: "Course", layer: "progress" },
   { slug: "/sessions", label: "Sessions", layer: "progress" },
   { slug: "/safety", label: "Safety", layer: "actions" },
-  // §5 calls this section Notes. The ROUTE keeps its name — renaming a route
-  // breaks every link anybody saved — and the tab carries §5's word.
   { slug: "/thoughts", label: "Notes", layer: "actions" },
-  // Load and readiness (expansion handoff 05 §8). Under actions: it is a
-  // reading a clinician decides what to do with, and §8's six clinician
-  // actions live on it.
   { slug: "/load", label: "Load", layer: "actions" },
   { slug: "/plan", label: "Plan", layer: "evidence" },
   { slug: "/record", label: "Full record", layer: "evidence" },
   { slug: "/audit", label: "Audit", layer: "audit" },
 ];
 
-/**
- * The four screens Course holds, so the layer nav does not.
- *
- * Listed here as well as on the Course page because `layerFor` has to resolve
- * them: a clinician deep-linked to /measures is inside the Progress layer, and
- * a route the shell does not know renders with the wrong rail item selected.
- */
 export const COURSE_SECTIONS = ["/measures", "/goals", "/responses", "/trajectory"] as const;
-
-/**
- * Screens reached from Notes rather than from the rail, for the same reason
- * Course holds its four: the tab row is the thing §5 shortened, and a bridge
- * that only makes sense once items are approved belongs behind the screen where
- * they are approved.
- *
- * `/notes` is the signed clinical record — a clinician's own account of contact,
- * written and attested by them. It sits behind the Notes tab rather than taking
- * a tenth place in the row, and the Notes screen links to it: somebody who came
- * here to read or write a note is exactly who is looking for it.
- */
 export const NOTES_SECTIONS = ["/note", "/notes"] as const;
 
 export function layerFor(slug: string): RailSlug {
@@ -100,7 +87,9 @@ export function layerFor(slug: string): RailSlug {
   return SCREENS.find((s) => s.slug === slug)?.layer ?? "overview";
 }
 
-export function PersonShell({
+// ---------------------------------------------------------------------------
+
+export async function PersonShell({
   person, active, title, children,
 }: {
   person: PersonHeader;
@@ -108,6 +97,104 @@ export function PersonShell({
   active: string;
   /** What this screen is. Defaults to the person's name, which is what the
    *  overview wants; the sub-routes name themselves. */
+  title?: string;
+  children: React.ReactNode;
+}) {
+  if (!clinicianShellEnabled()) {
+    return <LayerShell person={person} active={active} title={title}>{children}</LayerShell>;
+  }
+
+  // The context comes from the session, not from a prop. Every one of the
+  // sixteen callers has already called requireClinician() before it reaches
+  // here — this reads the same verified token again rather than adding a
+  // parameter to sixteen call sites, and `experienceContextFor` takes a
+  // SessionUser precisely so there is no other way in.
+  const clinician = await requireClinician();
+  const navigation = navigationFor(experienceContextFor(clinician), { personId: person.id });
+
+  const base = `/clinician/member/${person.id}`;
+  // The section's address rather than the screen's, so a reader on /measures
+  // lights Course. A screen no section owns passes its own address, which no
+  // destination matches — nothing is selected, and the contextual row says
+  // where they are instead.
+  const section = sectionFor(active);
+  const pathname = section === null ? `${base}${active}` : `${base}${section}`;
+
+  const onContextual = CONTEXTUAL.find((c) => c.slug === active);
+
+  return (
+    <ExperienceShell
+      role="Steady Clinical"
+      navigation={navigation}
+      pathname={pathname}
+      title={title ?? person.name}
+    >
+      {/* The identity header. The amendment asks for "a patient header with
+          identity, current restriction, owner, evidence freshness, and a
+          labeled return control" — the return control is the manifest's, in
+          the sidebar, so this carries the other four.
+
+          THE NAME IS NOT REPEATED AS A SECOND HEADING. "Do not repeat the
+          patient name as competing headings": on a sub-route the h1 is the
+          screen and the name is a link back to the overview; on the overview
+          the h1 IS the name, so this strip does not print it again. */}
+      <div className="-mt-2 mb-6 flex flex-wrap items-center gap-x-3 gap-y-1.5 border-b border-ground/10 pb-4">
+        {title && (
+          <Link href={base} className="font-medium text-app-ink hover:underline">
+            {person.name}
+          </Link>
+        )}
+        <PriorityBadge band={person.band} />
+        <OwnerChip name={person.ownerName} />
+        <FreshnessLabel evidenceAt={person.evidenceAt} now={person.now} />
+        {/* Stated either way. A boundary shown only when present reads as
+            absent-by-omission the rest of the time. */}
+        <span className={`text-xs font-medium ${person.consentActive ? "text-state-safe" : "text-state-caution"}`}>
+          {person.consentActive ? "◆ Consent active" : "○ No consent on record"}
+        </span>
+        <span className="font-mono text-[11px] text-olive/70" title="Projection version">
+          {person.meta.projectionVersion}
+        </span>
+      </div>
+
+      {children}
+
+      {/* The named contextual links, at the foot of the record rather than in
+          the local navigation. Below the content because they are where a
+          reader goes NEXT, after the screen they came for. */}
+      <nav
+        aria-label="Elsewhere in this record"
+        className="mt-10 flex flex-wrap gap-x-4 gap-y-1 border-t border-ground/10 pt-4 text-sm"
+      >
+        {CONTEXTUAL.map((c) => {
+          const here = c.slug === active;
+          return (
+            <Link
+              key={c.slug}
+              href={`${base}${c.slug}`}
+              aria-current={here ? "page" : undefined}
+              className={here ? "font-medium text-app-ink" : "text-olive hover:underline"}
+            >
+              {c.label}
+            </Link>
+          );
+        })}
+        {onContextual && (
+          <span className="text-xs text-olive/80">
+            Reached by name: {onContextual.label} is not one of the record&rsquo;s six sections.
+          </span>
+        )}
+      </nav>
+    </ExperienceShell>
+  );
+}
+
+/** The pre-amendment shell, rendered when the clinician-shell flag is off. */
+function LayerShell({
+  person, active, title, children,
+}: {
+  person: PersonHeader;
+  active: string;
   title?: string;
   children: React.ReactNode;
 }) {
@@ -135,16 +222,9 @@ export function PersonShell({
         <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1">
           <OwnerChip name={person.ownerName} />
           <FreshnessLabel evidenceAt={person.evidenceAt} now={person.now} />
-          {/* Stated either way. A boundary shown only when present reads as
-              absent-by-omission the rest of the time. */}
           <span className={`text-xs font-medium ${person.consentActive ? "text-state-safe" : "text-state-caution"}`}>
             {person.consentActive ? "◆ Consent active" : "○ No consent on record"}
           </span>
-          {/* The version the facts on this line were computed under.
-              Recessive on purpose — it is for the reader who is checking a
-              screenshot against the live record, not for the clinician
-              reading the band. Rendered rather than kept in a payload,
-              because a version nobody can see settles no argument. */}
           <span className="font-mono text-[11px] text-olive/70" title="Projection version">
             {person.meta.projectionVersion}
           </span>

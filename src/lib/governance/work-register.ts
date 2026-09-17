@@ -121,6 +121,18 @@ export const WORK_REGISTER: WorkEntry[] = [
     test: "tests/concept-separation.test.ts",
   },
   {
+    id: "experience.person-workspace",
+    title: "A person record keeps the console's navigation and adds six local sections",
+    // UX 002 in the 17 September handoff: "Patient pages replace global
+    // navigation with abstract information layers." The manifest already
+    // declared the local region and nothing rendered it, which is the state
+    // this register exists to make visible — declared, tested, and not wired.
+    state: "reachable",
+    code: "src/lib/experience/navigation.ts#sectionFor",
+    test: "tests/experience-contracts.test.ts",
+    note: "Assigned support is the sixth section's fourth item and is not built; the Care screen says so in place rather than offering a control.",
+  },
+  {
     id: "clinical.contact-vs-activity",
     title: "Contact and member activity are separate facts",
     state: "reachable",

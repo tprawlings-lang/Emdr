@@ -34,7 +34,7 @@ import {
 } from "../src/lib/experience/context";
 import {
   navigationFor, activeDestination, isActive, declaredDestinations,
-  destinationIsRegistered, personLocal,
+  destinationIsRegistered, personLocal, sectionFor, isClassified,
 } from "../src/lib/experience/navigation";
 import {
   resolveCommand, commandKey, confirmed, rejected, stale, unavailable,
@@ -63,7 +63,7 @@ import {
 import {
   supportDock, activitySupportDock, SUPPORT_ENTRIES, ACTIVITY_CONTROLS,
 } from "../src/lib/experience/support-dock";
-import { byState, routeEntry } from "../src/lib/app/route-register";
+import { byState, routeEntry, ROUTE_REGISTER } from "../src/lib/app/route-register";
 
 const root = process.cwd();
 const EXPERIENCE_DIR = path.join(root, "src/lib/experience");
@@ -257,11 +257,122 @@ test("opening a person adds a local region rather than replacing the shell", () 
   assert.ok(nav.local, "no local region");
   assert.match(nav.local!.returnTo.label, /Back to/, "the return control is not labeled");
   assert.ok(routeEntry(nav.local!.returnTo.href), "the return control points nowhere");
-  // §5's grouping: Overview, Course, Sessions, Notes, Safety.
+  // The 17 September amendment's six: "Overview, Care, Course, Sessions,
+  // Notes, Safety". Care is the addition; it owns the care plan, goals,
+  // assigned support and handoffs.
   assert.deepEqual(
     nav.local!.items.map((i) => i.label),
-    ["Overview", "Course", "Sessions", "Notes", "Safety"]
+    ["Overview", "Care", "Course", "Sessions", "Notes", "Safety"]
   );
+});
+
+test("Course leads to the Course landing, not to one of the four readings", () => {
+  // "Resolve the current Course mapping to measures versus the separate Course
+  // landing and establish one canonical entry." The manifest and PersonShell
+  // disagreed: the sidebar said /measures and the record's own tab said
+  // /course, so the same word led to two places depending on which navigation
+  // a clinician used.
+  const nav = navigationFor(clinician, { personId: "p-1" });
+  const course = nav.local!.items.find((i) => i.label === "Course");
+  assert.equal(course?.href, "/clinician/member/p-1/course");
+});
+
+test("every screen of the record resolves to one of the six sections, or to none by name", () => {
+  // sectionFor is the inverse of the local manifest: it says which section a
+  // reader is inside when they are on a screen that is not itself one of the
+  // six. Every answer it gives has to BE one of the six, or the sidebar lights
+  // nothing on a screen that has a section.
+  const nav = navigationFor(clinician, { personId: "p-1" });
+  const sections = new Set(
+    nav.local!.items.map((i) => i.href.replace("/clinician/member/p-1", ""))
+  );
+
+  const owned: Record<string, string> = {
+    "": "", "/care": "/care", "/plan": "/care", "/goals": "/care",
+    "/course": "/course", "/measures": "/course", "/responses": "/course",
+    "/trajectory": "/course", "/sessions": "/sessions", "/session/s-1": "/sessions",
+    "/thoughts": "/thoughts", "/note": "/thoughts", "/notes": "/thoughts",
+    "/safety": "/safety",
+  };
+  for (const [slug, section] of Object.entries(owned)) {
+    assert.equal(sectionFor(slug), section, `${slug} resolved to the wrong section`);
+    assert.ok(sections.has(section), `${slug} resolved to ${section}, which is not a destination`);
+  }
+
+  // "Load, Full record, and Audit remain available through named contextual
+  // links. They do not need equal placement in the local navigation." They
+  // belong to no section, and that is a decision rather than an omission —
+  // filing Load under Safety would make UX 004's conflation permanent.
+  for (const slug of ["/load", "/record", "/audit"]) {
+    assert.equal(sectionFor(slug), null, `${slug} was given a section`);
+  }
+});
+
+test("every registered screen of the person record is classified", () => {
+  // THE GUARD THIS EXISTS TO BE. The record has sixteen screens and six
+  // sections, and the mapping between them is a list — which is exactly the
+  // kind of thing that goes stale when somebody adds a seventeenth screen. A
+  // route the mapping has never heard of falls through to the overview, so the
+  // sidebar would say "Overview" while the reader is somewhere else, and
+  // nothing would fail.
+  //
+  // So the register is the source: every person_record route it carries must
+  // resolve to a declared section or be one of the three named contextual
+  // screens. Adding a screen without deciding where it belongs fails here.
+  const CONTEXTUAL = new Set(["/load", "/record", "/audit"]);
+
+  // The negative case first, because the rest of this test is only as strong
+  // as this function: an `isClassified` that always said yes would let every
+  // assertion below pass while classifying nothing. A slug the record has
+  // never had must come back false.
+  assert.equal(isClassified("/not-a-screen"), false, "isClassified accepts anything");
+  assert.equal(isClassified(""), true, "the overview is a screen");
+
+  const nav = navigationFor(clinician, { personId: "[id]" });
+  const sections = new Set(
+    nav.local!.items.map((i) => i.href.replace("/clinician/member/[id]", ""))
+  );
+
+  const personRoutes = ROUTE_REGISTER
+    .filter((r) => r.workspace === "person_record" && r.path.startsWith("/clinician/member/[id]"))
+    .map((r) => r.path.replace("/clinician/member/[id]", ""));
+
+  assert.ok(personRoutes.length >= 16, `only ${personRoutes.length} person routes found`);
+
+  for (const slug of personRoutes) {
+    // The membership question, not the resolved value: sectionFor falls back
+    // to the overview for a screen it has never heard of, so asserting on what
+    // it RETURNS would pass for exactly the case this test exists to catch.
+    assert.ok(isClassified(slug), `${slug} has not been placed in any section of the record`);
+    const section = sectionFor(slug);
+    if (CONTEXTUAL.has(slug)) {
+      assert.equal(section, null, `${slug} is contextual but claims section ${section}`);
+      continue;
+    }
+    assert.notEqual(section, null, `${slug} belongs to no section and is not a named contextual screen`);
+    assert.ok(
+      sections.has(section!),
+      `${slug} resolves to ${section}, which is not one of the record's sections`
+    );
+  }
+});
+
+test("a section that contains the others does not light up on their screens", () => {
+  // Overview is the record's root, so every other section is nested beneath
+  // its address. Matching by nesting would make it the selected item on every
+  // screen no longer-named destination claims.
+  const nav = navigationFor(clinician, { personId: "p-1" });
+  const base = "/clinician/member/p-1";
+
+  assert.equal(activeDestination(nav, base)?.label, "Overview", "the overview itself");
+  for (const slug of ["/care", "/course", "/sessions", "/thoughts", "/safety"]) {
+    const active = activeDestination(nav, `${base}${slug}`);
+    assert.notEqual(active?.label, "Overview", `${slug} lit Overview`);
+  }
+  // And a screen belonging to no section lights nothing at all, rather than
+  // falling back to the root.
+  assert.equal(activeDestination(nav, `${base}/load`), null);
+  assert.equal(activeDestination(nav, `${base}/record`), null);
 });
 
 test("a member never gets a person-record region", () => {
@@ -271,10 +382,12 @@ test("a member never gets a person-record region", () => {
 test("exactly one destination is active, and it is the longest match", () => {
   // Two selected states is the same failure as none (§8.2).
   const nav = navigationFor(clinician, { personId: "p-1" });
-  const active = activeDestination(nav, "/clinician/member/p-1/measures");
-  assert.equal(active?.href, "/clinician/member/p-1/measures");
+  // The record's own screens are resolved through their section, which is what
+  // PersonShell passes: a reader on /measures is inside Course.
+  const active = activeDestination(nav, "/clinician/member/p-1/course");
+  assert.equal(active?.href, "/clinician/member/p-1/course");
   assert.ok(
-    !isActive(nav, "/clinician/member/p-1/measures", "/clinician/member/p-1"),
+    !isActive(nav, "/clinician/member/p-1/course", "/clinician/member/p-1"),
     "the parent destination is also marked active"
   );
   // A nested route under a core destination lights the core one.

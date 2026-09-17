@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { DemoClockBadge } from "@/components/app/DemoClockBadge";
+import { ProvenanceFlag } from "@/components/app/ProvenanceFlag";
 import { logout } from "@/lib/actions";
-import type { NavigationManifest } from "@/lib/experience/navigation";
+import { activeDestination, type NavigationManifest } from "@/lib/experience/navigation";
 import { MAIN_ID } from "@/lib/experience/quality";
 
 // The experience shell (handoff 09 §3, §8.2; Package 2).
@@ -52,7 +53,15 @@ export function ExperienceShell({
 }) {
   // Computed here rather than per item, so exactly one destination can be
   // active. Two selected states is the same failure as none (§8.2).
-  const activeHref = activeFor(navigation, pathname);
+  //
+  // FROM THE MANIFEST MODULE, not from a copy in this file. There was a second
+  // implementation here, justified on the grounds that it "walks the rendered
+  // lists" — it walked the same three lists, and the two drifted the moment
+  // the record's sections moved: the manifest's rule learned that a
+  // destination containing its siblings owns only its own path and this one
+  // did not, so the sidebar would have lit Overview on four Course screens
+  // while the contract test said Course.
+  const activeHref = activeDestination(navigation, pathname)?.href ?? null;
 
   return (
     <div className="min-h-dvh bg-ivory">
@@ -69,12 +78,14 @@ export function ExperienceShell({
             </div>
             <div className="flex items-center gap-3">
               <DemoClockBadge />
-              <span
-                className="rounded-full bg-app-accent px-2.5 py-1 text-xs font-semibold uppercase tracking-wide text-app-ink"
-                title="Every person and record in this environment is invented."
-              >
-                Fabricated
-              </span>
+              {/* The same flag AppShell carries, rather than a second hardcoded
+                  chip. This one read "Fabricated" unconditionally and said so
+                  of "every person and record in this environment", which
+                  stopped being true when real people enrolled — and this shell
+                  is the one a pilot participant meets. ProvenanceFlag makes the
+                  narrow claim the corner can support: the account you are
+                  signed in as. */}
+              <ProvenanceFlag />
             </div>
           </header>
 
@@ -105,7 +116,13 @@ export function ExperienceShell({
                   <p className="mt-3 px-3 text-xs font-semibold uppercase tracking-wide text-olive">
                     {navigation.local.label}
                   </p>
-                  <ul className="mt-1 space-y-0.5">
+                  {/* Wraps on narrow, stacks on desktop — the same shape as
+                      the global row above it. A six-item column pushed the
+                      content of a person record about six hundred pixels down
+                      the page on a phone, which is UX 010's "primary work
+                      appears promptly at supported viewport sizes" failing on
+                      the navigation rather than on the content. */}
+                  <ul className="mt-1 flex flex-wrap gap-1 lg:block lg:space-y-0.5">
                     {navigation.local.items.map((d) => (
                       <li key={d.href}>
                         <NavItem href={d.href} label={d.label} active={d.href === activeHref} />
@@ -169,17 +186,4 @@ function NavItem({ href, label, active }: { href: string; label: string; active:
       {label}
     </Link>
   );
-}
-
-/** Longest match wins, so exactly one item is active. Duplicated from the
- *  manifest's own `activeDestination` in effect but not in code — this walks the
- *  rendered lists, which is the set that actually has a selected state to give. */
-function activeFor(navigation: NavigationManifest, pathname: string): string | null {
-  const all = [...navigation.core, ...(navigation.local?.items ?? []), ...navigation.utility];
-  let best: string | null = null;
-  for (const d of all) {
-    if (d.href !== pathname && !pathname.startsWith(`${d.href}/`)) continue;
-    if (!best || d.href.length > best.length) best = d.href;
-  }
-  return best;
 }

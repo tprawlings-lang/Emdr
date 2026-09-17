@@ -157,7 +157,28 @@ const UTILITY: Partial<Record<Audience, NavDestination[]>> = {
  *  that wraps." Course is one destination holding measures, life goals,
  *  responses and trajectory — which is the correction §5 asks for and which
  *  Package 2 renders. The manifest declares it now so Package 2 has a contract
- *  to build against rather than a paragraph to interpret. */
+ *  to build against rather than a paragraph to interpret.
+ *
+ *  THE 17 SEPTEMBER AMENDMENT MAKES IT SIX, and both changes here are
+ *  corrections rather than additions.
+ *
+ *  CARE. "Overview, Care, Course, Sessions, Notes, Safety", where Care owns
+ *  "care plan, goals, assigned support, and handoffs". Those four were reachable
+ *  and scattered: the plan and goals sat behind a layer rail a clinician had to
+ *  understand to use, and this person's handoffs were readable only from the
+ *  console-level queue, which answers "what is waiting for me" rather than "who
+ *  is accountable for this person". The amendment also moves goals out of Course
+ *  — "keep goals in Care as the working location and allow Course to show a
+ *  read-only progress summary that links back to the goal" — because a goal is
+ *  something a clinician SETS, and Course is where they READ.
+ *
+ *  COURSE NOW POINTS AT THE COURSE LANDING. It pointed at /measures while
+ *  PersonShell's own tab pointed at /course, so the same word led to two places
+ *  depending on which navigation you used. The amendment asks to "resolve the
+ *  current Course mapping to measures versus the separate Course landing and
+ *  establish one canonical entry": the landing wins, because it is the screen
+ *  that says what the four readings are for, and /measures remains one of the
+ *  four rather than standing for all of them. */
 export function personLocal(personId: string): NavigationManifest["local"] {
   const base = `/clinician/member/${personId}`;
   return {
@@ -168,12 +189,86 @@ export function personLocal(personId: string): NavigationManifest["local"] {
     returnTo: { href: "/clinician/today", label: "Back to Command Center" },
     items: [
       { href: base, label: "Overview", workspace: "person_record", capability: "openAPersonRecord" },
-      { href: `${base}/measures`, label: "Course", workspace: "person_record", capability: "openAPersonRecord" },
+      { href: `${base}/care`, label: "Care", workspace: "person_record", capability: "openAPersonRecord" },
+      { href: `${base}/course`, label: "Course", workspace: "person_record", capability: "openAPersonRecord" },
       { href: `${base}/sessions`, label: "Sessions", workspace: "person_record", capability: "openAPersonRecord" },
       { href: `${base}/thoughts`, label: "Notes", workspace: "person_record", capability: "openAPersonRecord" },
       { href: `${base}/safety`, label: "Safety", workspace: "person_record", capability: "openAPersonRecord" },
     ],
   };
+}
+
+/**
+ * Which of the record's six sections owns each screen.
+ *
+ * THE SIX ARE THE AMENDMENT'S: Overview, Care, Course, Sessions, Notes,
+ * Safety. Sixteen screens map onto them, and the mapping is here rather than
+ * in the manifest because it is about this record's internal shape rather than
+ * about navigation: the manifest declares six destinations, and this says which
+ * one a reader is inside when they are on a screen that is not itself one of
+ * the six.
+ *
+ * WHY EACH NON-OBVIOUS ONE:
+ *
+ *   /plan and /goals -> Care. The amendment puts "care plan, goals, assigned
+ *   support, and handoffs" in Care, and moves goals out of Course explicitly:
+ *   "keep goals in Care as the working location and allow Course to show a
+ *   read-only progress summary that links back to the goal." A goal is set;
+ *   a course is read.
+ *
+ *   /measures, /responses, /trajectory -> Course, which is the landing that
+ *   holds them.
+ *
+ *   /note and /notes -> Notes. The draft assembly and the signed record are
+ *   both note work; the route names stay because renaming a route breaks
+ *   saved links.
+ *
+ *   /session/[sid] -> Sessions.
+ *
+ * AND THREE SCREENS DELIBERATELY BELONG TO NO SECTION. "Load, Full record, and
+ * Audit remain available through named contextual links. They do not need equal
+ * placement in the local navigation." They return null, no sidebar item is
+ * selected while a reader is on one, and the contextual row below the identity
+ * header carries the selected state instead. Putting Load under Safety was the
+ * tempting alternative and it is the exact conflation UX 004 reports: Load
+ * already links to Safety for an access hold while Safety says nothing is
+ * pending, and filing readiness under restrictions would make that permanent.
+ */
+const SECTION: Record<string, string | null> = {
+  "": "",
+  "/care": "/care",
+  "/plan": "/care",
+  "/goals": "/care",
+  "/course": "/course",
+  "/measures": "/course",
+  "/responses": "/course",
+  "/trajectory": "/course",
+  "/sessions": "/sessions",
+  "/thoughts": "/thoughts",
+  "/note": "/thoughts",
+  "/notes": "/thoughts",
+  "/safety": "/safety",
+  "/load": null,
+  "/record": null,
+  "/audit": null,
+};
+
+export function sectionFor(slug: string): string | null {
+  if (slug.startsWith("/session/")) return "/sessions";
+  // An unclassified screen falls back to the overview, which is the safe
+  // runtime answer and a BAD test answer: "" is a real section, so a guard
+  // that only checked the return value would accept a screen nobody had
+  // classified. `isClassified` is what the guard asks instead.
+  return slug in SECTION ? SECTION[slug] : "";
+}
+
+/** Whether this screen has been placed in the record deliberately.
+ *
+ *  Separate from `sectionFor` because the two questions have different right
+ *  answers: at runtime an unknown screen should still render inside the
+ *  record, and in a test an unknown screen is the defect. */
+export function isClassified(slug: string): boolean {
+  return slug.startsWith("/session/") || slug in SECTION;
 }
 
 // ---------------------------------------------------------------------------
@@ -226,7 +321,23 @@ export function activeDestination(
   let best: NavDestination | null = null;
   for (const d of all) {
     const exact = d.href === pathname;
-    const nested = pathname.startsWith(`${d.href}/`);
+    // A DESTINATION THAT CONTAINS ITS SIBLINGS OWNS ONLY ITS OWN PATH.
+    //
+    // Overview is the person record's root, so every other section of that
+    // record — Care, Course, Sessions, Notes, Safety — is nested beneath its
+    // address. Letting it match by nesting would make it the answer for every
+    // screen in the record that no longer-named destination claims, which is
+    // a selected state that is wrong rather than missing.
+    //
+    // It did not show while Course pointed at /measures: that href was longer
+    // than Overview's and won on length for the one route anybody tested. The
+    // amendment moved Course to its landing and the flaw became reachable from
+    // /measures, /goals, /responses and /trajectory at once. The rule is the
+    // fix rather than a longer list, because it holds for whatever gets added
+    // beneath a record next.
+    const nested = pathname.startsWith(`${d.href}/`) && !all.some(
+      (o) => o !== d && o.href.startsWith(`${d.href}/`)
+    );
     if (!exact && !nested) continue;
     if (!best || d.href.length > best.href.length) best = d;
   }

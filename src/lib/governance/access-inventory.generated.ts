@@ -1413,6 +1413,45 @@ export const ACCESS_INVENTORY: AccessInventory = {
       "exempt": []
     },
     {
+      "path": "/clinician/member/[id]/care",
+      "audience": "clinician",
+      "file": "app/clinician/member/[id]/care/page.tsx",
+      "owed": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        7
+      ],
+      "found": {
+        "1": [
+          "requireUser(",
+          "requireClinician("
+        ],
+        "2": [
+          "requireClinician("
+        ],
+        "3": [
+          "tenant_id = ?",
+          "repo(ctx)",
+          "loadPersonHeader("
+        ],
+        "4": [
+          "revoked_at IS NULL",
+          "consentActive"
+        ],
+        "5": [],
+        "7": [
+          "family: \"security\"",
+          "_viewed",
+          "_opened"
+        ]
+      },
+      "missing": [],
+      "exempt": []
+    },
+    {
       "path": "/clinician/member/[id]/course",
       "audience": "clinician",
       "file": "app/clinician/member/[id]/course/page.tsx",
@@ -3289,8 +3328,8 @@ export const ACCESS_INVENTORY: AccessInventory = {
       "exempt": []
     }
   ],
-  "protectedCount": 117,
-  "complete": 117,
+  "protectedCount": 118,
+  "complete": 118,
   "gapsByStep": {
     "1": 0,
     "2": 0,
