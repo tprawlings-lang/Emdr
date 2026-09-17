@@ -91,7 +91,7 @@ export default async function ClinicalConsole({
       <p className="mt-4 rounded-2xl border border-state-caution/40 bg-state-caution-bg px-4 py-3 text-xs text-ground">
         <strong>Provisional configuration.</strong> {policyBanner(policy)}. These are
         demonstration assumptions, not clinical approval — the packet seeking ratification is{" "}
-        <code className="text-[11px]">clinical-pilot-2026-09</code>, which is unsubmitted.
+        <code className="text-xs">clinical-pilot-2026-09</code>, which is unsubmitted.
       </p>
 
       {error && (
@@ -137,7 +137,7 @@ export default async function ClinicalConsole({
                   </Link>
                   <span className="text-xs opacity-80">{a.type.replace(/_/g, " ")}</span>
                   {a.overdue && (
-                    <span className="rounded bg-state-support px-1.5 py-0.5 text-[10px] font-medium text-ivory">
+                    <span className="rounded bg-state-support px-1.5 py-0.5 text-xs font-medium text-ivory">
                       OVERDUE
                     </span>
                   )}
@@ -218,12 +218,12 @@ export default async function ClinicalConsole({
                     {r.displayName}
                   </Link>
                   {coverage && (
-                    <span className="rounded bg-ground/10 px-1.5 py-0.5 text-[10px]">
+                    <span className="rounded bg-ground/10 px-1.5 py-0.5 text-xs">
                       coverage — not your caseload
                     </span>
                   )}
                   {!r.actionable && (
-                    <span className="rounded bg-ground/10 px-1.5 py-0.5 text-[10px]">
+                    <span className="rounded bg-ground/10 px-1.5 py-0.5 text-xs">
                       read-only under the {caseload.model} model
                     </span>
                   )}

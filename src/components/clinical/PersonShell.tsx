@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { AppShell, type RailSlug } from "@/components/app/AppShell";
 import { ExperienceShell } from "@/components/experience/ExperienceShell";
+import { EvidenceDetails } from "@/components/experience/EvidenceDetails";
 import { personRail } from "@/lib/app/rails";
 import { cookies } from "next/headers";
 import { requireClinician } from "@/lib/auth";
@@ -158,13 +159,18 @@ export async function PersonShell({
         <FreshnessLabel evidenceAt={person.evidenceAt} now={person.now} />
         {/* Stated either way. A boundary shown only when present reads as
             absent-by-omission the rest of the time. */}
-        <span className={`text-xs font-medium ${person.consentActive ? "text-state-safe" : "text-state-caution"}`}>
+        {/* At the body size rather than at text-xs. "Keep routine metadata
+            readable. Do not make it tiny or excessively muted" — and this line
+            is a consent boundary, which is the least decorative thing on the
+            screen. */}
+        <span className={`text-sm font-medium ${person.consentActive ? "text-state-safe" : "text-state-caution"}`}>
           {person.consentActive ? "◆ Consent active" : "○ No consent on record"}
         </span>
-        <span className="font-mono text-[11px] text-olive/70" title="Projection version">
-          {person.meta.projectionVersion}
-        </span>
       </div>
+
+      {/* The build identifiers, one disclosure below the identity line rather
+          than eleven-pixel monospace inside it. */}
+      <EvidenceDetails meta={person.meta} className="-mt-3 mb-6" />
 
       {children}
 
@@ -189,7 +195,7 @@ export async function PersonShell({
           );
         })}
         {onContextual && (
-          <span className="text-xs text-olive/80">
+          <span className="text-sm text-olive">
             Reached by name: {onContextual.label} is not one of the record&rsquo;s six sections.
           </span>
         )}
@@ -231,10 +237,12 @@ function LayerShell({
         <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1">
           <OwnerChip name={person.ownerName} />
           <FreshnessLabel evidenceAt={person.evidenceAt} now={person.now} />
-          <span className={`text-xs font-medium ${person.consentActive ? "text-state-safe" : "text-state-caution"}`}>
+          <span className={`text-sm font-medium ${person.consentActive ? "text-state-safe" : "text-state-caution"}`}>
             {person.consentActive ? "◆ Consent active" : "○ No consent on record"}
           </span>
-          <span className="font-mono text-[11px] text-olive/70" title="Projection version">
+          {/* Legible here too. The flag restores the previous NAVIGATION, not
+              a previous floor on type size. */}
+          <span className="font-mono text-xs text-olive" title="Projection version">
             {person.meta.projectionVersion}
           </span>
         </div>

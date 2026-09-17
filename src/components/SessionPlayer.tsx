@@ -204,7 +204,7 @@ function BlsAudio({ running, speedMs }: { running: boolean; speedMs: number }) {
   return (
     <div className="flex h-[220px] w-full flex-col items-center justify-center rounded-3xl bg-ground text-center text-ivory/85">
       <p className="type-display text-2xl">{running ? "Follow the tones" : "Audio paused"}</p>
-      <p className="mt-2 max-w-sm text-sm text-ivory/60">
+      <p className="mt-2 max-w-sm text-sm text-ivory/90">
         Left… right… let your attention move with the sound. Headphones work best.
       </p>
     </div>

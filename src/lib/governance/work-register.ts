@@ -141,6 +141,20 @@ export const WORK_REGISTER: WorkEntry[] = [
     note: "Origin and closed-set view filters are preserved; a free-text patient search and the selected person id deliberately are not.",
   },
   {
+    id: "experience.legibility-floor",
+    title: "Metadata on a clinical or member surface is readable, and versions are disclosed rather than printed",
+    state: "reachable",
+    code: "src/components/experience/EvidenceDetails.tsx#EvidenceDetails",
+    test: "tests/evidence-details.test.tsx",
+    note: "The reviewer console is out of scope and carries most of the remaining sub-12px and faded text; see experience.review-console-legibility.",
+  },
+  {
+    id: "experience.review-console-legibility",
+    title: "The reviewer console meets the same legibility floor as the clinical surfaces",
+    state: "proposed",
+    note: "About 30 sub-12px and faded uses across /review. A different audience and a different job, so it was scoped out of the first pass rather than swept blind.",
+  },
+  {
     id: "clinical.contact-vs-activity",
     title: "Contact and member activity are separate facts",
     state: "reachable",

@@ -82,24 +82,24 @@ export function AuditTable({
               <td className="px-3 py-2 text-xs">{e.actorLabel}</td>
               {showTarget && (
                 <td className="px-3 py-2 text-xs">
-                  {e.target ? <code className="text-[10px]">{e.target.slice(0, 12)}…</code> : "—"}
+                  {e.target ? <code className="text-xs">{e.target.slice(0, 12)}…</code> : "—"}
                 </td>
               )}
               <td className="max-w-md px-3 py-2 text-xs text-olive">
                 {Object.keys(e.detail).length > 0 ? (
-                  <code className="text-[10px]">{JSON.stringify(e.detail)}</code>
+                  <code className="text-xs">{JSON.stringify(e.detail)}</code>
                 ) : (
                   "—"
                 )}
                 {/* Withholding is stated. A silently trimmed record teaches a
                     reviewer that they are seeing everything. */}
                 {e.redacted && (
-                  <span className="ml-1 rounded bg-ground/10 px-1 py-0.5 text-[10px]">
+                  <span className="ml-1 rounded bg-ground/10 px-1 py-0.5 text-xs">
                     free-text fields withheld
                   </span>
                 )}
                 {!e.chained && (
-                  <span className="ml-1 rounded bg-state-caution-bg px-1 py-0.5 text-[10px]">
+                  <span className="ml-1 rounded bg-state-caution-bg px-1 py-0.5 text-xs">
                     predates chaining
                   </span>
                 )}

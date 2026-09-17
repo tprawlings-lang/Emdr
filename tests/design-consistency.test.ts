@@ -159,3 +159,54 @@ test("no shared surface wrapper renders block children inside an inline element"
   }
   assert.deepEqual(offenders, [], `these wrappers nest caller children inside an inline element: ${offenders.join(", ")}`);
 });
+
+// ---------------------------------------------------------------------------
+// Legibility: the 17 September handoff's metadata rule
+// ---------------------------------------------------------------------------
+
+test("no text on a clinical or member surface is shrunk below the type scale", () => {
+  // "Keep routine metadata readable. Do not make it tiny or excessively muted."
+  //
+  // THE COMPLAINT THIS CAME FROM was that the screens are "very data heavy,
+  // very engineer geared". Arbitrary pixel sizes are how that happens one
+  // element at a time: a label does not fit, so it is set at 10px, and three
+  // months later a clinician is reading an event id and a policy version at
+  // two thirds of body size on the line that tells them whose record this is.
+  //
+  // The floor is the scale's own smallest step. A value written as text-[Npx]
+  // is outside the scale by construction, which is the thing being refused —
+  // not a particular number.
+  const offenders: string[] = [];
+  for (const f of FILES) {
+    // The reviewer console is a different audience and a different job, and it
+    // carries most of the remaining uses. Out of scope here deliberately, and
+    // recorded as `experience.review-console-legibility` rather than quietly
+    // skipped.
+    if (rel(f).startsWith("src/app/review")) continue;
+    const body = prose(fs.readFileSync(f, "utf8"));
+    for (const m of body.matchAll(/text-\[(\d+)px\]/g)) {
+      if (Number(m[1]) < 12) offenders.push(`${rel(f)}: ${m[0]}`);
+    }
+  }
+  assert.deepEqual(offenders, [], `text set below the scale's floor:\n  ${offenders.join("\n  ")}`);
+});
+
+test("no text on a clinical or member surface is faded below legibility", () => {
+  // The other half of the same rule. A colour token at 60% opacity over a
+  // surface is a contrast figure nobody computed: the palette pairs in
+  // globals.css are verified at their full value, and an opacity modifier
+  // silently leaves the verified pair.
+  //
+  // Eighty is the line rather than a hundred, because a genuinely secondary
+  // note at /80 still clears its pair with room, and forbidding the modifier
+  // outright would ban a legitimate hover and border use of the same syntax.
+  const offenders: string[] = [];
+  for (const f of FILES) {
+    if (rel(f).startsWith("src/app/review")) continue;
+    const body = prose(fs.readFileSync(f, "utf8"));
+    for (const m of body.matchAll(/\btext-[a-z][a-z-]*\/(\d+)\b/g)) {
+      if (Number(m[1]) < 80) offenders.push(`${rel(f)}: ${m[0]}`);
+    }
+  }
+  assert.deepEqual(offenders, [], `text faded below 80%:\n  ${offenders.join("\n  ")}`);
+});

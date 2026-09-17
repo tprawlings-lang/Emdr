@@ -96,7 +96,18 @@ export function ExperienceShell({
               aria-label={`${role} navigation`}
               className="shrink-0 border-b border-ground/10 bg-linen px-3 py-4 lg:w-[232px] lg:border-b-0 lg:border-r"
             >
-              <ul className="flex flex-wrap gap-1 lg:block lg:space-y-0.5">
+              {/* ONE LINE THAT SCROLLS ON NARROW, a column on desktop.
+                  Wrapping put the console row, the record's six sections and
+                  the utility row into a stack about 440px tall on a 390px
+                  screen — so a clinician on a phone scrolled past the whole
+                  navigation to reach the patient. UX 010: "Primary work
+                  appears promptly at supported viewport sizes."
+
+                  This is the shape AppShell used before this shell replaced
+                  it, and it was right about this: a nav row that scrolls
+                  sideways costs a swipe to reach the far end, and a nav column
+                  that wraps costs a scroll to reach the PAGE. */}
+              <ul className="flex gap-1 overflow-x-auto lg:block lg:space-y-0.5 lg:overflow-visible">
                 {navigation.core.map((d) => (
                   <li key={d.href}>
                     <NavItem href={d.href} label={d.label} active={d.href === activeHref} />
@@ -106,23 +117,29 @@ export function ExperienceShell({
 
               {/* The local region. Below the global row, never replacing it. */}
               {navigation.local && (
-                <div className="mt-5 border-t border-ground/10 pt-4">
-                  <Link
-                    href={navigation.local.returnTo.href}
-                    className="block px-3 text-xs text-olive underline-offset-2 hover:underline"
-                  >
-                    &larr; {navigation.local.returnTo.label}
-                  </Link>
-                  <p className="mt-3 px-3 text-xs font-semibold uppercase tracking-wide text-olive">
-                    {navigation.local.label}
-                  </p>
+                <div className="mt-3 border-t border-ground/10 pt-3 lg:mt-5 lg:pt-4">
+                  {/* The return control and the region label share a line on
+                      narrow and stack on desktop: two full-width rows of
+                      chrome above a six-item list is most of what made the
+                      phone layout tall. */}
+                  <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 px-3 lg:block">
+                    <Link
+                      href={navigation.local.returnTo.href}
+                      className="text-sm text-olive underline-offset-2 hover:underline"
+                    >
+                      &larr; {navigation.local.returnTo.label}
+                    </Link>
+                    <p className="text-xs font-semibold uppercase tracking-wide text-olive lg:mt-3">
+                      {navigation.local.label}
+                    </p>
+                  </div>
                   {/* Wraps on narrow, stacks on desktop — the same shape as
                       the global row above it. A six-item column pushed the
                       content of a person record about six hundred pixels down
                       the page on a phone, which is UX 010's "primary work
                       appears promptly at supported viewport sizes" failing on
                       the navigation rather than on the content. */}
-                  <ul className="mt-1 flex flex-wrap gap-1 lg:block lg:space-y-0.5">
+                  <ul className="mt-1 flex gap-1 overflow-x-auto lg:block lg:space-y-0.5 lg:overflow-visible">
                     {navigation.local.items.map((d) => (
                       <li key={d.href}>
                         <NavItem href={d.href} label={d.label} active={d.href === activeHref} />
@@ -132,16 +149,16 @@ export function ExperienceShell({
                 </div>
               )}
 
-              <div className="mt-5 border-t border-ground/10 pt-4 lg:mt-6">
-                <ul className="flex flex-wrap gap-1 lg:block lg:space-y-0.5">
+              <div className="mt-3 border-t border-ground/10 pt-3 lg:mt-6 lg:pt-4">
+                <ul className="flex gap-1 overflow-x-auto lg:block lg:space-y-0.5 lg:overflow-visible">
                   {navigation.utility.map((d) => (
                     <li key={d.href}>
                       <NavItem href={d.href} label={d.label} active={d.href === activeHref} />
                     </li>
                   ))}
                 </ul>
-                <div className="mt-3 space-y-1.5 px-3 text-xs text-olive">
-                  <Link href="/review/status" className="block hover:underline">
+                <div className="mt-2 flex flex-wrap items-baseline gap-x-4 gap-y-1 px-3 text-sm text-olive lg:mt-3 lg:block lg:space-y-1.5">
+                  <Link href="/review/status" className="hover:underline lg:block">
                     What works and what does not
                   </Link>
                   <form action={logout}>
@@ -177,7 +194,7 @@ function NavItem({ href, label, active }: { href: string; label: string; active:
     <Link
       href={href}
       aria-current={active ? "page" : undefined}
-      className={`relative block rounded-xl px-3 py-2 text-sm transition-colors ${
+      className={`relative block whitespace-nowrap rounded-xl px-3 py-2 text-sm transition-colors ${
         active
           ? "bg-app-accent font-medium text-app-ink lg:before:absolute lg:before:inset-y-1.5 lg:before:-left-3 lg:before:w-[3px] lg:before:rounded-full lg:before:bg-ground"
           : "text-olive hover:bg-app-accent/40 hover:text-app-ink"

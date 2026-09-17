@@ -71,7 +71,7 @@ export function MemberTodayView({ day }: { day: MemberDayView }) {
           <p className={`mt-2 ${failing ? "text-ground/80" : "text-ivory/85"}`}>
             {day.recommended.description}
           </p>
-          <p className={`mt-3 text-sm ${failing ? "text-olive" : "text-ivory/70"}`}>
+          <p className={`mt-3 text-sm ${failing ? "text-olive" : "text-ivory/90"}`}>
             About {day.recommended.approximateMinutes} minutes. {day.recommended.pausePromise}
           </p>
           <Link

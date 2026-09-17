@@ -257,7 +257,7 @@ export function SmallMultiples({
       {/* One axis, drawn once, under all of them — because there is only one. */}
       <div aria-hidden className="relative h-4">
         {months.map((m) => (
-          <span key={m.label + m.at} className="absolute text-[10px] text-olive"
+          <span key={m.label + m.at} className="absolute text-xs text-olive"
             style={{ left: `${(m.at / W) * 100}%`, transform: "translateX(-50%)" }}>
             {m.label}
           </span>
@@ -479,7 +479,7 @@ export function EventTimeline({ events }: { events: TimelineEvent[] }) {
               <span className="mt-2 text-xs text-olive">{e.date}</span>
               <span className="measure mt-1 text-xs text-ground">{e.detail}</span>
               {e.version && (
-                <span className="mt-0.5 font-mono text-[10px] text-olive">{e.version}</span>
+                <span className="mt-0.5 font-mono text-xs text-olive">{e.version}</span>
               )}
             </li>
           );

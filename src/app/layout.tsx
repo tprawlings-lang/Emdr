@@ -42,7 +42,7 @@ async function PersonaIndicator() {
   const { personIsReal } = await import("@/lib/enrollment/gate");
   const real = await personIsReal(user.id).catch(() => false);
   return (
-    <span className="mt-1 inline-block rounded-full bg-ivory/15 px-2 py-0.5 text-xs text-ivory">
+    <span className="inline-block rounded-full bg-ivory/15 px-2 py-0.5 text-xs text-ivory">
       {real ? (
         <>
           Pilot account: <strong>{user.name}</strong> ({user.role}) &mdash; a real account, not a
@@ -84,15 +84,51 @@ export default function RootLayout({
           <div
             role="note"
             aria-label="Demonstration environment notice"
-            className="bg-ground px-4 py-2 text-center text-sm text-ivory"
+            className="bg-ground px-4 py-1.5 text-sm text-ivory"
           >
-            {/* THE HEADER IS A CATEGORY, AND IT STAYS. "Demo, fabricated data,
+            {/* ONE LINE, NOT THREE. The 17 September handoff's layout rule:
+                "Keep fabricated-data status persistent without allowing its
+                banner to dominate every page." This was a heading, a
+                two-sentence paragraph and a persona chip stacked at the top of
+                every screen — about a fifth of a phone viewport before any
+                product appeared, on every route, forever.
+
+                WHAT HAD TO STAY VISIBLE, and does: the mandated header, the
+                persona, and — when enrollment is open — the sentence that
+                stops the header being read as a claim about the reader's own
+                account. Those are the safety claims. What folds away is the
+                elaboration.
+
+                NOT DISMISSIBLE, STILL. A <details> collapses the explanation;
+                it cannot remove the summary, and there is no control here that
+                hides the notice. The text also stays in the DOM, so a find on
+                the page and a screen reader's browse mode both still reach it.
+
+                THE HEADER IS A CATEGORY, AND IT STAYS. "Demo, fabricated data,
                 not clinical care" describes what this deployment is — 240
                 fabricated profiles and at most 25 pilot accounts — and four
-                specs and two guards read it as the environment's name. The
-                sentence below is where the false claim actually lived. */}
-            <strong className="tracking-wide">DEMO — FABRICATED DATA — NOT CLINICAL CARE</strong>
-            <span className="block text-ivory/90">
+                specs and two guards read it as the environment's name. */}
+            <details className="group mx-auto max-w-6xl">
+              <summary className="flex cursor-pointer flex-wrap items-center justify-center gap-x-3 gap-y-1 text-center [&::-webkit-details-marker]:hidden">
+                <strong className="tracking-wide">DEMO — FABRICATED DATA — NOT CLINICAL CARE</strong>
+                {/* The correction rides in the summary rather than in the
+                    folded text, because with enrollment open the header alone
+                    tells a pilot participant their own answers are invented —
+                    the same false claim ProvenanceFlag was built to stop. */}
+                {enrolling && (
+                  <span className="text-ivory/90">Pilot accounts are real people.</span>
+                )}
+                <Suspense fallback={null}>
+                  <PersonaIndicator />
+                </Suspense>
+                <span className="underline underline-offset-2 text-ivory/80 group-open:hidden">
+                  What this means
+                </span>
+                <span className="hidden underline underline-offset-2 text-ivory/80 group-open:inline">
+                  Show less
+                </span>
+              </summary>
+              <p className="mx-auto mt-2 max-w-3xl text-center text-ivory/90">
               {enrolling ? (
                 // THE BANNER STOPPED BEING TRUE, so it changed rather than
                 // staying put. With enrollment open, "every person here is
@@ -119,10 +155,8 @@ export default function RootLayout({
                   <a href="/request-review" className="underline">Request review access</a>
                 </>
               )}
-            </span>
-            <Suspense fallback={null}>
-              <PersonaIndicator />
-            </Suspense>
+              </p>
+            </details>
           </div>
         )}
         {/* The guided review strip. Renders only for someone holding a review

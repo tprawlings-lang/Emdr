@@ -186,11 +186,11 @@ export default async function PathsPage() {
                         Next: {moduleName(next)}
                       </Link>
                     ) : (
-                      <span className="text-sm text-ivory/70">You&apos;ve worked through this path&apos;s steps.</span>
+                      <span className="text-sm text-ivory/90">You&apos;ve worked through this path&apos;s steps.</span>
                     )}
                     <form action={removeCareTrack}>
                       <input type="hidden" name="trackId" value={track.id} />
-                      <button className="text-sm text-ivory/70 underline">Remove</button>
+                      <button className="text-sm text-ivory/90 underline">Remove</button>
                     </form>
                   </div>
                 </div>

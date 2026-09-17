@@ -639,7 +639,7 @@ export default async function ProfileOnboardingPage({
               with what is available now. The care-plan-as-output pattern,
               minus the score. */}
           <div className="mt-6 rounded-3xl bg-ground p-7 text-ivory shadow-soft">
-            <p className="text-sm text-ivory/70">Where you start</p>
+            <p className="text-sm text-ivory/90">Where you start</p>
             <p className="mt-1 type-display text-3xl font-medium">
               {DAY_MESSAGE[day.messageKey]}
             </p>
@@ -649,7 +649,7 @@ export default async function ProfileOnboardingPage({
                 {day.primary.minutes} minutes.
               </p>
             )}
-            <p className="mt-3 text-sm text-ivory/60">
+            <p className="mt-3 text-sm text-ivory/90">
               What is available changes with how each day is going. Nothing here is a grade,
               and there is nothing to keep up.
             </p>

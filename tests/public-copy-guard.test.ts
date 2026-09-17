@@ -346,6 +346,47 @@ test("the demo banner carries the mandated wording", () => {
     "the mandated demo label is missing or reworded");
 });
 
+test("the banner's safety claims are always visible, and only its elaboration folds", () => {
+  // "Keep fabricated-data status persistent without allowing its banner to
+  // dominate every page." It was a heading, a two-sentence paragraph and a
+  // persona chip stacked at the top of every route — measured at 88px on a
+  // desktop and about 150px on a phone, before any product appeared.
+  //
+  // Collapsing it is only safe if the right things stay above the fold. THREE
+  // claims have to be visible without opening anything:
+  //
+  //   the mandated header, which names what this environment is;
+  //   who the reader is signed in as;
+  //   and, when enrollment is open, that pilot accounts are real people —
+  //   because the header alone tells a participant their own answers are
+  //   invented, which is the false claim ProvenanceFlag exists to stop.
+  //
+  // So this checks they are inside the <summary> rather than the folded body.
+  const layout = fs.readFileSync(path.join(APP, "layout.tsx"), "utf8");
+  const summary = layout.match(/<summary[\s\S]*?<\/summary>/);
+  assert.ok(summary, "the demo notice has no summary, so nothing is pinned visible");
+
+  assert.match(summary[0], /DEMO — FABRICATED DATA — NOT CLINICAL CARE/,
+    "the mandated header folds away with the rest");
+  assert.match(summary[0], /PersonaIndicator/,
+    "who you are signed in as folds away");
+  assert.match(summary[0], /Pilot accounts are real people/,
+    "with enrollment open the summary does not correct the header");
+
+  // And the notice itself is still not dismissible: a <details> hides its
+  // body and can never remove its summary, so what must not disappear cannot.
+  assert.match(layout, /aria-label="Demonstration environment notice"/,
+    "the notice lost its landmark label");
+  // COMMENTS STRIPPED FIRST, and the first version of this assertion is why:
+  // it matched the layout's own comment saying the banner "is not
+  // dismissible" and failed on the sentence explaining the rule it was
+  // checking. This codebase has caught that shape four times; a guard that
+  // reads prose is reading the thing next to the thing.
+  const code = layout.replace(/\/\*[\s\S]*?\*\//g, " ").replace(/^\s*\/\/.*$/gm, " ");
+  assert.doesNotMatch(code, /Dismiss|dismissible|localStorage/,
+    "the demo notice grew a way to turn it off");
+});
+
 // ---------------------------------------------------------------------------
 // §13 — FAQ answers obey the same rules as pages
 // ---------------------------------------------------------------------------
