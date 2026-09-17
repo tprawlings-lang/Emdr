@@ -30,9 +30,29 @@
 import { DEMO_SEED_VERSION } from "./demo-seed";
 import { DATASET_VERSION } from "./demo-population-manifest";
 
-/** When this process began. Module load is close enough, and it is the number
- *  that separates "a new version deployed" from "the same one restarted". */
-const STARTED_AT = new Date().toISOString();
+/**
+ * When this process began, derived from the process's own age.
+ *
+ * IT USED TO BE `new Date().toISOString()` AT MODULE LOAD, on the reasoning
+ * that module load is close enough to process start. It is not, and production
+ * said so: the first response after this endpoint shipped reported
+ * `startedAt` ten seconds earlier than the request, beside an
+ * `uptimeSeconds` of 3,396. A standalone Next server loads a route's modules
+ * the first time that route is asked for, so "module load" is the first
+ * request to /api/version — which for a page nobody visits can be hours after
+ * the process started.
+ *
+ * The damage was in the field whose whole job is to tell a redeploy from a
+ * restart. It was stable per process, so polling it twice looked right; it
+ * was simply the wrong moment, and it disagreed with the uptime beside it by
+ * fifty-seven minutes.
+ *
+ * Deriving it from `process.uptime()` makes the two consistent by
+ * construction rather than by both being computed correctly.
+ */
+export function startedAtFrom(uptimeSeconds: number, nowMs: number): string {
+  return new Date(nowMs - uptimeSeconds * 1000).toISOString();
+}
 
 export interface VersionReport {
   /** The commit this build came from, or null when nothing reported one. */
@@ -60,7 +80,15 @@ export interface VersionReport {
   detail: string;
 }
 
-export function versionReport(): VersionReport {
+export function versionReport(
+  /** The process clock, injectable so a test can create the divergence this
+   *  field exists to avoid. A test process is seconds old, so with the real
+   *  clock every wrong answer — module load, "now", a hardcoded zero — is
+   *  within a second of the right one and no assertion can separate them. */
+  clock: { uptimeSeconds?: number; nowMs?: number } = {}
+): VersionReport {
+  const uptime = clock.uptimeSeconds ?? process.uptime();
+  const nowMs = clock.nowMs ?? Date.now();
   // PLATFORM FIRST, BUILD SECOND. Render sets RENDER_GIT_COMMIT on the running
   // service; the build args are the fallback for anywhere it does not (a plain
   // `docker run`, another host). They are read in that order rather than
@@ -84,8 +112,8 @@ export function versionReport(): VersionReport {
     commitShort: commit ? commit.slice(0, 7) : null,
     branch: process.env.RENDER_GIT_BRANCH?.trim() || process.env.EMDR_BUILD_BRANCH?.trim() || null,
     builtAt: process.env.EMDR_BUILD_TIME?.trim() || null,
-    startedAt: STARTED_AT,
-    uptimeSeconds: Math.round(process.uptime()),
+    startedAt: startedAtFrom(uptime, nowMs),
+    uptimeSeconds: Math.round(uptime),
     source,
     environment: {
       demo: process.env.EMDR_DEMO === "1",

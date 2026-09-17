@@ -110,3 +110,44 @@ test("the route is public, force-dynamic, and never cached", () => {
   assert.match(src, /force-dynamic/, "the route may be statically rendered at build time");
   assert.match(src, /no-store/, "a cached version report describes the previous deployment");
 });
+
+test("startedAt and uptimeSeconds describe the same moment", () => {
+  // FOUND IN PRODUCTION, by reading the endpoint's own first response: it
+  // reported startedAt ten seconds before the request beside an uptime of
+  // 3,396 seconds. `startedAt` was captured at module load, and a standalone
+  // Next server loads a route's modules the first time that route is asked
+  // for — so for a page nobody visits, "module load" is hours after the
+  // process started.
+  //
+  // It is the field that tells a redeploy from a restart, and it was stable
+  // per process, so polling it twice looked correct. It was just the wrong
+  // moment.
+  //
+  // THE CLOCK IS INJECTED BECAUSE THE REAL ONE CANNOT FAIL THIS. A test
+  // process is a second old, so module load, "now" and the true process start
+  // are all within a second of each other and every wrong answer passes. The
+  // first version of this test asserted consistency against the real clock
+  // and three mutations survived it — a constant captured at module load,
+  // a plain `new Date()`, and a hardcoded zero uptime.
+  const nowMs = Date.parse("2026-09-17T21:55:35.000Z");
+  const report = versionReport({ uptimeSeconds: 3396, nowMs });
+
+  assert.equal(report.startedAt, "2026-09-17T20:58:59.000Z");
+  assert.equal(report.uptimeSeconds, 3396);
+
+  const impliedAge = (nowMs - Date.parse(report.startedAt)) / 1000;
+  assert.equal(
+    impliedAge, report.uptimeSeconds,
+    `startedAt implies an age of ${impliedAge}s while uptimeSeconds says ${report.uptimeSeconds}`
+  );
+});
+
+test("the real clock still produces a sane pair", () => {
+  // The injected clock proves the arithmetic; this proves the wiring, so an
+  // injectable default cannot quietly stop reading the process.
+  const report = versionReport();
+  const impliedAge = (Date.now() - Date.parse(report.startedAt)) / 1000;
+  assert.ok(Number.isFinite(impliedAge), "startedAt is not a timestamp");
+  assert.ok(Math.abs(impliedAge - report.uptimeSeconds) < 2, "the real clock disagrees with itself");
+  assert.ok(impliedAge > 0, "this process started in the future");
+});
