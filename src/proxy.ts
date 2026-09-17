@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { RETURN_COOKIE, rememberable } from "@/lib/experience/return-to";
 
 // Per-request nonce-based Content-Security-Policy (supersedes the static
 // 'unsafe-inline' script-src from ADR 0003 → ADR 0008). Each response gets a
@@ -80,6 +81,25 @@ export function proxy(request: NextRequest) {
 
   const response = NextResponse.next({ request: { headers: requestHeaders } });
   response.headers.set("content-security-policy", csp);
+
+  // Where a person record returns to. The console routes worth coming back to
+  // record themselves here, so the record's return control can rebuild the view
+  // the reader left rather than sending everybody to the unfiltered queue.
+  //
+  // The cookie holds a path and a closed set of view parameters — never a
+  // person id, never free text — and `rememberable` decides both. It is
+  // session-scoped deliberately: this is where you were a moment ago, not a
+  // preference, and it should not outlive the browser.
+  const remember = rememberable(request.nextUrl.pathname, request.nextUrl.search);
+  if (remember) {
+    response.cookies.set(RETURN_COOKIE, remember, {
+      httpOnly: true,
+      sameSite: "lax",
+      secure: !isDev,
+      path: "/",
+    });
+  }
+
   return response;
 }
 

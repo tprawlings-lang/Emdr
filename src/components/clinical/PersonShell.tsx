@@ -2,10 +2,12 @@ import Link from "next/link";
 import { AppShell, type RailSlug } from "@/components/app/AppShell";
 import { ExperienceShell } from "@/components/experience/ExperienceShell";
 import { personRail } from "@/lib/app/rails";
+import { cookies } from "next/headers";
 import { requireClinician } from "@/lib/auth";
 import { experienceContextFor } from "@/lib/experience/context";
 import { navigationFor, sectionFor } from "@/lib/experience/navigation";
 import { clinicianShellEnabled } from "@/lib/experience/flags";
+import { RETURN_COOKIE, returnTo } from "@/lib/experience/return-to";
 import { ClinicianRailFooter } from "./ClinicianPage";
 import { PriorityBadge, OwnerChip, FreshnessLabel } from "./primitives";
 import type { PriorityBand } from "@/lib/clinical/caseload";
@@ -110,7 +112,14 @@ export async function PersonShell({
   // parameter to sixteen call sites, and `experienceContextFor` takes a
   // SessionUser precisely so there is no other way in.
   const clinician = await requireClinician();
-  const navigation = navigationFor(experienceContextFor(clinician), { personId: person.id });
+  // Where this reader came from, and what they had the queue filtered to. The
+  // frame records it; this rebuilds it from a closed set of parameters, and
+  // falls back to Command Center for a record opened from a direct link.
+  const back = returnTo((await cookies()).get(RETURN_COOKIE)?.value);
+  const navigation = navigationFor(experienceContextFor(clinician), {
+    personId: person.id,
+    back,
+  });
 
   const base = `/clinician/member/${person.id}`;
   // The section's address rather than the screen's, so a reader on /measures

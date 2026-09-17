@@ -133,6 +133,14 @@ export const WORK_REGISTER: WorkEntry[] = [
     note: "Assigned support is the sixth section's fourth item and is not built; the Care screen says so in place rather than offering a control.",
   },
   {
+    id: "experience.return-state",
+    title: "A person record returns to the view the reader came from",
+    state: "reachable",
+    code: "src/lib/experience/return-to.ts#parseReturn",
+    test: "tests/return-to.test.ts",
+    note: "Origin and closed-set view filters are preserved; a free-text patient search and the selected person id deliberately are not.",
+  },
+  {
     id: "clinical.contact-vs-activity",
     title: "Contact and member activity are separate facts",
     state: "reachable",

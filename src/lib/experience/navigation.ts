@@ -34,6 +34,7 @@ import {
 import {
   type ExperienceContext, type Capability, can, whyNot,
 } from "./context";
+import { DEFAULT_RETURN } from "./return-to";
 
 export interface NavDestination {
   /** Where it goes. Always a route the register knows. */
@@ -179,14 +180,23 @@ const UTILITY: Partial<Record<Audience, NavDestination[]>> = {
  *  establish one canonical entry": the landing wins, because it is the screen
  *  that says what the four readings are for, and /measures remains one of the
  *  four rather than standing for all of them. */
-export function personLocal(personId: string): NavigationManifest["local"] {
+export function personLocal(
+  personId: string,
+  back: { href: string; label: string } = DEFAULT_RETURN
+): NavigationManifest["local"] {
   const base = `/clinician/member/${personId}`;
   return {
     label: "This person",
     // §1.5 and §3: "Show a breadcrumb or labeled return control such as Back
     // to Command Center. Preserve the selected filters, page, and scroll
     // position on return."
-    returnTo: { href: "/clinician/today", label: "Back to Command Center" },
+    //
+    // The destination is passed in rather than fixed, because it is a fact
+    // about this visit: which console the reader came from and what they had
+    // filtered it to. `return-to.ts` resolves it from the frame; the default
+    // is the answer for a record opened from a direct link, where there is no
+    // previous view to restore.
+    returnTo: back,
     items: [
       { href: base, label: "Overview", workspace: "person_record", capability: "openAPersonRecord" },
       { href: `${base}/care`, label: "Care", workspace: "person_record", capability: "openAPersonRecord" },
@@ -285,7 +295,7 @@ export function isClassified(slug: string): boolean {
  */
 export function navigationFor(
   ctx: ExperienceContext,
-  args: { personId?: string | null } = {}
+  args: { personId?: string | null; back?: { href: string; label: string } } = {}
 ): NavigationManifest {
   const declared = CORE[ctx.audience] ?? [];
   const core = declared.filter((d) => can(ctx, d.capability));
@@ -297,7 +307,7 @@ export function navigationFor(
   return {
     audience: ctx.audience,
     core,
-    local: args.personId && ctx.audience === "clinician" ? personLocal(args.personId) : null,
+    local: args.personId && ctx.audience === "clinician" ? personLocal(args.personId, args.back) : null,
     utility: (UTILITY[ctx.audience] ?? []).filter((d) => can(ctx, d.capability)),
     absent,
   };
