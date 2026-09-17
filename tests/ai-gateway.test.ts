@@ -17,6 +17,8 @@ import { strict as assert } from "node:assert";
 import test from "node:test";
 import fs from "node:fs";
 import path from "node:path";
+
+import { getDb } from "../src/lib/db";
 import {
   invoke, registerTask, registeredTasks, getTask, setProvider,
   assertToolAllowed, ProhibitedToolError, PROHIBITED_CAPABILITIES,
@@ -143,6 +145,24 @@ function fakeProvider(responses: Partial<ModelResponse>[]): ModelProvider {
 
 const SCOPE = { tenantId: "t1", personId: "p1", purpose: "test" };
 
+// The gateway refuses to send content it cannot attribute — a scope naming a
+// person who does not exist is a bug in the calling feature, not a reason to
+// call a provider. These tests are about tool allowlists, loop ceilings and
+// provider errors, so they need a person to exist before any of that is
+// reachable. Fabricated, because nothing here is about a real participant and
+// a fabricated person carries no terms to check.
+function ensureScopePerson() {
+  const db = getDb();
+  db.prepare(
+    "INSERT INTO tenants (id, kind, name) VALUES (?, 'program', 'Gateway test') ON CONFLICT(id) DO NOTHING",
+  ).run(SCOPE.tenantId);
+  db.prepare(
+    `INSERT INTO persons (id, tenant_id, display_name, provenance)
+     VALUES (?, ?, 'Gateway test person', 'fabricated') ON CONFLICT(id) DO NOTHING`,
+  ).run(SCOPE.personId, SCOPE.tenantId);
+}
+ensureScopePerson();
+
 test("a task's allowlist is the authority, not the caller's argument", async () => {
   registerTask({
     id: "test.tools", version: "1.0.0", purpose: "a test of the tool allowlist",
@@ -239,5 +259,100 @@ test("a caller cannot render a non-answer by accident", async () => {
     assert.equal(r.text, "");
     assert.equal(r.model, null);
     assert.equal(r.inferenceId, null);
+  } finally { restore(); }
+});
+
+// ── The egress gate: whose words are about to leave ─────────────────────────
+
+test("a real participant on the earlier notice never reaches the provider", async () => {
+  // THE POINT OF THE GATE, asserted against a provider that would answer.
+  // Being on the older notice must cost a model-written reply and nothing
+  // else: the call comes back UNAVAILABLE, which is the path the caller
+  // already has for a missing API key, so the companion falls to its
+  // deterministic rules engine instead of failing in front of somebody
+  // mid-sentence.
+  const db = getDb();
+  const {
+    PILOT_TERMS_V1, PILOT_TERMS_V2, PILOT_ACK_SCOPE,
+  } = await import("../src/lib/enrollment/pilot-terms");
+
+  // The user row first: `consents.user_id` references it, and a person alone
+  // is not an account.
+  db.prepare(
+    `INSERT INTO users (id, email, name, role, password_hash, status, tenant_id)
+     VALUES ('gw-real', 'gw-real@example.test', 'Real participant', 'member', 'x', 'active', ?)
+     ON CONFLICT(id) DO NOTHING`,
+  ).run(SCOPE.tenantId);
+  db.prepare(
+    `INSERT INTO persons (id, tenant_id, display_name, provenance)
+     VALUES ('gw-real', ?, 'Real participant', 'real') ON CONFLICT(id) DO NOTHING`,
+  ).run(SCOPE.tenantId);
+  db.prepare("DELETE FROM consents WHERE user_id = 'gw-real'").run();
+  db.prepare(
+    "INSERT INTO consents (id, user_id, policy_version, scope) VALUES ('gw-c1', 'gw-real', ?, ?)",
+  ).run(PILOT_TERMS_V1, PILOT_ACK_SCOPE);
+
+  registerTask({
+    id: "test.egress", version: "1.0.0", purpose: "a test of the egress gate",
+    model: "m", maxTokens: 10, phi: "none", fallback: "deterministic",
+  });
+  process.env.ANTHROPIC_API_KEY = "test-key";
+
+  let calls = 0;
+  const restore = setProvider({
+    id: "counting",
+    async complete() {
+      calls++;
+      return { text: "leaked", toolUses: [], stopReason: "end_turn", model: "fake-1",
+               usage: { inputTokens: 1, outputTokens: 1 }, content: [] };
+    },
+  });
+  try {
+    const refused = await invoke({
+      task: "test.egress", scope: { ...SCOPE, personId: "gw-real" }, system: "s",
+      messages: [{ role: "user", content: "something they would not want sent" }],
+    });
+    assert.equal(refused.outcome, "unavailable", "content left for somebody on the earlier notice");
+    assert.equal(calls, 0, "the provider was called at all, so the words had already left");
+
+    // And once they accept, the same call goes through — the gate is a
+    // consequence of their answer, not a permanent block on them.
+    db.prepare(
+      "INSERT INTO consents (id, user_id, policy_version, scope) VALUES ('gw-c2', 'gw-real', ?, ?)",
+    ).run(PILOT_TERMS_V2, PILOT_ACK_SCOPE);
+    const allowed = await invoke({
+      task: "test.egress", scope: { ...SCOPE, personId: "gw-real" }, system: "s",
+      messages: [{ role: "user", content: "hi" }],
+    });
+    assert.equal(allowed.outcome, "answered", "accepting the current notice did not restore the companion");
+    assert.equal(calls, 1);
+  } finally { restore(); }
+});
+
+test("a scope naming nobody is refused, and says so in its own words", async () => {
+  // Distinct from the refusal above: this one is a bug in the calling feature,
+  // not somebody exercising a choice, and one message for both would send
+  // whoever debugs it hunting a consent record that was never the issue.
+  registerTask({
+    id: "test.noperson", version: "1.0.0", purpose: "a test of the attribution check",
+    model: "m", maxTokens: 10, phi: "none", fallback: "deterministic",
+  });
+  process.env.ANTHROPIC_API_KEY = "test-key";
+  let calls = 0;
+  const restore = setProvider({
+    id: "counting",
+    async complete() {
+      calls++;
+      return { text: "", toolUses: [], stopReason: "end_turn", model: "fake-1",
+               usage: { inputTokens: 1, outputTokens: 1 }, content: [] };
+    },
+  });
+  try {
+    const r = await invoke({
+      task: "test.noperson", scope: { ...SCOPE, personId: "gw-nobody" }, system: "s",
+      messages: [{ role: "user", content: "hi" }],
+    });
+    assert.equal(r.outcome, "unavailable");
+    assert.equal(calls, 0, "content was sent for a person the system cannot identify");
   } finally { restore(); }
 });

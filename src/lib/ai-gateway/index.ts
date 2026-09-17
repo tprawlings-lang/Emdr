@@ -82,14 +82,67 @@ export interface GatewayResult {
   inferenceId: string | null;
 }
 
-function unavailable(task: TaskDefinition, reason: string, startedAt: number): GatewayResult {
+/**
+ * A call that produced no answer, and which kind of no-answer it was.
+ *
+ * THE OUTCOME IS PASSED, NOT INFERRED FROM THE MESSAGE. It used to be derived
+ * by string-matching the reason against "no provider configured", so every
+ * other halt was labelled `failed` — and the first new reason to arrive, a
+ * participant who has not accepted the current notice, was recorded as a
+ * provider failure. The member-visible behaviour was right either way (the
+ * companion closes gently on anything but `answered`), which is exactly why
+ * this would not have been noticed: only the telemetry was wrong, and it would
+ * have sent somebody reviewing gateway failures hunting a provider problem
+ * that never happened.
+ */
+function halted(
+  task: TaskDefinition,
+  outcome: "unavailable" | "failed",
+  reason: string,
+  startedAt: number,
+): GatewayResult {
   return {
-    outcome: reason === "no provider configured" ? "unavailable" : "failed",
+    outcome,
     text: "", task: task.id, taskVersion: task.version, model: null, reason,
     latencyMs: Date.now() - startedAt,
     usage: { inputTokens: 0, outputTokens: 0 },
     inferenceId: null,
   };
+}
+
+/**
+ * Whether this person's content may leave the deployment.
+ *
+ * Fabricated people are exempt: nothing about them is disclosed and they have
+ * no terms to hold. The check is on PROVENANCE rather than on tenant, because
+ * a real person moved to another tenant tomorrow is still a real person.
+ */
+async function egressCheck(personId: string): Promise<{ permitted: boolean; reason: string }> {
+  const { data } = await import("../data");
+  const c = await data();
+  const person = (await c.get(
+    "SELECT provenance FROM persons WHERE id = ?",
+    [personId],
+  )) as { provenance: string } | undefined;
+
+  // TWO REFUSALS, SAID DIFFERENTLY. A caller that names nobody and a
+  // participant on the older notice both stop here, and they are not the same
+  // problem: the first is a bug in the calling feature, the second is somebody
+  // exercising a choice. Collapsing them into one message sends whoever
+  // debugs it looking for a consent record that was never the issue.
+  if (!person) {
+    return {
+      permitted: false,
+      reason: `no person record for scope.personId (${personId}) — the caller cannot say whose content this is`,
+    };
+  }
+  if (person.provenance !== "real") return { permitted: true, reason: "" };
+
+  const { pilotHandling } = await import("../enrollment/pilot-terms");
+  const handling = await pilotHandling(personId);
+  return handling.egress
+    ? { permitted: true, reason: "" }
+    : { permitted: false, reason: "participant has not accepted the current notice" };
 }
 
 export async function invoke(call: GatewayInvocation): Promise<GatewayResult> {
@@ -104,7 +157,22 @@ export async function invoke(call: GatewayInvocation): Promise<GatewayResult> {
     );
   }
 
-  if (!providerConfigured()) return unavailable(task, "no provider configured", startedAt);
+  if (!providerConfigured()) return halted(task, "unavailable", "no provider configured", startedAt);
+
+  // WHOSE WORDS ARE ABOUT TO LEAVE, and did they agree to that.
+  //
+  // Here rather than in the companion, because this is the only door: every
+  // invocation carries `scope.personId` precisely so a person's ledger can
+  // answer "what did Steady think about me", and the same field answers "may
+  // this leave at all". A check in the companion would protect the one feature
+  // that exists today and none of the ones added later.
+  //
+  // Refused as UNAVAILABLE rather than as an error, so the caller takes the
+  // path it already has for a missing API key — the deterministic rules engine
+  // — instead of failing in front of somebody mid-sentence. Being on the older
+  // notice should cost a person a model-written reply, never a working screen.
+  const egress = await egressCheck(call.scope.personId);
+  if (!egress.permitted) return halted(task, "unavailable", egress.reason, startedAt);
 
   // The task's allowlist is the authority, not the caller's argument. A feature
   // passing a tool the registry does not name gets it dropped rather than
@@ -154,14 +222,14 @@ export async function invoke(call: GatewayInvocation): Promise<GatewayResult> {
       }
       messages.push({ role: "user", content: results });
       if (turn === turns - 1) {
-        return { ...unavailable(task, "tool loop ceiling reached", startedAt) };
+        return { ...halted(task, "failed", "tool loop ceiling reached", startedAt) };
       }
     }
   } catch (err) {
-    return unavailable(task, err instanceof Error ? err.message : "provider error", startedAt);
+    return halted(task, "failed", err instanceof Error ? err.message : "provider error", startedAt);
   }
 
-  if (!response) return unavailable(task, "no response", startedAt);
+  if (!response) return halted(task, "failed", "no response", startedAt);
 
   const latencyMs = Date.now() - startedAt;
   const inferenceId = await recordInference(task, call.scope, response, latencyMs);

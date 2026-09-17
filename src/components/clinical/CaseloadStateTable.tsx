@@ -179,7 +179,12 @@ export function CaseloadStateTable({ state }: { state: CaseloadState }) {
                 </td>
                 <td className="px-4 py-3 text-xs text-olive">
                   {/* Null is its own state. A person nobody has contacted and a
-                      person contacted today must not read the same. */}
+                      person contacted today must not read the same.
+
+                      The value was the member's OWN check-ins until it was
+                      corrected: this column said "Today" for people nobody had
+                      ever contacted. It now reads a signed contact note and
+                      nothing else. */}
                   {r.lastContactDays === null
                     ? "None recorded"
                     : r.lastContactDays === 0

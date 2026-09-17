@@ -13,7 +13,7 @@
 
 export const EXPECTED_PROJECTION_HASHES: Record<string, Record<string, string | null>> = {
   "demo-population-v1": {
-    "checkins": "827a79d3623516a6bb692c29ca83d0b495c20ec741f3ba2992e71c8e9ab8d13b",
+    "checkins": "684e14c9273c09178f5997612dad7c33dd0c2b66533dc12269eafd16dbeaf77d",
     "therapy_sessions": "4fa924d0255c79e2a386a6b97340a5d7d80add479fdb51b878810c28977f76a6",
     "practice_completions": "e77308dc294cd8067f5a6ba817d8c685fc6e432e2ef99511075733db53e8c2cb",
     "lesson_reads": null,

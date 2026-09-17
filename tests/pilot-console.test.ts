@@ -201,24 +201,74 @@ test("the screen says these are real people, before it shows their answers", () 
     "the screen implies a safety positive reached somebody");
 });
 
-test("the screen offers no control that acts on anybody", () => {
+test("the screen offers no control that acts on anybody's care", () => {
   // A list of safety answers laid out like a caseload gets read as a caseload.
-  // The copy says no control here routes anybody — this checks the copy is
-  // true, which is the half a sentence cannot guarantee about itself.
+  // The copy says no control here routes anybody, closes an alert or changes a
+  // gate — this checks the copy is true, which is the half a sentence cannot
+  // guarantee about itself.
+  //
+  // IT IS AN ALLOWLIST OF TWO, NAMED, and it grew by one deliberately.
+  // `logout` is the rail footer every shell in this project renders.
+  // `resetParticipantPasswordAction` sets a participant's password, which is
+  // an ACCOUNT action: it decides nothing about anybody's care, and it exists
+  // because a participant who forgot their password had no way back into their
+  // own account at all.
+  //
+  // Naming them is what keeps this a guard. A rule relaxed to "forms are fine
+  // now" would stop catching the thing it was written for — a "Close with
+  // action" or "Review" button arriving here and quietly turning an operator's
+  // reading screen into a clinical one.
+  const ALLOWED = new Set([
+    "logout",
+    "resetParticipantPasswordAction",
+    // Recording that a participant accepted the current notice after a
+    // conversation. A CONSENT action, not a clinical one: it decides nothing
+    // about anybody's care, and it exists because this deployment has no mail
+    // channel, so re-consent happens in person and somebody has to write it
+    // down. The audit distinguishes it from the participant ticking it
+    // themselves, which is the part that makes it checkable.
+    "recordOfflineAcceptanceAction",
+  ]);
   const page = code("src/app/admin/pilot/page.tsx");
-  // THE SIGN-OUT FORM IS ALLOWED and is the only one. Every shell in this
-  // project renders it in the rail footer, so a blanket "no forms" rule fails
-  // against a page that is fine — the question is whether any form acts on a
-  // PARTICIPANT.
+
   const forms = page.match(/<form[^>]*>/g) ?? [];
   for (const f of forms) {
-    assert.match(f, /action=\{logout\}/,
-      `the pilot console carries a form that is not sign-out: ${f}`);
+    const named = /action=\{(\w+)\}/.exec(f);
+    assert.ok(named && ALLOWED.has(named[1]),
+      `the pilot console carries a form that is neither sign-out nor the password reset: ${f}`);
   }
   const actions = page.match(/action=\{(\w+)\}/g) ?? [];
   for (const a of actions) {
-    assert.equal(a, "action={logout}",
-      `the pilot console wires a server action other than sign-out: ${a}`);
+    const name = /action=\{(\w+)\}/.exec(a)![1];
+    assert.ok(ALLOWED.has(name),
+      `the pilot console wires a server action that is not on the allowlist: ${a}`);
+  }
+
+  // AND THE ALLOWED ONES STILL MAY NOT TOUCH CARE. Each module's own module is
+  // read rather than trusted by its name: a reset that also closed an alert, or
+  // a consent record that also opened a module, would satisfy every check above.
+  //
+  // THE FORBIDDEN SET IS PER MODULE, because "clinical" is not one list. The
+  // password modules may not touch `consents` — a password reset has no
+  // business recording an agreement. The terms modules must, because the
+  // consent ledger is the entire thing they write. A single blanket rule said
+  // both, and the broader half was wrong: it failed the consent module for
+  // doing its job, which is how a guard gets loosened wholesale instead of
+  // corrected.
+  const CARE = /alerts|checkins|module_unlocks|screenings|clinical_notes|therapy_sessions/;
+  const CARE_OR_CONSENT = new RegExp(CARE.source + "|consents");
+
+  const modules = [
+    ["the password action", code("src/lib/enrollment/pilot-actions.ts"), CARE_OR_CONSENT],
+    ["the password domain", code("src/lib/enrollment/pilot-access.ts"), CARE_OR_CONSENT],
+    ["the terms actions", code("src/lib/enrollment/terms-actions.ts"), CARE],
+    ["the terms domain", code("src/lib/enrollment/pilot-terms.ts"), CARE],
+  ] as const;
+
+  for (const [name, src, forbidden] of modules) {
+    assert.doesNotMatch(src, forbidden, `${name} reaches a table it has no business in`);
+    assert.doesNotMatch(src, /createAlert|decideUnlock|evaluateCheckin|recordCheckin|signNote/,
+      `${name} calls into the clinical domain`);
   }
 });
 

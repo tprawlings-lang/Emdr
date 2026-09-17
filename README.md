@@ -1799,6 +1799,131 @@ attesting on a clinician's behalf. The clinician signs their own words, elsewher
 | `EMDR_OPEN_GATED` | `0` closes gated modules so the request-and-approve path actually runs. **On by default in demo**, which means a module is reachable while a request waits — both screens say which mode is active so that reads as the switch it is |
 | `ANTHROPIC_API_KEY` | Unset = the companion runs the deterministic rules engine and the status page reports it **degraded**, not absent. Set = model-backed replies and the tool use that records triggers and memory. Crisis routing runs *before* the companion either way |
 
+### 15.6a Getting back into an account (2026-09-11)
+
+Sign-in had no way back. The lockout compliance 1.5 asks for was deployed three ways
+wrong at once, and the three compounded into "locked means locked, forever":
+
+| What it claimed | What it did |
+|---|---|
+| 10 failures in **15 minutes** | 10 failures **since midnight UTC**. The cutoff was written space-separated (`2026-09-11 16:24:32`) and compared as text against rows stored with a `T` (`2026-09-11T16:38:32.923Z`). At position ten, `T` (0x54) sorts after a space (0x20), so *every* row sharing the date counted — including one from ten hours earlier |
+| The account is protected | Only through the browser. `loginMobile` wrote `login_failed` and never read it, so `POST /api/mobile/v1/auth/login` was an unlimited guessing channel against every account while the web form counted to ten |
+| "Try again in 15 minutes" | Nothing in the product changed an existing password — `hashPassword` was called only at account creation — and `/reset` correctly refuses for want of a mail channel. Nothing even linked to it |
+
+All three are fixed, and the counting now lives in one module (`src/lib/auth-lockout.ts`)
+that **both** doors call:
+
+- The window is fifteen minutes again. Comparison normalizes both timestamp shapes the
+  column actually holds (`audit()` writes ISO with `T`/`Z`; `demo-seed` writes
+  space-separated), so it is correct for either rather than for one
+- Failures are counted **since the last password reset** when there is one. Attempts
+  recorded against a password that no longer exists say nothing about whoever is typing
+  now — which is what makes a reset a way back in rather than a second lock
+- An operator can set a pilot participant's password from `/admin/pilot`. It reaches
+  members of the pilot tenant whose provenance is `real` and nothing else — not the demo
+  clinician, not the fabricated population — because whoever can set a password can sign
+  in and read that person's safety answers. Every use writes an audit row naming the
+  operator, the address and the moment; the password is never in it
+- The operator **types** the password rather than being shown a generated one. A generated
+  secret has to be displayed once, which puts it in a redirect, a query string, browser
+  history and whatever logs sit between. They are going to say it aloud to somebody beside
+  them either way
+- The console marks a locked-out participant as **Locked out** and names the failure count.
+  Without it a shut-out participant is indistinguishable from a disengaged one, which is how
+  somebody gets written up as having stopped using it
+- The sign-in screen now says, on **every** failure, that Steady cannot email a reset link
+  here and who to ask. Said only on a real address it would name which addresses exist
+
+Existing sessions are **not** revoked by a reset — sessions are stateless signed tokens
+with no server-side record to invalidate, bounded at 8 hours absolute in demo mode. For
+"they forgot their password" that is the right behaviour; for "kick a compromised session
+out now" it is not, and that would need a token epoch on the user row.
+
+### 15.6b Which build is answering (2026-09-16)
+
+`GET /api/version` — unauthenticated, uncached — says what is deployed:
+
+```json
+{ "commit": "a558e7a…", "commitShort": "a558e7a", "branch": "main",
+  "startedAt": "…", "uptimeSeconds": 9, "source": "platform",
+  "environment": { "demo": true, "nodeEnv": "production", "enrollmentOpen": true },
+  "data": { "seedVersion": "demo-2026-08-v2", "datasetVersion": "demo-population-v1" } }
+```
+
+It exists because the question was unanswerable. Asked whether a merged pull request
+had reached production, the only available proxy was comparing hashed asset filenames
+between two fetches — which is wrong in both directions: it moves when nothing
+meaningful changed, and it does **not** move for a server-only release, which was
+exactly the case being asked about. Three findings in the September handoff are the
+same gap wearing different clothes (a demo clock showing a date the code cannot
+produce, live routes differing from inspected source, and a release checklist whose
+first task is "identify the deployed commit").
+
+- **Unauthenticated on purpose.** The question has to be answerable from outside,
+  before anyone signs in. Trying to answer it by signing in is how a demo account got
+  locked out for a day
+- **Honest nulls.** An unknown commit reads as `null` with `detail` explaining why,
+  never as a guess. `source` says whether the platform or the build answered
+- **No secret and no member data.** A commit, a branch, two versions, two booleans —
+  and a test that fails if a secret-shaped value is ever added
+- Render supplies `RENDER_GIT_COMMIT`/`RENDER_GIT_BRANCH` automatically; the
+  Dockerfile's `EMDR_BUILD_COMMIT`/`_BRANCH`/`_TIME` build args are the fallback for
+  anywhere else
+
+### 15.6c The data-class policy, decided (2026-09-16)
+
+`provenance` is the line. `'fabricated'` is the seeded 240 and every demo persona;
+`'real'` is a pilot participant. A trigger enforces the column and
+`assertSingleProvenance` refuses any metric spanning both.
+
+**What may exist here.** Real people's self-entered answers, *and* clinician-authored
+records about them — signed notes, acted-on alerts, unlock decisions — modelled the way
+a clinician's record works. This remains a prototype: nobody is in treatment, every
+banner still says NOT CLINICAL CARE, and no review gate has moved.
+
+**Third parties.** Participants describing trauma will name people who never agreed to
+anything. They are recorded as described, as a clinical record would. The notice asks
+people to write about what happened rather than who; nothing enforces it.
+
+**Egress — all three channels permitted, and they are not equally controllable:**
+
+| Channel | Gate |
+|---|---|
+| Companion → Anthropic | **Enforced**, in `invoke()` — the single door every task passes through. A participant on the earlier notice never reaches a provider; the call returns `unavailable` and the caller falls to the deterministic rules engine |
+| Exports | **Structural.** Exports resolve to `organization`- or `payer`-kind tenants; the pilot tenant is `program` and holds no such account, so they cannot reach a participant |
+| Off-site backups | **Cannot be gated.** `db.backup()` is a whole-database snapshot — there are no rows to exclude. Refusing to back up until everyone re-consents would trade losing everybody's safety answers for a lesser harm, so `/admin/pilot` says so plainly instead |
+
+**Consent is versioned, and permission follows the version each person accepted** —
+not the version currently on the signup page. `wellness-ack-v1` permits neither records
+nor egress; `wellness-ack-v2` permits both. No acknowledgment, and any version this code
+was never taught, fail strict: a future v3 cannot inherit v2's permissions by looking
+newer.
+
+**Everyone on the earlier notice is being asked again** (§15.6d). Nobody is locked out
+for saying no.
+
+**Retention is unchanged and does not distinguish provenance.** The 24-month inactivity
+sweep treats a pilot participant exactly as it treats a fabricated profile. That is a
+decision, not an oversight — recorded here so it is a decision somebody made.
+
+### 15.6d Re-consent
+
+`/app/terms` shows a participant what they agreed to and what is true now, in the
+wording rather than a summary. It is an ask, not a gate: reached from one notice on
+Today, never by redirect, with "decide later" on the page.
+
+- **Declining is recorded**, not left as an absence. Without a record, "said no" and
+  "never asked" look identical and the operator asks again
+- **Declining costs nothing.** Handling stays exactly as it was, they stay in the pilot,
+  and the notice never appears for them again
+- **The operator can record an acceptance** from `/admin/pilot` after speaking to
+  somebody, because there is no mail channel. The audit says *the operator recorded it*,
+  not that they ticked it — a consent record that cannot tell those apart is not
+  evidence of anything
+- `/app/terms` is in `ACCOUNT_ROUTES`, so the care gate does not hold it. Otherwise the
+  people handled under the narrower terms — because they have not finished answering —
+  would be the ones unable to reach the answer
+
 ### 15.7 What is still not done
 
 - **Backups are off.** The pilot now holds real people's safety answers and signed clinical
@@ -1809,6 +1934,17 @@ attesting on a clinician's behalf. The clinician signs their own words, elsewher
   clinician has signed the wording, the hard-stop mapping or the cooldown
 - **A clinician cannot yet type a free note *into* the draft bridge** — the bridge assembles
   and the notes screen writes; they are two surfaces, not one
+- **A password reset does not end existing sessions** (§15.6a). It is the wrong tool for a
+  compromised account, and the screen does not claim otherwise
+- **Backups cannot honour per-person terms** (§15.6c). Whole-database snapshot; the
+  console says so where the operator can see it
+- **A deleted participant still holds their place.** `deleteAccount` anonymizes the row and
+  sets `status = 'deleted'`, but `enrolledCount` counts `persons` by provenance, so the place
+  stays consumed against the cap of 25. The pilot console lists only active accounts, so a
+  deletion now removes somebody from the list without freeing their place — the two numbers
+  can disagree, and the console's "N of 25" is the list, not the cap
+- **`/reset` is still a dead end for anyone outside the pilot.** It refuses honestly, and the
+  operator control reaches pilot participants only. A real mail channel is the actual fix
 
 ---
 

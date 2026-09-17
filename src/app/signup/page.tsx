@@ -70,8 +70,9 @@ export default async function SignupPage({
         <ul className="measure mt-2 space-y-2 text-sm text-olive">
           <li>
             <span className="text-ground">This is a development prototype, not care.</span> It
-            does not diagnose or treat anything, no one is watching in real time, and nobody
-            will contact you because of what you enter.
+            does not diagnose or treat anything, and no one is watching in real time. Nothing
+            here is a substitute for a clinician, and starting it does not make anyone
+            responsible for you.
           </li>
           <li>
             <span className="text-ground">The questions are real ones.</span> The next screens
@@ -80,10 +81,32 @@ export default async function SignupPage({
             thing and helps nobody.
           </li>
           <li>
-            <span className="text-ground">Your answers are read by the people building this.</span>{" "}
-            They are pilot feedback, and they are used to judge whether the questions and the
-            safety rules work. They are not a medical record and they are not shared with an
-            insurer or an employer.
+            <span className="text-ground">Your answers are read by the people building this</span>{" "}
+            &mdash; including the safety questions &mdash; to judge whether the questions and the
+            rules work. They are <strong>not</strong> shared with an insurer or an employer, and
+            they are not sold.
+          </li>
+          <li>
+            <span className="text-ground">A clinician may write notes about you.</span> Clinicians
+            testing Steady can record notes, sign them, and make decisions about what you can
+            open &mdash; the way they would in the real system. Those notes are about you, you
+            did not write them, and a signed one cannot be edited afterwards. One of them may
+            contact you about something you entered.
+          </li>
+          <li>
+            <span className="text-ground">What you type leaves this website.</span> To answer
+            you, the companion sends what you write to Anthropic, a separate company. Your data
+            is also copied to off-site backup storage. Both are ordinary for software like this
+            and both mean your words exist somewhere other than here.
+          </li>
+          <li>
+            <span className="text-ground">Write about what happened, not about who.</span> Other
+            people in your life did not agree to any of this. Please avoid naming them.
+          </li>
+          <li>
+            <span className="text-ground">Your answers are kept for up to two years</span> and
+            are deleted if your account goes unused that long. You can ask for them to be deleted
+            sooner, and deleting your account removes them.
           </li>
           <li>
             <span className="text-ground">In an emergency this is the wrong tool.</span>{" "}
@@ -156,8 +179,9 @@ export default async function SignupPage({
           <label className="flex gap-3 rounded-2xl border border-ground/10 bg-linen p-4">
             <input name="data_ack" type="checkbox" className="mt-1 h-4 w-4 shrink-0" />
             <span className="text-sm text-ground">
-              I understand my answers — including the safety questions — are read by the team
-              building this, as pilot feedback.
+              I understand my answers &mdash; including the safety questions &mdash; are read by
+              the team building this, that a clinician may write signed notes about me, and that
+              what I type is sent to Anthropic and copied to off-site backups.
             </span>
           </label>
 

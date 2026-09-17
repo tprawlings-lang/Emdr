@@ -73,6 +73,22 @@ export default async function LoginPage({
               : "That email or password didn't match. Try again when you're ready."}
         </p>
       )}
+      {error && (
+        // SAID ON EVERY FAILURE, which is what keeps it safe to say at all: a
+        // line that appeared only for a real address would name which
+        // addresses exist. It is separate from the banner above so the three
+        // failure modes keep answering in one identical sentence.
+        //
+        // It exists because there was no way back. Steady has no mail channel
+        // here, so /reset honestly refuses and nothing links to it; somebody
+        // who has forgotten their password will otherwise keep typing until
+        // the lockout, and then wait for an email that is never sent.
+        <p className="measure mt-2 text-sm text-olive">
+          Can&rsquo;t get back in? Steady can&rsquo;t email you a reset link from this
+          deployment. Ask whoever gave you your access code &mdash; they can set a new
+          password for you.
+        </p>
+      )}
       <form action={login} className="mt-6 space-y-4">
         {DEMO && (
           <label className="block">

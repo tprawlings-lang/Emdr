@@ -213,6 +213,33 @@ export const ACCESS_INVENTORY: AccessInventory = {
       "exempt": []
     },
     {
+      "path": "/app/terms",
+      "audience": "member",
+      "file": "app/app/terms/page.tsx",
+      "owed": [
+        1,
+        2,
+        4,
+        5
+      ],
+      "found": {
+        "1": [
+          "requireUser(",
+          "requireMember("
+        ],
+        "2": [
+          "requireMember("
+        ],
+        "4": [
+          "hasConsent(",
+          "revoked_at IS NULL"
+        ],
+        "5": []
+      },
+      "missing": [],
+      "exempt": []
+    },
+    {
       "path": "/app/messages",
       "audience": "member",
       "file": "app/app/messages/page.tsx",
@@ -3262,8 +3289,8 @@ export const ACCESS_INVENTORY: AccessInventory = {
       "exempt": []
     }
   ],
-  "protectedCount": 116,
-  "complete": 116,
+  "protectedCount": 117,
+  "complete": 117,
   "gapsByStep": {
     "1": 0,
     "2": 0,

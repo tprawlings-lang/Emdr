@@ -119,15 +119,33 @@ export function WorkQueueRow({
             </span>
             <FreshnessLabel evidenceAt={item.evidenceAt} now={now} />
             <OwnerChip name={item.ownerName} />
-            {/* §4's "last meaningful clinician contact". Null is its own
-                state: somebody nobody has contacted yet and somebody contacted
-                this morning must not read the same. */}
+            {/* §4's "last meaningful clinician contact" — a signed contact
+                note, and nothing else. Null is its own state: somebody nobody
+                has contacted yet and somebody contacted this morning must not
+                read the same.
+
+                THIS SENTENCE USED TO BE FALSE. It was rendered from the
+                MEMBER'S OWN CHECK-INS, so a person nobody had ever spoken to
+                read as "Contacted today" for as long as they kept using the
+                app. The two facts run in opposite directions, and a clinician
+                scanning for who needs outreach was shown the most engaged
+                people as the most recently contacted. */}
             <span className="text-xs text-olive">
               {item.lastContactDays === null
                 ? "No contact recorded"
                 : item.lastContactDays === 0
                   ? "Contacted today"
                   : `Last contact ${item.lastContactDays}d ago`}
+            </span>
+            {/* Beside contact, never instead of it. Removing the engagement
+                signal to fix the label would have traded one absence for
+                another. */}
+            <span className="text-xs text-olive">
+              {item.lastActivityDays === null
+                ? "Never used Steady"
+                : item.lastActivityDays === 0
+                  ? "Used Steady today"
+                  : `Last used Steady ${item.lastActivityDays}d ago`}
             </span>
             {/* A resolved item's deadline is history. Rendering a countdown
                 against a past due time produced "Due in just now", which is

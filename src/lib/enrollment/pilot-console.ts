@@ -25,6 +25,7 @@ import { data } from "../data";
 import { FITNESS_ITEMS, FITNESS_SCREENER_ID } from "../fitness-screener";
 import { INSTRUMENTS } from "../instruments";
 import { PILOT_TENANT_ID } from "./gate";
+import { termsState, type TermsState } from "./pilot-terms";
 
 /** How far through onboarding somebody has actually got. Derived from what
  *  they have written rather than from a stored step number, which would drift
@@ -51,7 +52,22 @@ export interface FitAnswer {
 export interface Participant {
   personId: string;
   name: string;
+  /** The address they sign in with. On the screen because the operator needs
+   *  to know which account they are resetting, and in the model because the
+   *  lockout counts by address rather than by person. */
+  email: string;
   joinedAt: string;
+  /** Failed sign-ins still counting against them, and whether that has reached
+   *  the threshold. A locked-out participant looks identical to an inactive
+   *  one on every other column, which is how somebody ends up recorded as
+   *  "stopped engaging" when they were shut out. */
+  failedSignIns: number;
+  lockedOut: boolean;
+  /** Which notice governs this person: the current one, the narrower original,
+   *  a recorded refusal, or nothing recorded at all. It decides whether a
+   *  clinician may write about them, so the operator has to be able to see it
+   *  beside their name rather than infer it from an absence. */
+  terms: TermsState;
   stage: Stage;
   /** null when they have not taken the fit questions yet. */
   fit: null | {
@@ -78,10 +94,18 @@ export interface PilotSummary {
   hardStopped: number;
 }
 
-interface UserRow { id: string; name: string; created_at: string }
+interface UserRow { id: string; name: string; email: string; created_at: string }
 
 /**
  * Every pilot participant, with what they have entered.
+ *
+ * ACTIVE ACCOUNTS ONLY. Deleting an account anonymizes the row but keeps its
+ * role, its tenant and its 'real' person row, so a deleted participant listed
+ * here as "Deleted member" — with their answers already erased — would carry a
+ * reset control that cannot restore access to anything. Note the consequence:
+ * `enrolledCount` still counts them, so a deletion frees a row from this list
+ * without freeing its place against the cap. That was true before this filter
+ * and is not fixed by it.
  *
  * Reads the pilot tenant directly rather than going through the clinical
  * projections: those are tenant-scoped to a care network and shaped for a
@@ -92,9 +116,10 @@ interface UserRow { id: string; name: string; created_at: string }
 export async function pilotParticipants(): Promise<Participant[]> {
   const c = await data();
   const users = (await c.all(
-    `SELECT u.id, u.name, u.created_at
+    `SELECT u.id, u.name, u.email, u.created_at
        FROM users u JOIN persons p ON p.id = u.id
-      WHERE u.tenant_id = ? AND u.role = 'member' AND p.provenance = 'real'
+      WHERE u.tenant_id = ? AND u.role = 'member' AND u.status = 'active'
+        AND p.provenance = 'real'
       ORDER BY u.created_at DESC`,
     [PILOT_TENANT_ID],
   )) as UserRow[];
@@ -121,6 +146,20 @@ export async function pilotParticipants(): Promise<Participant[]> {
         WHERE user_id IN (${marks}) AND scope = 'care_program_full' AND revoked_at IS NULL`,
       ids,
     )) as { user_id: string }[]).map((r) => r.user_id),
+  );
+
+  // N+1, deliberately, against a cap of twenty-five: the lockout's rule is
+  // "failures since the later of the window and the last reset", and folding
+  // that into one grouped query would be a second implementation of it that
+  // could drift from the one the sign-in door actually uses.
+  const { failedSignInsAgainst, LOCKOUT_THRESHOLD } = await import("../auth-lockout");
+  const failures = new Map<string, number>(
+    await Promise.all(
+      users.map(async (u) => [u.id, await failedSignInsAgainst(u.email)] as [string, number]),
+    ),
+  );
+  const terms = new Map<string, TermsState>(
+    await Promise.all(users.map(async (u) => [u.id, await termsState(u.id)] as [string, TermsState])),
   );
 
   return users.map((u) => {
@@ -175,10 +214,16 @@ export async function pilotParticipants(): Promise<Participant[]> {
       : consented.has(u.id) ? "consented"
       : "signed_up";
 
+    const failedSignIns = failures.get(u.id) ?? 0;
+
     return {
       personId: u.id,
       name: u.name,
+      email: u.email,
       joinedAt: u.created_at,
+      failedSignIns,
+      lockedOut: failedSignIns >= LOCKOUT_THRESHOLD,
+      terms: terms.get(u.id) ?? "none",
       stage,
       fit,
       measures,

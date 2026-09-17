@@ -10,6 +10,7 @@ import { checkAgeEligibility } from "../age-gate";
 import { currentTermsVersion } from "../policy";
 import { provisionPerson, grantConsent as spineGrantConsent } from "../spine";
 import { checkEnrollment, pilotTenantId } from "./gate";
+import { CURRENT_PILOT_TERMS, PILOT_ACK_SCOPE } from "./pilot-terms";
 
 // Creating an account through the enrollment gate.
 //
@@ -101,7 +102,11 @@ export async function enrollAction(formData: FormData): Promise<void> {
     provenance: "real",
   });
 
-  await spineGrantConsent({ userId, policyVersion: "wellness-ack-v1", scope: "wellness_acknowledgment" });
+  // THE VERSION IS THE RECORD, not the page. What this person agreed to is
+  // decided here and read back by `pilotHandling` for the rest of the pilot;
+  // editing the notice later changes what the NEXT person agrees to and
+  // nothing about this one.
+  await spineGrantConsent({ userId, policyVersion: CURRENT_PILOT_TERMS, scope: PILOT_ACK_SCOPE });
   await spineGrantConsent({ userId, policyVersion: currentTermsVersion(), scope: "terms_acceptance" });
 
   // The membership row the care gate requires. `/app/onboarding` redirects to

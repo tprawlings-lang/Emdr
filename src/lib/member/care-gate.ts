@@ -55,6 +55,14 @@ export const ACCOUNT_ROUTES = [
   "/app/settings",
   "/app/consent",
   "/app/care-team",
+  // Where a pilot participant reads what changed about the terms and answers.
+  // It belongs here by the rule above rather than as an exception to it: it is
+  // a page about WHAT THEY AGREED TO, and putting a consent question behind a
+  // care gate means the people mid-onboarding — who are being handled under
+  // the narrower terms precisely because they have not answered — are the ones
+  // who cannot reach the answer. Found by driving it: the page redirected to
+  // onboarding.
+  "/app/terms",
 ] as const;
 
 /** Routes under /app that are open regardless of account or gate state.

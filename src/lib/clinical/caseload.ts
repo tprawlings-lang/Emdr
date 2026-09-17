@@ -36,6 +36,15 @@ export interface CaseloadRow {
   band: PriorityBand;
   /** Mandatory. Never a bare score. */
   reasons: string[];
+  /** Days since the member last used Steady. NOT contact: this counts their
+   *  own check-ins, and it was called `daysSinceContact` and rendered as
+   *  "Contacted today" — so a clinician scanning for who needs outreach was
+   *  shown the people who use the app most as the people most recently spoken
+   *  to. The two run in opposite directions. */
+  daysSinceActivity: number | null;
+  /** Days since someone from the team was last in touch, from a signed contact
+   *  note. Null means nobody has, and that is a named state rather than a
+   *  reassuring blank. */
   daysSinceContact: number | null;
   openAlerts: number;
   lastCheckinDate: string | null;
@@ -79,6 +88,7 @@ interface RawRow {
   unresolved_distress: number;
   pending_unlocks: number;
   last_activity: string | null;
+  last_contact: string | null;
   primary_clinician_id: string | null;
 }
 
@@ -117,6 +127,14 @@ export async function buildCaseload(args: {
             (SELECT COUNT(*) FROM module_unlocks mu
               WHERE mu.user_id = u.id AND mu.status = 'requested')     AS pending_unlocks,
             (SELECT MAX(created_at) FROM checkins x WHERE x.user_id = u.id) AS last_activity,
+            -- WHEN SOMEBODY FROM THE TEAM WAS LAST IN TOUCH, which is a
+            -- different question from when the member last used the app and
+            -- was being answered with the wrong one. A signed contact note is
+            -- the only record of it that exists; NULL means nobody has made
+            -- contact, and null is its own state all the way to the screen.
+            (SELECT MAX(n.signed_at) FROM clinical_notes n
+              WHERE n.person_id = u.id AND n.kind = 'contact'
+                AND n.status = 'signed')                               AS last_contact,
             (SELECT mu2.clinician_id FROM module_unlocks mu2
               WHERE mu2.user_id = u.id AND mu2.clinician_id IS NOT NULL
               ORDER BY mu2.decided_at DESC LIMIT 1)                    AS primary_clinician_id
@@ -167,10 +185,14 @@ export async function buildCaseload(args: {
     }
 
     // ---- Watch ----
-    const daysSinceContact = daysBetween(r.last_activity, now);
-    if (band === "none" && daysSinceContact !== null && daysSinceContact >= 7) {
+    const daysSinceActivity = daysBetween(r.last_activity, now);
+    const daysSinceContact = daysBetween(r.last_contact, now);
+    // BANDED ON ACTIVITY, which is what this rule always meant and now says:
+    // somebody who has not opened Steady for a week is worth a look. It was
+    // never about whether anybody had called them.
+    if (band === "none" && daysSinceActivity !== null && daysSinceActivity >= 7) {
       band = "watch";
-      reasons.push(`No check-in for ${daysSinceContact} days`);
+      reasons.push(`No check-in for ${daysSinceActivity} days`);
     }
     if (band === "none" && r.last_checkin_action && r.last_checkin_action !== "processing_ok") {
       band = "watch";
@@ -182,6 +204,7 @@ export async function buildCaseload(args: {
       displayName: r.display_name,
       band,
       reasons,
+      daysSinceActivity,
       daysSinceContact,
       openAlerts: Number(r.open_alerts ?? 0),
       lastCheckinDate: r.last_checkin_date,

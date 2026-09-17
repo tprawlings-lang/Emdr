@@ -1,4 +1,5 @@
 import { MemberPage } from "@/components/member/MemberPage";
+import { TermsChangedNotice } from "@/components/member/TermsChangedNotice";
 import { memberShellEnabled } from "@/lib/experience/flags";
 import { experienceContextFor } from "@/lib/experience/context";
 import { navigationFor } from "@/lib/experience/navigation";
@@ -96,6 +97,7 @@ export default async function DashboardPage({
         title={`Hello, ${user.name}`}
         lede="You are here today. That is enough."
       >
+        <TermsChangedNotice userId={user.id} />
         {/* §4.4: offered only after the server was asked, and above the day
             because somebody who left something unfinished came back for it. */}
         <ResumePrompt offer={resume} />
@@ -169,6 +171,7 @@ export default async function DashboardPage({
       title={`Hello, ${user.name}`}
       lede="You are here today. That is enough."
     >
+      <TermsChangedNotice userId={user.id} />
 
       {fitness.status === "none" && (
         <div className="mb-6 rounded-3xl border border-state-caution/40 bg-state-caution-bg p-5">

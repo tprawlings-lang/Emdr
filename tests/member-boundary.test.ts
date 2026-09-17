@@ -67,6 +67,12 @@ const MEMBER_ROUTES = [
   // a readiness figure as the reason one is closed. It shows the
   // clinician's words instead.
   "app/modules",
+  // Where a participant reads what changed about the pilot and says yes or no.
+  // Under guard rather than exempt: it describes what a clinician may now
+  // record about them, which is exactly the context where a readiness figure
+  // or a band would feel like useful supporting detail and would be the
+  // boundary eroding by one reasonable-looking screen.
+  "app/terms",
 ];
 
 /** Identifiers that carry a score, a band, a track, or a criteria label.

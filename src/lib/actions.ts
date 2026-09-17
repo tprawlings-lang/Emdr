@@ -11,6 +11,8 @@ import { provisionPerson, recordCheckin, recordAssessment, recordSessionStarted,
 import { recordFitnessScreening } from "./fitness-screener";
 import { decryptField, encryptField } from "./crypto";
 import { audit } from "./audit";
+import { unlockDecisionRefusal } from "./clinical/unlock-rules";
+import { isLockedOut } from "./auth-lockout";
 import {
   requireUser,
   requireMember,
@@ -76,14 +78,10 @@ export async function login(formData: FormData) {
 
   // Lockout (compliance 1.5): 10 failed attempts in 15 minutes locks the
   // account for 15 minutes. Counted from the append-only audit trail.
-  const lockoutCutoff = new Date(Date.now() - 15 * 60 * 1000).toISOString().slice(0, 19).replace("T", " ");
-  const recentFailures = (await c.get(
-    `SELECT COUNT(*) AS n FROM audit_log
-       WHERE event_type = 'login_failed' AND target = ?
-         AND created_at > ?`,
-    [email, lockoutCutoff]
-  )) as { n: number };
-  if (recentFailures.n >= 10) {
+  //
+  // The counting lives in `auth-lockout` rather than here because the mobile
+  // door needs the same answer and was not getting it — see the note there.
+  if (await isLockedOut(email)) {
     await audit({ family: "identity", type: "login_locked", target: email });
     redirect("/login?error=locked");
   }
@@ -1260,8 +1258,14 @@ export async function decideUnlock(formData: FormData) {
   const unlockId = String(formData.get("unlockId") ?? "");
   const decision = String(formData.get("decision") ?? "");
   const reason = String(formData.get("reason") ?? "").slice(0, 1000);
-  if (decision !== "unlocked" && decision !== "denied") return;
-  if (!reason.trim()) redirect("/clinician/unlocks?error=" + encodeURIComponent("A decision needs a reason the member can read."));
+  const refusal = unlockDecisionRefusal(decision, reason);
+  if (refusal) {
+    // An unrecognised decision still returns silently rather than redirecting:
+    // it cannot come from the screen, so it came from a crafted request, and
+    // there is no user to explain anything to.
+    if (decision !== "unlocked" && decision !== "denied") return;
+    redirect("/clinician/unlocks?error=" + encodeURIComponent(refusal));
+  }
 
   const c = await data();
   const unlock = await c.get("SELECT id, user_id, module_id FROM module_unlocks WHERE id = ?", [unlockId]) as { id: string; user_id: string; module_id: string } | undefined;
