@@ -590,6 +590,13 @@ export const WORK_REGISTER: WorkEntry[] = [
     test: "tests/failure-register.test.ts",
   },
   {
+    id: "platform.one-write-per-press",
+    title: "A retried command replays its result instead of writing twice",
+    state: "reachable",
+    code: "src/lib/command-log.ts#runOnce",
+    test: "tests/command-idempotency.test.ts",
+  },
+  {
     id: "ops.backups",
     title: "Nightly encrypted off-site backups",
     state: "held",

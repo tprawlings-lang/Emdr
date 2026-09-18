@@ -48,7 +48,10 @@ export default defineConfig({
     },
     {
       name: "stateful",
-      testMatch: /queue-concurrency\.spec\.ts/,
+      // BOTH SPECS WRITE. They run after the read-only projects and in order,
+      // because a recorded contact and a completed review change the queue the
+      // other one reads.
+      testMatch: /(queue-concurrency|contact-attempts)\.spec\.ts/,
       dependencies: ["chromium"],
       fullyParallel: false,
       use: { ...devices["Desktop Chrome"] },

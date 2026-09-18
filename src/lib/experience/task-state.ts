@@ -45,6 +45,11 @@ export interface TaskState {
   reconcileBy?: string;
   /** Whether the interface may offer a retry button. */
   retryable: boolean;
+  /** `confirmed` only: this is an earlier attempt's result, replayed. The
+   *  screen says "Already saved" rather than "Saved", because a second press
+   *  that reads the same as the first is how somebody comes to believe they
+   *  recorded two contact attempts when one exists. */
+  replayed?: boolean;
 }
 
 /** §4.4's vocabulary, and it is deliberately in the past tense only once. */
@@ -80,7 +85,9 @@ export function submitting(): TaskState {
 export function advance(result: CommandResult): TaskState {
   switch (result.outcome) {
     case "confirmed":
-      return { name: "confirmed", label: TASK_LABEL.confirmed, retryable: false };
+      return result.replayed
+        ? { name: "confirmed", label: "Already saved", retryable: false, replayed: true }
+        : { name: "confirmed", label: TASK_LABEL.confirmed, retryable: false };
     case "rejected":
       return {
         name: "recoverable_failure",

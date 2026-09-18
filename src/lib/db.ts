@@ -1100,6 +1100,35 @@ export const SCHEMA_SQL = `
   );
   CREATE INDEX IF NOT EXISTS idx_export_jobs_tenant ON export_jobs(tenant_id, created_at);
 
+  -- One user action, one write, even when the answer is lost (17 September
+  -- handoff, P6: "retry with the same idempotency key… do not duplicate a
+  -- note, approval, contact, access decision, or handoff").
+  --
+  -- THE PRIMARY KEY IS THE MECHANISM. Two simultaneous attempts race on it and
+  -- exactly one inserts, so this works under concurrency and not only under a
+  -- retry. A unique index checked in application code after a SELECT would let
+  -- both through.
+  --
+  -- outcome IS NULL means in flight. Only a confirmed outcome is ever stored:
+  -- a refusal or a conflict is an answer about the world, and the world moves,
+  -- so those release the key instead of pinning somebody to a stale no.
+  CREATE TABLE IF NOT EXISTS command_results (
+    tenant_id TEXT NOT NULL,
+    idempotency_key TEXT NOT NULL,
+    -- Stored so a key that belongs to a different action is REFUSED rather
+    -- than answered with the other one's result. A duplicate record is bad; a
+    -- record of the wrong action is worse.
+    intent TEXT NOT NULL,
+    target TEXT NOT NULL,
+    actor_person_id TEXT NOT NULL,
+    outcome TEXT,
+    result_json TEXT,
+    reserved_at TEXT NOT NULL,
+    settled_at TEXT,
+    PRIMARY KEY (tenant_id, idempotency_key)
+  );
+  CREATE INDEX IF NOT EXISTS idx_command_results_reserved ON command_results(reserved_at);
+
   -- Where a governed claim has already gone (17 September handoff, P5:
   -- "Record every export or publication version that used a claim").
   --

@@ -243,6 +243,13 @@ export const DEMO_DATA_TABLES = [
   // fabricated person's screen was reached, so it is demonstration data like
   // every other row above. It references only the tenant, so it goes before
   // users but has no ordering constraint against it.
+  // Command reservations. CLEARED, and the handoff asks for exactly this:
+  // "Do not let idempotency keys cross reset generations." A key is derived
+  // from the action rather than the moment, so the same button press produces
+  // the same key before and after a rebuild — and a surviving row would let a
+  // post-reset press replay a pre-reset result about a record that no longer
+  // exists.
+  "command_results",
   "telemetry_signals",
   "users",
   // Tenants last — everything above may reference the platform tenant.

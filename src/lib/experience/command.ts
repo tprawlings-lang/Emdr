@@ -87,6 +87,15 @@ export interface CommandResult<R = unknown> {
   reconcileBy?: string;
   /** For the person to quote to support. */
   correlationId?: string;
+  /** `confirmed` only: this is the result of an EARLIER attempt with the same
+   *  idempotency key, replayed rather than re-run.
+   *
+   *  ON THE RESULT RATHER THAN LEFT IMPLICIT, because the person pressed the
+   *  button twice and the honest answer is not the same as the first one. "Saved"
+   *  after a second press reads as a second save; "Already saved" is what
+   *  actually happened, and it is the difference between a person believing they
+   *  recorded two contact attempts and knowing they recorded one. */
+  replayed?: boolean;
 }
 
 export class CommandError extends Error {}

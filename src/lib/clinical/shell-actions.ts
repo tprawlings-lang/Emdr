@@ -9,7 +9,7 @@ import { PLATFORM_TENANT_ID } from "../db";
 import { audit } from "../audit";
 import type { TenantContext } from "../repository";
 import {
-  recordCareAction, acknowledgeSignal, getSignal, currentCareActions,
+  recordCareAction, acknowledgeSignal, getSignal,
   AttentionSignalError,
 } from "./attention-signals";
 import { alertQueue, closeAlert, AlertClosureError } from "./alerts";
@@ -19,6 +19,7 @@ import {
   resolveCommand, confirmed, rejected, stale, unavailable, indeterminate,
   CommandError, type CommandInput, type CommandResult,
 } from "../experience/command";
+import { runOnce } from "../command-log";
 import { newestEvidenceFor } from "./person-evidence";
 import { signalRowVersion, alertRowVersion } from "./row-version";
 
@@ -176,36 +177,35 @@ export async function recordContact(input: CommandInput<{ personId: string; note
     }
     const subject = await subjectFor(ctx, command);
     if (!subject.ok) return unavailable(subject.reason);
-    // Idempotency, checked before writing rather than after. §9: retry must
-    // not create a duplicate.
-    const existing = await currentCareActions(ctx, subject.personId, 20);
-    const already = existing.find((a) => a.note === note && a.action === "contact");
-    if (already) {
-      return confirmed({
-        summary: "This attempt was already recorded. Nothing was written twice.",
-        recordId: already.id,
+    // IDEMPOTENCY ON THE KEY, NOT ON THE WORDS. This compared the note text
+    // against the last twenty care actions, which is wrong in both directions:
+    // a retry with an edited note wrote twice, and a clinician who genuinely
+    // attempted contact twice with the same words ("Left voicemail") was told
+    // "this attempt was already recorded" and lost the second attempt. The
+    // second direction is the one with a victim — a missing entry in a
+    // clinical record, produced by a guard that was trying to help.
+    return runOnce(command, async () => {
+      const recordId = await recordCareAction(ctx, {
+        personId: subject.personId,
+        clinicianId,
+        action: "contact",
+        signalId: subject.signalId,
+        note,
+        sourceSurface: "command_center_row",
       });
-    }
-    const recordId = await recordCareAction(ctx, {
-      personId: subject.personId,
-      clinicianId,
-      action: "contact",
-      signalId: subject.signalId,
-      note,
-      sourceSurface: "command_center_row",
-    });
-    await audit({
-      actorId: clinicianId, actorRole: "clinician", family: "clinical",
-      type: "contact_attempt_recorded", target: command.payload.personId,
-      detail: { recordId, idempotencyKey: command.idempotencyKey },
-    });
-    // §31.7: which action the row's hierarchy actually produced. Code only.
-    noteSignal("primary_action_selected", { actionCode: "record_contact" }, { actorRole: "clinician" });
-    revalidatePath("/clinician/today");
-    return confirmed({
-      // Says what it is. Not "contacted", not "notified".
-      summary: "Recorded that you attempted contact, and what happened. This is not proof of delivery.",
-      recordId,
+      await audit({
+        actorId: clinicianId, actorRole: "clinician", family: "clinical",
+        type: "contact_attempt_recorded", target: command.payload.personId,
+        detail: { recordId, idempotencyKey: command.idempotencyKey },
+      });
+      // §31.7: which action the row's hierarchy actually produced. Code only.
+      noteSignal("primary_action_selected", { actionCode: "record_contact" }, { actorRole: "clinician" });
+      revalidatePath("/clinician/today");
+      return confirmed({
+        // Says what it is. Not "contacted", not "notified".
+        summary: "Recorded that you attempted contact, and what happened. This is not proof of delivery.",
+        recordId,
+      });
     });
   } catch (err) {
     return fromError(err, input.idempotencyKey);
@@ -227,30 +227,36 @@ export async function assignWork(input: CommandInput<{ personId: string; ownerId
     if (!command.payload.ownerId.trim()) return rejected("Choose who owns this.");
     const subject = await subjectFor(ctx, command);
     if (!subject.ok) return unavailable(subject.reason);
-    const recordId = await recordCareAction(ctx, {
-      personId: subject.personId,
-      clinicianId,
-      // The nearest thing the care-action vocabulary has, and the note carries
-      // the specifics. Inventing an `assign` action here would put a ninth
-      // value in a closed vocabulary from a presentation module, which is the
-      // wrong direction for a rule to travel.
-      action: "add_followup",
-      signalId: subject.signalId,
-      note: `Assigned to ${command.payload.ownerName}.`,
-      outcomeState: `owner:${command.payload.ownerId}`,
-      sourceSurface: "command_center_row",
-    });
-    await audit({
-      actorId: clinicianId, actorRole: "clinician", family: "clinical",
-      type: "work_assigned", target: command.payload.personId,
-      detail: { recordId, ownerId: command.payload.ownerId },
-    });
-    // §31.7: which action the row's hierarchy actually produced. Code only.
-    noteSignal("primary_action_selected", { actionCode: "assign_work" }, { actorRole: "clinician" });
-    revalidatePath("/clinician/today");
-    return confirmed({
-      summary: `Recorded ${command.payload.ownerName} as the owner. Nobody has been notified — there is no delivery path in this build.`,
-      recordId,
+    // AN ASSIGNMENT HAD NO DUPLICATE GUARD AT ALL. A lost response on this one
+    // produced two ownership records for one decision, and the queue reads the
+    // newest — so the visible effect was nothing, until somebody read the care
+    // history and found the same decision made twice.
+    return runOnce(command, async () => {
+      const recordId = await recordCareAction(ctx, {
+        personId: subject.personId,
+        clinicianId,
+        // The nearest thing the care-action vocabulary has, and the note carries
+        // the specifics. Inventing an `assign` action here would put a ninth
+        // value in a closed vocabulary from a presentation module, which is the
+        // wrong direction for a rule to travel.
+        action: "add_followup",
+        signalId: subject.signalId,
+        note: `Assigned to ${command.payload.ownerName}.`,
+        outcomeState: `owner:${command.payload.ownerId}`,
+        sourceSurface: "command_center_row",
+      });
+      await audit({
+        actorId: clinicianId, actorRole: "clinician", family: "clinical",
+        type: "work_assigned", target: command.payload.personId,
+        detail: { recordId, ownerId: command.payload.ownerId },
+      });
+      // §31.7: which action the row's hierarchy actually produced. Code only.
+      noteSignal("primary_action_selected", { actionCode: "assign_work" }, { actorRole: "clinician" });
+      revalidatePath("/clinician/today");
+      return confirmed({
+        summary: `Recorded ${command.payload.ownerName} as the owner. Nobody has been notified — there is no delivery path in this build.`,
+        recordId,
+      });
     });
   } catch (err) {
     return fromError(err, input.idempotencyKey);
@@ -374,81 +380,93 @@ export async function completeReview(input: CommandInput<{ personId: string; not
     const subject = await subjectFor(ctx, command);
     if (!subject.ok) return unavailable(subject.reason);
 
-    // MOST OF THE QUEUE IS NOT AN ATTENTION SIGNAL, and this action refused all
-    // of it.
+    // ONE REVIEW PER PRESS, WHATEVER THE NETWORK DID. A review acknowledges a
+    // signal and closes alerts, so a lost response followed by a retry would
+    // write a second review of a decision already made — and on an
+    // alert-derived row the second attempt now finds the alert closed and
+    // reads as a conflict, which tells the clinician somebody else moved when
+    // nobody did.
     //
-    // A work item comes from one of three places. An attention signal has a
-    // lineage and a state machine. An ALERT-DERIVED row is the safety engine's
-    // own output — the rows that carry safety authority, and the ones a
-    // clinician most needs to close. A CASELOAD-DERIVED row is a person the
-    // caseload flagged with no alert at all. Only the first has a signal, and
-    // this function began by loading one and giving up when there was none —
-    // so "Complete review" on a safety row produced "Not available here", every
-    // time.
-    //
-    // Found the same way as the missing alerts it now closes: by pressing the
-    // button on a running queue.
-    if (!subject.signal) {
-      return completeReviewWithoutSignal({
-        ctx, clinicianId, personId: subject.personId, note: command.payload.note,
-        expectedVersion: command.expectedVersion,
+    // A `stale` result releases the key rather than being stored, so a genuine
+    // later attempt at the same row is re-evaluated against the version the
+    // server holds then.
+    return runOnce(command, async () => {
+      // MOST OF THE QUEUE IS NOT AN ATTENTION SIGNAL, and this action refused all
+      // of it.
+      //
+      // A work item comes from one of three places. An attention signal has a
+      // lineage and a state machine. An ALERT-DERIVED row is the safety engine's
+      // own output — the rows that carry safety authority, and the ones a
+      // clinician most needs to close. A CASELOAD-DERIVED row is a person the
+      // caseload flagged with no alert at all. Only the first has a signal, and
+      // this function began by loading one and giving up when there was none —
+      // so "Complete review" on a safety row produced "Not available here", every
+      // time.
+      //
+      // Found the same way as the missing alerts it now closes: by pressing the
+      // button on a running queue.
+      if (!subject.signal) {
+        return completeReviewWithoutSignal({
+          ctx, clinicianId, personId: subject.personId, note: command.payload.note,
+          expectedVersion: command.expectedVersion,
+        });
+      }
+      const signal = subject.signal;
+      const signalId = signal.id;
+      // §5's reconcile-before-accept. Built by row-version.ts, which is also
+      // what the queue sends — the two were separate expressions until the check
+      // was armed, and a version written from `lastDetectedAt` at one end and
+      // `evidenceAt` at the other would compile and reject every review.
+      const currentVersion = signalRowVersion(signal);
+      if (command.expectedVersion && command.expectedVersion !== currentVersion) {
+        return stale(
+          "Somebody else changed this while you were reading it. Read what changed before deciding again.",
+          currentVersion
+        );
+      }
+      if (signal.state !== "open" && signal.state !== "acknowledged") {
+        return stale(`This item is already ${signal.state.replace(/_/g, " ")}.`, currentVersion);
+      }
+
+      await acknowledgeSignal(ctx, {
+        signalId, clinicianId, sourceSurface: "command_center_row",
       });
-    }
-    const signal = subject.signal;
-    const signalId = signal.id;
-    // §5's reconcile-before-accept. Built by row-version.ts, which is also
-    // what the queue sends — the two were separate expressions until the check
-    // was armed, and a version written from `lastDetectedAt` at one end and
-    // `evidenceAt` at the other would compile and reject every review.
-    const currentVersion = signalRowVersion(signal);
-    if (command.expectedVersion && command.expectedVersion !== currentVersion) {
-      return stale(
-        "Somebody else changed this while you were reading it. Read what changed before deciding again.",
-        currentVersion
-      );
-    }
-    if (signal.state !== "open" && signal.state !== "acknowledged") {
-      return stale(`This item is already ${signal.state.replace(/_/g, " ")}.`, currentVersion);
-    }
+      const reviewedEvidenceAt = await newestEvidenceFor(ctx, signal.personId);
+      const recordId = await recordCareAction(ctx, {
+        personId: signal.personId,
+        clinicianId,
+        action: "review",
+        signalId,
+        note: command.payload.note.trim() || null,
+        sourceSurface: "command_center_row",
+        reviewedEvidenceAt,
+        nextResponsibleParty: clinicianId,
+      });
+      await audit({
+        actorId: clinicianId, actorRole: "clinician", family: "clinical",
+        type: "review_completed", target: signal.personId,
+        detail: { recordId, signalId },
+      });
+      // §31.7's two action signals, from the one place a review is completed.
+      //
+      // `queue_item_resolved` measures TIME TO ACCOUNTABLE ACTION, so the
+      // duration is from when the signal was first detected to now — not from
+      // when this request started, which would measure the form and not the
+      // queue. Its privacy rule allows a reason code, an owner role and a
+      // duration, and the signal type IS the reason code; the person, the note
+      // and the clinician stay out.
+      noteSignal("queue_item_resolved", {
+        reasonCode: signal.signalType,
+        ownerRole: "clinician",
+        durationMs: Math.max(0, Date.now() - Date.parse(signal.firstDetectedAt)),
+      }, { actorRole: "clinician" });
+      noteSignal("primary_action_selected", { actionCode: "complete_review" }, { actorRole: "clinician" });
 
-    await acknowledgeSignal(ctx, {
-      signalId, clinicianId, sourceSurface: "command_center_row",
-    });
-    const reviewedEvidenceAt = await newestEvidenceFor(ctx, signal.personId);
-    const recordId = await recordCareAction(ctx, {
-      personId: signal.personId,
-      clinicianId,
-      action: "review",
-      signalId,
-      note: command.payload.note.trim() || null,
-      sourceSurface: "command_center_row",
-      reviewedEvidenceAt,
-      nextResponsibleParty: clinicianId,
-    });
-    await audit({
-      actorId: clinicianId, actorRole: "clinician", family: "clinical",
-      type: "review_completed", target: signal.personId,
-      detail: { recordId, signalId },
-    });
-    // §31.7's two action signals, from the one place a review is completed.
-    //
-    // `queue_item_resolved` measures TIME TO ACCOUNTABLE ACTION, so the
-    // duration is from when the signal was first detected to now — not from
-    // when this request started, which would measure the form and not the
-    // queue. Its privacy rule allows a reason code, an owner role and a
-    // duration, and the signal type IS the reason code; the person, the note
-    // and the clinician stay out.
-    noteSignal("queue_item_resolved", {
-      reasonCode: signal.signalType,
-      ownerRole: "clinician",
-      durationMs: Math.max(0, Date.now() - Date.parse(signal.firstDetectedAt)),
-    }, { actorRole: "clinician" });
-    noteSignal("primary_action_selected", { actionCode: "complete_review" }, { actorRole: "clinician" });
-
-    revalidatePath("/clinician/today");
-    return confirmed({
-      summary: "Recorded your review. The row is acknowledged and stays in the record.",
-      recordId,
+      revalidatePath("/clinician/today");
+      return confirmed({
+        summary: "Recorded your review. The row is acknowledged and stays in the record.",
+        recordId,
+      });
     });
   } catch (err) {
     return fromError(err, input.idempotencyKey);

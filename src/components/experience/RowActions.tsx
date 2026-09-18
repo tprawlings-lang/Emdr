@@ -56,9 +56,27 @@ export function RowActions({
   const [result, setResult] = useState<CommandResult<{ summary: string }> | null>(null);
   const recorded = useRecorded();
 
-  // Stable across retries of the same press. §9: a key containing a timestamp
-  // makes every retry a new action, which is the failure the key prevents.
-  const nonce = `${personId}:${signalId ?? "no-signal"}`;
+  // ONE PRESS OF THIS BUTTON, and the mount id is what makes that a press
+  // rather than a row.
+  //
+  // FOUND BY DRIVING IT, and it survived the fix that was supposed to end it.
+  // The nonce was `${personId}:${signalId}` — stable for the life of the row
+  // and therefore stable across page loads — so every press on that row, for
+  // ever, carried one key. With the command log consulting the key, a
+  // clinician who attempted contact on Monday and again on Wednesday with the
+  // same words had the second press REPLAY Monday's result: a confirmation
+  // that read exactly like a fresh one, over a record that gained nothing.
+  // That is the same lost clinical entry the note-text comparison used to
+  // produce, moved one layer down.
+  //
+  // §9 says a key containing a timestamp makes every retry a new action, and
+  // that is still true: this is generated ONCE PER MOUNT, in a lazy
+  // initialiser, not per request. A retry of the same press — the answer never
+  // came back, the person presses again without reloading — carries the same
+  // id and is reconciled. A press after a reload is a new decision and is
+  // recorded as one, which is what the record has to be able to say.
+  const [mountId] = useState(() => Math.random().toString(36).slice(2, 10));
+  const nonce = `${personId}:${signalId ?? "no-signal"}:${mountId}`;
 
   async function run(which: ClinicianAction, call: () => Promise<CommandResult<{ summary: string }>>) {
     setTask(submitting());

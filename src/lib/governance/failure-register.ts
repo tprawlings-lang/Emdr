@@ -75,15 +75,20 @@ export const FAILURE_REGISTER: FailureScenario[] = [
       "Retry with the same idempotency key returns the existing command result. Do not duplicate " +
       "a note, approval, contact, access decision, or handoff.",
     area: "uncertain_writes",
-    state: "gap",
-    injections: [],
+    state: "proven",
+    injections: ["tests/command-idempotency.test.ts", "tests/e2e/contact-attempts.spec.ts"],
     note:
-      "PARTIAL AND IN THE WRONG PLACE. `assignSupport` and `saveThoughts` reconcile on the " +
-      "idempotency key, and both are tested. The three command-centre row actions do not: " +
-      "`recordContact` carries the key into an audit detail and then dedupes on the NOTE TEXT " +
-      "within the last twenty care actions. That is wrong in both directions — a retry with an " +
-      "edited note writes twice, and a clinician who genuinely attempts contact twice with the " +
-      "same words is told 'this attempt was already recorded' and loses the second one.",
+      "TWO INJECTIONS, AND THE SECOND EXISTS BECAUSE THE FIRST FIX WAS WRONG. The node tests prove " +
+      "the ledger; the browser spec proves the KEY, which broke twice and both times only a browser " +
+      "showed it — the queue built its key from the row rather than the press, so a clinician who " +
+      "attempted contact twice with the same words had the second press replay the first result " +
+      "under a confirmation that read exactly like a fresh one. " +
+      "The key now has a table and the reservation is written before the work, so the race is on " +
+      "a primary key rather than in application code. Only a confirmed outcome is replayed — a " +
+      "refusal or a conflict releases the key, because those are answers about a world that " +
+      "moves, and a replayed refusal would pin somebody to a no that is no longer true. A key " +
+      "belonging to a different intent, target or actor is REFUSED rather than answered with the " +
+      "other command's result: a duplicate record is bad, a record of the wrong action is worse.",
   },
   {
     id: "uncertain.indeterminate-invites-reconcile-not-retry",
@@ -92,12 +97,15 @@ export const FAILURE_REGISTER: FailureScenario[] = [
       "Distinguish indeterminate from failed, carry the key to reconcile by, and do not invite " +
       "a blind retry.",
     area: "uncertain_writes",
-    state: "gap",
-    injections: [],
+    state: "proven",
+    injections: ["tests/command-idempotency.test.ts"],
     note:
-      "The contract is built and guarded — `indeterminate()` refuses to construct without a " +
-      "reconcile key, and `mayRetryDirectly` excludes it. What nothing does is INJECT the case: " +
-      "no test drops a response mid-write and follows what the surface then offers a person.",
+      "THE UNCERTAINTY IS INJECTED BY A SECOND ATTEMPT ARRIVING WHILE THE FIRST IS STILL RUNNING, " +
+      "not by severing a socket — that is the shape this product can actually stage, and it " +
+      "produces the same condition: the server cannot yet say whether the write landed. The test " +
+      "asserts all three required behaviours on it — the outcome is indeterminate rather than " +
+      "failed, it carries the key to reconcile by, and the task state the surface renders offers " +
+      "no retry button. What is still not injected is a transport-level loss mid-response.",
   },
 
   // ── Environment resets ─────────────────────────────────────────────────
