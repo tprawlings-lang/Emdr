@@ -4,6 +4,9 @@ import { Panel } from "@/components/app/surfaces";
 import { listAccessRequests } from "@/lib/review/access";
 import { decisionsAt } from "@/lib/review/decisions";
 import { reviewableSurfaces, copyVersion } from "@/lib/review/clinical-copy";
+import { resolvedGates } from "@/lib/review/gate-rows";
+import { reviewerAnswers, standingGates } from "@/lib/buyer/reviewer-answers";
+import { OpeningQuestions } from "@/components/app/OpeningQuestions";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Review — Steady" };
@@ -49,10 +52,15 @@ export default async function ReviewHome() {
   const built = new Set(REVIEW_SCREENS.map((s) => s.href));
   const unbuilt = ATLAS.filter((a) => !built.has(a.route));
 
-  // Cheap counts only. Release-gate state needs an identity scan and a
-  // scenario replay to resolve, and running those on the console's front door
-  // would make the most-opened screen the slowest one — so the gate row links
-  // out rather than reporting a number this page would have to guess at.
+  // THE GATES ARE RESOLVED HERE NOW, and the note this replaces was right
+  // about the wrong thing. It said resolving them "needs an identity scan and a
+  // scenario replay", which would make the front door the slowest screen — but
+  // `resolveEvidence` does not run the expensive one: projection parity comes
+  // back "Not run" unless a reviewer asks for it. Measured on the seeded
+  // database, the whole resolution is about 170ms, which is what a console
+  // costs to answer the question it exists for. A landing page that cannot say
+  // what blocks a release is cheaper and useless.
+  const gates = (await resolvedGates()).map((g) => g.row);
   const pendingRequests = await listAccessRequests();
   const pendingAccess = pendingRequests.filter((r) => !r.decision).length;
   const surfaces = reviewableSurfaces();
@@ -67,6 +75,22 @@ export default async function ReviewHome() {
       title="Review and administration"
       lede="What this environment can be checked against, and what it cannot. Every claim below is either a screen you can open or a gap named as one."
     >
+      {/* BLOCKERS AND DECISIONS BEFORE PASSED EVIDENCE, which is the handoff's
+          direction for this audience and the exact opposite of what this page
+          did: it opened with thirteen screens a reviewer could go and look at,
+          and put the queue of things waiting on a decision underneath. */}
+      <div className="mb-6">
+        <OpeningQuestions
+          heading="What this console is for"
+          answers={reviewerAnswers({
+            gates,
+            accessRequestsOpen: pendingAccess,
+            copyUnapproved: { n: unreviewedCopy, of: surfaceCount },
+            copyVersion: copyVersion(),
+          })}
+        />
+      </div>
+
       <Panel title="Available now">
         <ul className="space-y-2">
           {ATLAS.filter((a) => built.has(a.route) && a.route !== "/review").map((a) => (
@@ -124,8 +148,8 @@ export default async function ReviewHome() {
             <Link href="/review/release" className="font-medium text-app-ink underline">
               Release gates
             </Link>
-            <span className="text-olive">
-              resolved on the gate screen — each one&rsquo;s state depends on evidence this page does not run
+            <span className="tabular-nums text-olive">
+              {standingGates(gates).clear.length} of {gates.length} standing
             </span>
           </li>
         </ul>

@@ -3,10 +3,11 @@ import { ReviewPage } from "@/components/clinical/ReviewPage";
 import { Panel, Callout } from "@/components/app/surfaces";
 import { requireReviewAccess } from "@/lib/auth";
 import { getDb } from "@/lib/db";
-import { RELEASE_GATES, resolveEvidence, fingerprint, type EvidenceClass, type EvidenceStatus } from "@/lib/review/gates";
-import { decisionsAt, decisionHistory, type ReviewDecision } from "@/lib/review/decisions";
+import { RELEASE_GATES, resolveEvidence, type EvidenceClass, type EvidenceStatus } from "@/lib/review/gates";
+import { decisionsAt } from "@/lib/review/decisions";
 import { reviewableSurfaces, copyVersion } from "@/lib/review/clinical-copy";
 import { recordGateSignoff } from "@/lib/review/actions";
+import { resolvedGates } from "@/lib/review/gate-rows";
 import {
   releaseScope, blockers, releaseClear, groupFailures, briefFor,
   reopenedBy, GATE_DEPENDENCIES, DEPENDENCY_LABEL,
@@ -96,30 +97,21 @@ export default async function ReleaseGatesPage({
   // reopened, rather than being silently absent — "nobody has reviewed this"
   // and "somebody reviewed this and then the evidence moved" are different
   // situations and only one of them is anybody's fault.
-  const rows = await Promise.all(
-    RELEASE_GATES.map(async (gate) => {
-      const ev = evidence.get(gate.id)!;
-      const fp = fingerprint(ev.facts);
-      const atCurrent = await decisionsAt("release_gate", fp);
-      const inForce = atCurrent.get(gate.id) ?? null;
-      let superseded: ReviewDecision | null = null;
-      if (!inForce) {
-        const history = await decisionHistory("release_gate", gate.id);
-        superseded = history.length ? history[history.length - 1] : null;
-      }
-      return { gate, ev, fp, inForce, superseded };
-    })
-  );
+  // THROUGH THE SHARED LOADER, so this screen and the reviewer's landing page
+  // cannot disagree about which gates are standing. Two copies of this
+  // forty-line resolution would be two answers to one question, which on a
+  // release console is the failure the console exists to prevent.
+  const resolved = await resolvedGates({ projectionParity, clinicalLanguage: clinicalTally });
+  const rows = resolved.map((r) => ({
+    gate: RELEASE_GATES.find((g) => g.id === r.row.gateId)!,
+    ev: evidence.get(r.row.gateId)!,
+    fp: r.fingerprint,
+    inForce: r.row.inForce,
+    superseded: r.row.superseded,
+  }));
 
   const scope = releaseScope();
-  const gateRows: GateRow[] = rows.map((r) => ({
-    gateId: r.gate.id,
-    name: r.gate.name,
-    status: r.ev.status,
-    evidenceClass: r.gate.evidenceClass,
-    inForce: r.inForce,
-    superseded: r.superseded,
-  }));
+  const gateRows: GateRow[] = resolved.map((r) => r.row);
   const open = blockers(gateRows);
   const clear = releaseClear(gateRows);
   const groups = groupFailures(gateRows, evidence);

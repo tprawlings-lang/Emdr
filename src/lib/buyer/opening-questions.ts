@@ -47,6 +47,13 @@ export const OPENING_QUESTIONS: readonly OpeningQuestion[] = [
     audience: "payer",
     question: "How mature and complete is the evidence?",
   },
+  { id: "reviewer.blocks", audience: "reviewer", question: "What blocks release?" },
+  { id: "reviewer.decide", audience: "reviewer", question: "What needs human decision?" },
+  {
+    id: "reviewer.passed",
+    audience: "reviewer",
+    question: "What passed, and under which version?",
+  },
 ];
 
 export function questionsFor(audience: BuyerAudience): OpeningQuestion[] {

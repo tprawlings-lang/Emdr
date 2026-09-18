@@ -9,6 +9,8 @@ import {
 } from "../src/lib/buyer/opening-questions";
 import { OpeningQuestions } from "../src/components/app/OpeningQuestions";
 import { measuredSentence } from "../src/lib/buyer/payer-answers";
+import { reviewerAnswers, standingGates } from "../src/lib/buyer/reviewer-answers";
+import type { GateRow } from "../src/lib/review/release-readiness";
 
 // Decision-led buyer views (17 September handoff, P5).
 //
@@ -248,4 +250,104 @@ test("a withheld contract measure is named, not counted and dropped", () => {
 test("a complete contract says none is withheld rather than saying nothing", () => {
   const said = measuredSentence([{ label: "ED visits per 1,000", observed: 41 }]);
   assert.match(said, /None is withheld/);
+});
+
+
+// ---------------------------------------------------------------------------
+// The reviewer console
+// ---------------------------------------------------------------------------
+
+const gate = (over: Partial<GateRow> = {}): GateRow => ({
+  gateId: "g1", name: "A gate", status: "pass", evidenceClass: "measured",
+  inForce: { decision: "approved" } as GateRow["inForce"], superseded: null,
+  ...over,
+});
+
+test("the reviewer's questions are blockers, decisions, then what passed", () => {
+  // "Blockers and requested decisions before passed evidence." The landing had
+  // this exactly backwards: thirteen screens to go and look at, with the queue
+  // of things waiting on a decision underneath.
+  assert.deepEqual(questionsFor("reviewer").map((q) => q.id), [
+    "reviewer.blocks", "reviewer.decide", "reviewer.passed",
+  ]);
+});
+
+test("a gate cleared by attestation counts as clear", () => {
+  // THE LOAD-BEARING ONE. Three of the eight gates are attestations by nature —
+  // their evidence comes back `unavailable` because there is nothing for a
+  // machine to check. Counting only "pass AND approved" reported "1 of 8
+  // passed" while more stood on a signature, which describes the evidence
+  // plumbing rather than the release.
+  const gates = [
+    gate({ gateId: "machine", status: "pass" }),
+    gate({ gateId: "attested", status: "unavailable" }),
+  ];
+  const s = standingGates(gates);
+  assert.equal(s.clear.length, 2);
+  assert.equal(s.byMachine.length, 1);
+  assert.equal(s.byAttestation.length, 1);
+});
+
+test("blocking and clear account for every gate between them", () => {
+  const gates = [
+    gate({ gateId: "a", status: "pass" }),
+    gate({ gateId: "b", status: "unavailable" }),
+    gate({ gateId: "c", status: "fail" }),
+    gate({ gateId: "d", inForce: null }),
+    gate({ gateId: "e", inForce: null, superseded: { decision: "approved" } as GateRow["superseded"] }),
+  ];
+  const [blocks] = reviewerAnswers({
+    gates, accessRequestsOpen: 0, copyUnapproved: { n: 0, of: 6 }, copyVersion: "v1",
+  });
+  const clear = standingGates(gates).clear.length;
+  const blocking = Number(blocks.figure!.split(" / ")[0]);
+  assert.equal(blocking + clear, gates.length,
+    "some gate is neither blocking nor clear, so the console's arithmetic does not close");
+});
+
+test("what passed names the version it passed under", () => {
+  // "What passed" without "under which version" is the sentence that lets a
+  // stale attestation travel.
+  const [, , passed] = reviewerAnswers({
+    gates: [gate()], accessRequestsOpen: 0, copyUnapproved: { n: 0, of: 6 }, copyVersion: "v1",
+  });
+  assert.match(passed.answer, /at commit [0-9a-f]{7,}/);
+  assert.match(passed.window, /Commit [0-9a-f]{7,}/);
+  assert.match(passed.answer, /attestation alone/);
+});
+
+test("a blocker answer names the kinds, not only the count", () => {
+  // "Evidence is failing" and "nobody has decided" both stop a release and need
+  // entirely different people.
+  const [blocks] = reviewerAnswers({
+    gates: [gate({ gateId: "a", status: "fail" }), gate({ gateId: "b", inForce: null })],
+    accessRequestsOpen: 0, copyUnapproved: { n: 0, of: 6 }, copyVersion: "v1",
+  });
+  assert.match(blocks.answer, /evidence is failing/i);
+  assert.match(blocks.answer, /nobody has decided/i);
+});
+
+test("a clear release says so rather than reporting zero blockers", () => {
+  const [blocks] = reviewerAnswers({
+    gates: [gate()], accessRequestsOpen: 0, copyUnapproved: { n: 0, of: 6 }, copyVersion: "v1",
+  });
+  assert.match(blocks.answer, /No gate is blocking/);
+});
+
+test("the reviewer landing asks before it lists screens", () => {
+  const page = code(read("src/app/review/page.tsx"));
+  assert.ok(page.indexOf("<OpeningQuestions") < page.indexOf('<Panel title="Available now">'),
+    "the catalogue of screens still comes before the blockers");
+  assert.match(page, /resolvedGates\(\)/,
+    "the landing cannot answer what blocks release");
+});
+
+test("one loader serves the landing and the release screen", () => {
+  // Two copies of the resolution would be two answers to one question, which on
+  // a release console is the failure the console exists to prevent.
+  for (const f of ["src/app/review/page.tsx", "src/app/review/release/page.tsx"]) {
+    assert.match(code(read(f)), /resolvedGates\(/, `${f} does not use the shared loader`);
+  }
+  assert.doesNotMatch(code(read("src/app/review/release/page.tsx")), /decisionHistory\(/,
+    "the release page still resolves decisions itself");
 });
