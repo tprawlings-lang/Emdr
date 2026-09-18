@@ -112,6 +112,79 @@ export const EMPTY_DRAFT_REASON: Record<EmptyDraftCause, string> = {
     "Nothing was quietly dropped.",
 };
 
+// ---------------------------------------------------------------------------
+// Where the items come from — and whether any can arrive (17 September handoff,
+// P4: "Draft note — model source availability and user selection separately.")
+// ---------------------------------------------------------------------------
+//
+// THE TWO WERE ONE SENTENCE. With nothing approved, the screen said "Nothing has
+// been approved for this person yet. Approve items on Thoughts and they become
+// selectable here." That is advice, and in three environments it is advice that
+// cannot be followed: with capture switched off there is nothing to record,
+// with extraction switched off a recording produces a transcript and no
+// candidate items, and with no model configured neither runs at all. In each of
+// those the clinician goes to Thoughts, finds no way to approve anything, and
+// concludes the product is broken — when what is true is that this deployment
+// does not have the source switched on.
+//
+// SO AVAILABILITY IS ITS OWN VALUE, computed from the same flags the surfaces
+// check, and the selection state stays what it was. A screen can then say both:
+// where items come from, and what has been ticked.
+
+export type DraftSourceState =
+  /** Recording, extraction and a model are all in place. */
+  | "available"
+  /** The recording surface is off here, so nothing can be captured. */
+  | "capture_off"
+  /** Recording works; turning a transcript into candidate items does not. */
+  | "extraction_off"
+  /** Both surfaces are on and no model is configured, so nothing is extracted. */
+  | "no_model";
+
+export interface DraftSource {
+  state: DraftSourceState;
+  /** Whether a NEW approved item could arrive at all as things stand. */
+  canProduceItems: boolean;
+  /** Where items come from, or why none can. */
+  said: string;
+  /** What the clinician can do about it. Null when it is not theirs to fix. */
+  next: string | null;
+}
+
+export function draftSource(args: {
+  captureOn: boolean; extractionOn: boolean; modelConfigured: boolean;
+}): DraftSource {
+  if (!args.captureOn) {
+    return {
+      state: "capture_off", canProduceItems: false,
+      said: "Recording is switched off in this environment, so no new items can be captured for this person.",
+      // NOT "approve items on Thoughts". There is nothing there to approve and
+      // sending somebody to look is how a configuration state gets read as a
+      // fault.
+      next: null,
+    };
+  }
+  if (!args.extractionOn) {
+    return {
+      state: "extraction_off", canProduceItems: false,
+      said: "Recording works here, but turning a transcript into items is switched off — so a note you record produces a transcript and nothing selectable.",
+      next: null,
+    };
+  }
+  if (!args.modelConfigured) {
+    return {
+      state: "no_model", canProduceItems: false,
+      said: "No model is configured in this environment, so nothing is extracted from a recording and nothing reaches this list.",
+      next: null,
+    };
+  }
+  return {
+    state: "available", canProduceItems: true,
+    said: "Items arrive here once they have been extracted from a note and approved.",
+    next: "Record or write a note on Thoughts, then approve the items it produces.",
+  };
+}
+
 /**
  * What a clinician has to do before any of this becomes a note, said in one
  * place so the screen and the tests quote the same words.

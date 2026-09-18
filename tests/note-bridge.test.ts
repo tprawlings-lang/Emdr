@@ -24,7 +24,7 @@ import path from "node:path";
 
 import {
   assembleDraft, draftText, sourceIds, isSigned, SIGNING_IS_ELSEWHERE, NoteBridgeRefused,
-  EMPTY_DRAFT_REASON,
+  EMPTY_DRAFT_REASON, draftSource,
 } from "../src/lib/clinical/note-bridge";
 import type { MemoryItem } from "../src/lib/clinical/memory-store";
 import { thoughtsSurfaceAvailable } from "../src/lib/clinical/thoughts-flags";
@@ -344,4 +344,73 @@ test("every cause has words, and the screen reads them rather than writing its o
     "the screen writes its own empty-state sentence instead of reading the modelled cause");
   assert.ok(!/not because there was nothing to choose/.test(page),
     "the sentence that was false in two of three states is back on the screen");
+});
+
+
+// ---------------------------------------------------------------------------
+// Where the items come from, separately from what was ticked (P4)
+// ---------------------------------------------------------------------------
+//
+//   "Draft note — model source availability and user selection separately.
+//   Empty copy states the actual cause."
+//
+// The selection half landed with UX 006. The source half was still one
+// sentence: with nothing approved, the screen said "approve items on Thoughts
+// and they become selectable here" — advice that cannot be followed in three
+// environments, where a clinician who goes looking finds no way to approve
+// anything and concludes the product is broken.
+
+test("a working deployment says where items come from and what to do", () => {
+  const s = draftSource({ captureOn: true, extractionOn: true, modelConfigured: true });
+  assert.equal(s.state, "available");
+  assert.equal(s.canProduceItems, true);
+  assert.ok(s.next, "a deployment that can produce items does not say how");
+  assert.match(s.next!, /approve the items/i);
+});
+
+test("capture off is named, and does not send anybody to Thoughts", () => {
+  const s = draftSource({ captureOn: false, extractionOn: true, modelConfigured: true });
+  assert.equal(s.state, "capture_off");
+  assert.equal(s.canProduceItems, false);
+  assert.match(s.said, /Recording is switched off/);
+  assert.equal(s.next, null,
+    "the screen still sends a clinician to a page where there is nothing they can do");
+});
+
+test("extraction off is its own state, not the same as no recording", () => {
+  // A real state: a recording produces a transcript and no candidate items,
+  // which is what review_transcript_only means one layer down.
+  const s = draftSource({ captureOn: true, extractionOn: false, modelConfigured: true });
+  assert.equal(s.state, "extraction_off");
+  assert.equal(s.canProduceItems, false);
+  assert.match(s.said, /transcript and nothing selectable/);
+});
+
+test("no model configured is not reported as nothing approved", () => {
+  const s = draftSource({ captureOn: true, extractionOn: true, modelConfigured: false });
+  assert.equal(s.state, "no_model");
+  assert.equal(s.canProduceItems, false);
+  assert.match(s.said, /No model is configured/);
+});
+
+test("the four source states say four different things", () => {
+  const said = [
+    draftSource({ captureOn: true, extractionOn: true, modelConfigured: true }).said,
+    draftSource({ captureOn: false, extractionOn: true, modelConfigured: true }).said,
+    draftSource({ captureOn: true, extractionOn: false, modelConfigured: true }).said,
+    draftSource({ captureOn: true, extractionOn: true, modelConfigured: false }).said,
+  ];
+  assert.equal(new Set(said).size, 4, "two source states share a sentence");
+});
+
+test("the page reports availability and selection as two facts", () => {
+  const page = code("app/clinician/member/[id]/note/page.tsx");
+  assert.match(page, /draftSource\(\{/, "the page does not compute the source state");
+  assert.match(page, /modelConfigured: providerConfigured\(\)/,
+    "the page assumes a model is configured");
+  assert.match(page, /data-testid="draft-source"/);
+  // The selection half stays where it was, in its own panel.
+  assert.match(page, /EMPTY_DRAFT_REASON\[draft\.emptyBecause\]/);
+  assert.doesNotMatch(page, /Approve items on\{" "\}/,
+    "the old one-sentence empty state is still on the page");
 });

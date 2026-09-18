@@ -11,8 +11,9 @@ import { Panel, Callout } from "@/components/app/surfaces";
 import { thoughtsSurfaceAvailable } from "@/lib/clinical/thoughts-flags";
 import { approvedMemory } from "@/lib/clinical/memory-store";
 import {
-  assembleDraft, draftText, SIGNING_IS_ELSEWHERE, EMPTY_DRAFT_REASON,
+  assembleDraft, draftText, SIGNING_IS_ELSEWHERE, EMPTY_DRAFT_REASON, draftSource,
 } from "@/lib/clinical/note-bridge";
+import { providerConfigured } from "@/lib/ai-gateway/provider";
 import { readingFrame } from "@/lib/clock";
 
 export const dynamic = "force-dynamic";
@@ -62,6 +63,15 @@ export default async function MemberNoteDraftPage({
   if (!header) notFound();
 
   const available = thoughtsSurfaceAvailable("CLINICIAN_NOTE_BRIDGE");
+  // WHERE THE ITEMS COME FROM, separately from what has been ticked. With
+  // nothing approved this screen used to say "approve items on Thoughts" — in
+  // three environments that is advice nobody can follow, and a clinician who
+  // goes and finds no way to approve anything concludes the product is broken.
+  const source = draftSource({
+    captureOn: thoughtsSurfaceAvailable("CLINICIAN_THOUGHTS_CAPTURE"),
+    extractionOn: thoughtsSurfaceAvailable("CLINICIAN_THOUGHTS_EXTRACTION"),
+    modelConfigured: providerConfigured(),
+  });
   const ctx: TenantContext = { tenantId, personId: clinician.id };
   const approved = available ? await approvedMemory(ctx, id) : [];
 
@@ -108,11 +118,20 @@ export default async function MemberNoteDraftPage({
             footnote="Approved items only. An item is approved when a clinician confirmed the extraction was right, and nothing that has not been through that reaches a note."
           >
             {approved.length === 0 ? (
-              <p className="measure text-sm text-olive">
-                Nothing has been approved for this person yet. Approve items on{" "}
-                <Link href={`/clinician/member/${id}/thoughts`} className="underline">Thoughts</Link>{" "}
-                and they become selectable here.
-              </p>
+              <div data-testid="draft-source">
+                <p className="measure text-sm text-olive">
+                  Nothing has been approved for this person yet.
+                </p>
+                {/* The source state, which is a different fact from the
+                    selection state and was previously folded into it. */}
+                <p className="measure mt-1 text-sm text-olive">{source.said}</p>
+                {source.next && (
+                  <p className="measure mt-1 text-sm text-olive">
+                    <Link href={`/clinician/member/${id}/thoughts`} className="underline">Thoughts</Link>
+                    {" — "}{source.next}
+                  </p>
+                )}
+              </div>
             ) : (
               <form method="GET" className="space-y-3">
                 <ul className="space-y-2">

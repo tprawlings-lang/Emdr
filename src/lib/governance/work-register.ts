@@ -241,6 +241,16 @@ export const WORK_REGISTER: WorkEntry[] = [
     note: "The house measure was drawn inside a figure titled 'Validated measures over time' while carrying a panel note saying it had no validation to borrow — the panel disclaiming the authority its own frame granted it. Two figures now, on one shared window so the dates still line up. Missingness is the end gap only: the panel already prints the count and the first and latest reading, and the first version of the coverage list repeated all of it, which was obvious on the rendered screen and invisible in the source. What no panel can show is the distance from the last reading to today — a series that stopped in March and one that stopped last week are drawn identically from their own edge.",
   },
   {
+    id: "clinical.draft-note-source-availability",
+    title: "The note draft says where items come from, separately from what was ticked",
+    // 17 September handoff, P4: "Draft note — model source availability and
+    // user selection separately. Empty copy states the actual cause."
+    state: "reachable",
+    code: "src/lib/clinical/note-bridge.ts#draftSource",
+    test: "tests/note-bridge.test.ts",
+    note: "The selection half landed with UX 006: the assembler computes whether nothing existed, nothing was ticked, or everything ticked was refused, because one sentence for all three was false in two of them. The SOURCE half was still one sentence — with nothing approved the screen said \"approve items on Thoughts and they become selectable here\", which is advice nobody can follow in three environments. With capture off there is nothing to record; with extraction off a recording produces a transcript and no candidate items; with no model configured neither runs. In each of those a clinician goes to Thoughts, finds no way to approve anything, and concludes the product is broken — when what is true is that this deployment does not have the source switched on. The four states say four different things, and only the working one offers a next step.",
+  },
+  {
     id: "clinical.plan-review-beside-the-plan",
     title: "The care plan carries the one review action it permits, bound to the version on screen",
     // 17 September handoff, P4: "Care plan — place the permitted review action
