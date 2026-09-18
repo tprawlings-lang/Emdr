@@ -16,6 +16,7 @@ import {
 } from "@/lib/clinical/recovery-trajectory";
 import { REVIEW_LABEL } from "@/lib/clinical/recovery-trajectory";
 import type { TenantContext } from "@/lib/repository";
+import { readingFrame } from "@/lib/clock";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Recovery trajectory — Steady" };
@@ -68,7 +69,11 @@ export default async function MemberTrajectoryPage({
   // every render would turn the snapshot table into a log of page views, each
   // row with a slightly different cutoff, and §13's "reproducible from
   // evidence, cutoff, and policy version" would become true but useless.
-  const set = await computeTrajectory(ctx, id);
+  // Cut off at the reading frame, not at the wall clock. Every other age on a
+  // clinician screen moves with the demo clock, and this one did not — so the
+  // Course landing, which counts these same domains, could disagree with the
+  // page it links to for no reason a reader could see.
+  const set = await computeTrajectory(ctx, id, { asOf: (await readingFrame()).now.toISOString() });
   const reviews = await reviewsForPerson(ctx, id);
   const reviewBySnapshot = new Map(reviews.map((r) => [r.snapshotId, r]));
 

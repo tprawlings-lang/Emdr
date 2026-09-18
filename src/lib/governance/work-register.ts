@@ -241,6 +241,16 @@ export const WORK_REGISTER: WorkEntry[] = [
     note: "The house measure was drawn inside a figure titled 'Validated measures over time' while carrying a panel note saying it had no validation to borrow — the panel disclaiming the authority its own frame granted it. Two figures now, on one shared window so the dates still line up. Missingness is the end gap only: the panel already prints the count and the first and latest reading, and the first version of the coverage list repeated all of it, which was obvious on the rendered screen and invisible in the source. What no panel can show is the distance from the last reading to today — a series that stopped in March and one that stopped last week are drawn identically from their own edge.",
   },
   {
+    id: "clinical.course-landing-reports-the-record",
+    title: "The Course landing says what is in this person's record, not what the four screens are for",
+    // 17 September handoff, P4: "Course — show actual status beside measures,
+    // goals, responses, and trajectory. The landing page informs and links."
+    state: "reachable",
+    code: "src/lib/clinical/course-status.ts#courseReadings",
+    test: "tests/course-status.test.ts",
+    note: "It linked and it did not inform: each link carried a description of the destination screen, identical for every person on the caseload, so the only way to find out which was worth opening was to open all four. Each line now carries a count and a date from the same tables the destination reads — instruments and how long since the last one, goals and what is waiting on a decision, exposures and the windows nobody filled in, domains read and domains held. None of them reports a direction or a state: a landing that summarised the findings would be the composite the four separate screens exist to refuse, assembled one line at a time. Absence is a sentence rather than a zero, because \"0 goals\" and \"no goal has been set with this person\" read differently to somebody deciding where to spend four minutes.",
+  },
+  {
     id: "clinical.module-request-on-the-record",
     title: "What a person asked to open is readable from their record, beside what was assigned to them",
     // 17 September handoff, P3: "Replace the isolated feel of Module requests

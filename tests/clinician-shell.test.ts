@@ -468,18 +468,21 @@ test("every screen Course absorbed is still reachable and still resolves its lay
   // NOTHING WAS REMOVED. Each of the four still has its address, and
   // `layerFor` still puts a deep link in the right layer — a route the shell
   // does not know renders with the wrong rail item selected.
-  const coursePage = read("src/app/clinician/member/[id]/course/page.tsx");
+  // The list moved out of the page and into `course-status`, which is where the
+  // per-person counts are gathered — the page maps over what that returns, so
+  // the link list and the status that sits under it cannot drift apart.
+  const courseSections = read("src/lib/clinical/course-status.ts");
   for (const slug of COURSE_SECTIONS) {
     assert.ok(
       fs.existsSync(path.join(root, `src/app/clinician/member/[id]${slug}/page.tsx`)),
       `${slug} no longer exists`
     );
-    assert.ok(coursePage.includes(`"${slug}"`), `Course does not link to ${slug}`);
+    assert.ok(courseSections.includes(`"${slug}"`), `Course does not link to ${slug}`);
     assert.equal(layerFor(slug), "progress", `${slug} resolves to the wrong layer`);
   }
   // And each link says what the reader will find, which is what the extra room
   // was for.
-  const notes = [...coursePage.matchAll(/note:\s*\n?\s*"([^"]+)"/g)].map((m) => m[1]);
+  const notes = [...courseSections.matchAll(/note:\s*\n?\s*"([^"]+)"/g)].map((m) => m[1]);
   assert.equal(notes.length, COURSE_SECTIONS.length, "a Course section has no description");
   for (const n of notes) assert.ok(n.length > 30, `a thin description: "${n}"`);
 });

@@ -38,6 +38,7 @@ import { careActionsForPerson } from "@/lib/clinical/attention-signals";
 import { newestEvidenceFor } from "@/lib/clinical/person-evidence";
 import { reviewsWithCurrency, type ReviewWithCurrency } from "@/lib/clinical/review-currency";
 import { ReviewLedger } from "@/components/clinical/ReviewLedger";
+import { readingFrame } from "@/lib/clock";
 
 // Person overview (GUI and Decision-Surface Handoff §10.4).
 //
@@ -155,7 +156,7 @@ export default async function PersonOverviewPage({
   let trajectorySentence: string | null = null;
   let trajectoryPolicyVersion = "";
   try {
-    const set = await computeTrajectory(ctx, id);
+    const set = await computeTrajectory(ctx, id, { asOf: (await readingFrame()).now.toISOString() });
     trajectorySentence = trajectoryLine(set);
     trajectoryPolicyVersion = set.policyVersion;
     trajectoryRows = set.snapshots

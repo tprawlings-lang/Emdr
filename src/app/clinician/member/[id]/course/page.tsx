@@ -7,6 +7,9 @@ import { audit } from "@/lib/audit";
 import { loadPersonHeader } from "@/lib/clinical/person-header";
 import { PersonShell } from "@/components/clinical/PersonShell";
 import { Panel } from "@/components/app/surfaces";
+import { readingFrame } from "@/lib/clock";
+import { courseReadings } from "@/lib/clinical/course-status";
+import type { TenantContext } from "@/lib/repository";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Course — Steady Clinical" };
@@ -39,28 +42,16 @@ export const metadata = { title: "Course — Steady Clinical" };
 // their scores say; responses third because it explains what has followed the
 // work; trajectory last because it is the layer above the other three.
 
-const SECTIONS: Array<{ slug: string; label: string; note: string }> = [
-  {
-    slug: "/measures",
-    label: "Measures",
-    note: "The scored instruments over time, each on its own validated scale.",
-  },
-  {
-    slug: "/goals",
-    label: "Life goals",
-    note: "What this person is trying to get back to, and whether it is moving.",
-  },
-  {
-    slug: "/responses",
-    label: "Observed responses",
-    note: "What they have been exposed to and what was observed after it, window by window.",
-  },
-  {
-    slug: "/trajectory",
-    label: "Recovery trajectory",
-    note: "Whether the course has changed, domain by domain, against their own earlier windows.",
-  },
-];
+// AND EACH LINK NOW CARRIES THIS PERSON'S STATUS, not only the screen's
+// description. The 17 September handoff's P4 entry for Course is "show actual
+// status beside measures, goals, responses, and trajectory. The landing page
+// informs and links." It linked; it did not inform. The four sentences it
+// carried described the four screens, identically for everybody on the
+// caseload, so the only way to find out which was worth opening was to open all
+// four. The counts and dates come from `courseReadings`, which reads the same
+// tables the destinations read — and says nothing about what the readings mean,
+// because that is exactly the composite the four separate screens exist to
+// refuse.
 
 export default async function MemberCoursePage({
   params,
@@ -78,10 +69,14 @@ export default async function MemberCoursePage({
   const header = await loadPersonHeader({ personId: id, clinicianId: clinician.id, tenantId });
   if (!header) notFound();
 
+  const ctx: TenantContext = { tenantId, personId: clinician.id };
+  const asOf = (await readingFrame()).now.toISOString();
+  const sections = await courseReadings(ctx, id, { asOf });
+
   await audit({
     actorId: clinician.id, actorRole: "clinician", family: "clinical",
     type: "person_course_opened", target: id,
-    detail: { sections: SECTIONS.length },
+    detail: { sections: sections.length, withRecord: sections.filter((s) => s.recorded).length },
   });
 
   return (
@@ -96,7 +91,7 @@ export default async function MemberCoursePage({
           and a page that reconciled them would have to pick a winner.
         </p>
         <ul className="mt-4 space-y-2">
-          {SECTIONS.map((s) => (
+          {sections.map((s) => (
             <li
               key={s.slug}
               data-testid="course-section"
@@ -108,7 +103,16 @@ export default async function MemberCoursePage({
               >
                 {s.label}
               </Link>
-              <p className="measure mt-0.5 text-sm text-olive">{s.note}</p>
+              {/* The record first, the screen second. A clinician deciding
+                  where to look needs what is in there, not what it is for —
+                  and the second line is the same for everybody. */}
+              <p
+                data-testid="course-status"
+                className={`measure mt-0.5 text-sm ${s.recorded ? "text-ground" : "text-olive italic"}`}
+              >
+                {s.said}
+              </p>
+              <p className="measure mt-0.5 text-xs text-olive">{s.note}</p>
             </li>
           ))}
         </ul>

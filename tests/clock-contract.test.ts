@@ -357,6 +357,14 @@ test("the pages that render an age read the frame once and pass it down", () => 
     "src/app/clinician/caseload/page.tsx",
     "src/app/clinician/member/[id]/note/page.tsx",
     "src/app/clinician/member/[id]/thoughts/page.tsx",
+    // The trajectory pair. `computeTrajectory` takes an `asOf` and defaults to
+    // the wall clock when nobody passes one, and these two passed nothing — so
+    // a moved clock changed every other age on the record and left the
+    // trajectory cutoff where it was. The Course landing counts those same
+    // domains from the frame, which is how the disagreement surfaced.
+    "src/app/clinician/member/[id]/trajectory/page.tsx",
+    "src/app/clinician/member/[id]/page.tsx",
+    "src/app/clinician/member/[id]/course/page.tsx",
   ];
   for (const f of PAGES) {
     const src = code(read(f));
