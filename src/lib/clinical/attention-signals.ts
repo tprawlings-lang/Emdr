@@ -63,6 +63,7 @@ import {
   type SignalState, type DismissReason, type CareAction,
   type AttentionSignal, type SignalEvidence, type AttentionSignalCandidate,
 } from "./attention-vocabulary";
+import { REVIEW_CURRENCY_POLICY } from "./review-currency";
 
 // ---------------------------------------------------------------------------
 // Reads
@@ -515,6 +516,18 @@ export async function recordCareAction(
     durationSeconds?: number | null;
     outcomeState?: string | null;
     sourceSurface: string;
+    /**
+     * The newest evidence the reviewer had in front of them, for a completion
+     * that is a review.
+     *
+     * OPTIONAL, AND ABSENCE MEANS ABSENCE. A caller that cannot say what it was
+     * looking at records nothing here rather than passing "now", which would
+     * bind the review to a moment instead of to the evidence and make every
+     * review permanently current.
+     */
+    reviewedEvidenceAt?: string | null;
+    /** Who holds this next. */
+    nextResponsibleParty?: string | null;
   }
 ): Promise<string> {
   if (!(CARE_ACTIONS as readonly string[]).includes(args.action)) {
@@ -536,6 +549,11 @@ export async function recordCareAction(
     duration_seconds: args.durationSeconds ?? null,
     outcome_state: args.outcomeState ?? null,
     source_surface: args.sourceSurface,
+    reviewed_evidence_at: args.reviewedEvidenceAt ?? null,
+    next_responsible_party: args.nextResponsibleParty ?? null,
+    // Stamped only where there is an evidence version to apply it to. A policy
+    // recorded against no evidence would be a rule cited over nothing.
+    review_currency_policy: args.reviewedEvidenceAt ? REVIEW_CURRENCY_POLICY.version : null,
   });
   await appendEventSafe({
     personId: args.personId,
@@ -570,6 +588,8 @@ interface CareRow {
   action_type: string; note: string | null; started_at: string | null;
   completed_at: string; duration_seconds: number | null; outcome_state: string | null;
   source_surface: string; supersedes_id: string | null; correction_reason: string | null;
+  reviewed_evidence_at: string | null; next_responsible_party: string | null;
+  review_currency_policy: string | null;
   created_at: string;
 }
 
@@ -588,6 +608,9 @@ function toCareAction(r: CareRow): CareActionRecord {
     sourceSurface: r.source_surface,
     supersedesId: r.supersedes_id,
     correctionReason: r.correction_reason,
+    reviewedEvidenceAt: r.reviewed_evidence_at ?? null,
+    nextResponsibleParty: r.next_responsible_party ?? null,
+    reviewCurrencyPolicy: r.review_currency_policy ?? null,
     createdAt: r.created_at,
   };
 }

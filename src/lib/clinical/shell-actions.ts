@@ -19,6 +19,7 @@ import {
   resolveCommand, confirmed, rejected, stale, unavailable, indeterminate,
   CommandError, type CommandInput, type CommandResult,
 } from "../experience/command";
+import { newestEvidenceFor } from "./person-evidence";
 
 // The clinician's separated commands (handoff 09 §5, §9; Package 2).
 //
@@ -298,6 +299,11 @@ async function completeReviewWithoutSignal(args: {
     }
   }
 
+  // WHAT THE REVIEWER WAS LOOKING AT, read before the review is written so the
+  // record binds to the evidence that was on screen rather than to whatever
+  // arrives in the same second. A review that records no evidence version is
+  // one nobody can later tell has gone stale.
+  const reviewedEvidenceAt = await newestEvidenceFor(args.ctx, args.personId);
   const recordId = await recordCareAction(args.ctx, {
     personId: args.personId,
     clinicianId: args.clinicianId,
@@ -305,6 +311,10 @@ async function completeReviewWithoutSignal(args: {
     signalId: null,
     note: note || null,
     sourceSurface: "command_center_row",
+    reviewedEvidenceAt,
+    // The reviewer holds it: a caseload row stays until what raised it
+    // changes, and an alert they just closed is theirs to have closed.
+    nextResponsibleParty: args.clinicianId,
   });
   await audit({
     actorId: args.clinicianId, actorRole: "clinician", family: "clinical",
@@ -384,6 +394,7 @@ export async function completeReview(input: CommandInput<{ personId: string; not
     await acknowledgeSignal(ctx, {
       signalId, clinicianId, sourceSurface: "command_center_row",
     });
+    const reviewedEvidenceAt = await newestEvidenceFor(ctx, signal.personId);
     const recordId = await recordCareAction(ctx, {
       personId: signal.personId,
       clinicianId,
@@ -391,6 +402,8 @@ export async function completeReview(input: CommandInput<{ personId: string; not
       signalId,
       note: command.payload.note.trim() || null,
       sourceSurface: "command_center_row",
+      reviewedEvidenceAt,
+      nextResponsibleParty: clinicianId,
     });
     await audit({
       actorId: clinicianId, actorRole: "clinician", family: "clinical",

@@ -229,6 +229,17 @@ export const WORK_REGISTER: WorkEntry[] = [
     note: "An explicit full-list state rather than cursor paging: ?rows=all, same server order, total unchanged, and a way back. The wire between the link and the page is covered end to end, because a unit mutation that made the page ignore the parameter survived every unit test.",
   },
   {
+    id: "clinical.review-currency",
+    title: "A review is bound to the evidence it was made against, and says when the record has moved",
+    // 17 September handoff, completion semantics: "If material evidence
+    // changes later, the interface should identify the earlier review as out
+    // of date under an approved policy."
+    state: "reachable",
+    code: "src/lib/clinical/review-currency.ts#reviewCurrency",
+    test: "tests/review-currency.test.ts",
+    note: "careActionsForPerson had no caller anywhere in the product — reviews were written and never read back — so the rule had nowhere to identify anything. Three states, because a row written before this carries no evidence version and calling it current is a claim nobody checked. Computed on read, so a review that went stale overnight reads as stale on the next screen rather than the next job. A policy version change is deliberately excluded: it would mark every review on a caseload stale on the same morning and train people to dismiss the label.",
+  },
+  {
     id: "experience.evidence-panel-responsive",
     title: "The evidence panel stops squeezing the queue, and gives the keyboard back",
     // UX 011, all three parts measured on the running app before anything was

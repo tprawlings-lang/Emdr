@@ -197,5 +197,19 @@ export interface CareActionRecord {
    *  unexplained rewrite of a care-time record is the thing a ledger exists to
    *  prevent. */
   correctionReason: string | null;
+  /**
+   * The newest evidence the reviewer had in front of them.
+   *
+   * Null on every row written before completion semantics existed, and that is
+   * the honest value: `reviewCurrency` reads an absent version as "unknown"
+   * rather than inventing one and calling the review current.
+   */
+  reviewedEvidenceAt: string | null;
+  /** Who holds this next. "Next responsible party" from the handoff's list —
+   *  a completion that names nobody leaves the person between two people. */
+  nextResponsibleParty: string | null;
+  /** The currency policy in force when this was recorded, so a later reader
+   *  knows which rule decided what "out of date" meant. */
+  reviewCurrencyPolicy: string | null;
   createdAt: string;
 }

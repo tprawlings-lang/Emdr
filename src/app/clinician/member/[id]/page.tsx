@@ -34,6 +34,10 @@ import { WorkQueueRow } from "@/components/clinical/WorkQueueRow";
 import {
   ReviewBadge, EmptyState,
 } from "@/components/clinical/primitives";
+import { careActionsForPerson } from "@/lib/clinical/attention-signals";
+import { newestEvidenceFor } from "@/lib/clinical/person-evidence";
+import { reviewsWithCurrency, type ReviewWithCurrency } from "@/lib/clinical/review-currency";
+import { ReviewLedger } from "@/components/clinical/ReviewLedger";
 
 // Person overview (GUI and Decision-Surface Handoff §10.4).
 //
@@ -107,6 +111,23 @@ export default async function PersonOverviewPage({
   const engagement = await buildEngagement(id, tenantId);
 
   const ctx: TenantContext = { tenantId, personId: clinician.id };
+
+  // Recorded reviews, with whether each still describes the record. The
+  // care-time ledger had no reader anywhere in the product until now, so the
+  // handoff's "identify the earlier review as out of date" had nowhere to
+  // identify anything. Guarded on its own: a person's record must survive one
+  // subsystem being unreadable.
+  let reviews: ReviewWithCurrency[] = [];
+  try {
+    const [records, newestEvidenceAt] = await Promise.all([
+      careActionsForPerson(ctx, id, 5),
+      newestEvidenceFor(ctx, id),
+    ]);
+    reviews = reviewsWithCurrency(records, newestEvidenceAt);
+  } catch (err) {
+    console.error("review ledger failed (non-fatal):", err instanceof Error ? err.name : "unknown");
+  }
+
 
   // The projection deliberately carries no patient-authored text (§12), so the
   // card's titles are read from the store. Two reads rather than widening the
@@ -442,6 +463,8 @@ export default async function PersonOverviewPage({
               </ul>
             )}
           </section>
+
+          <ReviewLedger reviews={reviews} />
 
           {/* ---- Gate review (§9.2) ---- */}
           <section aria-labelledby="gates">

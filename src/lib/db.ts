@@ -1962,6 +1962,20 @@ export const SCHEMA_SQL = `
     source_surface TEXT NOT NULL,
     supersedes_id TEXT REFERENCES between_visit_care_actions(id),
     correction_reason TEXT,
+    -- Completion semantics (17 September handoff). A completion record must
+    -- carry "the actor, reviewed evidence version, action and reason, resulting
+    -- workflow state, next responsible party, and timestamp". The actor, the
+    -- action, the reason and the timestamp were already columns; these are the
+    -- two that were missing, plus the policy the currency rule was applied
+    -- under.
+    --
+    -- NULLABLE, AND THAT IS NOT AN OVERSIGHT. Every row written before this
+    -- existed has no evidence version, and a default would invent one — which
+    -- is precisely the claim reviewCurrency refuses to make. An absent value
+    -- reads as "unknown", never as "current".
+    reviewed_evidence_at TEXT,
+    next_responsible_party TEXT,
+    review_currency_policy TEXT,
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
   );
 
