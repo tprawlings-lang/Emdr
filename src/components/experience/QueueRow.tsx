@@ -99,7 +99,18 @@ export function QueueRow({
             {/* The way into everything §5 moved off the row. A link rather
                 than a button: it works with JavaScript off and can be opened
                 in a new tab, which a clinician comparing two people will do. */}
-            <Link href={panelHref} className="underline underline-offset-2 hover:text-app-ink">
+            <Link
+              // THE CONTROL THE PANEL RETURNS FOCUS TO, and it had no id until
+              // UX 011. The panel asserts that it NAMES an opener — and the
+              // assertion passed on a non-empty string while no element in the
+              // document carried it, so "return focus to the exact originating
+              // control" resolved to nothing and focus landed on <body>. A
+              // contract checked against a string rather than against a control
+              // is a contract nobody is keeping.
+              id={`row-${row.id}`}
+              href={panelHref}
+              className="underline underline-offset-2 hover:text-app-ink"
+            >
               {selected ? "Showing details" : "Why this is here"}
             </Link>
           </div>

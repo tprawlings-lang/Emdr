@@ -5,6 +5,7 @@ import { coverageNote } from "@/lib/experience/role-home";
 import { summary as filterSummary, type ViewState } from "@/lib/experience/view-state";
 import { QueueRow } from "./QueueRow";
 import { QueueEvidencePanel } from "./QueueEvidencePanel";
+import { RestoreFocus } from "./RestoreFocus";
 import { QueueConfirmations } from "./QueueConfirmations";
 import { RowActions } from "./RowActions";
 
@@ -70,7 +71,14 @@ export function ClinicianHomeView({
     // is derived from the same items — a removed row closes the panel too, and
     // an action taken there would vanish the same way.
     <QueueConfirmations>
-    <div className="lg:flex lg:gap-8">
+    {/* SIDE BY SIDE ONLY WHERE BOTH FIT. Measured at 1024px with the panel
+        open, a queue row was 262px wide — the panel takes a fixed 24rem out of
+        the row and the list gets whatever is left. UX 011 reports exactly that:
+        "the evidence drawer compresses queue rows". Below xl the panel becomes
+        the detail view instead, which is the handoff's own small-screen answer:
+        "open a dedicated detail view or accessible sheet instead of squeezing
+        the list." */}
+    <div className="flex flex-col xl:flex-row xl:gap-8">
       <div className="min-w-0 flex-1">
         {/* §3's counts as filters. Never capped — the count is the whole
             bucket, so pressing one opens all of it rather than revealing what
@@ -213,15 +221,26 @@ export function ClinicianHomeView({
         </p>
       </div>
 
-      {/* The panel. An aside on wide screens; it stacks under the queue on
-          narrow ones, which is §5's small-screen answer arriving through the
-          layout rather than through a different component. */}
+      {/* The panel. An aside on wide screens; the detail view below xl.
+          ORDER-FIRST BELOW xl, and this is the half that was actually broken
+          rather than merely tight. Measured on a 390x844 screen, the panel
+          opened at y=3204 — 2,360px below the fold — so a clinician who tapped
+          "why this is here" saw the screen not change at all. Stacking it under
+          the queue put the answer behind the entire list — the previous comment
+          here called stacking "§5's small-screen answer", and it was not one.
+          The container is flex at EVERY width for this reason: `order-first` is
+          a flex property, and on a block container it is silently ignored. The
+          first attempt at this fix set the order and changed nothing, which the
+          measurement caught and reading the class list would not have. */}
       {selected && (
-        <div className="mt-8 lg:mt-0 lg:w-[24rem] lg:shrink-0">
+        <div className="order-first mb-8 xl:order-none xl:mb-0 xl:w-[24rem] xl:shrink-0">
           <QueueEvidencePanel
             row={selected}
             mode="nonmodal"
-            closeHref={hrefFor({ row: null })}
+            // The fragment is the focus-return target, so closing puts the
+            // keyboard back on the control that opened the panel rather than
+            // on <body> at the top of the document.
+            closeHref={`${hrefFor({ row: null })}#row-${selected.id}`}
           >
             <RowActions
               personId={selected.personId}
@@ -235,6 +254,11 @@ export function ClinicianHomeView({
         </div>
       )}
     </div>
+    {/* Keyed on which row is open, so closing the panel re-runs the effect.
+        The first version mounted once with an empty dependency list, and a
+        client-side navigation re-renders without remounting — so focus was
+        still landing on <body> after the fix, exactly as before it. */}
+    <RestoreFocus token={selected?.id ?? "closed"} />
     </QueueConfirmations>
   );
 }

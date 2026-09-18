@@ -229,6 +229,17 @@ export const WORK_REGISTER: WorkEntry[] = [
     note: "An explicit full-list state rather than cursor paging: ?rows=all, same server order, total unchanged, and a way back. The wire between the link and the page is covered end to end, because a unit mutation that made the page ignore the parameter survived every unit test.",
   },
   {
+    id: "experience.evidence-panel-responsive",
+    title: "The evidence panel stops squeezing the queue, and gives the keyboard back",
+    // UX 011, all three parts measured on the running app before anything was
+    // written: 678px rows became 262px at 1024px; the panel opened 2,360px
+    // below the fold on a phone; focus landed on <body> at every width.
+    state: "reachable",
+    code: "src/components/experience/RestoreFocus.tsx#RestoreFocus",
+    test: "tests/queue-evidence-panel.test.tsx",
+    note: "The panel asserted it named a focus-return control and the assertion passed on a non-empty string while no element carried that id. Two later fixes also read correctly and changed nothing: order-first on a container that was only flex at xl, and querySelector on an id containing colons. Each was caught by measuring rather than by reading. Row widths, panel position and focus are now asserted in a browser in tests/e2e/queue-evidence-panel.spec.ts.",
+  },
+  {
     id: "clinical.shared-between-visit-plan",
     title: "One plan, read from the existing domain, rendered two ways from the same evidence",
     // 17 September handoff, P3: "one read model assembled from current
