@@ -241,6 +241,18 @@ export const WORK_REGISTER: WorkEntry[] = [
     note: "The house measure was drawn inside a figure titled 'Validated measures over time' while carrying a panel note saying it had no validation to borrow — the panel disclaiming the authority its own frame granted it. Two figures now, on one shared window so the dates still line up. Missingness is the end gap only: the panel already prints the count and the first and latest reading, and the first version of the coverage list repeated all of it, which was obvious on the rendered screen and invisible in the source. What no panel can show is the distance from the last reading to today — a series that stopped in March and one that stopped last week are drawn identically from their own edge.",
   },
   {
+    id: "buyer.opening-questions",
+    title: "A buyer console opens with the questions it is for, each answer tracing to its denominator",
+    // 17 September handoff, P5: "These pages should begin with decisions and
+    // work, not a collection of charts." Acceptance: "users can answer each
+    // opening question and trace figures to denominator, window, missingness,
+    // and definition."
+    state: "reachable",
+    code: "src/lib/buyer/opening-questions.ts#assertTraceable",
+    test: "tests/opening-questions.test.tsx",
+    note: "The consoles were not wrong; they were unasked. The organization overview already carried a denominator on every figure and a funnel with its largest drop marked, and a reader wanting to know where access is delayed still had to open three charts on three tabs and do the joining. Each answer is a record now — the sentence, the figure with its denominator, and the four things that must be traceable from it — and `assertTraceable` refuses one missing any of them, so a console cannot ship a confident sentence over a number nobody can take apart. A question nobody can answer keeps its place in the same shape, because a console that drops one looks like a console that was never asked it. And the reason comes from the projection: my first version told the reader that no site had enough waiting people to report without identifying them, which is a plausible sentence about small-cell suppression and was wrong — the projection returns partial with demand for four sites and no supply at all, because the scheduling system has no slot record. A console that invents why it cannot answer is worse than one that does not answer, because the invented reason is what somebody acts on.",
+  },
+  {
     id: "governance.evidence-registry",
     title: "Every public claim comes from one governed registry, and an expired one stops rendering",
     // 17 September handoff, P5: "Generate every public claim and count from one

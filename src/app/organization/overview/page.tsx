@@ -3,6 +3,8 @@ import { EnvelopeView } from "@/components/presentation/EnvelopeView";
 import { Note, Panel, WithNote } from "@/components/app/surfaces";
 import { Figure, Funnel, num } from "@/components/charts/aggregate";
 import { buildOrgOverview } from "@/lib/intelligence/organization";
+import { organizationAnswers } from "@/lib/buyer/organization-answers";
+import { OpeningQuestions } from "@/components/app/OpeningQuestions";
 import { resolveOrgTenant } from "@/lib/intelligence/scope";
 
 export const dynamic = "force-dynamic";
@@ -24,6 +26,10 @@ export const metadata = { title: "Operating overview — Steady Intelligence" };
 export default async function OrgOverviewPage() {
   const tenantId = await resolveOrgTenant();
   const envelope = tenantId ? await buildOrgOverview(tenantId) : null;
+  // DECISIONS FIRST, CHARTS SECOND. The three questions that bring somebody to
+  // this console, answered from the projections the charts below are drawn
+  // from — so the summary and the figure underneath it cannot disagree.
+  const answers = tenantId ? await organizationAnswers(tenantId) : [];
 
   return (
     <OrgPage
@@ -41,6 +47,13 @@ export default async function OrgOverviewPage() {
           </p>
         </Panel>
       ) : (
+        <>
+        <div className="mb-6">
+          <OpeningQuestions
+            heading="What this console is for"
+            answers={answers}
+          />
+        </div>
         <EnvelopeView envelope={envelope} title="Operating overview" audience="operations">
           {(o) => (
             <WithNote
@@ -80,6 +93,7 @@ export default async function OrgOverviewPage() {
             </WithNote>
           )}
         </EnvelopeView>
+        </>
       )}
     </OrgPage>
   );

@@ -9,7 +9,7 @@
 import type { VisualBaseline } from "./visual-baseline";
 
 export const VISUAL_BASELINE: VisualBaseline = {
-  "capturedAt": "2026-09-17T23:13:35.680Z",
+  "capturedAt": "2026-09-18T19:12:12.669Z",
   "conditions": "1280x900 with motion frozen, signed in per role, against a production build over the hermetic e2e seed (rm -rf .e2e-data && npm run demo -- reset && npm run start) — the same environment tests/e2e/visual-baseline.spec.ts compares against",
   "screens": [
     {
@@ -316,6 +316,22 @@ export const VISUAL_BASELINE: VisualBaseline = {
         },
         {
           "level": 2,
+          "text": "What this console is for"
+        },
+        {
+          "level": 3,
+          "text": "Where is access delayed?"
+        },
+        {
+          "level": 3,
+          "text": "Where is work accumulating?"
+        },
+        {
+          "level": 3,
+          "text": "Are delivery and safety policies being followed?"
+        },
+        {
+          "level": 2,
           "text": "What changed"
         }
       ],
@@ -338,6 +354,7 @@ export const VISUAL_BASELINE: VisualBaseline = {
         ],
         "text": [
           "oklab(0.336 -0.018 0.007 / 0.8)",
+          "oklab(0.336 -0.018 0.007 / 0.9)",
           "rgb(122, 81, 16)",
           "rgb(138, 67, 53)",
           "rgb(23, 58, 50)",
@@ -350,6 +367,7 @@ export const VISUAL_BASELINE: VisualBaseline = {
         "-1px",
         "2px",
         "4px",
+        "4px 16px",
         "6px",
         "8px 32px",
         "8px",

@@ -86,9 +86,20 @@ export async function capture(): Promise<VisualBaseline> {
 
   return {
     capturedAt: new Date().toISOString(),
+    // THE DEFAULT DESCRIBES THE ONLY CONDITIONS THIS BASELINE IS VALID UNDER.
+    //
+    // It used to fall back to "against <BASE> with seeded demo data", which is
+    // true of a dev server on .data and of the hermetic e2e seed alike — and
+    // only the second is what visual-baseline.spec.ts compares against. A
+    // capture taken against the wrong one drifts on the next run for reasons
+    // nobody can see, and the sentence in the file said nothing that would have
+    // warned them. CONDITIONS still overrides, for a deliberate capture
+    // somewhere else.
     conditions:
       process.env.CONDITIONS
-      || `1280x900, signed in per role, against ${BASE} with seeded demo data`,
+      || "1280x900 with motion frozen, signed in per role, against a production build over the " +
+         "hermetic e2e seed (rm -rf .e2e-data && npm run demo -- reset && npm run start) — the " +
+         "same environment tests/e2e/visual-baseline.spec.ts compares against",
     screens: screens.sort((a, b) => a.route.localeCompare(b.route)),
   };
 }
