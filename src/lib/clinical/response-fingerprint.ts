@@ -237,6 +237,26 @@ export function patternStateFor(
   return "limited_observed_pattern";
 }
 
+/**
+ * The limitation sentence for missing follow-up.
+ *
+ * Exported so a surface can tell WHICH limitation this is without matching on
+ * its words. The responses screen gives missing follow-up a row of its own —
+ * "4 of 6 exposures have a window nobody recorded" is a fact about our
+ * record-keeping, not about the person, and printing it inside the pattern
+ * block made a gap in our record read as part of what we found. Having lifted
+ * it out, the screen has to drop it from the limitations list underneath, and
+ * comparing against this function is how it does that without a regex over
+ * clinical copy.
+ *
+ * It stays in `limitations` because the stored snapshot is the record of what
+ * the summary could not support, and that record should not depend on which
+ * screen is rendering it.
+ */
+export function missingFollowupLimitation(missing: number, support: number): string {
+  return `${missing} of ${support} had a window nobody recorded. That is unknown, not recovered.`;
+}
+
 function limitationsFor(
   args: {
     supportCount: number;
@@ -255,10 +275,7 @@ function limitationsFor(
     );
   }
   if (args.missingFollowupCount > 0) {
-    out.push(
-      `${args.missingFollowupCount} of ${args.supportCount} had a window nobody recorded. ` +
-      `That is unknown, not recovered.`
-    );
+    out.push(missingFollowupLimitation(args.missingFollowupCount, args.supportCount));
   }
   if (!args.hasFunctional) {
     out.push("No life-goal observation fell in the window after any of these, so there is no functional evidence here.");

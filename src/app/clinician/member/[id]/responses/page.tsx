@@ -17,10 +17,13 @@ import {
   syncResponseObservations, observationsForPerson,
 } from "@/lib/clinical/response-observations";
 import {
-  describeObservation, missingWindowsFor, isMixed, isSettling, inWindowOrder,
-  MISSING_WINDOW_LABEL, EVIDENCE_LABEL, WINDOW_LABEL, OUTCOME_LABEL,
+  WINDOW_LABEL, OUTCOME_LABEL,
 } from "@/lib/clinical/response-vocabulary";
-import { computeFingerprints } from "@/lib/clinical/response-fingerprint";
+import { exposureStanding, followUpGap } from "@/lib/clinical/response-standing";
+import { ExposureRow } from "@/components/clinical/ExposureRow";
+import {
+  computeFingerprints, missingFollowupLimitation,
+} from "@/lib/clinical/response-fingerprint";
 import {
   PATTERN_STATE_LABEL, PATTERN_STATE_NOTE, RESPONSE_POLICY,
 } from "@/lib/clinical/response-fingerprint-policy";
@@ -336,16 +339,6 @@ export default async function MemberResponsesPage({
                       </ul>
                     )}
 
-                    {f.limitations.length > 0 && (
-                      <ul className="mt-2 space-y-0.5">
-                        {f.limitations.map((l, n) => (
-                          <li key={n} className="measure text-xs text-olive">
-                            {l}
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-
                     {/* "Every pattern opens evidence." The exposures it was
                         computed from are the list immediately below, and the
                         count says so rather than leaving the reader to assume
@@ -361,26 +354,77 @@ export default async function MemberResponsesPage({
                 );
               })()}
 
-              <ul className="mt-3 space-y-2">
-                {list.slice(0, 12).map((i) => {
-                  const ctxLine = contextLine(i.context);
-                  const dose = doseLine(i.dose);
-                  const obs = obsByInstance.get(i.id) ?? [];
-                  const missing = missingWindowsFor(i, obs);
-                  const mixed = isMixed(obs);
-                  return (
-                    <li key={i.id} className="border-t border-ground/10 pt-2 first:border-0 first:pt-0">
-                      <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
-                        <span className="text-sm text-app-ink">{dayOf(i.occurredAt)}</span>
-                        <span className="text-xs text-olive">
-                          {SOURCE_LABEL[i.sourceType] ?? i.sourceType.replace(/_/g, " ")}
-                        </span>
-                        {dose && <span className="text-xs text-olive">{dose}</span>}
-                        {/* The two controls sit on the SAME line as the date,
-                            not under it. A record this long — a person with
-                            forty exposures is ordinary — becomes unreadable
-                            when every row grows a control stack, and the row's
-                            job is to be scanned. */}
+              {/* WHAT THIS CANNOT SUPPORT, in its own row rather than as the
+                  last bullets inside the tinted block. A caveat printed in the
+                  same box as the finding reads as part of the finding's
+                  texture; printed beside it, it reads as what it is. */}
+              {(() => {
+                const f = fingerprintByDefinition.get(definition!.id);
+                // Below the display threshold nothing was computed, so the
+                // state line above — "2 of the 3 comparable exposures a pattern
+                // needs. Nothing is summarised from this yet." — already is the
+                // whole answer. The stored limitations then talk about the
+                // REPEATED threshold of 5, which sits beside a sentence about
+                // the display threshold of 3 and reads as two different rules
+                // disagreeing about the same two exposures.
+                if (!f || f.patternState === "insufficient_data") return null;
+                const rest = (f?.limitations ?? []).filter(
+                  (l) => l !== missingFollowupLimitation(f!.missingFollowupCount, f!.supportCount)
+                );
+                if (rest.length === 0) return null;
+                return (
+                  <div className="mt-3 border-l-2 border-ground/15 pl-3">
+                    <h3 className="text-xs font-semibold uppercase tracking-wide text-olive">
+                      What this cannot support
+                    </h3>
+                    <ul className="mt-1 space-y-0.5">
+                      {rest.map((l, n) => (
+                        <li key={n} className="measure text-xs text-olive">{l}</li>
+                      ))}
+                    </ul>
+                  </div>
+                );
+              })()}
+
+              {/* FOLLOW-UP OUTSTANDING, ITS OWN ROW, ALWAYS. It used to be a
+                  bullet inside the pattern block, which meant two things: a gap
+                  in our record-keeping read as part of what we had found about
+                  the person, and — because the block only renders above the
+                  display threshold — an intervention with one or two exposures
+                  showed no missingness at all. Those are exactly the ones where
+                  nobody has followed anything up yet. */}
+              {(() => {
+                const gap = followUpGap(list, observations);
+                return (
+                  <div
+                    data-testid="follow-up-gap"
+                    className="mt-3 rounded-xl border border-ground/15 px-4 py-2"
+                  >
+                    <h3 className="text-xs font-semibold uppercase tracking-wide text-olive">
+                      Follow-up
+                    </h3>
+                    <p className={`measure mt-0.5 text-sm ${gap.outstanding ? "text-app-ink" : "text-olive"}`}>
+                      {gap.said}
+                    </p>
+                  </div>
+                );
+              })()}
+
+              <h3 className="mt-4 text-xs font-semibold uppercase tracking-wide text-olive">
+                Every exposure
+              </h3>
+              <ul className="mt-1 space-y-2">
+                {list.slice(0, 12).map((i) => (
+                  <ExposureRow
+                    key={i.id}
+                    date={dayOf(i.occurredAt)}
+                    source={SOURCE_LABEL[i.sourceType] ?? i.sourceType.replace(/_/g, " ")}
+                    dose={doseLine(i.dose)}
+                    context={contextLine(i.context)}
+                    standing={exposureStanding(i, observations)}
+                    observations={obsByInstance.get(i.id) ?? []}
+                    controls={
+                      <>
                         {!i.clinicianConfirmed && (
                           <ConfirmInstance instanceId={i.id} personId={id} />
                         )}
@@ -390,58 +434,47 @@ export default async function MemberResponsesPage({
                           options={options}
                           currentDefinitionId={i.definitionId}
                         />
-                      </div>
-                      {ctxLine && <p className="measure mt-0.5 text-xs text-olive">{ctxLine}</p>}
-
-                      {mixed && (
-                        <p className="mt-1 text-xs font-medium text-app-ink">
-                          Mixed — the windows below did not agree, and they are not combined.
-                        </p>
-                      )}
-
-                      {obs.length > 0 && (
-                        <ul className="mt-1 space-y-0.5">
-                          {inWindowOrder(obs).map((o) => {
-                            const settling = isSettling(o.outcomeType, o.direction);
-                            {/* NOT an arrow. An arrow reads as "the number went
-                                down", and on sleep quality the number going up
-                                is the settled direction — so an arrow would
-                                call a good night a deterioration. The filled
-                                and hollow marks say "toward settled" and "away
-                                from settled", which is what the reader needs
-                                and what the raw reading beside them can be
-                                checked against. */}
-                            return (
-                              <li key={o.id} className="measure text-xs text-ground">
-                                <span aria-hidden className="text-olive">
-                                  {settling === true ? "◆ " : settling === false ? "◇ " : "· "}
-                                </span>
-                                <span className="sr-only">
-                                  {settling === true ? "toward settled: "
-                                    : settling === false ? "away from settled: "
-                                    : "recorded: "}
-                                </span>
-                                {describeObservation(o)}{" "}
-                                <span className="text-olive">({EVIDENCE_LABEL[o.evidenceClass]})</span>
-                              </li>
-                            );
-                          })}
-                        </ul>
-                      )}
-
-                      {missing.length > 0 && (
-                        <p className="measure mt-1 text-xs text-olive">
-                          Not followed up: {missing.map((w) => MISSING_WINDOW_LABEL[w]).join(", ")}.
-                        </p>
-                      )}
-                    </li>
-                  );
-                })}
+                      </>
+                    }
+                  />
+                ))}
               </ul>
+              {/* THE EARLIER ONES ARE REACHABLE. This said "and N earlier — the
+                  count above includes them", which told a reader that records
+                  existed and that they could not see them. They are the same
+                  rows, behind one disclosure. */}
               {list.length > 12 && (
-                <p className="mt-2 text-xs text-olive">
-                  and {list.length - 12} earlier — the count above includes them.
-                </p>
+                <details className="mt-2">
+                  <summary className="cursor-pointer text-xs text-olive underline-offset-2 hover:underline">
+                    {list.length - 12} earlier exposure{list.length - 12 === 1 ? "" : "s"}
+                  </summary>
+                  <ul className="mt-2 space-y-2">
+                    {list.slice(12).map((i) => (
+                      <ExposureRow
+                        key={i.id}
+                        date={dayOf(i.occurredAt)}
+                        source={SOURCE_LABEL[i.sourceType] ?? i.sourceType.replace(/_/g, " ")}
+                        dose={doseLine(i.dose)}
+                        context={contextLine(i.context)}
+                        standing={exposureStanding(i, observations)}
+                        observations={obsByInstance.get(i.id) ?? []}
+                        controls={
+                          <>
+                            {!i.clinicianConfirmed && (
+                              <ConfirmInstance instanceId={i.id} personId={id} />
+                            )}
+                            <RemapInstance
+                              instanceId={i.id}
+                              personId={id}
+                              options={options}
+                              currentDefinitionId={i.definitionId}
+                            />
+                          </>
+                        }
+                      />
+                    ))}
+                  </ul>
+                </details>
               )}
             </Panel>
           ))}

@@ -241,6 +241,17 @@ export const WORK_REGISTER: WorkEntry[] = [
     note: "The house measure was drawn inside a figure titled 'Validated measures over time' while carrying a panel note saying it had no validation to borrow — the panel disclaiming the authority its own frame granted it. Two figures now, on one shared window so the dates still line up. Missingness is the end gap only: the panel already prints the count and the first and latest reading, and the first version of the coverage list repeated all of it, which was obvious on the rendered screen and invisible in the source. What no panel can show is the distance from the last reading to today — a series that stopped in March and one that stopped last week are drawn identically from their own edge.",
   },
   {
+    id: "clinical.response-standing",
+    title: "An exposure says its standing on one line, and missing follow-up is its own row",
+    // 17 September handoff, P4: "Responses — summarize patterns and allow
+    // exposure details to expand. Pattern, evidence, and missing follow-up are
+    // distinct."
+    state: "reachable",
+    code: "src/lib/clinical/response-standing.ts#exposureStanding",
+    test: "tests/response-standing.test.ts",
+    note: "All three were on the screen and none was distinct from the others. Every exposure printed its context, its observations and its missing windows all the time, so a person with forty of them produced several hundred lines of extra-small text in one scroll — and the list stopped at twelve with \"and N earlier — the count above includes them\", a sentence telling the reader that records exist and they cannot see them. The scan line now carries the standing (mixed, followed up, partly, not followed up) and the rest opens; the earlier ones open too. Mixed outranks incomplete, because an exposure that settled someone in the room and left them worse the next day is the finding and not a bookkeeping fact. And missing follow-up moved out of the fingerprint's limitations into its own row, computed from the exposures rather than from the pattern — inside the pattern block it read as part of what we had found about the person, and because that block only renders above the display threshold, an intervention with one or two exposures showed no missingness at all.",
+  },
+  {
     id: "clinical.goal-standing",
     title: "A goal says what the next observable step is, when it was last observed, and when it is next reviewed",
     // 17 September handoff, P4: "Goals — show patient wording, observable
