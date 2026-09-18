@@ -1,5 +1,7 @@
 import Link from "next/link";
-import type { RecentSession } from "@/lib/clinical/recent-session";
+import {
+  READINGS_ARE_NOT_AN_OUTCOME, type RecentSession,
+} from "@/lib/clinical/recent-session";
 
 // The last session, on the overview (17 September handoff, P4).
 //
@@ -33,6 +35,7 @@ export function RecentSessionCard({
         <>
           <p className="measure mt-3 text-sm text-app-ink">{session.said}</p>
           <p className="measure mt-1 text-sm text-olive">{session.readings}</p>
+          <p className="measure mt-0.5 text-xs text-olive">{READINGS_ARE_NOT_AN_OUTCOME}</p>
           {session.outstanding && (
             // The one thing on this card that is work rather than history, so
             // it is marked as work rather than as another grey line.

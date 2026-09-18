@@ -113,8 +113,20 @@ export function describeReadings(row: {
     return `Closed at ${row.postSuds}. No opening reading, so the change across it is unknown.`;
   }
   const peak = row.peakSuds !== null ? `, peaking at ${row.peakSuds}` : "";
-  return `${row.preSuds} at the start, ${row.postSuds} at the end${peak}. The reading, not an outcome.`;
+  return `${row.preSuds} at the start, ${row.postSuds} at the end${peak}.`;
 }
+
+/**
+ * What a pair of readings is not, said once per screen.
+ *
+ * It used to be the last clause of every readings line. On a card showing one
+ * session that is right; on a list of twenty it printed twenty times, which is
+ * the duplication that teaches a reader to stop seeing the sentence — and this
+ * is a sentence worth seeing. A surface prints it once, near its heading.
+ */
+export const READINGS_ARE_NOT_AN_OUTCOME =
+  "A reading at each end is a reading, not an outcome. Distress rising across a session does not " +
+  "make it a session that went badly.";
 
 export function outstandingOn(row: {
   standing: SessionStanding; hardStopReason: string | null;

@@ -5,6 +5,7 @@ import path from "node:path";
 import { renderToStaticMarkup } from "react-dom/server";
 import {
   standingOf, describeSession, describeReadings, outstandingOn, STANDING_LABEL,
+  READINGS_ARE_NOT_AN_OUTCOME,
 } from "../src/lib/clinical/recent-session";
 import { RecentSessionCard } from "../src/components/clinical/RecentSessionCard";
 
@@ -83,11 +84,28 @@ test("a missing close reading is named as unknown, not as no change", () => {
   assert.doesNotMatch(said.toLowerCase(), /no change|unchanged|settled/);
 });
 
-test("both readings are given as a reading, not as an outcome", () => {
+test("both readings are given, and the line does not judge them", () => {
   const said = describeReadings({ preSuds: 7, postSuds: 3, peakSuds: 8 });
   assert.match(said, /7 at the start, 3 at the end, peaking at 8/);
-  assert.match(said, /The reading, not an outcome/);
   assert.doesNotMatch(said.toLowerCase(), /improv|better|worse|good/);
+});
+
+test("the caveat is a constant a surface prints once, not a clause on every row", () => {
+  // It used to be the last clause of every readings line. On a card showing one
+  // session that is right; on a list of twenty it printed twenty times, which
+  // is how a sentence worth reading becomes one nobody sees.
+  assert.doesNotMatch(
+    describeReadings({ preSuds: 7, postSuds: 3, peakSuds: 8 }),
+    /not an outcome/,
+    "the caveat is back inside the per-row line",
+  );
+  assert.match(READINGS_ARE_NOT_AN_OUTCOME, /not an outcome/);
+  const list = code(read("src/app/clinician/member/[id]/sessions/page.tsx"));
+  assert.equal((list.match(/READINGS_ARE_NOT_AN_OUTCOME/g) ?? []).length, 2,
+    "the sessions list prints the caveat other than once (import plus one use)");
+  const card = code(read("src/components/clinical/RecentSessionCard.tsx"));
+  assert.match(card, /READINGS_ARE_NOT_AN_OUTCOME/,
+    "the overview card dropped the caveat when it left the line");
 });
 
 // ---------------------------------------------------------------------------

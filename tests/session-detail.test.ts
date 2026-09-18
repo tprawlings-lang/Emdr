@@ -179,3 +179,41 @@ test("a thought's words are not reprinted on this screen", () => {
   assert.doesNotMatch(page, /currentTranscript|transcript\.text/,
     "the session screen reprints a thought's transcript");
 });
+
+
+// ---------------------------------------------------------------------------
+// The list above it (17 September handoff, P4: "Sessions — show concise status
+// and outcome context. Session detail opens without losing patient context.")
+// ---------------------------------------------------------------------------
+
+test("the sessions list carries the outcome, not only the status", () => {
+  // A status column says whether the session finished and nothing about what
+  // was recorded across it: a session that ran to the end with no close reading
+  // looked exactly like one that closed on a number.
+  const page = code(read("src/app/clinician/member/[id]/sessions/page.tsx"));
+  assert.match(page, /data-testid="session-readings"/,
+    "a row says whether the session finished and nothing about the readings");
+  assert.match(page, /data-testid="session-outstanding"/);
+  assert.match(page, /pre_suds, post_suds, peak_suds/,
+    "the list does not load the readings it would need");
+});
+
+test("the list, the detail and the overview describe a session with one set of words", () => {
+  // Three surfaces, one vocabulary. Two of them wording "no close reading"
+  // differently is how a clinician comes to believe they are different facts.
+  const page = code(read("src/app/clinician/member/[id]/sessions/page.tsx"));
+  for (const fn of ["standingOf", "describeReadings", "outstandingOn"]) {
+    assert.ok(page.includes(fn), `the sessions list rolls its own ${fn}`);
+  }
+  assert.match(page, /from "@\/lib\/clinical\/recent-session"/);
+});
+
+test("opening a session keeps the patient around it", () => {
+  // "Session detail opens without losing patient context." The detail page
+  // renders inside the person shell, which carries the header, the restriction
+  // and the local navigation.
+  const detail = code(read("src/app/clinician/member/[id]/session/[sid]/page.tsx"));
+  assert.match(detail, /<PersonShell person=\{person\}/);
+  assert.match(detail, /active="\/sessions"/,
+    "the session detail does not mark Sessions as the section it is in");
+});

@@ -283,14 +283,14 @@ export const WORK_REGISTER: WorkEntry[] = [
   },
   {
     id: "clinical.overview-goals-and-last-session",
-    title: "The person overview answers goals and the last session, not only changes and work",
+    title: "The person overview answers goals and the last session, and the sessions list carries the outcome",
     // 17 September handoff, P4: "Patient overview — summarize changes,
     // restrictions, work, goals, and recent session. Next work is clear
     // without opening many pages."
     state: "reachable",
     code: "src/lib/clinical/recent-session.ts#recentSession",
     test: "tests/recent-session.test.tsx",
-    note: "Four of the five were on it. The goals card was gated on having goals, so a person with none got no goals section at all — which reads as \"this product does not track goals\" rather than \"nobody has set one\", and the card's empty state, which offers to add one, had never been reachable. The last session was on no card: the engagement strip counts session DAYS (\"0 carry a session\"), a different fact that reads as the same one on a page where every other panel covers three weeks. The card names the module, how long ago, and how it ended — a stop is \"stopped early\" with its reason, never \"incomplete\", because a session that ended when somebody decided to end it is the safety system working. A missing close reading is unknown rather than no change, and a session with no readings at all is not 0 to 0.",
+    note: "Four of the five were on it. The goals card was gated on having goals, so a person with none got no goals section at all — which reads as \"this product does not track goals\" rather than \"nobody has set one\", and the card's empty state, which offers to add one, had never been reachable. The last session was on no card: the engagement strip counts session DAYS (\"0 carry a session\"), a different fact that reads as the same one on a page where every other panel covers three weeks. The card names the module, how long ago, and how it ended — a stop is \"stopped early\" with its reason, never \"incomplete\", because a session that ended when somebody decided to end it is the safety system working. A missing close reading is unknown rather than no change, and a session with no readings at all is not 0 to 0. The same three functions now describe a session on the list, the detail and the card, so the three cannot word the same fact differently — and the caveat about what a pair of readings is not moved out of the per-row line into a constant a surface prints once, because twenty copies down a list is how a sentence worth reading becomes one nobody sees.",
   },
   {
     id: "clinical.note-signing-confirmed",

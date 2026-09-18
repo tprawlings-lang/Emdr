@@ -3,6 +3,9 @@ import { notFound } from "next/navigation";
 import { requireClinician } from "@/lib/auth";
 import { data } from "@/lib/data";
 import { getModule } from "@/lib/modules";
+import {
+  standingOf, describeReadings, outstandingOn, READINGS_ARE_NOT_AN_OUTCOME,
+} from "@/lib/clinical/recent-session";
 import { loadPersonHeader } from "@/lib/clinical/person-header";
 import { PersonShell } from "@/components/clinical/PersonShell";
 import { EmptyState, relativeAge } from "@/components/clinical/primitives";
@@ -43,11 +46,13 @@ export default async function SessionsPage({ params }: { params: Promise<{ id: s
   if (!person) notFound();
 
   const rows = (await c.all(
-    `SELECT id, module_id, status, hard_stop_reason, started_at, ended_at
+    `SELECT id, module_id, status, pre_suds, post_suds, peak_suds, hard_stop_reason,
+            started_at, ended_at
        FROM therapy_sessions WHERE user_id = ? ORDER BY started_at DESC LIMIT 50`,
     [id]
   )) as Array<{
     id: string; module_id: string; status: string;
+    pre_suds: number | null; post_suds: number | null; peak_suds: number | null;
     hard_stop_reason: string | null; started_at: string; ended_at: string | null;
   }>;
 
@@ -60,6 +65,12 @@ export default async function SessionsPage({ params }: { params: Promise<{ id: s
       <h2 className="type-display text-xl font-medium text-ground">
         Sessions <span className="text-base font-normal text-olive">({rows.length})</span>
       </h2>
+      {/* ONCE, HERE. Every row carries its readings; the caveat about what they
+          are not belongs to the list, and printing it on twenty rows is how a
+          sentence worth reading becomes one nobody sees. */}
+      {rows.length > 0 && (
+        <p className="measure mt-1 text-xs text-olive">{READINGS_ARE_NOT_AN_OUTCOME}</p>
+      )}
 
       {response && (
         <section className="mb-8 rounded-2xl border border-ground/10 bg-app-surface px-5 py-5">
@@ -92,6 +103,19 @@ export default async function SessionsPage({ params }: { params: Promise<{ id: s
         <ul className="mt-4 overflow-hidden rounded-3xl border border-ground/10 bg-linen">
           {rows.map((r) => {
             const s = STATUS[r.status] ?? { label: r.status, cls: "text-olive" };
+            // THE OUTCOME CONTEXT, from the same functions the session detail
+            // and the overview card use. A status column alone says whether the
+            // session finished and nothing about what was recorded across it —
+            // and a row that ran to the end with no close reading looked
+            // exactly like one that closed on a number.
+            const standing = standingOf(r.status, r.ended_at);
+            const readings = describeReadings({
+              preSuds: r.pre_suds, postSuds: r.post_suds, peakSuds: r.peak_suds,
+            });
+            const outstanding = outstandingOn({
+              standing, hardStopReason: r.hard_stop_reason,
+              preSuds: r.pre_suds, postSuds: r.post_suds,
+            });
             return (
               <li key={r.id} className="border-b border-ground/10 last:border-b-0">
                 <Link
@@ -105,13 +129,20 @@ export default async function SessionsPage({ params }: { params: Promise<{ id: s
                     <p className="text-xs text-olive">
                       {relativeAge(r.started_at, person.now)} ago · {r.started_at.slice(0, 16)}
                     </p>
+                    <p className="measure mt-0.5 text-xs text-olive" data-testid="session-readings">
+                      {readings}
+                    </p>
                   </div>
                   <div className="text-right">
                     <p className={`text-sm ${s.cls}`}>{s.label}</p>
                     {/* The reason, not just the label. "Hard stop" tells a
-                        clinician that a rule fired; the reason tells them which. */}
-                    {r.hard_stop_reason && (
-                      <p className="text-xs text-olive">{r.hard_stop_reason}</p>
+                        clinician that a rule fired; the reason tells them which.
+                        `outstanding` carries it, along with the other things a
+                        status label cannot say. */}
+                    {outstanding && (
+                      <p className="measure text-xs text-app-ink" data-testid="session-outstanding">
+                        {outstanding}
+                      </p>
                     )}
                   </div>
                 </Link>
