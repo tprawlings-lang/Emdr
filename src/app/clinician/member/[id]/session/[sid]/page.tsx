@@ -11,6 +11,13 @@ import { ThoughtsWorkspace } from "@/components/clinical/ThoughtsWorkspace";
 import { thoughtsSurfaceAvailable } from "@/lib/clinical/thoughts-flags";
 import { loadThoughtForReview } from "@/lib/clinical/thought-review-load";
 import { sessionDay, sessionHeading } from "@/lib/clinical/session-label";
+import {
+  sessionEvents, sequenceGaps, SOURCE_LABEL,
+  type PostSessionCheck,
+} from "@/lib/clinical/session-detail";
+import { listThoughts } from "@/lib/clinical/thought-store";
+import { THOUGHT_STATUS_LABEL } from "@/lib/clinical/thoughts";
+import type { TenantContext } from "@/lib/repository";
 
 export const dynamic = "force-dynamic";
 
@@ -54,27 +61,44 @@ export default async function SessionDetailPage({
   } | undefined;
   if (!s) notFound();
 
-  // The sequence, assembled from what is on the row. Each entry is a fact with
-  // a time; nothing is inferred to fill a gap.
-  const sequence: Array<{ at: string; text: string }> = [
-    { at: s.started_at, text: `Session started — ${getModule(s.module_id)?.name ?? s.module_id}` },
-  ];
-  if (s.pre_suds !== null) {
-    sequence.push({ at: s.started_at, text: `Distress before: ${s.pre_suds} of 10` });
-  }
-  if (s.peak_suds !== null) {
-    sequence.push({ at: s.started_at, text: `Highest during the session: ${s.peak_suds} of 10` });
-  }
-  if (s.hard_stop_reason) {
-    sequence.push({
-      at: s.ended_at ?? s.started_at,
-      text: `Fixed rule ended the session — ${s.hard_stop_reason}. No model made or cleared this.`,
-    });
-  }
-  if (s.post_suds !== null) {
-    sequence.push({ at: s.ended_at ?? s.started_at, text: `Distress after: ${s.post_suds} of 10` });
-  }
-  if (s.ended_at) sequence.push({ at: s.ended_at, text: "Session ended" });
+  // The checks written after it. A separate row with its own timestamp, and on
+  // a screen called Session response arguably the response — it was not on this
+  // page at all.
+  const checkRows = (await c.all(
+    `SELECT id, distress, oriented, safe_tonight, delayed_risk, recovery_confirmed,
+            escalated, created_at
+       FROM post_session_checks WHERE session_id = ? AND user_id = ?
+      ORDER BY created_at ASC`,
+    [sid, id]
+  )) as Array<{
+    id: string; distress: number; oriented: number; safe_tonight: number;
+    delayed_risk: number; recovery_confirmed: number; escalated: number; created_at: string;
+  }>;
+  const checks: PostSessionCheck[] = checkRows.map((r) => ({
+    id: r.id, distress: r.distress,
+    oriented: r.oriented === 1, safeTonight: r.safe_tonight === 1,
+    delayedRisk: r.delayed_risk, recoveryConfirmed: r.recovery_confirmed === 1,
+    escalated: r.escalated === 1, createdAt: r.created_at,
+  }));
+
+  const row = {
+    id: s.id, moduleId: s.module_id,
+    moduleName: getModule(s.module_id)?.name ?? s.module_id,
+    status: s.status,
+    preSuds: s.pre_suds, postSuds: s.post_suds, peakSuds: s.peak_suds,
+    hardStopReason: s.hard_stop_reason,
+    startedAt: s.started_at, endedAt: s.ended_at,
+  };
+  const sequence = sessionEvents(row, checks);
+  const gaps = sequenceGaps(row, checks);
+
+  // The notes already recorded against THIS session. The page offered a
+  // recorder and then linked to "all notes for <person>", which is the hunt
+  // through the record the handoff asks this screen to end: a clinician could
+  // attach a note here and had no way to see the ones already attached.
+  const ctx: TenantContext = { tenantId, personId: clinician.id };
+  const attached = (await listThoughts(ctx, id).catch(() => []))
+    .filter((t) => t.sourceSessionId === s.id);
 
   const delta = s.pre_suds !== null && s.post_suds !== null ? s.post_suds - s.pre_suds : null;
 
@@ -140,11 +164,63 @@ export default async function SessionDetailPage({
         <ol className="mt-3 space-y-2">
           {sequence.map((e, i) => (
             <li key={i} className="flex gap-3 rounded-2xl border border-ground/10 bg-linen px-4 py-2.5">
-              <span className="shrink-0 font-mono text-xs text-olive">{e.at.slice(11, 16)}</span>
-              <span className="text-sm text-ground/90">{e.text}</span>
+              {/* A TIME OR AN HONEST DASH. Three of these lines have no
+                  recorded time of their own and used to borrow the session's,
+                  so a reader counting down this column saw the highest reading
+                  happening in the first minute. */}
+              <span className="shrink-0 font-mono text-xs text-olive" data-testid="event-time">
+                {e.at ? e.at.slice(11, 16) : "—"}
+              </span>
+              <span className="text-sm text-ground/90">
+                {e.text}{" "}
+                <span className="text-xs text-olive" data-testid="event-source">
+                  ({SOURCE_LABEL[e.source]})
+                </span>
+              </span>
             </li>
           ))}
         </ol>
+        {gaps.length > 0 && (
+          <ul className="mt-3 space-y-1">
+            {gaps.map((g, i) => (
+              <li key={i} className="measure text-xs text-olive">{g}</li>
+            ))}
+          </ul>
+        )}
+      </section>
+
+      <section aria-labelledby="attached" className="mt-6">
+        <h3 id="attached" className="text-xs font-semibold uppercase tracking-wide text-olive">
+          Notes attached to this session
+        </h3>
+        {attached.length === 0 ? (
+          <p className="measure mt-2 text-sm text-olive">
+            Nothing has been recorded against this session yet. A note written below will name it.
+          </p>
+        ) : (
+          <ul className="mt-2 space-y-2" data-testid="attached-notes">
+            {attached.map((t) => (
+              <li key={t.id} className="rounded-2xl border border-ground/10 bg-linen px-4 py-2.5">
+                <div className="flex flex-wrap items-baseline gap-x-2">
+                  <span className="text-sm text-ground/90">
+                    {THOUGHT_STATUS_LABEL[t.status] ?? t.status}
+                  </span>
+                  <span className="text-xs text-olive">recorded {t.recordedAt.slice(0, 10)}</span>
+                </div>
+                {/* The words are NOT shown here. A thought's transcript is
+                    stored encrypted and read through the workspace that can
+                    show its versions and corrections; printing it flat on
+                    another screen would be a second, quieter copy of clinical
+                    text with none of that around it. */}
+                <p className="mt-1 text-xs">
+                  <Link href={`/clinician/member/${id}/thoughts`} className="text-state-info underline">
+                    Open it in the notes workspace
+                  </Link>
+                </p>
+              </li>
+            ))}
+          </ul>
+        )}
       </section>
 
       {notesAvailable && (

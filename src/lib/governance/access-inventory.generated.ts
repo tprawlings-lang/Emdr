@@ -1625,6 +1625,7 @@ export const ACCESS_INVENTORY: AccessInventory = {
         ],
         "3": [
           "tenant_id = ?",
+          "repo(ctx)",
           "loadPersonHeader("
         ],
         "4": [

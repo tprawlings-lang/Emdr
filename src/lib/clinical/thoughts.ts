@@ -53,6 +53,23 @@ export type ThoughtStatus =
   /** Nothing usable was produced. Terminal. */
   | "failed";
 
+/**
+ * What each status is called on screen.
+ *
+ * ONE MAP, because the states are a private vocabulary — "review_transcript_only"
+ * is precise and is not a sentence — and two surfaces naming them differently
+ * is how a clinician comes to believe there are more states than there are.
+ */
+export const THOUGHT_STATUS_LABEL: Record<ThoughtStatus, string> = {
+  capturing: "Being recorded",
+  processing: "Being written up",
+  review: "Waiting for your review",
+  review_transcript_only: "Waiting for your review — transcript only",
+  saved: "Saved",
+  discarded: "Discarded",
+  failed: "Nothing usable was produced",
+};
+
 /** What happened, in the vocabulary the transitions are written in. */
 export type ThoughtEvent =
   | "done"                 // the clinician stopped recording

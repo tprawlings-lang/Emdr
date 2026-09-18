@@ -241,6 +241,16 @@ export const WORK_REGISTER: WorkEntry[] = [
     note: "The house measure was drawn inside a figure titled 'Validated measures over time' while carrying a panel note saying it had no validation to borrow — the panel disclaiming the authority its own frame granted it. Two figures now, on one shared window so the dates still line up. Missingness is the end gap only: the panel already prints the count and the first and latest reading, and the first version of the coverage list repeated all of it, which was obvious on the rendered screen and invisible in the source. What no panel can show is the distance from the last reading to today — a series that stopped in March and one that stopped last week are drawn identically from their own edge.",
   },
   {
+    id: "clinical.session-sequence-provenance",
+    title: "A session's events carry the time they happened and the record they came from",
+    // 17 September handoff, P4: "Session detail — order events and connect
+    // notes to their sources. Timeline and provenance are understandable."
+    state: "reachable",
+    code: "src/lib/clinical/session-detail.ts#sessionEvents",
+    test: "tests/session-detail.test.ts",
+    note: "Three of the sequence's lines had no recorded time of their own and borrowed the session's start, rendered in a monospace clock column beside lines that really did happen then — so a reader counting down that column saw the highest reading occurring in the first minute. They are undated now, and the gap is stated rather than filled. The check written after the session was not on the page at all, though it is a separate row with a real timestamp and, on a screen called Session response, arguably the response. And every line names its source: a reading somebody typed, a check written hours later and a fixed safety rule are three kinds of fact that read identically as sentences. The notes already attached to this session are listed on it — the page offered a recorder and then linked to \"all notes for this person\", which is the hunt through the record this screen exists to end.",
+  },
+  {
     id: "clinical.overview-goals-and-last-session",
     title: "The person overview answers goals and the last session, not only changes and work",
     // 17 September handoff, P4: "Patient overview — summarize changes,
