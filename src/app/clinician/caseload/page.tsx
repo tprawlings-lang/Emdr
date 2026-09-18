@@ -87,12 +87,27 @@ export default async function ClinicalConsole({
         .
       </p>
 
-      {/* Handoff §2: a screen resembling a live service must never imply approval. */}
-      <p className="mt-4 rounded-2xl border border-state-caution/40 bg-state-caution-bg px-4 py-3 text-xs text-ground">
-        <strong>Provisional configuration.</strong> {policyBanner(policy)}. These are
-        demonstration assumptions, not clinical approval — the packet seeking ratification is{" "}
-        <code className="text-xs">clinical-pilot-2026-09</code>, which is unsubmitted.
-      </p>
+      {/* Handoff §2: a screen resembling a live service must never imply
+          approval — and UX 010: "large explanation blocks bury working
+          content." Both hold at once.
+
+          THE CLAIM STAYS VISIBLE AND THE ESSAY FOLDS. "Provisional
+          configuration, not clinical approval" is the part that must never be
+          missed, so it is the summary. The policy identifier, the thresholds
+          it sets and the name of the unsubmitted packet are what a reader
+          opens when they want to check it — 75 pixels of technical detail
+          above a clinician's alert queue, on every visit, for a fact that does
+          not change between visits. */}
+      <details className="mt-4 rounded-2xl border border-state-caution/40 bg-state-caution-bg px-4 py-3 text-sm text-ground">
+        <summary className="cursor-pointer">
+          <strong>Provisional configuration.</strong> These are demonstration assumptions, not
+          clinical approval.
+        </summary>
+        <p className="measure mt-2 text-sm">
+          {policyBanner(policy)}. The packet seeking ratification is{" "}
+          <code className="text-xs">clinical-pilot-2026-09</code>, which is unsubmitted.
+        </p>
+      </details>
 
       {error && (
         <p className="mt-4 rounded-2xl border border-state-support/40 bg-state-support-bg/60 px-4 py-3 text-sm text-state-support">

@@ -19,6 +19,7 @@ import { strict as assert } from "node:assert";
 import test from "node:test";
 import fs from "node:fs";
 import path from "node:path";
+import { essaysInFrontOfWork } from "../src/lib/experience/disclosure";
 
 const ROOTS = ["src/app/clinician", "src/app/review", "src/app/app", "src/components/clinical", "src/components/member"];
 
@@ -209,4 +210,60 @@ test("no text on a clinical or member surface is faded below legibility", () => 
     }
   }
   assert.deepEqual(offenders, [], `text faded below 80%:\n  ${offenders.join("\n  ")}`);
+});
+
+// ---------------------------------------------------------------------------
+// UX 010: the essays fold, the claims stay
+// ---------------------------------------------------------------------------
+
+test("no console screen opens with an essay in front of the work", () => {
+  // UX 010: "Large explanation blocks and narrow columns bury working
+  // content." Measured before it was fixed: the first thing a clinician could
+  // act on was 813px down on Handoffs, 628 on the caseload, 559 on the module
+  // queue — below the fold on a laptop, in the ordinary case where nothing is
+  // waiting.
+  //
+  // WHAT IS BEING REFUSED IS A STANDING ESSAY, not explanation. A sentence
+  // that changes with the data — a status line, a refusal, a result — is the
+  // screen doing its job. What folds is the paragraph that is identical on
+  // every visit and describes a fact that does not change. The rule below
+  // cannot tell those apart by reading, so it uses length: past
+  // ESSAY_WORD_LIMIT a paragraph is an essay, and an essay belongs behind a
+  // summary that keeps its first claim visible. The limit is declared in
+  // src/lib/experience/disclosure.ts, because a product decision that lives
+  // only in an assertion is one nobody can find.
+  const SCREENS = [
+    "src/app/clinician/handoffs/page.tsx",
+    "src/app/clinician/caseload/page.tsx",
+    "src/app/clinician/unlocks/page.tsx",
+  ];
+
+  const offenders: string[] = [];
+  for (const rel of SCREENS) {
+    const src = fs.readFileSync(path.join(process.cwd(), rel), "utf8");
+    for (const p of essaysInFrontOfWork(src)) {
+      offenders.push(`${rel}: ${p.words} words — "${p.text.slice(0, 80)}…"`);
+    }
+  }
+  assert.deepEqual(offenders, [],
+    `these paragraphs are long enough to bury the work and are not behind a disclosure:\n  ${offenders.join("\n  ")}`);
+});
+
+test("folding an essay did not fold the claim it carries", () => {
+  // The other half, and the one that makes the rule above safe. "Keep safety
+  // constraints visible while moving repeated technical essays behind
+  // disclosure controls" — so each disclosure's SUMMARY has to carry the
+  // sentence a clinician must not miss, and a <details> whose summary is a
+  // bare "More" would pass the length rule while hiding the point.
+  const REQUIRED: Array<[string, RegExp]> = [
+    ["src/app/clinician/handoffs/page.tsx", /A transfer moves accountability only when it is accepted/],
+    ["src/app/clinician/caseload/page.tsx", /not\s*\{?\s*"?\s*\n?\s*clinical approval/],
+    ["src/app/clinician/unlocks/page.tsx", /Members can reach them\s*\n?\s*without a decision here/],
+  ];
+  for (const [rel, claim] of REQUIRED) {
+    const src = fs.readFileSync(path.join(process.cwd(), rel), "utf8");
+    const summaries = [...src.matchAll(/<summary[\s\S]*?<\/summary>/g)].map((m) => m[0]).join("\n");
+    assert.match(summaries, claim,
+      `${rel} folded an essay without keeping its claim in the summary`);
+  }
 });

@@ -100,15 +100,23 @@ export default async function UnlockQueuePage({
         }}
       >
       <div className="space-y-6">
+        {/* THE CONSEQUENCE STAYS VISIBLE AND THE SETTING FOLDS. What a
+            clinician has to know is that their decision is not currently the
+            thing that opens a module; the environment variable that causes it,
+            and how to turn it off, is operator detail — 82 pixels of it above
+            the queue, naming a setting on a clinical screen (UX 009's
+            complaint as well as UX 010's). */}
         {testOpenGated() && (
-          <Panel title="Gated modules are open in this environment">
-            <p className="measure text-sm text-app-ink">
-              <code>EMDR_OPEN_GATED</code> is on, so members can reach gated modules without a
-              decision here. Requests are still recorded and still answered — but to review the
-              request-and-approve path as it behaves in production, set{" "}
-              <code>EMDR_OPEN_GATED=0</code>.
+          <details className="rounded-2xl border border-state-caution/40 bg-state-caution-bg px-4 py-3 text-sm text-ground">
+            <summary className="cursor-pointer">
+              <strong>Gated modules are open in this environment.</strong> Members can reach them
+              without a decision here. Requests are still recorded and still answered.
+            </summary>
+            <p className="measure mt-2 text-sm">
+              <code>EMDR_OPEN_GATED</code> is on. To review the request-and-approve path as it
+              behaves in production, set <code>EMDR_OPEN_GATED=0</code>.
             </p>
-          </Panel>
+          </details>
         )}
 
         <Panel

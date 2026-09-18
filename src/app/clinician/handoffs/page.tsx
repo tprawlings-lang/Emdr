@@ -100,11 +100,19 @@ export default async function HandoffsPage({
         </p>
       )}
 
-      <p className="measure mt-3 rounded-2xl border border-ground/15 bg-linen px-4 py-3 text-sm text-ground">
-        <strong>A transfer moves accountability only when it is accepted.</strong> Until then
-        the clinician who proposed it still holds the person. Nobody is notified when you
-        propose or answer one — there is no delivery path in this build, so tell them.
-      </p>
+      {/* The rule stays visible; the consequence folds. "A transfer moves
+          accountability only when it is accepted" is the sentence this screen
+          exists to keep true, and it is one line. What follows it is the same
+          41 words on every visit about a fact that does not change. */}
+      <details className="measure mt-3 rounded-2xl border border-ground/15 bg-linen px-4 py-3 text-sm text-ground">
+        <summary className="cursor-pointer">
+          <strong>A transfer moves accountability only when it is accepted.</strong>
+        </summary>
+        <p className="mt-2">
+          Until then the clinician who proposed it still holds the person. Nobody is notified
+          when you propose or answer one — there is no delivery path in this build, so tell them.
+        </p>
+      </details>
 
       {/* WAITING FOR YOU FIRST. It is the only section that asks the reader to
           do something, and burying it under a form would be the screen
@@ -114,18 +122,19 @@ export default async function HandoffsPage({
           Waiting for your answer
         </h2>
         {incoming.length === 0 ? (
-          <div className="mt-3">
-            {/* CLEAR, not merely empty. §14: an empty list because there is
-                nothing to do and an empty list because something failed must
-                not look the same. Nobody waiting on you is good news, and this
-                is the one section where that distinction changes what a
-                clinician does next. */}
-            <EmptyState
-              kind="clear"
-              title="Nobody is waiting on you"
-              detail="No clinician has asked you to take over a person."
-            />
-          </div>
+          /* CLEAR, not merely empty. §14: an empty list because there is
+             nothing to do and an empty list because something failed must not
+             look the same, and nobody waiting on you is good news.
+ 
+             ONE LINE RATHER THAN A CARD. Two empty sections rendered as full
+             EmptyState cards put the only thing a clinician can DO on this
+             screen — proposing a transfer — 813 pixels down, below the fold on
+             a laptop, in the ordinary case where nothing is waiting. The
+             distinction §14 asks for is in the words; it never needed the
+             height. */
+          <p className="mt-2 text-sm text-state-safe">
+            ◆ Nobody is waiting on you. No clinician has asked you to take over a person.
+          </p>
         ) : (
           <ul className="mt-3 space-y-3">
             {incoming.map((h) => (
@@ -173,13 +182,10 @@ export default async function HandoffsPage({
           Waiting for somebody else
         </h2>
         {outgoing.length === 0 ? (
-          <div className="mt-3">
-            <EmptyState
-              kind="clear"
-              title="You are not waiting on anybody"
-              detail="You have no transfers out for an answer, so nobody else is holding a decision about your caseload."
-            />
-          </div>
+          <p className="mt-2 text-sm text-state-safe">
+            ◆ You are not waiting on anybody. No transfer of yours is out for an answer, so
+            nobody else is holding a decision about your caseload.
+          </p>
         ) : (
           <ul className="mt-3 space-y-3">
             {outgoing.map((h) => (

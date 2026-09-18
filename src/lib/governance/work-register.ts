@@ -200,6 +200,23 @@ export const WORK_REGISTER: WorkEntry[] = [
     note: "Changing one word or one note invalidates the sign-off rather than inheriting it. The stored document at docs/approvals/ is generated from the same source, so the document and the product cannot disagree.",
   },
   {
+    id: "experience.progressive-disclosure",
+    title: "The technical essays on console screens fold; the claims they carry stay visible",
+    // UX 010: "Large explanation blocks and narrow columns bury working
+    // content." Measured rather than guessed — the first version of the
+    // measurement read container rects and reported 1215 words above an
+    // element at y=193, which is impossible; measured on the text nodes the
+    // offenders were the console screens, not the person record.
+    // Stated as `tested` rather than `reachable`: the RULE is a module with a
+    // test, and what a clinician reaches is the screens it governs. Claiming
+    // reachable would need something outside this module and the tests to call
+    // it, and nothing does — the screens obey the rule, they do not import it.
+    state: "tested",
+    code: "src/lib/experience/disclosure.ts#essaysInFrontOfWork",
+    test: "tests/design-consistency.test.ts",
+    note: "Handoffs 813px to 602px before the first action, unlocks 559 to 465, caseload 628 to 599. The summary of each disclosure keeps the sentence that must not be missed.",
+  },
+  {
     id: "clinical.contact-vs-activity",
     title: "Contact and member activity are separate facts",
     state: "reachable",
