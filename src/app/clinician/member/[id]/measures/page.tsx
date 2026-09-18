@@ -9,6 +9,8 @@ import { ClinicalFigure, SmallMultiples } from "@/components/charts/clinical";
 import { EVERYDAY_FUNCTION } from "@/lib/measures/house";
 import { loadPersonHeader } from "@/lib/clinical/person-header";
 import { PersonShell } from "@/components/clinical/PersonShell";
+import { readingFrame } from "@/lib/clock";
+import { MeasureCoverage } from "@/components/clinical/MeasureCoverage";
 
 export default async function MemberDetailPage({
   params,
@@ -40,6 +42,10 @@ export default async function MemberDetailPage({
   const person = await loadPersonHeader({ personId: id, clinicianId: clinician.id, tenantId });
   if (!person) notFound();
 
+  // "How long since the last reading" is a derived age, so it measures from the
+  // reading frame like every other one on a clinician screen.
+  const asOf = (await readingFrame()).now.toISOString().slice(0, 10);
+
   // Record-access events belong in the audit trail too.
   // The generic access event that used to be written here now comes from
   // `loadPersonHeader`, which every person tab passes through — eight of the
@@ -62,22 +68,32 @@ export default async function MemberDetailPage({
   // drew nothing, or drew a single intake dot from an instrument taken once.
   const INSTRUMENTS: {
     id: string; label: string; unit: string; max: number; lowerIsBetter: boolean;
+    /** Whether this is a published, psychometrically validated instrument. */
+    validated: boolean;
     disclosure?: string;
   }[] = [
-    { id: "phq-9", label: "PHQ-9", unit: "total, 0–27", max: 27, lowerIsBetter: true },
-    { id: "gad-7", label: "GAD-7", unit: "total, 0–21", max: 21, lowerIsBetter: true },
-    { id: "pcl-5", label: "PCL-5", unit: "total, 0–80", max: 80, lowerIsBetter: true },
-    // THE HOUSE MEASURE, last and labelled. It is drawn in the same frame as
-    // the three above, which is exactly why it carries its disclosure: a panel
-    // beside PHQ-9 borrows PHQ-9's authority, and this one has none to borrow.
+    { id: "phq-9", label: "PHQ-9", unit: "total, 0–27", max: 27, lowerIsBetter: true, validated: true },
+    { id: "gad-7", label: "GAD-7", unit: "total, 0–21", max: 21, lowerIsBetter: true, validated: true },
+    { id: "pcl-5", label: "PCL-5", unit: "total, 0–80", max: 80, lowerIsBetter: true, validated: true },
+    // THE HOUSE MEASURE, AND IT IS NOW IN ITS OWN FIGURE.
+    //
+    // It used to be drawn in the same frame as the three above, carrying a
+    // per-panel disclosure to say it had no validation to borrow — and the
+    // frame around it was titled "Validated measures over time". The panel
+    // disclaimed the authority the figure's own title was granting it, which is
+    // the arrangement P4 names: "separate validated instruments from custom
+    // function observations." A note inside a frame does not undo the frame.
+    //
     // It also runs the other way — higher is better — so an unlabelled reader
-    // would take its rise for a decline.
+    // would take its rise for a decline. The label stays too; the separation is
+    // in addition to it, not instead.
     {
       id: EVERYDAY_FUNCTION.id,
       label: EVERYDAY_FUNCTION.title,
       unit: `total, 0–${EVERYDAY_FUNCTION.max}`,
       max: EVERYDAY_FUNCTION.max,
       lowerIsBetter: false,
+      validated: false,
       disclosure: EVERYDAY_FUNCTION.disclosure,
     },
   ];
@@ -86,12 +102,20 @@ export default async function MemberDetailPage({
     unit: i.unit,
     max: i.max,
     lowerIsBetter: i.lowerIsBetter,
+    validated: i.validated,
     disclosure: i.disclosure,
     points: screenings
       .filter((s) => s.instrument === i.id)
       .map((s) => ({ date: s.created_at.slice(0, 10), value: s.total_score }))
       .sort((a, b) => a.date.localeCompare(b.date)),
   })).filter((m) => m.points.length > 0);
+
+  // THE SPLIT, and both halves keep the same window below so reading across the
+  // two figures still compares like dates. Separating them is not the same as
+  // scattering them: the shared date axis is the whole reason small multiples
+  // are worth drawing.
+  const validatedSeries = measureSeries.filter((m) => m.validated);
+  const functionSeries = measureSeries.filter((m) => !m.validated);
 
   // The shared window: the whole span of readings on file, so every panel is
   // drawn against the same dates.
@@ -182,7 +206,7 @@ export default async function MemberDetailPage({
           already says who this is. */}
       <p className="text-sm text-olive">In the programme since {member.created_at.slice(0, 10)}</p>
 
-      {measureSeries.length > 0 && (
+      {validatedSeries.length > 0 && (
         <section className="mt-8">
           {/* The heading follows the data. "Outcome trends" over a record where
               every instrument was taken once promises a reading the page cannot
@@ -206,26 +230,24 @@ export default async function MemberDetailPage({
               Scales stay separate: a PHQ-9 and a PCL-5 do not share a y axis. */}
           <div className="mt-3 rounded-3xl border border-ground/10 bg-linen p-5 shadow-soft">
             <ClinicalFigure
-              title={anyTrend ? "Validated measures over time" : "Validated measures on file"}
+              title={anyTrend ? "Validated instruments over time" : "Validated instruments on file"}
               summary={
                 anyTrend
-                  ? `${measureSeries.length} instrument${measureSeries.length === 1 ? "" : "s"} on file, each on its own scale and all on one date axis from ${windowFrom} to ${windowTo}.`
-                  // A record where nothing has been repeated has no trend to
-                  // show, and a figure titled "over time" spanning one day
-                  // promises one. Most records here are in this state.
-                  : `${measureSeries.length} instrument${measureSeries.length === 1 ? "" : "s"} on file, each taken once. Nothing has been repeated yet, so there is no change to read.`
+                  ? `${validatedSeries.length} published instrument${validatedSeries.length === 1 ? "" : "s"} on file, each on its own scale and all on one date axis from ${windowFrom} to ${windowTo}.`
+                  : `${validatedSeries.length} published instrument${validatedSeries.length === 1 ? "" : "s"} on file, each taken once. Nothing has been repeated yet, so there is no change to read.`
               }
               footnote={`${anyTrend ? "Readings taken, joined in order — no fitted line and no value between two readings. Each panel is scaled to its own instrument, so the panels are read down the dates rather than across the heights." : "Each panel is scaled to its instrument's full range. A single reading is shown as a number rather than plotted, because one point is not a trend."}${
                 planMarks.length > 0 ? ` ${planMarks.length} plan version${planMarks.length === 1 ? "" : "s"} on record.` : ""
               }`}
             >
               <SmallMultiples
-                series={measureSeries}
+                series={validatedSeries}
                 from={windowFrom}
                 to={windowTo}
                 annotations={planMarks.filter((m) => m.date >= windowFrom && m.date <= windowTo)}
               />
             </ClinicalFigure>
+            <MeasureCoverage series={validatedSeries} asOf={asOf} />
           </div>
           {itqSeries.length > 0 && (
             <p className="mt-3 text-sm text-olive">
@@ -234,6 +256,39 @@ export default async function MemberDetailPage({
               (provisional, screen-based — diagnosis remains a clinical decision)
             </p>
           )}
+        </section>
+      )}
+
+      {/* ITS OWN FIGURE, and the title says what it is rather than leaving the
+          panel to disclaim the frame around it. Same window as the validated
+          instruments above, so the dates still line up when a reader looks from
+          one to the other. */}
+      {functionSeries.length > 0 && (
+        <section className="mt-8">
+          <h2 className="type-display text-2xl font-medium">Function observations</h2>
+          <div className="mt-3 rounded-3xl border border-ground/10 bg-linen p-5 shadow-soft">
+            <ClinicalFigure
+              title="Function observations — not a validated instrument"
+              summary={
+                `${functionSeries.length} observation series, on the same date axis as the validated ` +
+                `instruments above (${windowFrom} to ${windowTo}) so the dates line up. ` +
+                "These are this product's own questions. They have no published norms, no cut-offs " +
+                "and no validation, and a change in one does not mean what a change in a PHQ-9 means."
+              }
+              footnote={
+                "Read alongside the instruments above, never in place of them. Each panel is scaled " +
+                "to its own range and says which direction is better."
+              }
+            >
+              <SmallMultiples
+                series={functionSeries}
+                from={windowFrom}
+                to={windowTo}
+                annotations={planMarks.filter((m) => m.date >= windowFrom && m.date <= windowTo)}
+              />
+            </ClinicalFigure>
+            <MeasureCoverage series={functionSeries} asOf={asOf} />
+          </div>
         </section>
       )}
 

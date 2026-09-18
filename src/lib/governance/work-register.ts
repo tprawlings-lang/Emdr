@@ -229,6 +229,18 @@ export const WORK_REGISTER: WorkEntry[] = [
     note: "An explicit full-list state rather than cursor paging: ?rows=all, same server order, total unchanged, and a way back. The wire between the link and the page is covered end to end, because a unit mutation that made the page ignore the parameter survived every unit test.",
   },
   {
+    id: "clinical.measures-separated-and-dated",
+    title: "Validated instruments and house observations are separate figures, and each series says how current it is",
+    // 17 September handoff, P4: "Separate validated instruments from custom
+    // function observations. Scale, direction, window, and missingness are
+    // explicit." Scale, direction and window already were; the other two were
+    // not.
+    state: "reachable",
+    code: "src/lib/measures/coverage.ts#seriesCoverage",
+    test: "tests/measure-coverage.test.tsx",
+    note: "The house measure was drawn inside a figure titled 'Validated measures over time' while carrying a panel note saying it had no validation to borrow — the panel disclaiming the authority its own frame granted it. Two figures now, on one shared window so the dates still line up. Missingness is the end gap only: the panel already prints the count and the first and latest reading, and the first version of the coverage list repeated all of it, which was obvious on the rendered screen and invisible in the source. What no panel can show is the distance from the last reading to today — a series that stopped in March and one that stopped last week are drawn identically from their own edge.",
+  },
+  {
     id: "clinical.module-request-on-the-record",
     title: "What a person asked to open is readable from their record, beside what was assigned to them",
     // 17 September handoff, P3: "Replace the isolated feel of Module requests
