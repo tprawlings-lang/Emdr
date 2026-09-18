@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ProvenanceFlag } from "./ProvenanceFlag";
 import { DemoClockBadge } from "@/components/app/DemoClockBadge";
+import { GenerationBadge } from "@/components/app/GenerationBadge";
 import { MAIN_ID } from "@/lib/experience/quality";
 
 // The application shell (Web GUI handoff, the 20 page examples).
@@ -97,6 +98,11 @@ export function AppShell({
                 not know the console is showing them March will read every
                 number on it as today's. */}
             <DemoClockBadge />
+            {/* The rebuild this page came from. Beside the clock for the same
+                reason the clock is beside the fabricated flag: two tabs that
+                disagree about which environment they are in look identical
+                until something tells you. */}
+            <GenerationBadge />
             {accountHref ? (
               <Link
                 href={accountHref}

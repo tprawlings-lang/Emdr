@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { DemoClockBadge } from "@/components/app/DemoClockBadge";
+import { GenerationBadge } from "@/components/app/GenerationBadge";
 import { ProvenanceFlag } from "@/components/app/ProvenanceFlag";
 import { logout } from "@/lib/actions";
 import { activeDestination, type NavigationManifest } from "@/lib/experience/navigation";
@@ -78,6 +79,11 @@ export function ExperienceShell({
             </div>
             <div className="flex items-center gap-3">
               <DemoClockBadge />
+              {/* Which rebuild this page came from. Two tabs in different
+                  environments look identical until something says so, and the
+                  one that predates a reset has had its actions refused since
+                  the moment of the rebuild. */}
+              <GenerationBadge />
               {/* The same flag AppShell carries, rather than a second hardcoded
                   chip. This one read "Fabricated" unconditionally and said so
                   of "every person and record in this environment", which

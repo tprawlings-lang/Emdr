@@ -28,6 +28,7 @@
 // rather than a duplicate one. The command is refused with a reason instead.
 
 import { data } from "./data";
+import { currentGeneration, generationMatches, GENERATION_REFUSAL } from "./environment-generation";
 import type { CommandResult, ResolvedCommand } from "./experience/command";
 
 /**
@@ -176,6 +177,16 @@ export async function runOnce<R>(
   clock: { now?: number } = {},
 ): Promise<CommandResult<R>> {
   const now = clock.now ?? Date.now();
+
+  // BEFORE THE RESERVATION, not after. A command from a tab that predates a
+  // rebuild must not even claim a key: the key is derived from the action, so
+  // it is the same string it was before the reset, and reserving it would let
+  // a stale tab take the key a live one is about to need.
+  const { generation } = await currentGeneration();
+  if (!generationMatches(command.environmentGeneration, generation)) {
+    return { outcome: "rejected", reason: GENERATION_REFUSAL, reloadRequired: true };
+  }
+
   const reservation = await reserveCommand<R>(command, now);
 
   if (reservation.kind === "replay") return reservation.result;

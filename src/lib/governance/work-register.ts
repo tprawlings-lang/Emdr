@@ -597,6 +597,13 @@ export const WORK_REGISTER: WorkEntry[] = [
     test: "tests/command-idempotency.test.ts",
   },
   {
+    id: "platform.environment-generation",
+    title: "A tab that predates a rebuild is refused rather than trusted",
+    state: "reachable",
+    code: "src/lib/environment-generation.ts#currentGeneration",
+    test: "tests/environment-generation.test.ts",
+  },
+  {
     id: "ops.backups",
     title: "Nightly encrypted off-site backups",
     state: "held",

@@ -22,6 +22,7 @@ import { readingFrame } from "@/lib/clock";
 import { clinicianHome } from "@/lib/experience/clinician-home";
 import { ExperienceShell } from "@/components/experience/ExperienceShell";
 import { ClinicianHomeView } from "@/components/experience/ClinicianHomeView";
+import { currentGeneration } from "@/lib/environment-generation";
 
 // The clinician's Command Center (GUI and Decision-Surface Handoff §10.3;
 // expansion handoff 03 §1–§4).
@@ -188,6 +189,7 @@ export default async function CommandCenterPage({
           selectedRowId={selectedRowId}
           assignees={assignees}
           showingAll={showingAll}
+          environmentGeneration={(await currentGeneration()).generation}
         />
       </ExperienceShell>
     );

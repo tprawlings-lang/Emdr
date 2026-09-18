@@ -37,6 +37,7 @@ export function ClinicianHomeView({
   assignees,
   basePath = "/clinician/today",
   showingAll = false,
+  environmentGeneration,
 }: {
   home: ClinicianHome;
   view: ViewState;
@@ -46,6 +47,10 @@ export function ClinicianHomeView({
   basePath?: string;
   /** Whether the caller asked for the whole list rather than the first page. */
   showingAll?: boolean;
+  /** The rebuild this page was rendered from, carried into every command so a
+   *  tab that predates a reset is refused rather than acting on records that
+   *  no longer exist. */
+  environmentGeneration: string;
 }) {
   const selected = home.items.find((r) => r.id === selectedRowId) ?? null;
   const coverage = coverageNote(home.coverage);
@@ -171,6 +176,10 @@ export function ClinicianHomeView({
                     // The version the row was rendered against, so a decision
                     // is reconciled before it is accepted (§5).
                     expectedVersion={row.version}
+                    // Which rebuild this page was rendered from. A tab left
+                    // open across a demo reset is showing records that no
+                    // longer exist, and no per-row version can say so.
+                    environmentGeneration={environmentGeneration}
                     assignees={assignees}
                   />
                 )}
@@ -248,6 +257,7 @@ export function ClinicianHomeView({
               action={selected.action ?? "open"}
               personName={selected.personName}
               expectedVersion={selected.version}
+              environmentGeneration={environmentGeneration}
               assignees={assignees}
             />
           </QueueEvidencePanel>

@@ -116,13 +116,18 @@ export const FAILURE_REGISTER: FailureScenario[] = [
       "Reject the command and give the user a clear refresh path. Do not let idempotency keys " +
       "cross reset generations.",
     area: "reset",
-    state: "gap",
-    injections: [],
+    state: "proven",
+    injections: ["tests/environment-generation.test.ts"],
     note:
-      "NO ENVIRONMENT GENERATION EXISTS. `DEMO_SEED_VERSION` is the version of the seed, which is " +
-      "the same string before and after a reset, so nothing can tell a pre-reset tab from a " +
-      "post-reset one. Idempotency keys are derived from the action and are therefore stable " +
-      "across a reset by construction — which is exactly what the handoff says must not happen.",
+      "A generation is established per environment and rotated INSIDE the reset's transaction, so " +
+      "there is no window where the data is new and the generation still says old. A command " +
+      "carrying an older one is refused before it reserves its key — the key is the same string " +
+      "on both sides of a rebuild by construction, so a stale tab could otherwise take the key a " +
+      "live one is about to need. The refusal says nothing was written and to reload, because a " +
+      "refusal with no way forward is worse than the stale action it prevented. " +
+      "ONE OF THE TESTS IS A SOURCE CHECK, deliberately: the guard only fires on a command that " +
+      "carries a generation, so a surface that stops sending one would disable it while every " +
+      "behavioural test kept passing.",
   },
 
   // ── Stale evidence ─────────────────────────────────────────────────────

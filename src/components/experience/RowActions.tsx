@@ -42,6 +42,7 @@ export function RowActions({
   /** Who this could be assigned to. Empty disables assignment rather than
    *  offering a picker with nothing in it. */
   assignees,
+  environmentGeneration,
 }: {
   personId: string;
   signalId: string | null;
@@ -49,6 +50,10 @@ export function RowActions({
   personName: string;
   expectedVersion: string | null;
   assignees: Array<{ id: string; name: string }>;
+  /** The rebuild this page came from. Sent with every command: a queue tab is
+   *  exactly the surface that sits open for hours, which is when a reset
+   *  happens underneath one. */
+  environmentGeneration: string;
 }) {
   const [open, setOpen] = useState<ClinicianAction | null>(null);
   const [task, setTask] = useState<TaskState>(idle());
@@ -183,7 +188,20 @@ export function RowActions({
               Do not repeat this. Steady is reconciling it under key {task.reconcileBy.slice(0, 8)}.
             </p>
           )}
-          {task.retryable && (
+          {/* THE AFFORDANCE FOLLOWS THE REFUSAL. "Change it and try again" is
+              right for a missing reason and wrong for a page that predates a
+              rebuild: there is nothing in the form to change, and that button
+              sends somebody round a loop that cannot end. */}
+          {task.retryable && task.reloadRequired && (
+            <button
+              type="button"
+              onClick={() => window.location.reload()}
+              className="mt-1 text-xs underline underline-offset-2"
+            >
+              Reload this page
+            </button>
+          )}
+          {task.retryable && !task.reloadRequired && (
             <button
               type="button"
               onClick={() => setOpen(open ?? action)}
@@ -216,6 +234,7 @@ export function RowActions({
                           actorPersonId: personId, nonce: `${nonce}:${a.id}`,
                         }),
                         expectedVersion,
+                        environmentGeneration,
                       })
                     )
                   }
@@ -253,6 +272,7 @@ export function RowActions({
                               actorPersonId: personId, nonce: `${nonce}:${note}`,
                             }),
                             expectedVersion,
+                            environmentGeneration,
                           })
                         : completeReview({
                             intent: "complete_review", target: signalId ?? personId,
@@ -262,6 +282,7 @@ export function RowActions({
                               actorPersonId: personId, nonce,
                             }),
                             expectedVersion,
+                            environmentGeneration,
                           })
                     )
                   }

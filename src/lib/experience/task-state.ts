@@ -50,6 +50,9 @@ export interface TaskState {
    *  that reads the same as the first is how somebody comes to believe they
    *  recorded two contact attempts when one exists. */
   replayed?: boolean;
+  /** The refusal cannot be answered by editing the form: the page is out of
+   *  date. The surface offers a reload instead of a retry. */
+  reloadRequired?: boolean;
 }
 
 /** §4.4's vocabulary, and it is deliberately in the past tense only once. */
@@ -93,6 +96,7 @@ export function advance(result: CommandResult): TaskState {
         name: "recoverable_failure",
         label: TASK_LABEL.recoverable_failure,
         detail: result.reason,
+        reloadRequired: result.reloadRequired,
         // A refusal is safe to retry after the caller changes something: the
         // server said no rather than going quiet.
         retryable: true,

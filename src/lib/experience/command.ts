@@ -47,6 +47,14 @@ export interface CommandInput<P = Record<string, unknown>> {
    *  "Reconcile with the server before accepting a decision." A command with
    *  no expected version cannot detect that somebody else moved first. */
   expectedVersion?: string | null;
+  /** Which rebuild of the environment the PAGE was loaded from.
+   *
+   *  A DIFFERENT QUESTION FROM `expectedVersion`, and both are needed. The
+   *  expected version asks whether this record moved; this asks whether the
+   *  whole environment was torn down and rebuilt underneath the tab, in which
+   *  case the record's identifier refers to something that no longer exists
+   *  and no per-record version could tell. */
+  environmentGeneration?: string | null;
 }
 
 /** A command with its authority attached, which only the server can make. */
@@ -96,6 +104,15 @@ export interface CommandResult<R = unknown> {
    *  actually happened, and it is the difference between a person believing they
    *  recorded two contact attempts and knowing they recorded one. */
   replayed?: boolean;
+  /** `rejected` only: changing the input cannot fix this — the page itself is
+   *  out of date and has to be loaded again.
+   *
+   *  A REFUSAL AND A RETRY AFFORDANCE ARE SEPARATE DECISIONS. Every refusal was
+   *  rendered with "Change it and try again", which is right for a missing
+   *  reason or an unchosen owner and wrong for a page that predates a rebuild:
+   *  there is nothing in the form to change, and offering that button sends
+   *  somebody round a loop that cannot end. */
+  reloadRequired?: boolean;
 }
 
 export class CommandError extends Error {}

@@ -1129,6 +1129,20 @@ export const SCHEMA_SQL = `
   );
   CREATE INDEX IF NOT EXISTS idx_command_results_reserved ON command_results(reserved_at);
 
+  -- Which rebuild of this environment a page belongs to (17 September handoff,
+  -- P6: "introduce or reuse an environment-generation identifier").
+  --
+  -- ONE ROW, enforced by the CHECK, for the reason the demo clock has one: a
+  -- generation held in module state would differ between route bundles, and two
+  -- screens would disagree about which environment they were in. It is rotated
+  -- by the reset rather than deleted, so it is in PRESERVED_TABLES — clearing it
+  -- would throw away the new generation the reset had just established.
+  CREATE TABLE IF NOT EXISTS environment_generation (
+    id INTEGER PRIMARY KEY CHECK (id = 1),
+    generation TEXT NOT NULL,
+    established_at TEXT NOT NULL
+  );
+
   -- Where a governed claim has already gone (17 September handoff, P5:
   -- "Record every export or publication version that used a claim").
   --

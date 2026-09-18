@@ -31,6 +31,7 @@ import type Database from "better-sqlite3";
 import crypto from "node:crypto";
 import { DEMO_SEED_VERSION } from "./demo-seed";
 import { seedDemo, syncIdentitySpine } from "./db";
+import { rotateGeneration } from "./environment-generation";
 import { isEncrypted } from "./crypto";
 
 /** Every table holding data, in an order safe for unconditional deletion.
@@ -68,6 +69,11 @@ export const PRESERVED_TABLES = [
   // side: "turning off presentation does not delete signal, action, or evidence
   // history" — and turning presentation back on is not the reset's to do either.
   "tenant_feature_flags",
+  // The environment generation. ROTATED BY THE RESET, NOT CLEARED — deleting
+  // it here would throw away the generation the reset itself has just
+  // established, and the next read would mint a third one. A reset is what
+  // moves it; nothing else does.
+  "environment_generation",
   // The claim-usage ledger. Its ENTIRE PURPOSE is outliving the thing that
   // produced it: it records that a build published a sentence, or that a file
   // left carrying one, with the words as they were at the time. A reset that
@@ -291,6 +297,11 @@ export function resetDemoData(db: Database.Database): ResetResult {
     // a fresh state. Clearing the sequence is part of "recreate the expected
     // baseline", not an optimisation.
     try { db.prepare("DELETE FROM sqlite_sequence").run(); } catch { /* table absent until first AUTOINCREMENT */ }
+    // A NEW GENERATION, INSIDE THE TRANSACTION. P6: "Reject commands from a tab
+    // opened before a synthetic reset." Rotating outside the transaction would
+    // leave a window where the data was new and the generation still said old,
+    // and every tab open in that window would be trusted.
+    rotateGeneration(db);
   });
   run();
 
