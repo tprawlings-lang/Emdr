@@ -47,6 +47,7 @@ const ROW: QueueRowView = {
   secondary: [{ label: "Evidence", value: "Check-in recorded 2 days ago" }],
   signalId: null,
   group: "needs_attention",
+  version: "alerts@a1:open",
 };
 
 const rowHtml = () =>

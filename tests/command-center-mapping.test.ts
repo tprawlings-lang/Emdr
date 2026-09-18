@@ -287,6 +287,9 @@ function anItem(over: Partial<WorkItem> & { id: string }): WorkItem {
     // and used the app yesterday. Equal values would let a mapping that reads
     // the wrong one still pass.
     lastContactDays: 22, lastActivityDays: 1,
+    // A caseload-derived fixture, so no version: there is nothing for a
+    // concurrent decision to collide with.
+    version: null,
     ...over,
   };
 }

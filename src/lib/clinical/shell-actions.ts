@@ -20,6 +20,7 @@ import {
   CommandError, type CommandInput, type CommandResult,
 } from "../experience/command";
 import { newestEvidenceFor } from "./person-evidence";
+import { signalRowVersion, alertRowVersion } from "./row-version";
 
 // The clinician's separated commands (handoff 09 §5, §9; Package 2).
 //
@@ -280,10 +281,26 @@ async function completeReviewWithoutSignal(args: {
   clinicianId: string;
   personId: string;
   note: string;
+  expectedVersion?: string | null;
 }): Promise<CommandResult<RecordedChange>> {
   const note = args.note.trim();
   const open = (await alertQueue({ tenantId: args.ctx.tenantId }))
     .filter((a) => a.personId === args.personId && a.status === "open");
+
+  // RECONCILE BEFORE ACCEPTING, on this path too. Only the signal path checked,
+  // so a safety row — the rows that carry authority and that a clinician most
+  // needs to close — could be reviewed twice with no word to either clinician.
+  // The version describes which alerts were open when the page was built, so an
+  // alert closed by somebody else in the meantime, or one raised that the
+  // reader has not seen, is caught rather than closed on their behalf.
+  const currentVersion = alertRowVersion(open);
+  if (args.expectedVersion && args.expectedVersion !== currentVersion) {
+    return stale(
+      "The safety alerts on this person changed while you were reading. Look at what is open " +
+      "now before closing anything.",
+      currentVersion
+    );
+  }
 
   let closed = 0;
   for (const alert of open) {
@@ -374,13 +391,16 @@ export async function completeReview(input: CommandInput<{ personId: string; not
     if (!subject.signal) {
       return completeReviewWithoutSignal({
         ctx, clinicianId, personId: subject.personId, note: command.payload.note,
+        expectedVersion: command.expectedVersion,
       });
     }
     const signal = subject.signal;
     const signalId = signal.id;
-    // §5's reconcile-before-accept. The version is the signal's own state plus
-    // its last update, which is what changes when somebody else acts.
-    const currentVersion = `${signal.state}@${signal.evidenceAt}`;
+    // §5's reconcile-before-accept. Built by row-version.ts, which is also
+    // what the queue sends — the two were separate expressions until the check
+    // was armed, and a version written from `lastDetectedAt` at one end and
+    // `evidenceAt` at the other would compile and reject every review.
+    const currentVersion = signalRowVersion(signal);
     if (command.expectedVersion && command.expectedVersion !== currentVersion) {
       return stale(
         "Somebody else changed this while you were reading it. Read what changed before deciding again.",

@@ -170,7 +170,7 @@ export function ClinicianHomeView({
                     personName={row.personName}
                     // The version the row was rendered against, so a decision
                     // is reconciled before it is accepted (§5).
-                    expectedVersion={null}
+                    expectedVersion={row.version}
                     assignees={assignees}
                   />
                 )}
@@ -247,7 +247,7 @@ export function ClinicianHomeView({
               signalId={selected.signalId}
               action={selected.action ?? "open"}
               personName={selected.personName}
-              expectedVersion={null}
+              expectedVersion={selected.version}
               assignees={assignees}
             />
           </QueueEvidencePanel>

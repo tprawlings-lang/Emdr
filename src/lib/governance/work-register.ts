@@ -229,6 +229,30 @@ export const WORK_REGISTER: WorkEntry[] = [
     note: "An explicit full-list state rather than cursor paging: ?rows=all, same server order, total unchanged, and a way back. The wire between the link and the page is covered end to end, because a unit mutation that made the page ignore the parameter survived every unit test.",
   },
   {
+    id: "clinical.module-request-on-the-record",
+    title: "What a person asked to open is readable from their record, beside what was assigned to them",
+    // 17 September handoff, P3: "Replace the isolated feel of Module requests
+    // with an Assign support action inside Care and relevant clinical
+    // contexts." The isolation was the defect, not the screen.
+    state: "reachable",
+    code: "src/lib/clinical/module-requests.ts#moduleRequestsFor",
+    test: "tests/assigned-support.test.ts",
+    note: "/clinician/unlocks answers a request properly and is not in navigation, so the two halves of one conversation lived on screens that never mentioned each other: the clinician assigns support in Care, and the person's request sat elsewhere. Care now shows the request in the person's own words beside the assignment, and links to the screen that owns the decision rather than growing a second answer path — the reason a member reads back is required there and would be easy to forget in a second one.",
+  },
+  {
+    id: "experience.queue-concurrency-armed",
+    title: "A consequential queue action is revalidated against current server state",
+    // The check was written with the feature and disarmed by the surface:
+    // expectedVersion={null} at both call sites, against a comparison reading
+    // `if (command.expectedVersion && …)`. It short-circuited on every request
+    // ever made, and nothing failed — a guard that is never armed passes every
+    // test written about the code around it.
+    state: "reachable",
+    code: "src/lib/clinical/row-version.ts#signalRowVersion",
+    test: "tests/queue-stability.test.ts",
+    note: "The version is built in one module because the surface sends it and the action recomputes it: `evidenceAt` and `lastDetectedAt` are both on a signal, and a version written from one at each end would compile and reject every review. The alert path now revalidates too — the rows carrying safety authority were the ones with no check at all — over the person's open alerts rather than the collapsed row, because that is the set the action closes. Caseload rows carry no version and CASELOAD_ROW_HAS_NO_VERSION says why. Verified in a browser both ways: a normal review still confirms, and a real collision between two signed-in readers is reported with what the server now holds.",
+  },
+  {
     id: "clinical.review-currency",
     title: "A review is bound to the evidence it was made against, and says when the record has moved",
     // 17 September handoff, completion semantics: "If material evidence

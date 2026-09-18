@@ -35,6 +35,7 @@ import {
 import { commandCenterFlagEnabled } from "./command-center-flags";
 import type { AttentionBand } from "./attention-signals";
 import { readingNow } from "../clock";
+import { signalRowVersion, alertRowVersion } from "./row-version";
 
 /** §10.3's five groups, in the order they appear. Ordered by claim on the
  *  clinician's attention, not by volume. */
@@ -154,6 +155,14 @@ export interface WorkItem {
    *  instead of it: losing the engagement signal to fix the label would trade
    *  one absence for another. */
   lastActivityDays: number | null;
+  /**
+   * What the reader's decision rests on, for the concurrency check.
+   *
+   * Null where there is nothing for a concurrent decision to collide with —
+   * see CASELOAD_ROW_HAS_NO_VERSION. Computed by row-version.ts rather than
+   * here, because the action recomputes it and the two must be the same string.
+   */
+  version: string | null;
 }
 
 export interface WorkQueue {
@@ -500,6 +509,10 @@ async function mergeAttentionSignals(args: {
       supportFacts: signal.limitations.slice(0, 3),
       lastContactDays: row.daysSinceContact,
       lastActivityDays: row.daysSinceActivity,
+      // The same string completeReview recomputes. Built by row-version.ts so
+      // the two cannot be written from different fields — `evidenceAt` and
+      // `lastDetectedAt` are both on this signal and are not the same value.
+      version: signalRowVersion(signal),
     });
   }
 
@@ -568,6 +581,18 @@ export async function buildWorkQueue(args: {
   const items: WorkItem[] = [];
   const withAlerts = new Set<string>();
 
+  // OPEN ALERTS PER PERSON, not per collapsed row, because that is what the
+  // action revalidates against: completing a review from a safety row closes
+  // every open alert for the person, so the version has to describe the same
+  // set the action will act on.
+  const openByPerson = new Map<string, ClinicalAlert[]>();
+  for (const a of alerts) {
+    if (a.status !== "open") continue;
+    const list = openByPerson.get(a.personId) ?? [];
+    list.push(a);
+    openByPerson.set(a.personId, list);
+  }
+
   for (const [key, g] of collapse(alerts)) {
     const a = g.head;
     withAlerts.add(a.personId);
@@ -604,6 +629,7 @@ export async function buildWorkQueue(args: {
       supportFacts: g.alerts.length > 1 ? [`${g.alerts.length} events collapsed into this row`] : [],
       lastContactDays: row?.daysSinceContact ?? null,
       lastActivityDays: row?.daysSinceActivity ?? null,
+      version: alertRowVersion(openByPerson.get(a.personId) ?? []),
     });
   }
 
@@ -640,6 +666,8 @@ export async function buildWorkQueue(args: {
       supportFacts: r.reasons.slice(1, 4),
       lastContactDays: r.daysSinceContact,
       lastActivityDays: r.daysSinceActivity,
+      // Nothing to collide with. See CASELOAD_ROW_HAS_NO_VERSION.
+      version: null,
     });
   }
 
@@ -704,6 +732,9 @@ export async function buildWorkQueue(args: {
         supportFacts: [],
         lastContactDays: row?.daysSinceContact ?? null,
         lastActivityDays: row?.daysSinceActivity ?? null,
+        // Answering a transfer is its own command with its own checks; the
+        // queue row only opens it.
+        version: null,
       });
     }
   } catch (err) {
@@ -758,6 +789,7 @@ export async function buildWorkQueue(args: {
           supportFacts: f.label ? [f.label] : [],
           lastContactDays: row.daysSinceContact,
           lastActivityDays: row.daysSinceActivity,
+          version: null,
         });
       }
     } catch (err) {

@@ -328,3 +328,60 @@ test("the module name comes from the catalog, not from the row", () => {
   assert.match(view, /MODULES\.find\(\(m\) => m\.id === supportId\)\?\.name/,
     "the screen renders a stored title rather than resolving the reference");
 });
+
+// ---------------------------------------------------------------------------
+// The other half of the conversation (module requests)
+// ---------------------------------------------------------------------------
+//
+// "Replace the isolated feel of Module requests with an Assign support action
+// inside Care and relevant clinical contexts."
+//
+// The isolation is the defect, not the screen. /clinician/unlocks answers a
+// request properly — tenant-scoped, a reason required, the member reads it back
+// — and it is the only place in the product that knows the request exists. It
+// is not in navigation, and a person's own record said nothing about what they
+// had asked for.
+
+test("a person's own request is readable from their record", async () => {
+  const db2 = getDb();
+  db2.prepare(
+    `INSERT OR REPLACE INTO module_unlocks
+       (id, user_id, tenant_id, module_id, status, member_note, requested_at)
+     VALUES (?, ?, ?, ?, 'requested', ?, '2026-09-15 08:00:00')`
+  ).run("mu-1", member, PLATFORM_TENANT_ID, GATED.id, "I think I am ready for this one.");
+
+  const { moduleRequestsFor, awaitingDecision } =
+    await import("../src/lib/clinical/module-requests");
+  const all = await moduleRequestsFor(ctx, member);
+  assert.equal(all.length, 1, "the request is not readable from the record");
+  assert.equal(all[0].status, "requested");
+  assert.equal(all[0].note, "I think I am ready for this one.",
+    "the person's own words were summarised away");
+  assert.equal(awaitingDecision(all).length, 1);
+});
+
+test("a request in another tenant is not on this record", async () => {
+  const { moduleRequestsFor } = await import("../src/lib/clinical/module-requests");
+  const elsewhere = await moduleRequestsFor(
+    { tenantId: "another-tenant", personId: clinician }, member
+  );
+  assert.deepEqual(elsewhere, [],
+    "a request was readable from outside the acting tenant");
+});
+
+test("the record reports the request and does not answer it", () => {
+  // The decision stays on the screen that owns it, where a reason is required
+  // and the person reads it back. A second answer path would be a second place
+  // for that rule to be forgotten.
+  const view = read("src/components/clinical/AssignedSupport.tsx");
+  assert.match(view, /has asked to open/, "the record does not say what the person asked for");
+  assert.match(view, /href="\/clinician\/unlocks"/, "there is no way through to answer it");
+  assert.ok(!/decideUnlock|unlockAction/.test(code(view)),
+    "the Care screen grew its own way to decide an unlock");
+});
+
+test("Care passes the requests it read", () => {
+  const page = code(read("src/app/clinician/member/[id]/care/page.tsx"));
+  assert.match(page, /moduleRequestsFor\(ctx, id\)/, "Care does not read the person's requests");
+  assert.match(page, /requests=\{requests\}/, "Care reads them and does not show them");
+});

@@ -21,7 +21,39 @@ export default defineConfig({
       ? { executablePath: process.env.PLAYWRIGHT_CHROMIUM_PATH }
       : {},
   },
-  projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
+  // TWO PROJECTS, BECAUSE ONE SPEC WRITES AND THE REST READ.
+  //
+  // The config above calls this suite "read-only smoke checks", and it was one
+  // until queue-concurrency.spec.ts — a collision between two clinicians cannot
+  // be staged without actually completing a review, which closes that person's
+  // open alerts. Against the shared seeded dataset that removed the last
+  // urgent-band row, and the visual baseline, running in the other worker,
+  // reported /clinician/today as having lost a colour: rgb(243, 221, 216), the
+  // Immediate badge.
+  //
+  // I FIRST BLAMED THE DEMO CLOCK and was wrong. UX 003 did put the clinician
+  // queue on the demo clock's reading frame, which makes that a plausible
+  // story, and running demo-clock.spec.ts beside the baseline proves it is not
+  // this one: those two pass together. The clock spec returns the clock to live
+  // after every test; my spec had no way to un-close an alert.
+  //
+  // So the split is by what a spec DOES, not by which file it is: the writers
+  // run after the readers, and serially among themselves — the two tests in
+  // that file were also consuming each other's rows.
+  projects: [
+    {
+      name: "chromium",
+      testIgnore: /queue-concurrency\.spec\.ts/,
+      use: { ...devices["Desktop Chrome"] },
+    },
+    {
+      name: "stateful",
+      testMatch: /queue-concurrency\.spec\.ts/,
+      dependencies: ["chromium"],
+      fullyParallel: false,
+      use: { ...devices["Desktop Chrome"] },
+    },
+  ],
   webServer: useExternal
     ? undefined
     : {

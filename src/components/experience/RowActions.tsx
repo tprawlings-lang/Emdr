@@ -69,6 +69,28 @@ export function RowActions({
     // from the queue and unmount the confirmation with it. See
     // ./QueueConfirmations.tsx.
     if (r.outcome === "confirmed" && r.result?.summary) recorded?.record(r.result.summary);
+    // A CONFLICT IS LIFTED; A REFUSAL IS NOT, and the difference is whether the
+    // row will still be there to read.
+    //
+    // `stale` means somebody else already decided this, which is exactly the
+    // case where the row is gone: a server action re-renders the route, the
+    // resolved row drops out of the queue, and the panel unmounts with the
+    // message inside it. The reader watches the row vanish and reads that as
+    // their own action succeeding — the failure QueueConfirmations was written
+    // for, in its more dangerous form.
+    //
+    // A `rejected` refusal — "an immediate-band alert closes with a documented
+    // action" — leaves the row exactly where it was, and belongs beside the
+    // control it is refusing. Lifting that one as well put the same sentence on
+    // screen twice.
+    if (r.outcome === "stale") {
+      const said = advance(r);
+      recorded?.record(
+        [said.label, said.detail, said.currentVersion ? `The queue now holds: ${said.currentVersion}.` : null]
+          .filter(Boolean).join(" "),
+        "problem"
+      );
+    }
     // The draft survives a conflict and a failure; it is cleared only on a
     // confirmed write, where keeping it would invite a second one.
     if (r.outcome === "confirmed") setNote("");
@@ -125,7 +147,11 @@ export function RowActions({
 
       {/* A refusal, a conflict or an unconfirmed answer. Never rendered as
           success, and never offering a retry the outcome does not permit. */}
-      {task.name !== "idle" && task.name !== "submitting" && !mayClaimSaved(task) && (
+      {/* Not for a conflict: that one is lifted above the list, because the row
+          it belongs to is usually gone by the time it arrives. Rendering it
+          here as well would say the same thing twice on one screen. */}
+      {task.name !== "idle" && task.name !== "submitting" && !mayClaimSaved(task)
+        && result?.outcome !== "stale" && (
         <div data-testid="row-action-problem" className="max-w-[20rem] rounded-xl border border-state-caution/40 bg-state-caution-bg/40 px-3 py-2 text-right">
           <p className="text-xs font-medium text-app-ink">{task.label}</p>
           {task.detail && <p className="measure mt-0.5 text-xs text-olive">{task.detail}</p>}

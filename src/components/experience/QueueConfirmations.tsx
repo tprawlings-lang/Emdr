@@ -20,15 +20,28 @@ import { createContext, useCallback, useContext, useState, type ReactNode } from
 // outlives any row. It is fed by the actions themselves and holds the server's
 // own summary, unchanged: this component invents no text and claims nothing the
 // server did not say.
+//
+// AND A CONFLICT IS LIFTED FOR THE SAME REASON, which was missed when this was
+// written and is the more dangerous half. When another clinician resolves the
+// row first, the reader's action returns `stale` — and a server action
+// re-renders the route, the resolved row is gone, and the panel unmounts taking
+// the conflict message with it. The clinician sees the row disappear and reads
+// that as success. That is the same "silently vanished" failure this file
+// exists to fix, applied to the one message they most need: somebody else
+// decided this, and your decision did not land.
+
+/** What happened: something landed, or something did not. */
+export type NoticeKind = "confirmed" | "problem";
 
 export interface RecordedNotice {
   key: string;
+  kind: NoticeKind;
   /** The server's summary, verbatim. */
   summary: string;
 }
 
 interface Recorder {
-  record: (summary: string) => void;
+  record: (summary: string, kind?: NoticeKind) => void;
 }
 
 const RecordedContext = createContext<Recorder | null>(null);
@@ -43,11 +56,11 @@ export function useRecorded(): Recorder | null {
 export function QueueConfirmations({ children }: { children: ReactNode }) {
   const [notices, setNotices] = useState<RecordedNotice[]>([]);
 
-  const record = useCallback((summary: string) => {
+  const record = useCallback((summary: string, kind: NoticeKind = "confirmed") => {
     // Newest first, and capped. A clinician working a queue can record several
     // in a row, and an unbounded list would push the queue off the screen —
     // which would make this fix a different way of hiding the work.
-    setNotices((prev) => [{ key: `${Date.now()}-${prev.length}`, summary }, ...prev].slice(0, 4));
+    setNotices((prev) => [{ key: `${Date.now()}-${prev.length}`, kind, summary }, ...prev].slice(0, 4));
   }, []);
 
   return (
@@ -60,7 +73,14 @@ export function QueueConfirmations({ children }: { children: ReactNode }) {
             {notices.map((n) => (
               <li
                 key={n.key}
-                className="rounded-2xl border border-state-safe/30 bg-state-safe-bg px-4 py-3 text-sm text-app-ink"
+                data-testid={n.kind === "problem" ? "queue-problem-notice" : "queue-confirmed-notice"}
+                className={
+                  n.kind === "problem"
+                    // Caution, never safe: a conflict is not a thing that went
+                    // well, and it must not be reachable by the eye as one.
+                    ? "rounded-2xl border border-state-caution/40 bg-state-caution-bg px-4 py-3 text-sm text-app-ink"
+                    : "rounded-2xl border border-state-safe/30 bg-state-safe-bg px-4 py-3 text-sm text-app-ink"
+                }
               >
                 {/* No label of its own. Every one of these summaries already
                     opens by saying what was recorded, and "Recorded. Recorded

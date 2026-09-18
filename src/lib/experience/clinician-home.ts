@@ -78,6 +78,15 @@ export interface QueueRowView {
   /** The signal behind the row, for the panel. */
   signalId: string | null;
   group: UiGroup | null;
+  /**
+   * What the reader's decision rests on, sent back with a consequential action.
+   *
+   * THE SURFACE PASSED `null` HERE FOR THE LIFE OF THIS FEATURE. The action
+   * compares `if (command.expectedVersion && …)`, so a null short-circuited the
+   * comparison and the concurrency guard never once fired. Two clinicians could
+   * each complete a review of the same row and neither would be told.
+   */
+  version: string | null;
 }
 
 export interface SecondaryFact {
@@ -278,6 +287,7 @@ export function clinicianHome(args: {
     secondary: secondaryFor(item, now),
     signalId: item.signalId,
     group: uiGroupFor(item.group),
+    version: item.version,
   }));
 
   const coverage: Coverage =

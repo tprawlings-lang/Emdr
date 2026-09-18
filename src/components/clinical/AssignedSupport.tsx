@@ -1,4 +1,6 @@
+import Link from "next/link";
 import { MODULES } from "@/lib/modules";
+import { awaitingDecision, type ModuleRequest } from "@/lib/clinical/module-requests";
 import {
   assignableSupport, effectiveStatus, isLive, PURPOSES,
   type SupportAssignment, type AssignmentStatus,
@@ -36,14 +38,19 @@ function nameOf(supportId: string): string {
 }
 
 export function AssignedSupport({
-  personId, assignments, now, idempotencyKey,
+  personId, assignments, now, idempotencyKey, requests = [],
 }: {
   personId: string;
   assignments: SupportAssignment[];
   now: Date;
   /** Minted when this form is drawn, so a double submit is one assignment. */
   idempotencyKey: string;
+  /** What this person has asked to open. The other half of the conversation:
+   *  the clinician's ask is above, theirs is below, and until now theirs lived
+   *  on a screen this record never mentioned. */
+  requests?: ModuleRequest[];
 }) {
+  const waiting = awaitingDecision(requests);
   const live = assignments.filter((a) => isLive(a, now));
   const past = assignments.filter((a) => !isLive(a, now));
 
@@ -122,6 +129,38 @@ export function AssignedSupport({
             </li>
           ))}
         </ul>
+      )}
+
+      {/* WHAT THEY ASKED FOR, beside what was asked of them. The handoff's
+          complaint about module requests is the isolation, not the screen:
+          /clinician/unlocks answers a request properly and is the only place in
+          the product that knows it exists. The decision stays there — a reason
+          is required and the person reads it back — and this says the request
+          is waiting rather than growing a second way to answer it. */}
+      {waiting.length > 0 && (
+        <div className="mt-4 rounded-2xl border border-state-caution/40 bg-state-caution-bg/40 p-4">
+          <p className="text-sm font-medium text-ground">
+            {waiting.length === 1
+              ? "This person has asked to open a module"
+              : `This person has asked to open ${waiting.length} modules`}
+          </p>
+          <ul className="mt-2 space-y-1.5 text-sm">
+            {waiting.map((r) => (
+              <li key={r.id}>
+                <span className="font-medium text-ground">{nameOf(r.moduleId)}</span>
+                <span className="text-olive"> — asked {r.requestedAt.slice(0, 10)}</span>
+                {/* Their own words, not a summary of them. */}
+                {r.note && <span className="measure block text-xs text-olive">“{r.note}”</span>}
+              </li>
+            ))}
+          </ul>
+          <Link
+            href="/clinician/unlocks"
+            className="mt-2 inline-block text-sm text-state-info underline"
+          >
+            Answer it, with a reason they will read
+          </Link>
+        </div>
       )}
 
       <details className="mt-4 rounded-2xl border border-ground/15 bg-app-surface px-4 py-3">

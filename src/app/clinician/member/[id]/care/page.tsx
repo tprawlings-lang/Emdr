@@ -15,6 +15,7 @@ import type { TenantContext } from "@/lib/repository";
 import { randomUUID } from "node:crypto";
 import { readingFrame } from "@/lib/clock";
 import { assignmentsFor } from "@/lib/clinical/assigned-support";
+import { moduleRequestsFor } from "@/lib/clinical/module-requests";
 import { AssignedSupport } from "@/components/clinical/AssignedSupport";
 
 export const dynamic = "force-dynamic";
@@ -96,10 +97,14 @@ export default async function MemberCarePage({
 
   const ctx: TenantContext = { tenantId, personId: clinician.id };
   const frame = await readingFrame();
-  const [planRow, goals, assignments] = await Promise.all([
+  const [planRow, goals, assignments, requests] = await Promise.all([
     getProgramPlan(id),
     listGoals(ctx, id, ["draft", "active", "paused", "completed"]),
     assignmentsFor(ctx, id),
+    // What they have asked for, beside what was asked of them. Until now the
+    // request half of that conversation lived only on /clinician/unlocks, which
+    // is not in navigation and which a person's own record never mentioned.
+    moduleRequestsFor(ctx, id),
   ]);
 
   // MINTED WHEN THE FORM IS DRAWN, not when it is submitted. Re-posting the
@@ -161,6 +166,7 @@ export default async function MemberCarePage({
         assignments={assignments}
         now={frame.now}
         idempotencyKey={assignKey}
+        requests={requests}
       />
 
       <section aria-labelledby="work" className="mt-8">
