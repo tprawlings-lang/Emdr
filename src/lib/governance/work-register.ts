@@ -561,6 +561,21 @@ export const WORK_REGISTER: WorkEntry[] = [
     test: null,
   },
   {
+    id: "clinical.maintenance-language-held",
+    title: "Maintenance words are written down, guarded, and held for review",
+    state: "held",
+    code: "src/lib/clinical/maintenance.ts#monitoringLanguageProblems",
+    test: "tests/maintenance.test.ts",
+    note:
+      "The five transitions, the facts each must state, and the sentences a person would read are " +
+      "written and guarded against the monitoring phrases that would promise attention nobody is " +
+      "paying. HELD ON PURPOSE: the handoff's decision list says to approve the operating and " +
+      "monitoring language before exposing it to patients, so the copy is readable on the " +
+      "clinical-language review screen and no patient-facing surface imports it — a test walks " +
+      "the member routes to keep that true. The state write and the return-to-active path are " +
+      "not built, because they would be built on words nobody has signed.",
+  },
+  {
     id: "ops.backups",
     title: "Nightly encrypted off-site backups",
     state: "held",

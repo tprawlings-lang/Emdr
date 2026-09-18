@@ -21,6 +21,8 @@ import { getDb } from "../src/lib/db";
 import { RELEASE_GATES, resolveEvidence, fingerprint } from "../src/lib/review/gates";
 import { decisionsAt, decisionHistory } from "../src/lib/review/decisions";
 import { reviewableSurfaces, copyVersion } from "../src/lib/review/clinical-copy";
+import { GATE_STATES } from "../src/lib/clinical/gate-review";
+import { MAINTENANCE_TRANSITIONS } from "../src/lib/clinical/maintenance";
 import { listAccessRequests } from "../src/lib/review/access";
 
 async function gateStates() {
@@ -87,7 +89,24 @@ test("an attested gate carries a pointer to where its evidence lives", async () 
 
 test("clinical copy is mostly approved with the safety stop still under change", async () => {
   const { tally } = await gateStates();
-  assert.equal(tally.total, 6, "the six gate states are the reviewable surfaces");
+  const surfaces = reviewableSurfaces();
+  assert.equal(tally.total, surfaces.length);
+
+  // DERIVED, NOT COUNTED. This read `tally.total === 6` until the maintenance
+  // words were written down, and then failed for the right reason: five more
+  // surfaces had arrived and the number was a transcription of how many there
+  // used to be. What the demo needs is that both kinds are on the screen, not
+  // that there are eleven of them.
+  for (const state of GATE_STATES) {
+    assert.ok(surfaces.some((s) => s.id === `gate.${state}`), `the ${state} gate copy is reviewable`);
+  }
+  for (const t of MAINTENANCE_TRANSITIONS) {
+    assert.ok(
+      surfaces.some((s) => s.id === `maintenance.${t}`),
+      `the ${t} maintenance words are reviewable — they are held from patients until they are approved here`,
+    );
+  }
+
   assert.ok(tally.approved >= 4, "most copy approved, so the screen is not a wall of red");
   assert.equal(tally.changesRequested, 1, "one surface still moving, so the screen is not a wall of green either");
 

@@ -103,6 +103,11 @@ export default async function ClinicalReviewPage({
                     Reopened — copy version changed
                   </span>
                 )}
+                {s.heldReason && (
+                  <span className="rounded-full bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-900">
+                    Held from members
+                  </span>
+                )}
               </div>
 
               <blockquote className="mt-4 rounded-xl bg-app-accent/30 px-4 py-3 text-app-ink">
@@ -118,6 +123,10 @@ export default async function ClinicalReviewPage({
                     </div>
                   ))}
                 </dl>
+              )}
+
+              {s.heldReason && (
+                <p className="mt-3 rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-900">{s.heldReason}</p>
               )}
 
               <p className="mt-3 text-xs text-olive">

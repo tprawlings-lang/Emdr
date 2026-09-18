@@ -18,6 +18,7 @@
 // behaviour: a copy change is a re-review, not a footnote.
 
 import { GATE_STATES, gateCopyFor } from "../clinical/gate-review";
+import { MAINTENANCE_COPY, MAINTENANCE_HELD_REASON } from "../clinical/maintenance";
 import { CLINICAL_POLICY_VERSION } from "../clinical-policy";
 import { CRISIS_SCRIPT_VERSION } from "../session-safety";
 import { CONSENT_VERSION } from "../policy";
@@ -39,6 +40,15 @@ export interface ReviewableSurface {
   name: string;
   /** Where a member meets this language. */
   appearsAt: string;
+  /** Why no member meets it yet, for copy that is written but withheld; null
+   *  when it ships today.
+   *
+   *  ITS OWN FIELD RATHER THAN A SENTENCE IN `appearsAt`. Held copy first went
+   *  in with "Held. Nothing patient-facing shows this until it is approved."
+   *  as its location, and the screen rendered "Appears at Held." — the single
+   *  most important thing about those rows, that nobody can reach them,
+   *  arriving as a grammatical accident in a footnote. */
+  heldReason: string | null;
   claimClass: ClaimClass;
   /** The shipping words, read from their source module. */
   copy: string;
@@ -69,6 +79,7 @@ export function reviewableSurfaces(): ReviewableSurface[] {
       id: `gate.${state}`,
       name: `Gate — ${copy.headline}`,
       appearsAt: "Member banner and clinician drawer",
+      heldReason: null,
       claimClass: state === "safety_stop" ? "safety" : state === "review_needed" ? "care_process" : "availability",
       copy: copy.member,
       supporting: [
@@ -78,6 +89,28 @@ export function reviewableSurfaces(): ReviewableSurface[] {
       ],
       governedBy: CLINICAL_POLICY_VERSION,
       source: "src/lib/clinical/gate-review.ts",
+    });
+  }
+
+  // THE MAINTENANCE WORDS, HELD UNTIL SOMEBODY SIGNS THEM. The handoff's
+  // decision list says to approve the operating and monitoring language before
+  // exposing it to patients — so the words are here, on the screen where copy
+  // gets approved, and nothing patient-facing renders them until this review
+  // has a decision against it.
+  for (const copy of MAINTENANCE_COPY) {
+    surfaces.push({
+      id: `maintenance.${copy.transition}`,
+      name: `Maintenance — ${copy.transition.replace(/_/g, " ")}`,
+      appearsAt: "No member screen",
+      heldReason: MAINTENANCE_HELD_REASON,
+      claimClass: copy.transition === "warning_sign_reported" ? "safety" : "care_process",
+      copy: copy.member,
+      supporting: copy.supporting.map((s) => ({
+        label: s.fact.replace(/_/g, " "),
+        text: s.text,
+      })),
+      governedBy: CLINICAL_POLICY_VERSION,
+      source: "src/lib/clinical/maintenance.ts",
     });
   }
 
