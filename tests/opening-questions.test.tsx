@@ -8,6 +8,7 @@ import {
   OpeningQuestionError, type TracedAnswer,
 } from "../src/lib/buyer/opening-questions";
 import { OpeningQuestions } from "../src/components/app/OpeningQuestions";
+import { measuredSentence } from "../src/lib/buyer/payer-answers";
 
 // Decision-led buyer views (17 September handoff, P5).
 //
@@ -178,4 +179,73 @@ test("no answer computes a number of its own", () => {
   const answers = code(read("src/lib/buyer/organization-answers.ts"));
   assert.doesNotMatch(answers, /SELECT |longitudinal_events|await data\(\)/,
     "the answers query the database instead of reading the projection");
+});
+
+
+// ---------------------------------------------------------------------------
+// The payer console
+// ---------------------------------------------------------------------------
+
+test("the payer overview asks its four questions above the charts", () => {
+  const page = code(read("src/app/payer/overview/page.tsx"));
+  assert.match(page, /<OpeningQuestions/);
+  assert.ok(page.indexOf("<OpeningQuestions") < page.indexOf("<EnvelopeView"),
+    "the charts come before the questions they answer");
+  assert.match(page, /payerAnswers\(tenantId\)/);
+});
+
+test("the payer answers read projections rather than querying", () => {
+  const answers = code(read("src/lib/buyer/payer-answers.ts"));
+  assert.doesNotMatch(answers, /SELECT |longitudinal_events|await data\(\)/,
+    "the answers query the database instead of reading the projection");
+});
+
+test("a payer answer names a fall between two stages, not at one", () => {
+  // Naming only the stage produced "68% of the cohort started care, and the
+  // largest fall is at started care" — a sentence reporting a loss at the stage
+  // it has just counted, which reads as a contradiction.
+  const answers = code(read("src/lib/buyer/payer-answers.ts"));
+  assert.match(answers, /most are lost between \$\{fell\.from\.toLowerCase\(\)\} and/);
+  assert.doesNotMatch(answers, /the largest fall is at/);
+});
+
+test("no buyer answer prints a database key at a buyer", () => {
+  // The measures denominator read "5 measures named in contract
+  // 918be3ea-d3cc-…" — a row id in front of a plan executive, which is the
+  // buyer-side version of the policy version the member's Today was showing.
+  const answers = code(read("src/lib/buyer/payer-answers.ts"));
+  assert.doesNotMatch(answers, /\$\{r\.contract\.id\}/,
+    "a contract row id is interpolated into something a buyer reads");
+  assert.match(answers, /\$\{r\.contract\.name\}/);
+});
+
+test("the payer's four questions are ordered as they depend on each other", () => {
+  // Eligibility fixes the denominator, participation is counted against it,
+  // measurement says which contract terms could be computed at all, and
+  // maturity says whether any of it should be quoted yet. A console answering
+  // the fourth first tells somebody how complete a picture is before showing
+  // them the picture.
+  assert.deepEqual(questionsFor("payer").map((q) => q.id), [
+    "payer.eligible", "payer.participated", "payer.measured", "payer.evidence-maturity",
+  ]);
+});
+
+
+test("a withheld contract measure is named, not counted and dropped", () => {
+  // "3 of 5 computed" tells a plan executive that two are missing and nothing
+  // about which two, and a measure with no number and no name reads as one
+  // nobody cared about.
+  const said = measuredSentence([
+    { label: "ED visits per 1,000", observed: 41 },
+    { label: "Follow-up within 30 days", observed: null },
+    { label: "Median time to care", observed: null },
+  ]);
+  assert.match(said, /1 of 3 contract measures/);
+  assert.match(said, /Follow-up within 30 days/);
+  assert.match(said, /Median time to care/);
+});
+
+test("a complete contract says none is withheld rather than saying nothing", () => {
+  const said = measuredSentence([{ label: "ED visits per 1,000", observed: 41 }]);
+  assert.match(said, /None is withheld/);
 });

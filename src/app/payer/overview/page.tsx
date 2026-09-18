@@ -5,6 +5,8 @@ import { Note, Panel, WithNote } from "@/components/app/surfaces";
 import { Figure, Funnel, num } from "@/components/charts/aggregate";
 import { buildPayerPathway } from "@/lib/intelligence/payer";
 import { resolvePayerTenant } from "@/lib/intelligence/scope";
+import { payerAnswers } from "@/lib/buyer/payer-answers";
+import { OpeningQuestions } from "@/components/app/OpeningQuestions";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Population overview — Steady Intelligence" };
@@ -21,6 +23,11 @@ export const metadata = { title: "Population overview — Steady Intelligence" }
 export default async function PayerOverviewPage() {
   const tenantId = await resolvePayerTenant();
   const envelope = tenantId ? await buildPayerPathway(tenantId) : null;
+  // DECISIONS FIRST. The four questions in the order they depend on each other:
+  // eligibility fixes the denominator, participation is counted against it,
+  // measurement says which contract terms could be computed at all, and
+  // maturity says whether any of it should be quoted yet.
+  const answers = tenantId ? await payerAnswers(tenantId) : [];
 
   return (
     <PayerPage
@@ -34,6 +41,10 @@ export default async function PayerOverviewPage() {
           <p className="measure text-ground/90">This account is not bound to exactly one contracted plan.</p>
         </Panel>
       ) : (
+        <>
+        <div className="mb-6">
+          <OpeningQuestions heading="What this console is for" answers={answers} />
+        </div>
         <EnvelopeView envelope={envelope} title="Population overview" audience="operations">
           {(p) => (
             <WithNote
@@ -73,6 +84,7 @@ export default async function PayerOverviewPage() {
             </WithNote>
           )}
         </EnvelopeView>
+        </>
       )}
     </PayerPage>
   );
