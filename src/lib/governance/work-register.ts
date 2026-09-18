@@ -229,6 +229,18 @@ export const WORK_REGISTER: WorkEntry[] = [
     note: "An explicit full-list state rather than cursor paging: ?rows=all, same server order, total unchanged, and a way back. The wire between the link and the page is covered end to end, because a unit mutation that made the page ignore the parameter survived every unit test.",
   },
   {
+    id: "clinical.shared-between-visit-plan",
+    title: "One plan, read from the existing domain, rendered two ways from the same evidence",
+    // 17 September handoff, P3: "one read model assembled from current
+    // care-plan, goal, assignment, session, and safety facts… Patient and
+    // clinician views may use different language, but they must resolve to the
+    // same source versions."
+    state: "reachable",
+    code: "src/lib/clinical/between-visit-plan.ts#buildBetweenVisitPlan",
+    test: "tests/between-visit-plan.test.ts",
+    note: "No plan table: every fact is read from where it already lives. Sources sit on the FIELD rather than on either rendering, so a view cannot cite evidence the other lacks — there is nothing to cite from. Completion has three states because two make 'we do not know' indistinguishable from 'they did not'. The clinician view is on the care-plan screen; the patient rendering exists as a selection over the same object and lands with the member shell in P5.",
+  },
+  {
     id: "clinical.assigned-support",
     title: "A clinician can assign support inside Care, and assigning grants nothing",
     // 17 September handoff, P3: "Replace the isolated feel of Module requests

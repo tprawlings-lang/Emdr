@@ -6,6 +6,9 @@ import { getProgramPlan } from "@/lib/program-plan";
 import { loadPersonHeader } from "@/lib/clinical/person-header";
 import { PersonShell } from "@/components/clinical/PersonShell";
 import { ReviewBadge, EmptyState } from "@/components/clinical/primitives";
+import { readingFrame } from "@/lib/clock";
+import { buildBetweenVisitPlan } from "@/lib/clinical/between-visit-plan";
+import { BetweenVisitPlanView } from "@/components/clinical/BetweenVisitPlanView";
 
 export const dynamic = "force-dynamic";
 
@@ -35,8 +38,18 @@ export default async function ClinicianPlanPage({ params }: { params: Promise<{ 
 
   const [tracks, planRow] = await Promise.all([getMemberTracks(id), getProgramPlan(id)]);
 
+  // The shared between-visit plan. Assembled on read from the care plan, goals,
+  // assignments, sessions and safety state — the handoff is explicit that it
+  // must not become another authoritative plan table, and it has not.
+  const frame = await readingFrame();
+  const betweenVisits = await buildBetweenVisitPlan(
+    { tenantId, personId: clinician.id }, id, frame.now
+  );
+
   return (
     <PersonShell person={person} active="/plan" title="Care plan">
+      <BetweenVisitPlanView plan={betweenVisits} />
+
       <section aria-labelledby="tracks">
         <h2 id="tracks" className="type-display text-xl font-medium text-ground">Active paths</h2>
         {tracks.length === 0 ? (
