@@ -13,6 +13,9 @@ import { exerciseMatrix, postureNote } from "@/lib/clinical/demo-posture";
 import { NOT_CAUGHT } from "@/lib/experience/visual-baseline";
 import { VISUAL_BASELINE } from "@/lib/experience/visual-baseline.generated";
 import { activePolicy, policyBanner } from "@/lib/clinical-policy";
+import {
+  FAILURE_REGISTER, AREA_LABEL, failureCoverage, type FailureArea,
+} from "@/lib/governance/failure-register";
 
 export const dynamic = "force-dynamic";
 
@@ -56,6 +59,7 @@ export default async function TestingConsole({
   const notes = await listNotes({ tenantId });
   const stats = summarise(notes);
   const matrix = exerciseMatrix();
+  const coverage = failureCoverage();
 
   return (
     <ReviewPage
@@ -125,6 +129,60 @@ export default async function TestingConsole({
         <ul className="measure mt-2 space-y-1 text-sm text-olive">
           {NOT_CAUGHT.map((n) => <li key={n}>{n}</li>)}
         </ul>
+      </section>
+
+      {/* ---------------- What has been proven to survive failure ---------------- */}
+      {/* P6's acceptance is "failure-injection evidence", and a reviewer cannot
+          read a test suite. THE GAPS ARE SHOWN FIRST, and that ordering is the
+          point: a console that led with what works would be a summary of the
+          test suite's good news. What a reviewer needs is the list of failures
+          nobody has tried yet. */}
+      <section className="mt-10">
+        <h2 className="type-display text-2xl font-medium">What has been proven to survive failure</h2>
+        <p className="measure mt-1 text-sm text-olive">
+          {coverage.proven} of {coverage.total} scenarios have a test that injects the failure and
+          asserts what must happen. {coverage.gaps} have nothing that injects them, and{" "}
+          {coverage.held} are held with a reason. A scenario counts as proven only when a named
+          test file mentions it, so a row cannot claim evidence from a file that never tested it.
+        </p>
+
+        {(["uncertain_writes", "reset", "stale_evidence", "concurrency", "permissions", "tenancy", "presentation", "safety"] as FailureArea[])
+          .map((area) => {
+            const rows = FAILURE_REGISTER.filter((e) => e.area === area);
+            if (rows.length === 0) return null;
+            return (
+              <div key={area} className="mt-6">
+                <h3 className="text-xs font-semibold uppercase tracking-wide text-olive">
+                  {AREA_LABEL[area]}
+                </h3>
+                <ul className="mt-2 space-y-2">
+                  {rows.map((e) => (
+                    <li key={e.id} className="rounded-2xl border border-ground/10 bg-linen px-4 py-3 text-sm">
+                      <div className="flex flex-wrap items-baseline justify-between gap-2">
+                        <span className="font-medium text-ground">{e.scenario}</span>
+                        <span
+                          className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                            e.state === "proven"
+                              ? "bg-emerald-50 text-emerald-900"
+                              : e.state === "held"
+                                ? "bg-amber-50 text-amber-900"
+                                : "bg-rose-50 text-rose-900"
+                          }`}
+                        >
+                          {e.state === "proven" ? "Injected" : e.state === "held" ? "Held" : "Nothing injects this"}
+                        </span>
+                      </div>
+                      <p className="mt-1 text-olive">{e.required}</p>
+                      {e.note && <p className="mt-1 text-olive">{e.note}</p>}
+                      {e.injections.map((i) => (
+                        <p key={i} className="mt-1 font-mono text-xs text-olive">{i}</p>
+                      ))}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            );
+          })}
       </section>
 
       {/* ---------------- What you can exercise ---------------- */}

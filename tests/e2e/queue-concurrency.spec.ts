@@ -90,6 +90,11 @@ test("a review still goes through when nothing has changed", async ({ page }) =>
     .getByTestId("row-action-problem")).toHaveCount(0);
 });
 
+// FAILURE-INJECTION EVIDENCE for the failure register's
+// `concurrency.two-clinicians-one-row` — see src/lib/governance/failure-register.ts.
+// The register verifies that this file names that id, so the scenario and the
+// injection can be found from each other. A row claiming evidence from a file
+// that never mentions it is the drift P6's acceptance exists to prevent.
 test("two clinicians acting on one row: the second is told, not overwritten", async ({ browser }) => {
   const first = await browser.newContext();
   const second = await browser.newContext();

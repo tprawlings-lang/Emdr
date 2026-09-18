@@ -583,6 +583,13 @@ export const WORK_REGISTER: WorkEntry[] = [
     test: "tests/claim-usage.test.ts",
   },
   {
+    id: "governance.failure-register",
+    title: "Which failures something actually injects, and which nobody has tried",
+    state: "reachable",
+    code: "src/lib/governance/failure-register.ts#FAILURE_REGISTER",
+    test: "tests/failure-register.test.ts",
+  },
+  {
     id: "ops.backups",
     title: "Nightly encrypted off-site backups",
     state: "held",
