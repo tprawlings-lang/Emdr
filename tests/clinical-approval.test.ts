@@ -116,6 +116,43 @@ test("the signed form on disk is the one the approval was recorded from", () => 
     "the recorded evidence is not a document");
 });
 
+test("the superseded signature is kept, and is a different document", () => {
+  // An earlier copy of this same form was signed 9/17/26 — one day before the
+  // form was prepared. The reviewers re-signed it, and the misdated copy stays
+  // in the repository: deleting it would erase the evidence that a wrong date
+  // was ever written, and the correction is part of the record rather than a
+  // tidy-up of it.
+  const superseded = path.join(
+    process.cwd(),
+    "docs/approvals/clinical-display-vocabulary-v1-SIGNED-2026-09-17-superseded.pdf",
+  );
+  assert.ok(fs.existsSync(superseded),
+    "the superseded signature was removed, so nothing records that one was misdated");
+  const hash = crypto.createHash("sha256").update(fs.readFileSync(superseded)).digest("hex");
+  assert.equal(hash, "92abb3548e8f8d3fa1803d9e912cbf87945536aa2a97d8206fcf62607619bc92",
+    "the superseded file is not the one that was signed on 9/17");
+  assert.notEqual(hash, DISPLAY_VOCABULARY_APPROVAL.signedEvidence?.sha256,
+    "the current approval points at the superseded copy");
+  // And the correction changed only the date: the words reviewed are the same,
+  // which is what makes re-signing a correction rather than a fresh review.
+  const doc = fs.readFileSync(
+    path.join(process.cwd(), DISPLAY_VOCABULARY_APPROVAL.document), "utf8",
+  );
+  assert.ok(doc.includes(DISPLAY_VOCABULARY_APPROVAL.contentHash),
+    "the regenerated document does not carry the hash the signature is bound to");
+});
+
+test("the record says why there are two signed copies", () => {
+  // Without this, a reader finds two signed PDFs, one named "superseded", and
+  // no statement anywhere of what was wrong with the first.
+  const src = fs.readFileSync(
+    path.join(process.cwd(), "src/lib/governance/clinical-approval.ts"), "utf8",
+  );
+  assert.match(src, /SUPERSEDED COPY IS KEPT/);
+  assert.match(src, /one day before the\s*\n\s*\/\/ form existed/,
+    "the reason the first signature was replaced is not written down");
+});
+
 test("a signed approval stops covering the words the moment they change", () => {
   // THE WHOLE POINT. Same reviewers, same date, one word different.
   assert.equal(checkApproval(SIGNED).ok, true, "a correctly signed approval was refused");

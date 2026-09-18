@@ -155,31 +155,43 @@ export const DISPLAY_VOCABULARY_APPROVAL: ClinicalApproval = {
   status: "approved",
   // TRANSCRIBED FROM THE SIGNED FORM, not reconstructed from when it was sent.
   // Both reviewers marked "Approved as written", wrote nothing in the
-  // conditions box, and dated their signatures 9/17/26. That date is one day
-  // BEFORE the form itself was prepared, which is recorded here rather than
-  // corrected: an attestation is somebody else's statement, and tidying a date
-  // on one is the small version of the drift this whole module exists to catch.
-  // It is flagged for the product owner to resolve with the reviewers.
+  // conditions box, and dated their signatures 9/18/26 — the day the form was
+  // prepared and the day they signed it.
+  //
+  // AN EARLIER COPY OF THE SAME FORM WAS SIGNED 9/17/26, one day before the
+  // form existed. That date was recorded as it was written rather than tidied:
+  // an attestation is somebody else's statement, and correcting a date on one
+  // is the small version of the drift this module exists to catch. It was
+  // raised with the product owner and the reviewers re-signed, which is why
+  // this record now names a different file.
+  //
+  // THE SUPERSEDED COPY IS KEPT, at
+  // docs/approvals/clinical-display-vocabulary-v1-SIGNED-2026-09-17-superseded.pdf
+  // and hashing 92abb3548e8f8d3fa1803d9e912cbf87945536aa2a97d8206fcf62607619bc92.
+  // Deleting it would erase the evidence that a misdated signature was ever
+  // made, and the correction is part of the record rather than a tidy-up of it.
+  // Both copies carry the same content hash, so what was reviewed did not
+  // change — only the date the reviewers wrote beside their names.
   reviewers: [
     {
       name: "Rebecca Altschuler, PhD",
       role: "Licensed Psychologist",
       license: "Psychologist — AZ PSY-005804 (Arizona)",
-      signedAt: "2026-09-17",
+      signedAt: "2026-09-18",
     },
     {
       name: "John Allen, PhD",
       role: "Licensed Psychologist",
       license: "Psychologist — AZ PSY-002055 (Arizona)",
-      signedAt: "2026-09-17",
+      signedAt: "2026-09-18",
     },
   ],
-  reviewedAt: "2026-09-17",
+  reviewedAt: "2026-09-18",
   document: "docs/approvals/clinical-display-vocabulary-v1.md",
   signoffForm: "docs/approvals/clinical-display-vocabulary-v1-SIGNOFF-FORM.docx",
   signedEvidence: {
     path: "docs/approvals/clinical-display-vocabulary-v1-SIGNED.pdf",
-    sha256: "92abb3548e8f8d3fa1803d9e912cbf87945536aa2a97d8206fcf62607619bc92",
+    sha256: "3a6866f481161c74733f54842f12f4f4b8713552171a7a74be77a439ecb3f3f1",
     determination: "Approved as written.",
     conditions: [],
   },

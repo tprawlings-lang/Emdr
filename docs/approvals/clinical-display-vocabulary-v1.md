@@ -6,16 +6,16 @@
 
 ## Status
 
-**Approved** on 2026-09-17 by:
+**Approved** on 2026-09-18 by:
 
-- Rebecca Altschuler, PhD — Licensed Psychologist, Psychologist — AZ PSY-005804 (Arizona), signed 2026-09-17
-- John Allen, PhD — Licensed Psychologist, Psychologist — AZ PSY-002055 (Arizona), signed 2026-09-17
+- Rebecca Altschuler, PhD — Licensed Psychologist, Psychologist — AZ PSY-005804 (Arizona), signed 2026-09-18
+- John Allen, PhD — Licensed Psychologist, Psychologist — AZ PSY-002055 (Arizona), signed 2026-09-18
 
 Determination: **Approved as written.**
 
 No conditions were written on the form.
 
-The signed form is [`clinical-display-vocabulary-v1-SIGNED.pdf`](clinical-display-vocabulary-v1-SIGNED.pdf), SHA-256 `92abb3548e8f8d3fa1803d9e912cbf87945536aa2a97d8206fcf62607619bc92`. The record names that one file: replace it and the guard fails.
+The signed form is [`clinical-display-vocabulary-v1-SIGNED.pdf`](clinical-display-vocabulary-v1-SIGNED.pdf), SHA-256 `3a6866f481161c74733f54842f12f4f4b8713552171a7a74be77a439ecb3f3f1`. The record names that one file: replace it and the guard fails.
 
 ## What the approval is tied to
 
