@@ -102,6 +102,13 @@ export const DEMO_DATA_TABLES = [
   // quality manifest exists to catch. Before `users`, which it references on
   // three columns.
   "care_handoffs",
+  // Assigned support. Cleared for the same reason and in the same place: an
+  // assignment names a fabricated person, the fabricated clinician who assigned
+  // it, and a module — and a row surviving the rebuild would point at people
+  // who no longer exist. It also carries the wording that person was given,
+  // which is a statement made to somebody the reset has just deleted. Before
+  // `persons`, which it references on two columns.
+  "support_assignments",
   // Planning first: a signal review points at its signal, and a signal is
   // derived entirely from the fabricated population it is about.
   //
