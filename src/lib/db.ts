@@ -321,6 +321,52 @@ export const SCHEMA_SQL = `
     UNIQUE (user_id, module_id)
   );
 
+  -- Assigned support (17 September handoff, "Assigned support command").
+  --
+  -- A CLINICIAN SAYING "DO THIS", AND NOTHING MORE. The handoff is explicit
+  -- about what this must not become: "It must not create a second access
+  -- engine", and "do not open restricted content because an assignment row
+  -- exists. Access policy still controls the content request."
+  --
+  -- So this table grants nothing. checkModuleAccess never reads it, a test
+  -- proves a person with an active assignment is still refused by the gate, and
+  -- the only thing an assignment changes is what the person is TOLD to do and
+  -- what a clinician sees they were told.
+  --
+  -- REFERENCES, NOT DEFINITIONS. support_id and support_version point at
+  -- the module catalog; the clinical content is not copied here, so a module
+  -- whose text changes does not leave stale duplicates behind. What IS stored
+  -- is the wording the PERSON was given and the sharing rule in force, because
+  -- those are what was said to somebody on a date and cannot be re-derived.
+  CREATE TABLE IF NOT EXISTS support_assignments (
+    id TEXT PRIMARY KEY,
+    tenant_id TEXT NOT NULL REFERENCES tenants(id),
+    person_id TEXT NOT NULL REFERENCES persons(id),
+    assigned_by TEXT NOT NULL REFERENCES persons(id),
+    support_id TEXT NOT NULL,
+    support_version TEXT NOT NULL,
+    purpose_code TEXT NOT NULL,
+    patient_explanation TEXT NOT NULL,
+    share_policy TEXT NOT NULL,
+    availability TEXT NOT NULL CHECK (availability IN ('assigned','optional')),
+    status TEXT NOT NULL CHECK (
+      status IN ('proposed','active','paused','completed','withdrawn')
+    ),
+    starts_at TEXT NOT NULL,
+    expires_at TEXT,
+    review_at TEXT,
+    policy_version TEXT NOT NULL,
+    -- One assignment per commit, however many times the form is submitted.
+    -- "Append the assignment fact once with an idempotency key."
+    idempotency_key TEXT NOT NULL UNIQUE,
+    created_at TEXT NOT NULL,
+    decided_at TEXT,
+    decided_note TEXT
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_support_assignments_person
+    ON support_assignments(tenant_id, person_id, status);
+
   CREATE TABLE IF NOT EXISTS alerts (
     id TEXT PRIMARY KEY,
     user_id TEXT NOT NULL REFERENCES users(id),
@@ -2494,6 +2540,10 @@ export const TENANT_SCOPED_TABLES = [
   "program_plans", "care_tracks", "care_track_intake", "practice_completions",
   "upsell_events", "autopilot_plans", "autopilot_events", "lesson_reads",
   "review_notes", "screening_progress",
+  // An assignment names a person, the clinician who assigned it, and the words
+  // that person was given. Reading another tenant's would disclose who is being
+  // asked to do what, and by whom.
+  "support_assignments",
   // An access request is raised inside one tenant and names the person who
   // raised it, the role they want and what they want it for. Reading another
   // tenant's would show who is asking for what access there — which is exactly

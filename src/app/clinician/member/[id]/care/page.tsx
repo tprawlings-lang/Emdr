@@ -12,6 +12,10 @@ import { getProgramPlan } from "@/lib/program-plan";
 import { listGoals } from "@/lib/clinical/return-to-life";
 import { handoffsForPerson, isOpen } from "@/lib/clinical/handoff";
 import type { TenantContext } from "@/lib/repository";
+import { randomUUID } from "node:crypto";
+import { readingFrame } from "@/lib/clock";
+import { assignmentsFor } from "@/lib/clinical/assigned-support";
+import { AssignedSupport } from "@/components/clinical/AssignedSupport";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Care — Steady Clinical" };
@@ -39,12 +43,12 @@ export const metadata = { title: "Care — Steady Clinical" };
 // accepted is exactly the gap, so it is stated in place rather than counted
 // somewhere else.
 //
-// ASSIGNED SUPPORT IS NAMED AND NOT OFFERED. It is the fourth thing the
-// amendment puts in Care and it is a P3 command with its own authority,
-// version and expiry rules — none of which exist yet. This says so in a
-// sentence with no control beside it. §1.1 keeps an unbuilt capability out of
-// NAVIGATION; a section that owns it saying plainly that it is not built is
-// the opposite failure mode from a button that does nothing.
+// ASSIGNED SUPPORT IS THE FOURTH THING, and it is a command now rather than a
+// sentence saying it does not exist. It sits here — "inside Care and relevant
+// clinical contexts" — and it is a presentation and workflow change over the
+// authority that was already there: assigning records what a clinician is
+// asking for, and the safety rules still decide access at the moment the person
+// tries. Nothing on this screen opens anything.
 
 /** One sentence for what is active, from the record rather than from a phrase. */
 function activeStatement(
@@ -91,10 +95,26 @@ export default async function MemberCarePage({
   if (!header) notFound();
 
   const ctx: TenantContext = { tenantId, personId: clinician.id };
-  const [planRow, goals] = await Promise.all([
+  const frame = await readingFrame();
+  const [planRow, goals, assignments] = await Promise.all([
     getProgramPlan(id),
     listGoals(ctx, id, ["draft", "active", "paused", "completed"]),
+    assignmentsFor(ctx, id),
   ]);
+
+  // MINTED WHEN THE FORM IS DRAWN, not when it is submitted. Re-posting the
+  // same rendered form — a double click, the browser's "resend?" after a
+  // refresh — carries this same key and produces one assignment; a key
+  // generated inside the action would be new every time, which is the failure
+  // the key exists to prevent.
+  //
+  // RANDOM PER RENDER, AND NOT DERIVED FROM THE REQUEST. A key hashed from
+  // tenant, person, clinician and the minute looked tidier and was wrong: a
+  // clinician assigning two different things inside one minute would submit the
+  // same key twice, and the second assignment would be silently answered with
+  // the first. Deduplicating two distinct instructions is worse than the
+  // duplicate this is here to stop.
+  const assignKey = randomUUID();
   const handoffs = handoffsForPerson({ personId: id, tenantId });
   const pending = handoffs.filter((h) => isOpen(h.state));
 
@@ -133,16 +153,15 @@ export default async function MemberCarePage({
         }}
       />
 
-      {/* Assigned support: named, with no control beside it. §1.1 keeps an
-          unbuilt capability out of NAVIGATION; a section that owns it saying
-          plainly that it is not built is the opposite failure from a button
-          that does nothing. */}
-      <p className="measure mt-4 text-sm text-olive">
-        <span className="font-medium text-ground">Assigned support.</span> Not built.
-        Between-visit support is assigned through the module request queue today; a
-        clinician-initiated assignment with its own purpose, sharing rule and expiry is separate
-        work and is not available from this screen.
-      </p>
+      {/* Assigned support, the fourth thing this section owns. It said "not
+          built" until P3; the command is here now, inside Care and over the
+          existing authority rather than beside it. */}
+      <AssignedSupport
+        personId={id}
+        assignments={assignments}
+        now={frame.now}
+        idempotencyKey={assignKey}
+      />
 
       <section aria-labelledby="work" className="mt-8">
         <h2 id="work" className="type-display text-xl font-medium text-ground">

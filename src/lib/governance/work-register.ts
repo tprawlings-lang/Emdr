@@ -229,6 +229,17 @@ export const WORK_REGISTER: WorkEntry[] = [
     note: "An explicit full-list state rather than cursor paging: ?rows=all, same server order, total unchanged, and a way back. The wire between the link and the page is covered end to end, because a unit mutation that made the page ignore the parameter survived every unit test.",
   },
   {
+    id: "clinical.assigned-support",
+    title: "A clinician can assign support inside Care, and assigning grants nothing",
+    // 17 September handoff, P3: "Replace the isolated feel of Module requests
+    // with an Assign support action inside Care and relevant clinical
+    // contexts… It must not create a second access engine."
+    state: "reachable",
+    code: "src/lib/clinical/assigned-support.ts#assignSupport",
+    test: "tests/assigned-support.test.ts",
+    note: "module_unlocks is a member asking and a clinician answering; this is a clinician asking and the person answering by doing it. Separate tables, because collapsing them loses which of the two happened. The gate's answer is asserted byte-identical before and after an assignment exists — not merely 'still refused', which a second engine would also satisfy. Expiry is derived on read. The patient wording and sharing rule are stored with the assignment; the clinical definition is referenced.",
+  },
+  {
     id: "platform.client-bundle-boundary",
     title: "No client component reaches the database through its value imports",
     // Found by a build, not by a test: a client component's TYPE import of the

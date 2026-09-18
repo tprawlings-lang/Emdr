@@ -42,7 +42,18 @@ export const EVENT_TYPES = {
   "readiness.recalculated": 1,
 
   // Care / intervention
+  //
+  // ASSIGNED SUPPORT USES THIS FAMILY RATHER THAN A NEW ONE. The 17 September
+  // handoff suggests `support.assignment.proposed` and five siblings, and says
+  // in the same breath to "register names through the existing event registry"
+  // and follow "repository naming and event conventions". Rule 1 above is that
+  // convention: types are modelled against the domain chain — Need → Risk →
+  // INTERVENTION → Response — not against the UI action that produced them.
+  // Assigning support is an intervention being assigned, which is a type this
+  // spine has had a slot for since ADR 0010; a parallel `support.*` family
+  // would give one domain fact two names depending on which screen wrote it.
   "intervention.assigned": 1,
+  "intervention.assignment_changed": 1,
   "intervention.completed": 2,
   "intervention.response_recorded": 1,
   "session.started": 2,
