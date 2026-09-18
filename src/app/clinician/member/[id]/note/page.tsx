@@ -11,7 +11,7 @@ import { Panel, Callout } from "@/components/app/surfaces";
 import { thoughtsSurfaceAvailable } from "@/lib/clinical/thoughts-flags";
 import { approvedMemory } from "@/lib/clinical/memory-store";
 import {
-  assembleDraft, draftText, SIGNING_IS_ELSEWHERE,
+  assembleDraft, draftText, SIGNING_IS_ELSEWHERE, EMPTY_DRAFT_REASON,
 } from "@/lib/clinical/note-bridge";
 import { readingFrame } from "@/lib/clock";
 
@@ -110,8 +110,8 @@ export default async function MemberNoteDraftPage({
             {approved.length === 0 ? (
               <p className="measure text-sm text-olive">
                 Nothing has been approved for this person yet. Approve items on{" "}
-                <Link href={`/clinician/member/${id}/thoughts`} className="underline">Notes</Link>{" "}
-                and they will be selectable here.
+                <Link href={`/clinician/member/${id}/thoughts`} className="underline">Thoughts</Link>{" "}
+                and they become selectable here.
               </p>
             ) : (
               <form method="GET" className="space-y-3">
@@ -151,10 +151,13 @@ export default async function MemberNoteDraftPage({
             title="The draft"
             footnote="Every line carries the id of the item it came from, so a reader can get back to the thought and the transcript behind it after this text has left Steady."
           >
-            {draft.lines.length === 0 ? (
+            {draft.emptyBecause ? (
+              /* UX 006: the cause comes from the assembler, which is the only
+                 thing that knows what existed, what was ticked and what
+                 survived. One sentence for all three states was false in two of
+                 them. */
               <p className="measure text-sm text-olive">
-                Nothing selected yet, so there is no draft. This is empty because you have
-                not chosen anything — not because there was nothing to choose.
+                {EMPTY_DRAFT_REASON[draft.emptyBecause]}
               </p>
             ) : (
               <pre className="overflow-x-auto whitespace-pre-wrap rounded-2xl bg-app-surface p-4 text-sm text-app-ink">

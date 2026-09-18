@@ -23,6 +23,7 @@ import { ThreadSuggestions } from "@/components/clinical/ThreadSuggestions";
 import { ThreadTimeline } from "@/components/clinical/ThreadTimeline";
 import type { TenantContext } from "@/lib/repository";
 import { readingFrame } from "@/lib/clock";
+import { ThoughtsCapabilities } from "@/components/clinical/ThoughtsCapabilities";
 
 export const dynamic = "force-dynamic";
 
@@ -391,17 +392,21 @@ export default async function MemberThoughtsPage({
           <Panel title="Where a thought goes" className="mt-6">
             <p className="measure text-sm text-ground">
               A saved thought stays in this list, readable by people with access to this
-              patient. It does not become a formal note, and a later AI draft that uses it
-              still needs you to review and sign it.
+              patient. It does not become a formal note, and a draft built from it still
+              needs you to review and sign it.
             </p>
             <p className="measure mt-3 text-sm text-olive">
-              Session preparation and patient-scoped questions are built in later phases.
-              What this page holds — the recording, the transcript, the kept items and the
-              themes they belong to — is what those phases will read from.{" "}
               <Link href="/review/audit" className="text-state-info underline">
                 Every action here is in the audit trail.
               </Link>
             </p>
+          </Panel>
+
+          {/* UX 005: what this page can do, read from the switches that decide
+              it rather than described in a paragraph that nobody re-reads when
+              a capability ships. */}
+          <Panel title="What this page can do here" className="mt-6">
+            <ThoughtsCapabilities />
           </Panel>
         </>
       )}

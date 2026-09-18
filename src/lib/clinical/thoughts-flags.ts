@@ -53,9 +53,9 @@ export const THOUGHTS_FLAGS = Object.keys(FLAGS) as ThoughtsFlag[];
  *  has an extractor, a contract that refuses what §9.2 forbids, candidate items
  *  and an atomic save, so the surface has something to show.
  *
- *  Threads joined when Phase 3 landed, and Session Prep when Phase 4 did, on
- *  the same terms each time. The phases after it
- *  are still absent, for the same reason they always were.
+ *  Threads joined when Phase 3 landed, Session Prep when Phase 4 did, Ask
+ *  Steady at Phase 5 and the note bridge at Phase 6, on the same terms each
+ *  time. All six are built; none is a flag over an empty surface.
  *
  *  `EMDR_..._CAPTURE=0` forces it off even in demo, which is how the refusal
  *  path gets demonstrated — and turning EXTRACTION off while CAPTURE stays on
@@ -103,6 +103,81 @@ const REQUIRES: Partial<Record<ThoughtsFlag, ThoughtsFlag>> = {
   CLINICIAN_PATIENT_ASK: "CLINICIAN_THOUGHTS_EXTRACTION",
   CLINICIAN_NOTE_BRIDGE: "CLINICIAN_THOUGHTS_EXTRACTION",
 };
+
+/**
+ * What each surface is, in a clinician's words, and where it appears.
+ *
+ * UX 005: "Thoughts contains stale future-phase copy beside working functions.
+ * Remove implementation commentary and standardize product terms. Acceptance:
+ * no contradictory capability claims remain."
+ *
+ * The defect was a paragraph at the foot of the Thoughts page reading "Session
+ * preparation and patient-scoped questions are built in later phases" — with
+ * the patient-scoped question box rendered four hundred pixels above it and
+ * session preparation on the record overview one click away. Both had shipped;
+ * the sentence had not been read since they did.
+ *
+ * SO THE CLAIM IS DERIVED RATHER THAN WRITTEN. What a screen says about a
+ * capability now comes from the same function that decides whether to render
+ * it, which makes the two impossible to disagree. Prose can go stale; a value
+ * read from `thoughtsSurfaceAvailable` cannot.
+ *
+ * `where` is a route or a place on a screen, because "this exists" is not the
+ * useful half of the sentence — a clinician reading that patient-scoped
+ * questions are available wants to know they are in the box at the top of this
+ * page.
+ */
+export interface ThoughtsSurface {
+  /** What a clinician calls it. Never the flag, never the phase number. */
+  name: string;
+  /** What it does, in one line. */
+  does: string;
+  /** Where to find it. */
+  where: string;
+}
+
+export const THOUGHTS_SURFACE: Record<ThoughtsFlag, ThoughtsSurface> = {
+  CLINICIAN_THOUGHTS_CAPTURE: {
+    name: "Recording and transcript",
+    does: "Say what you noticed; check what Steady heard before anything is kept.",
+    where: "On this page, above the recorded list.",
+  },
+  CLINICIAN_THOUGHTS_EXTRACTION: {
+    name: "Kept items",
+    does: "Turn what you said into items you decided were true, each keeping its source.",
+    where: "On this page, under Kept items.",
+  },
+  CLINICIAN_THREADS: {
+    name: "Themes",
+    does: "Name something that keeps coming up and gather the entries under it.",
+    where: "On this page, under Themes on this record.",
+  },
+  CLINICIAN_SESSION_PREP: {
+    name: "Session preparation",
+    does: "A brief before a session, every line tied to the evidence it came from.",
+    where: "On the record overview.",
+  },
+  CLINICIAN_PATIENT_ASK: {
+    name: "Patient-scoped questions",
+    does: "Ask about this person's record and get an answer with its sources.",
+    where: "On this page, in the box at the top.",
+  },
+  CLINICIAN_NOTE_BRIDGE: {
+    name: "Note draft",
+    does: "Build a draft from approved items you choose. Steady cannot sign it.",
+    where: "Build a note draft, linked from this page.",
+  },
+};
+
+/** Every surface with whether it is available here — one answer per capability,
+ *  from the function that decides whether it renders. */
+export function thoughtsCapabilities(): Array<ThoughtsSurface & {
+  flag: ThoughtsFlag; available: boolean;
+}> {
+  return THOUGHTS_FLAGS.map((flag) => ({
+    flag, ...THOUGHTS_SURFACE[flag], available: thoughtsSurfaceAvailable(flag),
+  }));
+}
 
 /** Whether a surface may render: its own flag AND everything it rests on. */
 export function thoughtsSurfaceAvailable(flag: ThoughtsFlag): boolean {

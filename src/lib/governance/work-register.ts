@@ -229,6 +229,28 @@ export const WORK_REGISTER: WorkEntry[] = [
     note: "An explicit full-list state rather than cursor paging: ?rows=all, same server order, total unchanged, and a way back. The wire between the link and the page is covered end to end, because a unit mutation that made the page ignore the parameter survived every unit test.",
   },
   {
+    id: "clinical.capability-claims-are-derived",
+    title: "What a screen says it can do is read from the switch that decides whether it renders",
+    // UX 005. The Thoughts page said session preparation and patient-scoped
+    // questions were "built in later phases" with the question box rendered
+    // above the sentence and session prep one click away. Both had shipped.
+    state: "reachable",
+    code: "src/lib/clinical/thoughts-flags.ts#thoughtsCapabilities",
+    test: "tests/thoughts-capability-claims.test.tsx",
+    note: "Six capabilities, each with a clinician's name for it and where to find it — no phase numbers, no flag names. A switched-off one says so rather than vanishing, because a missing row reads as never built. A guard fails if the page claims a capability in prose again.",
+  },
+  {
+    id: "clinical.empty-draft-cause",
+    title: "A note draft says why it is empty, from the assembler that knows",
+    // UX 006. One sentence covered three states — "this is empty because you
+    // have not chosen anything, not because there was nothing to choose" — and
+    // was false in two of them.
+    state: "reachable",
+    code: "src/lib/clinical/note-bridge.ts#assembleDraft",
+    test: "tests/note-bridge.test.ts",
+    note: "Three causes: nothing approved to choose from, nothing ticked, everything ticked refused. The third was previously reported as the second, above a panel listing what the clinician had in fact chosen and why each was rejected.",
+  },
+  {
     id: "clinical.restrictions-vs-events",
     title: "A restriction in force and an unresolved safety event are separate, named things",
     // UX 004. Therapeutic Load stops when a gate holds a module and sends the

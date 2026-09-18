@@ -66,7 +66,51 @@ export interface NoteDraft {
   /** Ids that were selected and could not be included, with why. A silent
    *  omission from a clinical note is the failure this exists to prevent. */
   refusedIds: Array<{ id: string; because: string }>;
+  /** Why there are no lines, or null when there are. */
+  emptyBecause: EmptyDraftCause | null;
 }
+
+/**
+ * Why a draft has no lines (UX 006).
+ *
+ *   "The draft-note empty state implies available choices when none were
+ *   approved. Model no source items separately from none selected. Acceptance:
+ *   each empty state states the actual cause."
+ *
+ * The screen used to answer with one sentence for every case: "This is empty
+ * because you have not chosen anything — not because there was nothing to
+ * choose." Written to be careful, and false in two of the three states it
+ * covered. With nothing approved there was indeed nothing to choose, and the
+ * sentence told a clinician to look for a control that was not there. With
+ * every selection refused, it said they had chosen nothing while a panel below
+ * listed what they had chosen and why each was rejected.
+ *
+ * SO THE CAUSE IS A VALUE THE ASSEMBLER COMPUTES, not a sentence a page
+ * guesses at. The assembler is the only thing that knows all three facts — what
+ * existed, what was ticked, what survived — and a screen that re-derives any of
+ * them will get it wrong the first time a fourth case appears.
+ */
+export type EmptyDraftCause =
+  /** Nothing has been approved for this person, so there was nothing to tick. */
+  | "no_approved_items"
+  /** There were items to choose from and none were ticked. */
+  | "none_selected"
+  /** Items were ticked and every one of them was refused. */
+  | "all_refused";
+
+/** What to tell a clinician, per cause. Here rather than on the page so the
+ *  words and the value that selects them cannot drift apart. */
+export const EMPTY_DRAFT_REASON: Record<EmptyDraftCause, string> = {
+  no_approved_items:
+    "There is nothing to choose from yet. No item on this person's record has been approved, " +
+    "and approval is where a clinician says the extraction was right.",
+  none_selected:
+    "Nothing is selected. There are approved items above — tick the ones this note should " +
+    "carry and build the draft.",
+  all_refused:
+    "Everything selected was refused, and each refusal is listed below with its reason. " +
+    "Nothing was quietly dropped.",
+};
 
 /**
  * What a clinician has to do before any of this becomes a note, said in one
@@ -134,6 +178,18 @@ export function assembleDraft(args: {
     });
   }
 
+  // The three facts, in the one place that holds all three. `available` is
+  // every item the clinician could have chosen from IN ANY STATUS, so "nothing
+  // to choose from" is about approved items rather than about rows existing.
+  const approvable = args.available.filter(
+    (i) => i.status === "approved" && i.personId === args.personId
+  );
+  const emptyBecause: EmptyDraftCause | null =
+    lines.length > 0 ? null
+    : refusedIds.length > 0 ? "all_refused"
+    : approvable.length === 0 ? "no_approved_items"
+    : "none_selected";
+
   return {
     personId: args.personId,
     assembledBy: args.assembledBy,
@@ -142,6 +198,7 @@ export function assembleDraft(args: {
     state: "draft",
     signedAt: null,
     refusedIds,
+    emptyBecause,
   };
 }
 

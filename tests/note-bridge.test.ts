@@ -24,6 +24,7 @@ import path from "node:path";
 
 import {
   assembleDraft, draftText, sourceIds, isSigned, SIGNING_IS_ELSEWHERE, NoteBridgeRefused,
+  EMPTY_DRAFT_REASON,
 } from "../src/lib/clinical/note-bridge";
 import type { MemoryItem } from "../src/lib/clinical/memory-store";
 import { thoughtsSurfaceAvailable } from "../src/lib/clinical/thoughts-flags";
@@ -272,4 +273,75 @@ test("the draft is audited by id, never by content", () => {
   assert.ok(!/displayText|draftText\(draft\)\s*\}?\s*,?\s*\n?\s*\}\)/.test(
     page.slice(page.indexOf("note_draft_assembled") - 400, page.indexOf("note_draft_assembled") + 400)
   ), "the audit detail carries item text");
+});
+
+// ---------------------------------------------------------------------------
+// Why a draft is empty (UX 006)
+// ---------------------------------------------------------------------------
+//
+//   "The draft-note empty state implies available choices when none were
+//   approved. Model no source items separately from none selected. Acceptance:
+//   each empty state states the actual cause."
+//
+// One sentence covered all three states — "This is empty because you have not
+// chosen anything, not because there was nothing to choose" — and it was false
+// in two of them. The cause is computed here now, because the assembler is the
+// only thing that knows what existed, what was ticked and what survived.
+
+test("nothing approved and nothing selected are different empty drafts", () => {
+  const nothingToChoose = build([], []);
+  assert.equal(nothingToChoose.emptyBecause, "no_approved_items");
+
+  const somethingToChoose = build([item({ id: "a" })], []);
+  assert.equal(somethingToChoose.emptyBecause, "none_selected");
+
+  assert.notEqual(
+    EMPTY_DRAFT_REASON[nothingToChoose.emptyBecause!],
+    EMPTY_DRAFT_REASON[somethingToChoose.emptyBecause!],
+    "two different causes are reported with the same sentence"
+  );
+});
+
+test("a record with only unapproved items has nothing to choose from", () => {
+  // `available` is every item in any status, so a page holding six candidate
+  // items and no approved one must not read as "you have not chosen anything".
+  // Approval is the thing that makes an item choosable.
+  const draft = build([item({ id: "a", status: "candidate" }), item({ id: "b", status: "candidate" })], []);
+  assert.equal(draft.emptyBecause, "no_approved_items");
+  assert.match(EMPTY_DRAFT_REASON[draft.emptyBecause!], /nothing to choose from/i);
+});
+
+test("an item belonging to somebody else is not something to choose from", () => {
+  const draft = build([item({ id: "a", personId: "person-2" })], []);
+  assert.equal(draft.emptyBecause, "no_approved_items",
+    "another person's item counted towards what this clinician could have chosen");
+});
+
+test("every selection refused is its own state, not 'you chose nothing'", () => {
+  // The clinician DID choose. Telling them they did not, above a panel listing
+  // what they chose and why each was rejected, is the screen arguing with
+  // itself.
+  const draft = build([item({ id: "a", status: "candidate" })], ["a"]);
+  assert.equal(draft.lines.length, 0);
+  assert.equal(draft.refusedIds.length, 1);
+  assert.equal(draft.emptyBecause, "all_refused");
+  assert.match(EMPTY_DRAFT_REASON[draft.emptyBecause!], /listed below/i,
+    "the refusal state does not point at the refusals");
+});
+
+test("a draft with lines has no cause to report", () => {
+  const draft = build([item({ id: "a" })], ["a"]);
+  assert.equal(draft.emptyBecause, null, "a draft with content still explains an emptiness");
+});
+
+test("every cause has words, and the screen reads them rather than writing its own", () => {
+  for (const cause of ["no_approved_items", "none_selected", "all_refused"] as const) {
+    const said = EMPTY_DRAFT_REASON[cause];
+    assert.ok(said && said.length > 40, `${cause} has no sentence`);
+  }
+  const page = code("app/clinician/member/[id]/note/page.tsx");
+  assert.match(page, /EMPTY_DRAFT_REASON\[draft\.emptyBecause\]/,
+    "the screen writes its own empty-state sentence instead of reading the modelled cause");
+  assert.ok(!/not because there was nothing to choose/.test(page),
+    "the sentence that was false in two of three states is back on the screen");
 });
