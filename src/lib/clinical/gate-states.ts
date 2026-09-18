@@ -51,3 +51,20 @@ export const HOLDING_GATE_STATES = ["limited", "review_needed", "safety_stop", "
 export function gateHolds(state: GateState): boolean {
   return (HOLDING_GATE_STATES as readonly string[]).includes(state);
 }
+
+/**
+ * The cause on its own, without the state word in front of it.
+ *
+ * `headline` is written as "Limited — screening incomplete" so it can stand
+ * alone in a log or a snapshot. Beside a chip that already says Limited it
+ * stutters, so every surface showing both strips the prefix — and a regex
+ * written out at each surface is how two screens come to strip it differently.
+ *
+ * TAKES THE TWO FIELDS IT READS, not a GateDecision. A parameter typed as the
+ * whole decision would only be usable by importing the module that decides
+ * gates, which is the module that needs the database — and that is how a client
+ * component came to pull `pg` into the browser bundle.
+ */
+export function gateCause(d: { state: GateState; headline: string }): string {
+  return d.headline.replace(new RegExp(`^${GATE_STATE_LABEL[d.state]}\\s*—\\s*`, "i"), "");
+}

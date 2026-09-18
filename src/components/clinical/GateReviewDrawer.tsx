@@ -1,7 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import { GATE_STATE_LABEL, gateCause, type GateDecision, type GateState } from "@/lib/clinical/gate-review";
+// TYPE-ONLY from gate-review, VALUES from gate-states. gate-review imports the
+// database; a value import here puts `pg` in the browser bundle and the build
+// fails with a module-not-found that names this file. It did.
+import type { GateDecision } from "@/lib/clinical/gate-review";
+import { GATE_STATE_LABEL, gateCause, type GateState } from "@/lib/clinical/gate-states";
 
 // The clinician gate-review drawer (GUI and Decision-Surface Handoff §9.2).
 //

@@ -189,7 +189,7 @@ export const WORK_REGISTER: WorkEntry[] = [
     state: "reachable",
     code: "src/lib/clinical/event-vocabulary.ts#displayTermFor",
     test: "tests/clinical-approval.test.ts",
-    note: "86 terms. The words are NOT clinically approved yet: the approval record has no attestation, the product says so above the table, and checkApproval() fails until named reviewers and a date are recorded against the content hash.",
+    note: "86 terms, approved as written on 2026-09-17 by Rebecca Altschuler, PhD (AZ PSY-005804) and John Allen, PhD (AZ PSY-002055), with no conditions. The signature is bound to content hash 853445054e58…; the signed form is in docs/approvals and the record names it by its own SHA-256. One reworded note and checkApproval() fails rather than the approval following the words.",
   },
   {
     id: "governance.clinical-approval-binding",
@@ -227,6 +227,18 @@ export const WORK_REGISTER: WorkEntry[] = [
     code: "src/lib/experience/return-to.ts#rememberable",
     test: "tests/clinician-shell.test.ts",
     note: "An explicit full-list state rather than cursor paging: ?rows=all, same server order, total unchanged, and a way back. The wire between the link and the page is covered end to end, because a unit mutation that made the page ignore the parameter survived every unit test.",
+  },
+  {
+    id: "platform.client-bundle-boundary",
+    title: "No client component reaches the database through its value imports",
+    // Found by a build, not by a test: a client component's TYPE import of the
+    // gate decider became a value import, which put pg in the browser bundle
+    // and failed next build with a module-not-found. No type error, no lint
+    // error, no failing unit test — and a real build is the slowest thing here.
+    state: "reachable",
+    code: "tests/client-bundle-boundary.test.ts#reaches",
+    test: "tests/client-bundle-boundary.test.ts",
+    note: "Follows each client component's runtime imports through the source, stopping at \"use server\" modules — eight components reach the database that way and every one is correct, so a guard that flagged them would be turned off within a week. The erasure rule is tested rather than trusted, and the guard is shown failing on the exact import that broke the build.",
   },
   {
     id: "clinical.handoff-delivery-truth",

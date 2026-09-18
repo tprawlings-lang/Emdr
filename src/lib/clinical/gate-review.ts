@@ -26,26 +26,13 @@ import { getModule, type TherapyModule } from "../modules";
 import { OVERRIDABLE, NEVER_OVERRIDABLE, type OverrideTarget } from "./review";
 import { activePolicy, type ClinicalPolicy } from "../clinical-policy";
 import { data } from "../data";
-import { GATE_STATE_LABEL, type GateState } from "./gate-states";
+import type { GateState } from "./gate-states";
 // Re-exported because every existing caller imports the gate's vocabulary
 // from the module that decides gates, and the split is about what a bundle
 // has to carry, not about where a reader should look.
 export {
-  GATE_STATE_LABEL, HOLDING_GATE_STATES, gateHolds, type GateState,
+  GATE_STATE_LABEL, HOLDING_GATE_STATES, gateHolds, gateCause, type GateState,
 } from "./gate-states";
-
-/**
- * The cause on its own, without the state word in front of it.
- *
- * `headline` is written as "Limited — screening incomplete" so it can stand
- * alone in a log or a snapshot. Beside a chip that already says Limited it
- * stutters, so every surface that shows both strips the prefix — and doing that
- * with a regex written out at each surface is how two screens end up stripping
- * it differently.
- */
-export function gateCause(d: GateDecision): string {
-  return d.headline.replace(new RegExp(`^${GATE_STATE_LABEL[d.state]}\\s*—\\s*`, "i"), "");
-}
 
 export interface GateReason {
   code: string;

@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import zlib from "node:zlib";
+import crypto from "node:crypto";
 import { EVENT_TERMS, displayTermFor, coverageOf } from "../src/lib/clinical/event-vocabulary";
 import {
   DISPLAY_VOCABULARY_APPROVAL, vocabularyHash, checkApproval, vocabularyIsApproved,
@@ -21,8 +22,17 @@ import {
 const SIGNED: ClinicalApproval = {
   ...DISPLAY_VOCABULARY_APPROVAL,
   status: "approved",
-  reviewers: [{ name: "A Reviewer", role: "Consultant psychologist" }],
+  reviewers: [{
+    name: "A Reviewer", role: "Consultant psychologist",
+    license: "Psychologist — XX-000000", signedAt: "2026-09-17",
+  }],
   reviewedAt: "2026-09-17",
+  signedEvidence: {
+    path: "docs/approvals/clinical-display-vocabulary-v1-SIGNED.pdf",
+    sha256: "sha-of-some-other-file",
+    determination: "Approved as written.",
+    conditions: [],
+  },
 };
 
 test("the approval is bound to the exact words, notes included", () => {
@@ -58,12 +68,52 @@ test("two entries cannot be made to collide by moving a separator into the text"
 });
 
 test("an approval with no attestation does not count as approval", () => {
-  // The state this repository is in right now: the words exist, nobody has
-  // signed them. The check has to say so rather than defaulting to permissive.
-  const check = checkApproval(DISPLAY_VOCABULARY_APPROVAL);
+  // THE STATE THIS RECORD WAS IN UNTIL THE SIGNED FORM CAME BACK, written as a
+  // value rather than read from the live record. The earlier version asserted
+  // on DISPLAY_VOCABULARY_APPROVAL itself, which made it a test of what day it
+  // was: it passed while nobody had signed and failed the moment somebody did.
+  // What has to hold forever is that an unsigned approval is refused.
+  const unsigned = {
+    ...DISPLAY_VOCABULARY_APPROVAL,
+    status: "awaiting_attestation" as const,
+    reviewers: [], reviewedAt: null, signedEvidence: null,
+  };
+  const check = checkApproval(unsigned);
   assert.equal(check.ok, false, "an unsigned approval passed");
   assert.match(check.problems.join(" "), /no attestation/);
-  assert.equal(vocabularyIsApproved(), false);
+});
+
+test("the recorded attestation is one a reader could check", () => {
+  // The live record, now that it is signed. Every field here is something
+  // somebody outside this repository could verify — a licence number, a date,
+  // a file — because "a psychologist agreed" is not a checkable statement.
+  const a = DISPLAY_VOCABULARY_APPROVAL;
+  assert.equal(a.status, "approved");
+  assert.equal(checkApproval(a).ok, true, checkApproval(a).problems.join(" "));
+  assert.equal(vocabularyIsApproved(), true);
+
+  assert.ok(a.reviewers.length >= 2, "one reviewer signed a two-reviewer attestation");
+  for (const r of a.reviewers) {
+    assert.match(r.license, /[A-Z]{2}\s?PSY-\d{6}/, `${r.name} has no licence number on the record`);
+    assert.match(r.signedAt, /^\d{4}-\d{2}-\d{2}$/);
+  }
+  assert.equal(a.reviewedAt, a.reviewers[0].signedAt,
+    "the approval's date is not the date the signatures carry");
+});
+
+test("the signed form on disk is the one the approval was recorded from", () => {
+  // A transcription needs the thing it was transcribed from. Hashing the file
+  // means the record names one exact document: replace it and this fails,
+  // rather than the approval quietly pointing at whatever now sits there.
+  const ev = DISPLAY_VOCABULARY_APPROVAL.signedEvidence;
+  assert.ok(ev, "an approved record with no signed document");
+  const file = path.join(process.cwd(), ev.path);
+  assert.ok(fs.existsSync(file), `${ev.path} is recorded as the evidence and is not in the repository`);
+  const actual = crypto.createHash("sha256").update(fs.readFileSync(file)).digest("hex");
+  assert.equal(actual, ev.sha256,
+    `${ev.path} is not the file this approval was recorded from`);
+  assert.equal(fs.readFileSync(file).subarray(0, 5).toString(), "%PDF-",
+    "the recorded evidence is not a document");
 });
 
 test("a signed approval stops covering the words the moment they change", () => {
@@ -130,7 +180,8 @@ test("the stored document is the words, current and complete", () => {
 
   // And the document says which state it is in, so a reader is not left to
   // infer it from the presence of a name.
-  assert.match(doc, /Awaiting attestation|Approved on/);
+  assert.match(doc.replace(/\*\*/g, ""), /Awaiting attestation|Approved on \d{4}-\d{2}-\d{2} by/,
+    "the document does not say which state the approval is in");
 });
 
 /**
@@ -297,4 +348,33 @@ test("the surfaces the approval claims to cover are real routes", () => {
   for (const route of DISPLAY_VOCABULARY_APPROVAL.appliesTo) {
     assert.ok(register.includes(`"${route}"`), `${route} is claimed by the approval and is not a registered route`);
   }
+});
+
+test("the screen stops calling the words unapproved once they are approved", () => {
+  // The notice was written to disappear when an attestation is recorded — "then
+  // the claim is simply true" — and that is the half of a warning nobody tests
+  // until it is wrong. A banner that survives its own condition teaches
+  // clinicians to read past banners.
+  const view = fs.readFileSync(
+    path.join(process.cwd(), "src/components/clinical/AuditView.tsx"), "utf8"
+  );
+  assert.match(view, /if \(approval\.ok && coverage\.missing\.length === 0\) return null;/,
+    "the vocabulary notice no longer stands down when the words are approved");
+  assert.match(view, /\{!approval\.ok && \(/,
+    "the 'not clinically approved' sentence is rendered unconditionally");
+
+  // And the condition it stands down on is actually met now.
+  assert.equal(checkApproval().ok, true, checkApproval().problems.join(" "));
+});
+
+test("a signature does not survive the words changing under it", () => {
+  // THE POINT OF THE WHOLE MECHANISM, now that there is a real signature to
+  // lose. Two named psychologists signed a hash; one reworded note and the
+  // approval stops covering the vocabulary rather than following it.
+  const moved = checkApproval(
+    DISPLAY_VOCABULARY_APPROVAL,
+    vocabularyHash({ ...EVENT_TERMS, alert_closed: { term: "Safety alert closed", note: "Changed." } })
+  );
+  assert.equal(moved.ok, false, "the words moved and the signature came with them");
+  assert.match(moved.problems.join(" "), /does not cover them/);
 });

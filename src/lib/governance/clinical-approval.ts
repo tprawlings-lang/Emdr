@@ -35,6 +35,37 @@ export interface Reviewer {
   name: string;
   /** Their role, as they hold it — not their role in this product. */
   role: string;
+  /**
+   * The licence the role rests on, as printed on the form they signed.
+   *
+   * REQUIRED, because a name and a role are a claim and a licence number is a
+   * thing somebody else can check. This record is the only place the product
+   * states who approved its clinical words, and "a psychologist agreed" is not
+   * a statement anybody can verify.
+   */
+  license: string;
+  /** The date THEY wrote beside their signature, as YYYY-MM-DD.
+   *
+   *  Per reviewer rather than one date for the approval, because two people
+   *  signing on different days is ordinary and collapsing it loses which
+   *  signature is which. */
+  signedAt: string;
+}
+
+/** The signed form itself, bound to the record by a hash of the file.
+ *
+ *  The attestation is a set of names and dates transcribed by somebody; the
+ *  evidence is the document those names are written on. Recording its SHA-256
+ *  means the record names one exact file — swap it and the guard fails, rather
+ *  than the approval quietly pointing at whatever now sits at that path. */
+export interface SignedEvidence {
+  path: string;
+  sha256: string;
+  /** What the reviewers marked, in the form's own words. */
+  determination: string;
+  /** Anything they wrote in the conditions box. Empty when they wrote nothing,
+   *  which is a different fact from nobody having looked. */
+  conditions: readonly string[];
 }
 
 export type ApprovalStatus =
@@ -62,6 +93,8 @@ export interface ClinicalApproval {
   document: string;
   /** The printable form they sign, generated from the same words. */
   signoffForm: string;
+  /** The returned form with their signatures on it. Null until it comes back. */
+  signedEvidence: SignedEvidence | null;
 }
 
 /**
@@ -119,11 +152,37 @@ export const DISPLAY_VOCABULARY_APPROVAL: ClinicalApproval = {
   // Recorded from the content submitted for review. Regenerate deliberately,
   // with a new attestation, never to make a failing guard pass.
   contentHash: "853445054e584581996e897830e24480b2d9d2d30904aeb385bcd84cf56e9508",
-  status: "awaiting_attestation",
-  reviewers: [],
-  reviewedAt: null,
+  status: "approved",
+  // TRANSCRIBED FROM THE SIGNED FORM, not reconstructed from when it was sent.
+  // Both reviewers marked "Approved as written", wrote nothing in the
+  // conditions box, and dated their signatures 9/17/26. That date is one day
+  // BEFORE the form itself was prepared, which is recorded here rather than
+  // corrected: an attestation is somebody else's statement, and tidying a date
+  // on one is the small version of the drift this whole module exists to catch.
+  // It is flagged for the product owner to resolve with the reviewers.
+  reviewers: [
+    {
+      name: "Rebecca Altschuler, PhD",
+      role: "Licensed Psychologist",
+      license: "Psychologist — AZ PSY-005804 (Arizona)",
+      signedAt: "2026-09-17",
+    },
+    {
+      name: "John Allen, PhD",
+      role: "Licensed Psychologist",
+      license: "Psychologist — AZ PSY-002055 (Arizona)",
+      signedAt: "2026-09-17",
+    },
+  ],
+  reviewedAt: "2026-09-17",
   document: "docs/approvals/clinical-display-vocabulary-v1.md",
   signoffForm: "docs/approvals/clinical-display-vocabulary-v1-SIGNOFF-FORM.docx",
+  signedEvidence: {
+    path: "docs/approvals/clinical-display-vocabulary-v1-SIGNED.pdf",
+    sha256: "92abb3548e8f8d3fa1803d9e912cbf87945536aa2a97d8206fcf62607619bc92",
+    determination: "Approved as written.",
+    conditions: [],
+  },
 };
 
 export interface ApprovalCheck {
@@ -157,6 +216,27 @@ export function checkApproval(
     }
     if (!approval.reviewedAt) {
       problems.push(`${approval.id} claims approval and records no date.`);
+    }
+    // A NAME IS A CLAIM; A LICENCE IS CHECKABLE. Both are required of an
+    // approval being relied on, because this record is the only place the
+    // product states who approved its clinical words.
+    for (const r of approval.reviewers) {
+      if (!r.license.trim()) {
+        problems.push(`${approval.id} names ${r.name} with no licence, so the role cannot be checked.`);
+      }
+      if (!r.signedAt) {
+        problems.push(`${approval.id} names ${r.name} with no date beside their signature.`);
+      }
+    }
+    // AND THE DOCUMENT THEY SIGNED. Names and dates are a transcription, and
+    // without the thing they were transcribed from there is nothing to check
+    // the transcription against.
+    if (!approval.signedEvidence) {
+      problems.push(
+        `${approval.id} claims approval with no signed document recorded, so the names and dates rest on nothing.`
+      );
+    } else if (!approval.signedEvidence.determination.trim()) {
+      problems.push(`${approval.id} records a signed document that does not say what was determined.`);
     }
     if (approval.contentHash !== currentHash) {
       problems.push(

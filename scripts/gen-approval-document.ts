@@ -35,7 +35,26 @@ function render(): string {
   if (A.status === "approved") {
     lines.push(`**Approved** on ${A.reviewedAt} by:`);
     lines.push("");
-    for (const r of A.reviewers) lines.push(`- ${r.name} — ${r.role}`);
+    for (const r of A.reviewers) {
+      lines.push(`- ${r.name} — ${r.role}, ${r.license}, signed ${r.signedAt}`);
+    }
+    if (A.signedEvidence) {
+      lines.push("");
+      lines.push(`Determination: **${A.signedEvidence.determination}**`);
+      lines.push("");
+      if (A.signedEvidence.conditions.length === 0) {
+        lines.push("No conditions were written on the form.");
+      } else {
+        lines.push("Conditions recorded on the form:");
+        lines.push("");
+        for (const c of A.signedEvidence.conditions) lines.push(`- ${c}`);
+      }
+      lines.push("");
+      lines.push(
+        `The signed form is [\`${path.basename(A.signedEvidence.path)}\`](${path.basename(A.signedEvidence.path)}), ` +
+        `SHA-256 \`${A.signedEvidence.sha256}\`. The record names that one file: replace it and the guard fails.`
+      );
+    }
   } else {
     lines.push("**Awaiting attestation.** No reviewer and no date have been recorded against");
     lines.push("this content. Until they are, the product renders these words as carrying no");
