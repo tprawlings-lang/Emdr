@@ -22,6 +22,7 @@ import { scoreThread } from "@/lib/clinical/thread-match";
 import { ThreadSuggestions } from "@/components/clinical/ThreadSuggestions";
 import { ThreadTimeline } from "@/components/clinical/ThreadTimeline";
 import type { TenantContext } from "@/lib/repository";
+import { readingFrame } from "@/lib/clock";
 
 export const dynamic = "force-dynamic";
 
@@ -56,7 +57,9 @@ async function buildThreadView(
 ) {
   // One instant for the whole render. Scoring two suggestions against two
   // different clocks makes them very slightly incomparable, for no reason.
-  const scoredAt = Date.now();
+  // Taken from the reading frame, because recency here is recency relative to
+  // the evidence on screen, and under a moved clock the real time is not that.
+  const scoredAt = (await readingFrame()).now.getTime();
   const items = await loadItems(memberships.map((m) => m.memoryItemId));
   const itemById = new Map(items.map((i) => [i.id, i]));
   const threadById = new Map(threads.map((t) => [t.id, t]));

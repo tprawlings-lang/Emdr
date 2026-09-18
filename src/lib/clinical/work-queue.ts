@@ -34,6 +34,7 @@ import {
 } from "../presentation/envelope";
 import { commandCenterFlagEnabled } from "./command-center-flags";
 import type { AttentionBand } from "./attention-signals";
+import { readingNow } from "../clock";
 
 /** §10.3's five groups, in the order they appear. Ordered by claim on the
  *  clinician's attention, not by volume. */
@@ -519,11 +520,11 @@ export async function buildWorkQueue(args: {
   now?: Date;
 }): Promise<WorkQueue> {
   const policy = args.policy ?? activePolicy();
-  const now = args.now ?? new Date();
+  const now = args.now ?? await readingNow();
 
   const [alerts, caseload] = await Promise.all([
     alertQueue({ tenantId: args.tenantId, includeResolved: true, policy, now }),
-    buildCaseload({ clinicianId: args.clinicianId, tenantId: args.tenantId, policy }),
+    buildCaseload({ clinicianId: args.clinicianId, tenantId: args.tenantId, policy, now }),
   ]);
 
   // Owner display names, resolved once rather than per row. §10.3 requires a
@@ -828,7 +829,7 @@ export async function clinicianQueueProjection(args: {
    *  logged server-side and quoted on screen (§30.8). */
   correlationId?: string;
 }): Promise<Envelope<WorkQueue>> {
-  const now = args.now ?? new Date();
+  const now = args.now ?? await readingNow();
   let policy: ClinicalPolicy;
   try {
     policy = args.policy ?? activePolicy();

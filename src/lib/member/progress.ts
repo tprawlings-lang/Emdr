@@ -36,6 +36,7 @@ import { activePolicy } from "../clinical-policy";
 import {
   ready, empty, partial, type Envelope, type ProjectionMeta, type MissingSource,
 } from "../presentation/envelope";
+import { readingNow } from "../clock";
 
 export const MEMBER_PROGRESS_SCHEMA = "member_progress.v6";
 
@@ -140,7 +141,7 @@ export async function buildMemberProgress(args: {
   now?: Date;
 }): Promise<Envelope<MemberProgress>> {
   const days = args.days ?? 30;
-  const now = args.now ?? new Date();
+  const now = args.now ?? await readingNow();
   const policy = activePolicy();
   const c = await data();
 

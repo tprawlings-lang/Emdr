@@ -4,6 +4,7 @@ import { data } from "@/lib/data";
 import { MemberPage } from "@/components/member/MemberPage";
 import { buildGateView, assertGateSafe, type GatePhase } from "@/lib/member/gate-view";
 import { hasData } from "@/lib/presentation/envelope";
+import { readingFrame } from "@/lib/clock";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Safety check — Steady" };
@@ -43,10 +44,15 @@ export default async function SafetyGatePage({
     ? (phase as Exclude<GatePhase, "continue">)
     : "block";
 
+  // The projection is stamped with the page's reading frame, like every other
+  // projection. `now` reaches only `generatedAt` here — the gate's phase is
+  // decided upstream by the safety engine on real time, and nothing on this
+  // screen is re-decided by moving a clock.
   const envelope = buildGateView({
     phase: resolved,
     ruleId: rule && /^[A-Z]-\d{2}$/.test(rule) ? rule : "S-04",
     tenantId: row?.tenant_id ?? "",
+    now: (await readingFrame()).now,
   });
   const gate = hasData(envelope) ? assertGateSafe(envelope.data) : null;
 

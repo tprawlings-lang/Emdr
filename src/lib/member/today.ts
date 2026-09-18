@@ -27,6 +27,7 @@ import { activePolicy } from "../clinical-policy";
 import {
   ready, empty, policyUnavailable, type Envelope, type ProjectionMeta,
 } from "../presentation/envelope";
+import { readingNow } from "../clock";
 
 export const MEMBER_TODAY_SCHEMA = "member_today.v4";
 
@@ -105,7 +106,7 @@ export async function buildMemberToday(args: {
   now?: Date;
 }): Promise<Envelope<MemberToday>> {
   const policy = activePolicy();
-  const now = args.now ?? new Date();
+  const now = args.now ?? await readingNow();
   const meta: ProjectionMeta = {
     schemaVersion: MEMBER_TODAY_SCHEMA,
     projectionVersion: `${MEMBER_TODAY_SCHEMA}+${policy.version}`,

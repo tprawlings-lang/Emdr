@@ -42,6 +42,7 @@ import { checkModuleAccess } from "../gating";
 import { getModule } from "../modules";
 import { memberDayView, type MemberDayView } from "../experience/member-day";
 import { resumeDecision, type ResumeOffer } from "../experience/activity-shell";
+import { readingNow } from "../clock";
 
 export interface MemberDayRead {
   view: MemberDayView;
@@ -64,7 +65,7 @@ export async function readMemberDay(args: {
   userId: string;
   now?: string;
 }): Promise<MemberDayRead> {
-  const now = args.now ?? new Date().toISOString();
+  const now = args.now ?? (await readingNow()).toISOString();
 
   let day = null;
   try {

@@ -18,6 +18,7 @@ import { clinicianShellEnabled } from "@/lib/experience/flags";
 import { experienceContextFor } from "@/lib/experience/context";
 import { navigationFor } from "@/lib/experience/navigation";
 import { fromSearchParams } from "@/lib/experience/view-state";
+import { readingFrame } from "@/lib/clock";
 import { clinicianHome } from "@/lib/experience/clinician-home";
 import { ExperienceShell } from "@/components/experience/ExperienceShell";
 import { ClinicianHomeView } from "@/components/experience/ClinicianHomeView";
@@ -86,8 +87,12 @@ export default async function CommandCenterPage({
   // day is clear" from "this failed to load" — which a page mapping over an
   // items array cannot do, and which is the difference between good news and a
   // clinician working blind.
+  // The reading frame, read once. The projection's windows and the page's
+  // "how long ago" labels come from the same instant, so a moved demo clock
+  // moves the whole screen rather than the half of it that happened to ask.
+  const frame = await readingFrame();
   const envelope = await clinicianQueueProjection({
-    clinicianId: clinician.id, tenantId, policy,
+    clinicianId: clinician.id, tenantId, policy, now: frame.now,
     correlationId: `queue-${clinician.id.slice(0, 8)}`,
   });
 
@@ -135,7 +140,7 @@ export default async function CommandCenterPage({
       envelope,
       view,
       showing: filter === "stable" ? null : filter,
-      now: new Date().toISOString(),
+      now: frame.now.toISOString(),
       rowsPerBucket: filter === null && !showingAll ? ROWS_PER_BUCKET : Number.MAX_SAFE_INTEGER,
     });
 

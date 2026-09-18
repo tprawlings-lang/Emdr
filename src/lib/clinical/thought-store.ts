@@ -160,10 +160,15 @@ export async function currentTranscript(
 /** Open a capture. The clinician has pressed Record; nothing exists yet. */
 export async function beginThought(
   ctx: TenantContext,
-  args: { personId: string; sourceSessionId?: string | null; now?: Date }
+  // NO CLOCK PARAMETER. `recorded_at` and the id's time component are a
+  // clinical record of when a clinician pressed Record, so they are written on
+  // real time and nothing may hand this function a different one. The demo
+  // clock moves the reading frame, never the record; a `now` here would be the
+  // door. No caller ever passed one.
+  args: { personId: string; sourceSessionId?: string | null }
 ): Promise<Thought> {
   const clinician = actingClinician(ctx);
-  const now = args.now ?? new Date();
+  const now = new Date();
   const id = ulid(now.getTime());
   const recordedAt = now.toISOString().replace("T", " ").slice(0, 19);
   await repo(ctx).insert("clinician_thoughts", {

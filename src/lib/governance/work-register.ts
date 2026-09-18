@@ -229,6 +229,19 @@ export const WORK_REGISTER: WorkEntry[] = [
     note: "An explicit full-list state rather than cursor paging: ?rows=all, same server order, total unchanged, and a way back. The wire between the link and the page is covered end to end, because a unit mutation that made the page ignore the parameter survived every unit test.",
   },
   {
+    id: "platform.clock-contract",
+    title: "One clock decides what 'now' means for a read, and cannot reach a write",
+    // UX 003. The demo clock moved the badge in the shell and almost nothing
+    // underneath it: twenty-seven read functions defaulted to `const now =
+    // args.now ?? new Date()`, which answers with real time in a product whose
+    // data is read through a moved frame. Nothing failed; the ages were simply
+    // wrong, and plausible.
+    state: "reachable",
+    code: "src/lib/clock.ts#readingFrame",
+    test: "tests/clock-contract.test.ts",
+    note: "The default is inverted rather than the parameter removed, so forgetting is the harmless failure. buildWorkQueue was passing no clock to buildCaseload, so one projection carried two. closeAlert and beginThought lost their injectable clocks: reviewed_at and recorded_at are records, and a record is written on real time.",
+  },
+  {
     id: "clinical.contact-vs-activity",
     title: "Contact and member activity are separate facts",
     state: "reachable",

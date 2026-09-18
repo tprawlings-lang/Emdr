@@ -13,6 +13,7 @@ import { approvedMemory } from "@/lib/clinical/memory-store";
 import {
   assembleDraft, draftText, SIGNING_IS_ELSEWHERE,
 } from "@/lib/clinical/note-bridge";
+import { readingFrame } from "@/lib/clock";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Note draft — Steady Clinical" };
@@ -68,7 +69,10 @@ export default async function MemberNoteDraftPage({
   const draft = assembleDraft({
     personId: id,
     assembledBy: clinician.id,
-    assembledAt: new Date().toISOString(),
+    // Rendered beside the evidence it was assembled from, never stored, so it
+    // belongs to the reading frame — a draft stamped today over evidence dated
+    // nine months later is the contradiction UX 003 reports.
+    assembledAt: (await readingFrame()).now.toISOString(),
     available: approved,
     selectedIds,
   });

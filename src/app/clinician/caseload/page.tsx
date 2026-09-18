@@ -4,6 +4,7 @@ import { requireClinician } from "@/lib/auth";
 import { data } from "@/lib/data";
 import { PLATFORM_TENANT_ID } from "@/lib/db";
 import { buildCaseload, isCoverageAction } from "@/lib/clinical/caseload";
+import { readingFrame } from "@/lib/clock";
 import { alertQueue, overdueAlerts } from "@/lib/clinical/alerts";
 import { activePolicy, policyApproval, policyParameters } from "@/lib/clinical-policy";
 import { closeAlertAction } from "@/lib/clinical/actions";
@@ -30,7 +31,15 @@ export default async function ClinicalConsole({
     | { tenant_id: string } | undefined;
   const tenantId = me?.tenant_id ?? PLATFORM_TENANT_ID;
 
-  const caseload = await buildCaseload({ clinicianId: clinician.id, tenantId, policy });
+  // The reading frame, read once for the whole page. Everything derived below
+  // — the caseload's day counts, the alert deadlines, the freshness labels —
+  // measures from this one instant, so nothing on the screen can disagree with
+  // anything else about what time it is, and a moved demo clock moves all of it
+  // together rather than half of it.
+  const frame = await readingFrame();
+  const caseload = await buildCaseload({
+    clinicianId: clinician.id, tenantId, policy, now: frame.now,
+  });
 
   // Owner names, resolved once. The row showed a raw clinician id or nothing at
   // all; §23.2 wants a clear owner, and an id is not an owner to a person
@@ -45,9 +54,9 @@ export default async function ClinicalConsole({
     for (const r of rows) ownerNames.set(r.id, r.name);
   }
 
-  // Freshness renders against a server time, never the browser clock.
-  const now = new Date().toISOString().replace("T", " ").slice(0, 19);
-  const alerts = await alertQueue({ tenantId, policy });
+  // Freshness renders against the page's reading frame, never the browser clock.
+  const now = frame.now.toISOString().replace("T", " ").slice(0, 19);
+  const alerts = await alertQueue({ tenantId, policy, now: frame.now });
   const overdue = overdueAlerts(alerts);
 
   // The clinical-state view (expansion handoff 03 §6), behind its own flag.

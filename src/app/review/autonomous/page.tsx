@@ -47,9 +47,15 @@ const TIER_STYLE: Record<number, string> = {
   [AccessTier.STEADY]: "bg-state-safe-bg/60 text-ground border-state-safe/40",
 };
 
-function buildInputs(sp: SP): SafetyInputs {
+// TAKES THE CLOCK RATHER THAN READING ONE. The page already reads it once at
+// the top, for exactly the reason request-clock.ts gives — and this function
+// then read it again, so the simulator's cooldown windows were measured from a
+// slightly different instant than the elapsed times printed beside them. One
+// reading per request is the whole point; a second one in a helper is the same
+// bug in a smaller place.
+function buildInputs(sp: SP, nowMs: number): SafetyInputs {
   const inputs: SafetyInputs = {
-    nowMs: Date.now(),
+    nowMs,
     programFit: {
       under18: on(sp.under18),
       selfHarm30d: on(sp.fit_selfharm),
@@ -100,7 +106,7 @@ export default async function AutonomousReview({ searchParams }: { searchParams:
   const sp = await searchParams;
   const status = safetyCoreStatus();
 
-  const inputs = buildInputs(sp);
+  const inputs = buildInputs(sp, now);
   const decision = evaluateAccess(inputs);
   const orchestration = orchestrateNext(
     decision.dispositions.crisis ? JourneyStage.ElevatedRisk : JourneyStage.LongitudinalUse,

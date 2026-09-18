@@ -23,6 +23,7 @@
 
 import { repo, type TenantContext } from "../repository";
 import { decryptField } from "../crypto";
+import { readingNow } from "../clock";
 
 /** How long a kept follow-up stays on the queue. Two months is roughly two to
  *  eight sessions depending on cadence — long enough to survive a cancellation,
@@ -63,7 +64,7 @@ export async function openFollowUps(
   ctx: TenantContext,
   opts: { personId?: string; now?: Date; windowDays?: number } = {}
 ): Promise<FollowUp[]> {
-  const now = opts.now ?? new Date();
+  const now = opts.now ?? await readingNow();
   const windowDays = opts.windowDays ?? FOLLOWUP_WINDOW_DAYS;
   const since = new Date(now.getTime() - windowDays * 86_400_000).toISOString();
 

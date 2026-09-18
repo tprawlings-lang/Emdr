@@ -48,6 +48,7 @@ import {
   computeTherapeuticLoad, loadContext, THERAPEUTIC_LOAD_POLICY, type LoadContext,
 } from "./therapeutic-load";
 import type { TenantContext } from "../repository";
+import { readingNow } from "../clock";
 
 export const SESSION_PREP_VERSION = "session-prep.1.0.0";
 
@@ -611,7 +612,7 @@ export interface BuildPrepOptions {
 export async function buildSessionPrep(
   ctx: TenantContext, personId: string, opts: BuildPrepOptions = {}
 ): Promise<SessionPrep> {
-  const now = opts.now ?? new Date();
+  const now = opts.now ?? await readingNow();
   const policy = opts.policy ?? activePolicy();
   const evidenceCutoff = opts.asOf ?? now.toISOString();
 

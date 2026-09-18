@@ -16,6 +16,7 @@
 
 import { data } from "../data";
 import { activePolicy, type CaseloadModel, type ClinicalPolicy } from "../clinical-policy";
+import { readingNow } from "../clock";
 
 export type PriorityBand = "immediate" | "high" | "standard" | "watch" | "none";
 
@@ -104,7 +105,7 @@ export async function buildCaseload(args: {
   now?: Date;
 }): Promise<Caseload> {
   const policy = args.policy ?? activePolicy();
-  const now = args.now ?? new Date();
+  const now = args.now ?? await readingNow();
   const c = await data();
 
   const raw = (await c.all(

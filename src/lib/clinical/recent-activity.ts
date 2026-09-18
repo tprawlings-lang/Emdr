@@ -45,6 +45,7 @@ import { data } from "../data";
 import { activePolicy, companionContentAllowed, type ClinicalPolicy } from "../clinical-policy";
 import { displayTermFor } from "./event-vocabulary";
 import { buildCaseload } from "./caseload";
+import { readingNow } from "../clock";
 
 export const ACTIVITY_VERSION = "recent-activity.1.0.0";
 
@@ -152,12 +153,12 @@ export async function buildRecentActivity(args: {
   kinds?: ActivityKind[];
 }): Promise<RecentActivity> {
   const policy = args.policy ?? activePolicy();
-  const now = args.now ?? new Date();
+  const now = args.now ?? await readingNow();
   const limit = args.limit ?? 60;
   const wanted = new Set<ActivityKind>(args.kinds ?? ACTIVITY_KINDS);
 
   const caseload = await buildCaseload({
-    clinicianId: args.clinicianId, tenantId: args.tenantId, policy,
+    clinicianId: args.clinicianId, tenantId: args.tenantId, policy, now,
   });
   const people = caseload.rows;
   const names = new Map(people.map((r) => [r.personId, r.displayName]));

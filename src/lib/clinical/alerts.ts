@@ -19,6 +19,7 @@
 import { data } from "../data";
 import { audit } from "../audit";
 import { activePolicy, type ClinicalPolicy } from "../clinical-policy";
+import { readingNow } from "../clock";
 
 /** The bands from the workflow spec, mapped onto the existing `alerts.severity`
  *  column so no migration and no data rewrite is required. */
@@ -142,7 +143,7 @@ export async function alertQueue(args: {
   now?: Date;
 }): Promise<ClinicalAlert[]> {
   const policy = args.policy ?? activePolicy();
-  const now = args.now ?? new Date();
+  const now = args.now ?? await readingNow();
   const c = await data();
 
   const rows = (await c.all(
@@ -202,7 +203,11 @@ export async function closeAlert(args: {
   clinicianId: string;
   tenantId: string;
   resolution: string;
-  now?: Date;
+  // NO CLOCK. `reviewed_at` is a governance record — this is a clinician
+  // saying what they did about a safety alert and when — so it is written on
+  // real time, always. A `now` here would be a parameter through which a
+  // moved reading frame could reach a written row, which is the one thing the
+  // clock contract exists to prevent; no caller ever passed one.
 }): Promise<ClinicalAlert> {
   const c = await data();
   const row = (await c.get(
@@ -230,7 +235,7 @@ export async function closeAlert(args: {
   }
   if (resolution.length === 0) throw new AlertClosureError("A resolution is required.");
 
-  const at = fmt(args.now ?? new Date());
+  const at = fmt(new Date());
   await c.run(
     `UPDATE alerts SET status = 'reviewed', reviewed_by = ?, review_note = ?, reviewed_at = ?
       WHERE id = ?`,
@@ -246,7 +251,8 @@ export async function closeAlert(args: {
     detail: { band, personId: row.user_id, alertType: row.alert_type },
   });
 
-  const queue = await alertQueue({ tenantId: args.tenantId, includeResolved: true, now: args.now });
+  // Read back through the reading frame, like every other read of this queue.
+  const queue = await alertQueue({ tenantId: args.tenantId, includeResolved: true });
   return queue.find((a) => a.id === args.alertId)!;
 }
 

@@ -64,6 +64,7 @@ import {
   computeTherapeuticLoad, THERAPEUTIC_LOAD_POLICY, LOAD_STATE_LABEL,
   type LoadState,
 } from "./therapeutic-load";
+import { readingNow } from "../clock";
 
 export const CASELOAD_STATE_VERSION = "caseload-state.1.0.0";
 
@@ -255,14 +256,14 @@ export async function buildCaseloadState(args: {
   personIds?: string[];
 }): Promise<CaseloadState> {
   const policy = args.policy ?? activePolicy();
-  const now = args.now ?? new Date();
+  const now = args.now ?? await readingNow();
   const cutoff = now.toISOString();
   const windowStart = new Date(now.getTime() - FUNCTION_WINDOW_DAYS * 86_400_000)
     .toISOString()
     .slice(0, 10);
 
   const caseload = await buildCaseload({
-    clinicianId: args.clinicianId, tenantId: args.tenantId, policy,
+    clinicianId: args.clinicianId, tenantId: args.tenantId, policy, now,
   });
   const only = args.personIds ? new Set(args.personIds) : null;
   const people = only ? caseload.rows.filter((r) => only.has(r.personId)) : caseload.rows;
