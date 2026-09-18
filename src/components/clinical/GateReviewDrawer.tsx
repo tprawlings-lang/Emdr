@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import type { GateDecision, GateState } from "@/lib/clinical/gate-review";
+import { GATE_STATE_LABEL, gateCause, type GateDecision, type GateState } from "@/lib/clinical/gate-review";
 
 // The clinician gate-review drawer (GUI and Decision-Surface Handoff §9.2).
 //
@@ -27,13 +27,16 @@ import type { GateDecision, GateState } from "@/lib/clinical/gate-review";
 // override, so the form posts and waits rather than reflecting a hoped-for
 // result.
 
-const STATE_STYLE: Record<GateState, { cls: string; glyph: string; label: string }> = {
-  open:          { cls: "bg-state-safe-bg text-state-safe",       glyph: "◆", label: "Open" },
-  caution:       { cls: "bg-state-caution-bg text-state-caution", glyph: "◈", label: "Caution" },
-  limited:       { cls: "bg-state-caution-bg text-state-caution", glyph: "◐", label: "Limited" },
-  review_needed: { cls: "bg-state-review-bg text-state-review",   glyph: "◷", label: "Review needed" },
-  safety_stop:   { cls: "bg-state-support-bg text-state-support", glyph: "▲", label: "Safety stop" },
-  unknown:       { cls: "bg-state-unknown-bg text-state-unknown", glyph: "?", label: "Unknown" },
+// The colour and glyph are this component's; the WORDS are the domain's, and
+// are imported, so the safety screen and this drawer cannot end up calling the
+// same state two different things.
+const STATE_STYLE: Record<GateState, { cls: string; glyph: string }> = {
+  open:          { cls: "bg-state-safe-bg text-state-safe",       glyph: "◆" },
+  caution:       { cls: "bg-state-caution-bg text-state-caution", glyph: "◈" },
+  limited:       { cls: "bg-state-caution-bg text-state-caution", glyph: "◐" },
+  review_needed: { cls: "bg-state-review-bg text-state-review",   glyph: "◷" },
+  safety_stop:   { cls: "bg-state-support-bg text-state-support", glyph: "▲" },
+  unknown:       { cls: "bg-state-unknown-bg text-state-unknown", glyph: "?" },
 };
 
 function StateChip({ state }: { state: GateState }) {
@@ -41,7 +44,7 @@ function StateChip({ state }: { state: GateState }) {
   return (
     <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-sm font-semibold ${s.cls}`}>
       <span aria-hidden>{s.glyph}</span>
-      {s.label}
+      {GATE_STATE_LABEL[state]}
     </span>
   );
 }
@@ -80,7 +83,7 @@ export function GateReviewDrawer({
                 headline reads as a stutter ("Limited · Limited — screening
                 incomplete"). Strip the prefix and keep the cause. */}
             <span className="block font-medium text-ground first-letter:uppercase">
-              {d.headline.replace(new RegExp(`^${STATE_STYLE[d.state].label}\\s*—\\s*`, "i"), "")}
+              {gateCause(d)}
             </span>
             <span className="block text-sm text-olive">
               {moduleNames.length === 1

@@ -87,6 +87,10 @@ export default async function MemberLoadPage({
   return (
     <PersonShell person={header} active="/load" title="Load and readiness">
       <Panel title="How much the work appears to be costing, and what they are recovering from">
+        {/* UX 004: the link below names the SECTION, not just the screen. It
+            used to land on a page whose only content was alerts, where "nothing
+            is awaiting a documented response" read as a contradiction of the
+            hold this card is reporting. */}
         <TherapeuticLoadCard
           personId={id}
           state={snapshot.state}
@@ -98,8 +102,8 @@ export default async function MemberLoadPage({
           policyVersion={snapshot.policyVersion}
           safetyHeadline={snapshot.safetyConstraint?.headline ?? null}
           safeAlternative={snapshot.safetyConstraint?.safeAlternative ?? null}
-          href={`/clinician/member/${id}/safety`}
-          linkLabel="Open the safety screen, where access is actually decided"
+          href={`/clinician/member/${id}/safety#restrictions`}
+          linkLabel="See the restriction in force, and the step that resolves it"
           boundary={false}
         />
         {/* On a safety hold the card above already carries the constraint in
@@ -147,8 +151,8 @@ export default async function MemberLoadPage({
             answered.
           </p>
           <p className="mt-3 text-sm">
-            <Link href={`/clinician/member/${id}/safety`} className="underline">
-              Open the safety screen
+            <Link href={`/clinician/member/${id}/safety#restrictions`} className="underline">
+              See the restriction in force, and the step that resolves it
             </Link>
           </p>
         </Panel>
@@ -231,7 +235,7 @@ export default async function MemberLoadPage({
             <Link href={`/clinician/member/${id}/goals`} className="underline">Life goals</Link>
           </li>
           <li>
-            <Link href={`/clinician/member/${id}/safety`} className="underline">Safety — where access is decided</Link>
+            <Link href={`/clinician/member/${id}/safety`} className="underline">Safety — restrictions in force and unresolved events</Link>
           </li>
         </ul>
         {snapshot.limitations.map((l) => (

@@ -229,6 +229,18 @@ export const WORK_REGISTER: WorkEntry[] = [
     note: "An explicit full-list state rather than cursor paging: ?rows=all, same server order, total unchanged, and a way back. The wire between the link and the page is covered end to end, because a unit mutation that made the page ignore the parameter survived every unit test.",
   },
   {
+    id: "clinical.restrictions-vs-events",
+    title: "A restriction in force and an unresolved safety event are separate, named things",
+    // UX 004. Therapeutic Load stops when a gate holds a module and sends the
+    // clinician to "the safety screen, where access is actually decided" — a
+    // screen that only listed alerts and answered "nothing is awaiting a
+    // documented response". Two truths about different things, under one word.
+    state: "reachable",
+    code: "src/components/clinical/SafetyRestrictions.tsx#SafetyRestrictions",
+    test: "tests/safety-restrictions.test.tsx",
+    note: "The holding states are one list in gate-states.ts, which both screens read, so they cannot disagree about whether anything is held. Each restriction carries the gate's own next step — an incomplete screener reads 'Complete the program-fit questions' — and links to the drawer rather than re-rendering the decision. The two empty states say different things, because they are different facts.",
+  },
+  {
     id: "platform.clock-contract",
     title: "One clock decides what 'now' means for a read, and cannot reach a write",
     // UX 003. The demo clock moved the badge in the shell and almost nothing

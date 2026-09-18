@@ -23,6 +23,8 @@
 // Split from the engine so the words and numbers can be read by a client
 // component, a test, and the engine from one place.
 
+import { HOLDING_GATE_STATES } from "./gate-states";
+
 export const THERAPEUTIC_LOAD_VERSION = "therapeutic-load.1.0.0";
 
 // ---------------------------------------------------------------------------
@@ -213,5 +215,10 @@ export const THERAPEUTIC_LOAD_POLICY: TherapeuticLoadPolicy = {
  * it as a block would make almost every stabilization day read as a safety
  * stop — which would teach a clinician that "held by a safety decision" means
  * very little.
+ *
+ * THE LIST ITSELF LIVES IN THE GATE DOMAIN, because the safety screen asks the
+ * same question of it and the two answering differently is what UX 004
+ * reports: Load stopped on a held gate and sent the clinician to a screen that
+ * did not know gates existed.
  */
-export const BLOCKING_GATE_STATES = ["limited", "review_needed", "safety_stop", "unknown"] as const;
+export const BLOCKING_GATE_STATES = HOLDING_GATE_STATES;
