@@ -60,6 +60,8 @@ export interface ClinicalApproval {
   reviewedAt: string | null;
   /** Where the full text they read is stored. */
   document: string;
+  /** The printable form they sign, generated from the same words. */
+  signoffForm: string;
 }
 
 /**
@@ -121,6 +123,7 @@ export const DISPLAY_VOCABULARY_APPROVAL: ClinicalApproval = {
   reviewers: [],
   reviewedAt: null,
   document: "docs/approvals/clinical-display-vocabulary-v1.md",
+  signoffForm: "docs/approvals/clinical-display-vocabulary-v1-SIGNOFF-FORM.docx",
 };
 
 export interface ApprovalCheck {

@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
+import zlib from "node:zlib";
 import { EVENT_TERMS, displayTermFor, coverageOf } from "../src/lib/clinical/event-vocabulary";
 import {
   DISPLAY_VOCABULARY_APPROVAL, vocabularyHash, checkApproval, vocabularyIsApproved,
@@ -130,6 +131,92 @@ test("the stored document is the words, current and complete", () => {
   // And the document says which state it is in, so a reader is not left to
   // infer it from the presence of a name.
   assert.match(doc, /Awaiting attestation|Approved on/);
+});
+
+/**
+ * The text of a .docx, read out of the file rather than out of the generator.
+ *
+ * A .docx is a zip, and the words are in `word/document.xml`. This walks the
+ * central directory rather than the local headers because a streamed entry
+ * writes its sizes into a trailing descriptor and leaves the local header's
+ * copies zero — which is exactly the shape the `docx` package produces.
+ *
+ * Deliberately NOT asking the generator what it wrote. The point of the guard
+ * below is that the file on disk carries the current words; a check that reads
+ * the same variables the writer read would pass over a stale file.
+ */
+function docxText(file: string): string {
+  const zip = fs.readFileSync(file);
+
+  // The end-of-central-directory record, found from the back: it is the last
+  // thing in the file, and only a trailing comment can sit after it.
+  let eocd = -1;
+  for (let i = zip.length - 22; i >= 0 && eocd === -1; i--) {
+    if (zip.readUInt32LE(i) === 0x06054b50) eocd = i;
+  }
+  assert.notEqual(eocd, -1, `${file} is not a zip`);
+
+  let at = zip.readUInt32LE(eocd + 16);
+  const count = zip.readUInt16LE(eocd + 10);
+  for (let n = 0; n < count; n++) {
+    assert.equal(zip.readUInt32LE(at), 0x02014b50, "central directory entry expected");
+    const method = zip.readUInt16LE(at + 10);
+    const compressed = zip.readUInt32LE(at + 20);
+    const nameLen = zip.readUInt16LE(at + 28);
+    const extraLen = zip.readUInt16LE(at + 30);
+    const commentLen = zip.readUInt16LE(at + 32);
+    const name = zip.subarray(at + 46, at + 46 + nameLen).toString("utf8");
+
+    if (name === "word/document.xml") {
+      const local = zip.readUInt32LE(at + 42);
+      const body = local + 30 + zip.readUInt16LE(local + 26) + zip.readUInt16LE(local + 28);
+      const raw = zip.subarray(body, body + compressed);
+      const xml = (method === 0 ? raw : zlib.inflateRawSync(raw)).toString("utf8");
+      // Paragraph and run boundaries become spaces, so two runs that happen to
+      // abut do not read as one word; then the entities come back, because the
+      // apostrophe in "the person's own words" is stored as `&apos;` and a
+      // comparison against the source would otherwise fail on punctuation
+      // rather than on the words. `&amp;` is undone last, so an escaped
+      // `&amp;apos;` in a note stays the five characters it is.
+      return xml
+        .replace(/<[^>]+>/g, " ")
+        .replace(/\s+/g, " ")
+        .replace(/&(?:apos|#39);/g, "'")
+        .replace(/&(?:quot|#34);/g, '"')
+        .replace(/&lt;/g, "<")
+        .replace(/&gt;/g, ">")
+        .replace(/&amp;/g, "&")
+        .trim();
+    }
+    at += 46 + nameLen + extraLen + commentLen;
+  }
+  assert.fail(`${file} contains no word/document.xml`);
+}
+
+test("the printable form carries the same words, and the hash they are bound to", () => {
+  // THE DOCUMENT AND THE FORM ARE THE SAME FAILURE ONE LEVEL APART. The .md is
+  // what the repository reads; the .docx is what two clinicians put a pen to.
+  // A vocabulary change that regenerates one and not the other sends a reviewer
+  // a list of words the product no longer shows, and the signature that comes
+  // back is over the wrong thing — while every hash in the codebase agrees.
+  const form = path.join(process.cwd(), DISPLAY_VOCABULARY_APPROVAL.signoffForm);
+  assert.ok(fs.existsSync(form),
+    "the approval document points reviewers at a form that is not in the repository");
+
+  const body = docxText(form);
+
+  assert.ok(body.includes(DISPLAY_VOCABULARY_APPROVAL.contentHash),
+    "the form does not carry the hash the approval is bound to");
+
+  for (const [key, t] of Object.entries(EVENT_TERMS)) {
+    assert.ok(body.includes(t.term), `the form does not offer "${t.term}" (${key}) for signature`);
+    assert.ok(body.includes(t.note), `the form omits the boundary note for ${key}`);
+  }
+
+  // And it says what it is not, in the reviewers' hands as well as in the repo.
+  for (const e of DISPLAY_VOCABULARY_APPROVAL.excludes) {
+    assert.ok(body.includes(e), "an exclusion is recorded in code and missing from the signed form");
+  }
 });
 
 test("every term is distinct, so one concept has one label", () => {
