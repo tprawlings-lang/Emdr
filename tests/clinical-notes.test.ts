@@ -33,7 +33,8 @@ import path from "node:path";
 
 import { getDb } from "../src/lib/db";
 import {
-  notesFor, noteById, saveDraft, signNote, startAmendment, NoteError, MIN_BODY,
+  notesFor, noteById, saveDraft, signNote, startAmendment, draftVersion,
+  draftAmendmentFor, NoteError, MIN_BODY,
 } from "../src/lib/clinical/notes";
 
 const ROOT = path.join(__dirname, "..");
@@ -83,7 +84,7 @@ function seed() {
 }
 
 async function signed(body = BODY): Promise<string> {
-  const id = await saveDraft({
+  const { id } = await saveDraft({
     personId: "n-person", tenantId: T1, clinicianId: "n-clin", kind: "session", body,
   });
   await signNote({ noteId: id, tenantId: T1, clinicianId: "n-clin", clinicianRole: "clinician" });
@@ -132,7 +133,7 @@ test("SQL cannot change it either — the trigger is the real guarantee", async 
 test("an amendment is its own note, names what it corrects, and leaves it intact", async () => {
   clear(); seed();
   const original = await signed();
-  const amendId = await startAmendment({
+  const { id: amendId } = await startAmendment({
     noteId: original, tenantId: T1, clinicianId: "n-clin",
     body: "Amendment: the session ran forty minutes, not thirty.",
   });
@@ -148,7 +149,7 @@ test("an amendment is its own note, names what it corrects, and leaves it intact
 
 test("an unsigned note is edited directly, not amended", async () => {
   clear(); seed();
-  const draft = await saveDraft({
+  const { id: draft } = await saveDraft({
     personId: "n-person", tenantId: T1, clinicianId: "n-clin", kind: "session", body: BODY,
   });
   await assert.rejects(
@@ -167,7 +168,7 @@ test("an unsigned note is edited directly, not amended", async () => {
 
 test("nobody signs somebody else's note, and nobody edits their draft", async () => {
   clear(); seed();
-  const draft = await saveDraft({
+  const { id: draft } = await saveDraft({
     personId: "n-person", tenantId: T1, clinicianId: "n-clin", kind: "session", body: BODY,
   });
   await assert.rejects(
@@ -198,7 +199,7 @@ test("a draft appends nothing; signing appends once, and an amendment says so", 
     "SELECT COUNT(*) AS n FROM longitudinal_events WHERE person_id = 'n-person' AND event_type LIKE 'clinical_note.%'"
   ).get() as { n: number }).n;
 
-  const draft = await saveDraft({
+  const { id: draft } = await saveDraft({
     personId: "n-person", tenantId: T1, clinicianId: "n-clin", kind: "session", body: BODY,
   });
   assert.equal(count(), 0, "a draft put 'the clinician said' into permanent history");
@@ -217,7 +218,7 @@ test("a draft appends nothing; signing appends once, and an amendment says so", 
   assert.ok(!JSON.stringify(payload).includes(BODY.slice(0, 20)),
     "the note's text was copied into the event payload");
 
-  const amendId = await startAmendment({
+  const { id: amendId } = await startAmendment({
     noteId: draft, tenantId: T1, clinicianId: "n-clin", body: "Amendment: forty minutes.",
   });
   await signNote({ noteId: amendId, tenantId: T1, clinicianId: "n-clin", clinicianRole: "clinician" });
@@ -259,4 +260,164 @@ test("the screen keeps the note bridge's rule: nothing is assembled, nothing sel
   // A signed note is rendered as text — no editor is offered against it.
   assert.match(page, /record\.filter\(\(n\) => !n\.amendsNoteId\)/,
     "the record does not separate originals from their amendments");
+});
+
+
+// ---------------------------------------------------------------------------
+// 6. No silent overwrite, and signing is confirmed (17 September handoff, P4)
+// ---------------------------------------------------------------------------
+//
+//   "Signed notes — clarify draft, signing, and amendment. No silent overwrite;
+//   signing has explicit confirmation."
+//
+// `saveDraft` updated the row unconditionally, so a second tab — or the same
+// clinician returning to a form they had left open — replaced whatever had been
+// written in the meantime with no trace that anything was lost. And "Sign and
+// file" saved and signed in one post, so the only irreversible act on the
+// screen was the only one that happened without being confirmed.
+
+test("a save against a stale draft forks instead of overwriting", async () => {
+  clear(); seed();
+  const { id } = await saveDraft({
+    personId: "n-person", tenantId: T1, clinicianId: "n-clin", kind: "session",
+    body: "First version, written in the room.",
+  });
+  const stale = draftVersion((await noteById(id, T1))!);
+
+  // Somebody else's tab — or another window of this one — saves first.
+  await saveDraft({
+    noteId: id, personId: "n-person", tenantId: T1, clinicianId: "n-clin", kind: "session",
+    body: "Second version, written after the call.",
+    expectedVersion: stale,
+  });
+
+  const second = await saveDraft({
+    noteId: id, personId: "n-person", tenantId: T1, clinicianId: "n-clin", kind: "session",
+    body: "Third version, typed in the window that was already open.",
+    expectedVersion: stale,
+  });
+
+  assert.equal(second.forked, true, "the stale save was written over the newer one");
+  assert.notEqual(second.id, id);
+  // NEITHER VERSION IS LOST. A refusal would have cost the clinician what they
+  // typed, which is the same harm in the other direction.
+  assert.match((await noteById(id, T1))!.body, /Second version/);
+  assert.match((await noteById(second.id, T1))!.body, /Third version/);
+});
+
+test("a save that knows the current version updates in place", async () => {
+  clear(); seed();
+  const { id } = await saveDraft({
+    personId: "n-person", tenantId: T1, clinicianId: "n-clin", kind: "session", body: BODY,
+  });
+  const current = draftVersion((await noteById(id, T1))!);
+  const again = await saveDraft({
+    noteId: id, personId: "n-person", tenantId: T1, clinicianId: "n-clin", kind: "session",
+    body: "Edited before anybody else touched it.", expectedVersion: current,
+  });
+  assert.equal(again.forked, false);
+  assert.equal(again.id, id, "an ordinary edit created a second draft");
+  const mine = (await notesFor({ personId: "n-person", tenantId: T1 }))
+    .filter((n) => n.status === "draft");
+  assert.equal(mine.length, 1);
+});
+
+test("a forked amendment is still an amendment", async () => {
+  // The fork inherits what it corrects. A stale amendment that quietly became
+  // an ordinary note would be a correction nobody could find from the note it
+  // corrects.
+  clear(); seed();
+  const original = await signed();
+  const { id } = await startAmendment({
+    noteId: original, tenantId: T1, clinicianId: "n-clin", body: "First correction.",
+  });
+  const stale = draftVersion((await noteById(id, T1))!);
+  await startAmendment({
+    noteId: original, tenantId: T1, clinicianId: "n-clin", draftId: id,
+    body: "Correction, second pass.", expectedVersion: stale,
+  });
+  const forked = await startAmendment({
+    noteId: original, tenantId: T1, clinicianId: "n-clin", draftId: id,
+    body: "Correction, typed in the stale window.", expectedVersion: stale,
+  });
+  assert.equal(forked.forked, true);
+  assert.equal((await noteById(forked.id, T1))!.amendsNoteId, original);
+});
+
+test("an amendment resumes its draft rather than starting another", async () => {
+  clear(); seed();
+  const original = await signed();
+  const first = await startAmendment({
+    noteId: original, tenantId: T1, clinicianId: "n-clin", body: "A correction in progress.",
+  });
+  const found = await draftAmendmentFor({
+    noteId: original, tenantId: T1, clinicianId: "n-clin",
+  });
+  assert.equal(found?.id, first.id, "the screen cannot find the amendment already drafted");
+
+  const resumed = await startAmendment({
+    noteId: original, tenantId: T1, clinicianId: "n-clin",
+    draftId: found!.id, expectedVersion: draftVersion(found!),
+    body: "The same correction, finished.",
+  });
+  assert.equal(resumed.id, first.id);
+  const drafts = (await notesFor({ personId: "n-person", tenantId: T1 }))
+    .filter((n) => n.status === "draft");
+  assert.equal(drafts.length, 1, "opening the amendment twice left two drafts against one note");
+});
+
+test("a signature is refused when the words moved after they were read", async () => {
+  // A signature attests to specific words. If the draft changed between the
+  // confirmation screen and the click, the attestation would be to text the
+  // signatory never saw.
+  clear(); seed();
+  const { id } = await saveDraft({
+    personId: "n-person", tenantId: T1, clinicianId: "n-clin", kind: "session", body: BODY,
+  });
+  const read = draftVersion((await noteById(id, T1))!);
+  await saveDraft({
+    noteId: id, personId: "n-person", tenantId: T1, clinicianId: "n-clin", kind: "session",
+    body: "Something else entirely, added after the confirmation was opened.",
+    expectedVersion: read,
+  });
+  await assert.rejects(
+    () => signNote({
+      noteId: id, tenantId: T1, clinicianId: "n-clin", clinicianRole: "clinician",
+      expectedVersion: read,
+    }),
+    (e: Error) => e instanceof NoteError && /changed after you opened the confirmation/i.test(e.message),
+  );
+  assert.equal((await noteById(id, T1))!.status, "draft", "it was signed anyway");
+});
+
+test("signing goes through a confirmation screen rather than a single post", async () => {
+  const actions = code("src/lib/clinical/note-actions.ts");
+  assert.match(actions, /export async function confirmSignAction/,
+    "there is no separate action for the confirmed signature");
+  // The save action must not sign. It hands over to the confirmation instead.
+  const save = actions.slice(
+    actions.indexOf("export async function saveNoteAction"),
+    actions.indexOf("export async function confirmSignAction"),
+  );
+  assert.doesNotMatch(save, /signNote\(/,
+    "saving a note still signs it in the same post, so the signature is unconfirmed");
+  assert.match(save, /toConfirm\(personId, saved\.id\)/);
+
+  const page = code("src/app/clinician/member/[id]/notes/page.tsx");
+  assert.match(page, /data-testid="sign-confirmation-body"/,
+    "the confirmation does not show the words that will be signed");
+  assert.match(page, /Yes, sign it/);
+  assert.match(page, /Back to editing/);
+});
+
+test("the note editor never opens an amendment as an ordinary draft", async () => {
+  // It was `drafts[0]` — whichever is newest, including a drafted amendment. A
+  // clinician who saved an amendment and then wrote an ordinary note found the
+  // amendment's text in the box, and saving replaced it: an unrelated note that
+  // still pointed at the signed one it claimed to correct.
+  const page = code("src/app/clinician/member/[id]/notes/page.tsx");
+  assert.match(page, /plainDrafts = drafts\.filter\(\(n\) => n\.amendsNoteId === null\)/);
+  assert.doesNotMatch(page, /openDraft = drafts\[0\]/);
+  assert.match(page, /data-testid="draft-row"/,
+    "the other drafts are unreachable, so a fork lands somewhere nobody can see");
 });

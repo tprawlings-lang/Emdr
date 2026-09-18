@@ -241,6 +241,16 @@ export const WORK_REGISTER: WorkEntry[] = [
     note: "The house measure was drawn inside a figure titled 'Validated measures over time' while carrying a panel note saying it had no validation to borrow — the panel disclaiming the authority its own frame granted it. Two figures now, on one shared window so the dates still line up. Missingness is the end gap only: the panel already prints the count and the first and latest reading, and the first version of the coverage list repeated all of it, which was obvious on the rendered screen and invisible in the source. What no panel can show is the distance from the last reading to today — a series that stopped in March and one that stopped last week are drawn identically from their own edge.",
   },
   {
+    id: "clinical.note-signing-confirmed",
+    title: "Signing a note is confirmed against the words on screen, and no draft is written over silently",
+    // 17 September handoff, P4: "Signed notes — clarify draft, signing, and
+    // amendment. No silent overwrite; signing has explicit confirmation."
+    state: "reachable",
+    code: "src/lib/clinical/notes.ts#draftVersion",
+    test: "tests/clinical-notes.test.ts",
+    note: "\"Sign and file\" saved and signed in one post, so the only irreversible act on the screen — a signed note is immutable by trigger, and the only remedy is an amendment that stays in the record for ever — was the only one that happened without being confirmed. It now saves first (nothing typed is at risk) and shows the exact words, the kind, the person and the signatory before the signature. A draft save was an unconditional UPDATE, so a second tab replaced whatever had been written with no trace: a stale save now forks into a separate draft rather than overwriting or refusing, because a refusal costs the clinician what they typed and an overwrite costs somebody else what they typed. The version is a hash of the words rather than updated_at — the stamp has one-second granularity, so two saves in the same second carried the same version and sailed through the check. And the editor no longer opens a drafted amendment as \"your draft\", which used to let an unrelated note replace a correction while still pointing at the note it claimed to correct.",
+  },
+  {
     id: "clinical.trajectory-findings-first",
     title: "The trajectory page leads with which domain reached which state, and explains below",
     // 17 September handoff, P4: "Trajectory — put findings first and technical

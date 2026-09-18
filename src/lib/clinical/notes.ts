@@ -30,6 +30,8 @@
 //   note queried across tenants is a clinical record leaving the care
 //   relationship it was written inside.
 
+import crypto from "node:crypto";
+
 import { data } from "../data";
 import { newId } from "../db";
 import { audit } from "../audit";
@@ -145,6 +147,41 @@ async function assertMayRecordAbout(personId: string): Promise<void> {
   }
 }
 
+/**
+ * What a draft looked like when the form was rendered.
+ *
+ * THE CONTENT, NOT THE TIMESTAMP. `updated_at` alone was the first version of
+ * this and it does not work: `nowStamp` has one-second granularity, so two
+ * saves inside the same second carry the same stamp and the second one sails
+ * through the staleness check it exists to fail. A test caught it; a clinician
+ * would have caught it as a lost paragraph.
+ *
+ * Hashing the words means two writers who typed the SAME characters do not
+ * collide — which is right, because they have not disagreed about anything —
+ * and any difference at all is a conflict however fast it arrived.
+ */
+export function draftVersion(note: Pick<ClinicalNote, "updatedAt" | "kind" | "body">): string {
+  return crypto.createHash("sha256")
+    .update(`${note.updatedAt}|${note.kind}|${note.body}`)
+    .digest("hex").slice(0, 16);
+}
+
+export interface DraftSaved {
+  id: string;
+  /**
+   * True when the draft this was meant to update had moved on, so the text was
+   * written to a SEPARATE draft instead of over the top of it.
+   *
+   * NOT A REFUSAL, and not an overwrite either. A refusal that redirects loses
+   * whatever the clinician had typed, which is the same harm in the other
+   * direction; an overwrite loses the other version. Two drafts, both readable,
+   * is the only outcome that loses nothing — and it makes the collision
+   * something the clinician can see and resolve rather than something they
+   * find out about later.
+   */
+  forked: boolean;
+}
+
 export async function saveDraft(args: {
   noteId?: string | null;
   personId: string;
@@ -153,7 +190,10 @@ export async function saveDraft(args: {
   kind: NoteKind;
   body: string;
   amendsNoteId?: string | null;
-}): Promise<string> {
+  /** `draftVersion` as it was when the form was rendered. Omitted only by
+   *  callers that are creating a note rather than updating one. */
+  expectedVersion?: string | null;
+}): Promise<DraftSaved> {
   const body = args.body.trim();
   if (body.length < MIN_BODY) {
     throw new NoteError("A note needs something in it. Write what happened and what follows from it.");
@@ -185,20 +225,44 @@ export async function saveDraft(args: {
     if (existing.clinicianId !== args.clinicianId) {
       throw new NoteError("This is somebody else's draft.");
     }
+    // NO SILENT OVERWRITE. This was an unconditional UPDATE, so a second tab —
+    // or the same clinician returning to a stale form — replaced whatever the
+    // first one had written with no trace that anything had been lost. The
+    // handoff names it directly, and it is the failure a record cannot have:
+    // the version that vanished is not recoverable from anywhere.
+    if (args.expectedVersion != null && args.expectedVersion !== draftVersion(existing)) {
+      const forkId = await insertDraft(c, {
+        ...args, body, at,
+        // The fork inherits what it amends, so a stale amendment does not
+        // quietly become an ordinary note.
+        amendsNoteId: args.amendsNoteId ?? existing.amendsNoteId,
+      });
+      return { id: forkId, forked: true };
+    }
     await c.run(
       "UPDATE clinical_notes SET body = ?, kind = ?, updated_at = ? WHERE id = ?",
       [body, args.kind, at, args.noteId],
     );
-    return args.noteId;
+    return { id: args.noteId, forked: false };
   }
 
+  return { id: await insertDraft(c, { ...args, body, at }), forked: false };
+}
+
+async function insertDraft(
+  c: Awaited<ReturnType<typeof data>>,
+  args: {
+    tenantId: string; personId: string; clinicianId: string; kind: NoteKind;
+    body: string; amendsNoteId?: string | null; at: string;
+  }
+): Promise<string> {
   const id = newId();
   await c.run(
     `INSERT INTO clinical_notes
        (id, tenant_id, person_id, clinician_id, kind, body, status, amends_note_id, created_at, updated_at)
      VALUES (?, ?, ?, ?, ?, ?, 'draft', ?, ?, ?)`,
-    [id, args.tenantId, args.personId, args.clinicianId, args.kind, body,
-     args.amendsNoteId ?? null, at, at],
+    [id, args.tenantId, args.personId, args.clinicianId, args.kind, args.body,
+     args.amendsNoteId ?? null, args.at, args.at],
   );
   return id;
 }
@@ -208,11 +272,21 @@ export async function saveDraft(args: {
  * note part of the record.
  */
 export async function signNote(args: {
-  noteId: string; tenantId: string; clinicianId: string; clinicianRole: string;
+  noteId: string; tenantId: string; clinicianRole: string; clinicianId: string;
+  /** What the confirmation screen showed. A signature attests to specific
+   *  words, so if the draft moved between reading it and confirming it, the
+   *  attestation would be to text the signatory never saw. */
+  expectedVersion?: string | null;
 }): Promise<ClinicalNote> {
   const note = await noteById(args.noteId, args.tenantId);
   if (!note) throw new NoteError("That note is not in this record.");
   if (note.status === "signed") throw new NoteError("That note is already signed.");
+  if (args.expectedVersion != null && args.expectedVersion !== draftVersion(note)) {
+    throw new NoteError(
+      "This draft changed after you opened the confirmation, so it was not signed. " +
+      "Read it again and sign what is there now."
+    );
+  }
   // THE SIGNATORY IS THE AUTHOR. One line, and the whole difference between a
   // record and a rumour.
   if (note.clinicianId !== args.clinicianId) {
@@ -266,13 +340,18 @@ export async function signNote(args: {
  */
 export async function startAmendment(args: {
   noteId: string; tenantId: string; clinicianId: string; body: string;
-}): Promise<string> {
+  /** Resume a draft amendment rather than starting a second one. */
+  draftId?: string | null;
+  expectedVersion?: string | null;
+}): Promise<DraftSaved> {
   const original = await noteById(args.noteId, args.tenantId);
   if (!original) throw new NoteError("That note is not in this record.");
   if (original.status !== "signed") {
     throw new NoteError("An unsigned note is edited directly — an amendment corrects a signed one.");
   }
   return saveDraft({
+    noteId: args.draftId ?? null,
+    expectedVersion: args.expectedVersion ?? null,
     personId: original.personId,
     tenantId: args.tenantId,
     clinicianId: args.clinicianId,
@@ -280,4 +359,25 @@ export async function startAmendment(args: {
     body: args.body,
     amendsNoteId: original.id,
   });
+}
+
+/**
+ * The draft amendment this clinician already has against a signed note, if any.
+ *
+ * Without this, "Amend this note" started a second draft every time it was
+ * opened, and the screen showed the first one as "your draft" — so a clinician
+ * could accumulate amendment drafts against one note and see one of them.
+ */
+export async function draftAmendmentFor(args: {
+  noteId: string; tenantId: string; clinicianId: string;
+}): Promise<ClinicalNote | null> {
+  const c = await data();
+  const row = (await c.get(
+    `SELECT n.*, u.name AS clinician_name FROM clinical_notes n
+       LEFT JOIN users u ON u.id = n.clinician_id
+      WHERE n.amends_note_id = ? AND n.tenant_id = ? AND n.clinician_id = ? AND n.status = 'draft'
+      ORDER BY n.created_at DESC, n.rowid DESC`,
+    [args.noteId, args.tenantId, args.clinicianId],
+  )) as Row | undefined;
+  return row ? shape(row) : null;
 }
