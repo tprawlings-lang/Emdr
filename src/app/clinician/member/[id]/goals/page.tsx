@@ -14,6 +14,9 @@ import {
   DOMAIN_LABEL, LEVEL_LABEL, EVIDENCE_LABEL, COMPLETION_NOTE,
 } from "@/lib/clinical/return-to-life";
 import { summarizeProgress } from "@/lib/clinical/return-goal-intelligence";
+import { goalStanding } from "@/lib/clinical/goal-standing";
+import { GoalStanding } from "@/components/clinical/GoalStanding";
+import { readingFrame } from "@/lib/clock";
 import type { TenantContext } from "@/lib/repository";
 
 export const dynamic = "force-dynamic";
@@ -53,6 +56,10 @@ export default async function MemberGoalsPage({
   const header = await loadPersonHeader({ personId: id, clinicianId: clinician.id, tenantId });
   if (!header) notFound();
 
+  // One frame for the page, so two goals cannot age against two different
+  // "nows" and a moved demo clock moves the review dates with everything else.
+  const asOf = (await readingFrame()).now.toISOString();
+
   const goals = await listGoals(ctx, id, ["draft", "active", "paused", "completed"]);
   const detail = await Promise.all(
     goals.map(async (goal) => {
@@ -64,6 +71,7 @@ export default async function MemberGoalsPage({
         observations,
         pending: observations.filter((o) => o.status === "proposed"),
         summary: summarizeProgress(goal, rungs, observations),
+        standing: goalStanding(goal, rungs, observations, asOf),
       };
     })
   );
@@ -92,7 +100,7 @@ export default async function MemberGoalsPage({
         </Panel>
       ) : (
         <div className="mt-6 space-y-4">
-          {detail.map(({ goal, rungs, observations, pending, summary }) => (
+          {detail.map(({ goal, rungs, observations, pending, summary, standing }) => (
             <Panel key={goal.id} title={goal.title}>
               <div className="flex flex-wrap items-center gap-2">
                 <span className="rounded-full bg-app-accent/60 px-2.5 py-1 text-xs font-medium text-app-ink">
@@ -114,6 +122,8 @@ export default async function MemberGoalsPage({
                   Why it matters to them: {goal.whyItMatters}
                 </p>
               )}
+
+              <GoalStanding standing={standing} goalId={goal.id} personId={id} />
 
               {goal.status === "draft" && (
                 <>
@@ -138,6 +148,14 @@ export default async function MemberGoalsPage({
                     >
                       <span className="text-olive">{LEVEL_LABEL[r.level]} — </span>
                       {r.description}
+                      {/* The rung the standing block names, marked where the
+                          ladder is read. Two places saying the same thing
+                          differently is how a reader ends up trusting neither. */}
+                      {standing.milestone?.level === r.level && (
+                        <span className="ml-2 rounded-full bg-app-accent/60 px-2 py-0.5 text-xs text-app-ink">
+                          Next
+                        </span>
+                      )}
                     </li>
                   ))}
                 </ol>
@@ -201,8 +219,13 @@ export default async function MemberGoalsPage({
                     {observations.map((o) => (
                       <li key={o.id} className="border-l-2 border-ground/15 pl-3 text-sm">
                         <div className="flex flex-wrap items-baseline gap-2">
+                          {/* ISO, like every other date in this panel. The
+                              locale form rendered on the server, so it was the
+                              SERVER's locale rather than the reader's — and it
+                              sat three lines under "on 2026-09-11", which is
+                              the same kind of fact written two ways. */}
                           <span className="text-xs font-medium text-olive">
-                            {new Date(o.occurredAt).toLocaleDateString()}
+                            {o.occurredAt.slice(0, 10)}
                           </span>
                           {/* The source label, always. §14: patient report and
                               clinician observation must display differently. */}

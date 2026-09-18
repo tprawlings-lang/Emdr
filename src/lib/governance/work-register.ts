@@ -241,6 +241,17 @@ export const WORK_REGISTER: WorkEntry[] = [
     note: "The house measure was drawn inside a figure titled 'Validated measures over time' while carrying a panel note saying it had no validation to borrow — the panel disclaiming the authority its own frame granted it. Two figures now, on one shared window so the dates still line up. Missingness is the end gap only: the panel already prints the count and the first and latest reading, and the first version of the coverage list repeated all of it, which was obvious on the rendered screen and invisible in the source. What no panel can show is the distance from the last reading to today — a series that stopped in March and one that stopped last week are drawn identically from their own edge.",
   },
   {
+    id: "clinical.goal-standing",
+    title: "A goal says what the next observable step is, when it was last observed, and when it is next reviewed",
+    // 17 September handoff, P4: "Goals — show patient wording, observable
+    // milestone, last observation, and next review. Empty state supports goal
+    // creation without implying failure."
+    state: "reachable",
+    code: "src/lib/clinical/goal-standing.ts#goalStanding",
+    test: "tests/goal-standing.test.tsx",
+    note: "The wording was already first on the panel. The next rung was somewhere in a list of five, the last observation was the top row of an evidence list nobody had aged, and the review date was not on the screen at all — target_review_date has been a column since goals shipped, createGoal accepted it, no form offered it and nothing rendered it, so every goal in the product carried null. Setting one is now a control, clearing it is its own control, and both doors validate the day rather than its shape: a regex alone accepts 2026-13-02, which the store took until a test asked it to. The last observation is the last ACCEPTED one — a model candidate is a question waiting on a clinician, and letting the newest proposal answer \"last observed\" would report a suggestion as evidence.",
+  },
+  {
     id: "clinical.course-landing-reports-the-record",
     title: "The Course landing says what is in this person's record, not what the four screens are for",
     // 17 September handoff, P4: "Course — show actual status beside measures,

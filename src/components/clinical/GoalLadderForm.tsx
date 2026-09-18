@@ -3,7 +3,7 @@
 import { useState } from "react";
 import {
   createGoalAction, confirmGoalAction, recordObservationAction,
-  recordPatientReportAction, decideObservationAction,
+  recordPatientReportAction, decideObservationAction, setGoalReviewDateAction,
 } from "@/lib/clinical/goal-actions";
 // The VOCABULARY module, not the store. This runs in the browser and the store
 // reaches better-sqlite3; the build refuses that, correctly.
@@ -113,6 +113,18 @@ export function NewGoalForm({ personId }: { personId: string }) {
           </select>
         </label>
       </div>
+
+      <label className="block text-sm">
+        <span className="mb-1 block text-olive">When will you look at this again? (optional)</span>
+        <input
+          type="date" name="targetReviewDate"
+          className="rounded-xl border border-ground/20 bg-linen px-3 py-2 text-sm text-app-ink"
+        />
+        <span className="measure mt-1 block text-xs text-olive">
+          A date you intend to review it with them. Nothing happens on it and nothing is blocked by
+          it — leaving it empty means there is no date, not that one is missing.
+        </span>
+      </label>
 
       <fieldset className="rounded-xl border border-ground/15 px-4 py-4">
         <legend className="px-1 text-xs font-semibold uppercase tracking-wide text-olive">
@@ -318,5 +330,87 @@ export function DecideObservation({
         </form>
       ))}
     </div>
+  );
+}
+
+/**
+ * Set or clear a goal's next review date.
+ *
+ * Opens only when asked for, because the date belongs beside the standing block
+ * and a permanent input there would make an unset date look like an empty field
+ * somebody forgot rather than a decision nobody has made.
+ */
+export function SetReviewDate({
+  goalId, personId, current,
+}: { goalId: string; personId: string; current: string | null }) {
+  const [open, setOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function submit(form: FormData) {
+    setBusy(true);
+    setError(null);
+    try {
+      const r = await setGoalReviewDateAction(form);
+      if (!r.ok) { setError(r.error ?? "That could not be saved."); return; }
+      setOpen(false);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (!open) {
+    return (
+      <button
+        type="button" onClick={() => setOpen(true)}
+        className="text-xs text-olive underline underline-offset-2"
+      >
+        {current ? "Change the review date" : "Set a review date"}
+      </button>
+    );
+  }
+
+  return (
+    <form action={submit} className="mt-1 flex flex-wrap items-center gap-2">
+      <input type="hidden" name="goalId" value={goalId} />
+      <input type="hidden" name="personId" value={personId} />
+      <label className="text-xs text-olive">
+        <span className="sr-only">Next review date</span>
+        <input
+          type="date" name="reviewDate" defaultValue={current ?? ""}
+          className="rounded-lg border border-ground/20 bg-linen px-2 py-1 text-sm text-app-ink"
+        />
+      </label>
+      <button
+        disabled={busy}
+        className="rounded-full bg-app-ink px-3 py-1 text-xs font-medium text-linen disabled:opacity-50"
+      >
+        Save
+      </button>
+      <button
+        type="button" onClick={() => setOpen(false)} disabled={busy}
+        className="text-xs text-olive underline"
+      >
+        Cancel
+      </button>
+      {/* Clearing is its own control, so "no date" is a thing you choose rather
+          than something you achieve by emptying a field and hoping. */}
+      {current && (
+        <button
+          type="button" disabled={busy}
+          onClick={() => {
+            const f = new FormData();
+            f.set("goalId", goalId);
+            f.set("personId", personId);
+            f.set("reviewDate", "");
+            void submit(f);
+          }}
+          className="text-xs text-olive underline"
+        >
+          Remove the date
+        </button>
+      )}
+      {error && <p className="measure w-full text-sm text-state-support" role="alert">{error}</p>}
+    </form>
   );
 }

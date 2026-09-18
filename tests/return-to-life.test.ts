@@ -23,6 +23,7 @@ import { getDb } from "../src/lib/db";
 import type { TenantContext } from "../src/lib/repository";
 import {
   createGoal, confirmGoal, recordObservation, decideObservation, refreshLevel,
+  setGoalReviewDate,
   foldLevel, listGoals, getGoal, ladderFor, observationsFor,
   GOAL_LEVELS, GOAL_DOMAINS, EVIDENCE_LABEL, LEVEL_LABEL,
   BASELINE_NOTE, COMPLETION_NOTE, GoalError,
@@ -536,6 +537,11 @@ test("the deterministic summary cites every statement and claims nothing extra",
   // And the two sources stay separate even in a count of them.
   assert.match(all, /patient reported/);
   assert.match(all, /clinician observed/);
+
+  // A ladder is written in sentences and these templates add their own full
+  // stop, so every line on the screen read "…with my sister..". Visible on the
+  // rendered page and invisible in the source, like most punctuation defects.
+  assert.doesNotMatch(all, /\.\./, `a doubled full stop reached the summary: ${all}`);
 });
 
 // ---------------------------------------------------------------------------
@@ -622,4 +628,68 @@ test("a stall signal fires on silence, and a reversal only on a direction", asyn
   for (const s of signals) {
     assert.ok(s.reason.length > 0, "a signal with no stated reason is an alert nobody can act on");
   }
+});
+
+
+// ---------------------------------------------------------------------------
+// The review date
+// ---------------------------------------------------------------------------
+
+test("a review date can be set, changed and removed", async () => {
+  // It could be none of those until now. The column has existed since goals
+  // shipped and `createGoal` accepted it, so a goal could be born with a date —
+  // and nothing could ever change it, clear it, or read it back onto a screen.
+  const g = await anActiveGoal();
+  assert.equal(g.targetReviewDate, null, "a goal is not born with a date nobody chose");
+
+  const set = await setGoalReviewDate(ctx, g.id, "2026-10-02", NOW);
+  assert.equal(set.targetReviewDate, "2026-10-02");
+
+  const moved = await setGoalReviewDate(ctx, g.id, "2026-11-13", NOW);
+  assert.equal(moved.targetReviewDate, "2026-11-13");
+
+  // Clearing is a real answer: a goal being worked continuously does not need a
+  // date, and an invented one would make the screen report a commitment nobody
+  // made.
+  const cleared = await setGoalReviewDate(ctx, g.id, null, NOW);
+  assert.equal(cleared.targetReviewDate, null);
+});
+
+test("a review date is a calendar day or nothing at all", async () => {
+  const g = await anActiveGoal();
+  for (const bad of ["next Tuesday", "2026-13-02", "02/10/2026", "2026-10-02T09:00:00Z"]) {
+    await assert.rejects(
+      () => setGoalReviewDate(ctx, g.id, bad, NOW), GoalError,
+      `"${bad}" was accepted as a review date`
+    );
+  }
+  assert.equal((await getGoal(ctx, g.id))?.targetReviewDate, null,
+    "a refused date still reached the record");
+});
+
+test("setting a review date on a goal that does not exist is refused", async () => {
+  await assert.rejects(() => setGoalReviewDate(ctx, "no-such-goal", "2026-10-02", NOW), GoalError);
+});
+
+test("a review date does not touch the goal's status or its level", async () => {
+  // It is a note about intent, not a clinical event. Nothing fires on it.
+  const g = await anActiveGoal();
+  await recordObservation(ctx, {
+    goalId: g.id, personId: T.patient, observedLevel: -1,
+    evidenceClass: "clinician_observed", sourceType: "session", sourceId: "s-rev",
+    occurredAt: NOW, note: "Went in alone for milk.",
+  });
+  const before = await getGoal(ctx, g.id);
+  await setGoalReviewDate(ctx, g.id, "2026-10-02", NOW);
+  const after = await getGoal(ctx, g.id);
+  assert.equal(after?.status, before?.status);
+  assert.equal(after?.currentLevel, before?.currentLevel);
+});
+
+test("a goal cannot be created with a date that is not a day", async () => {
+  // The same rule as `setGoalReviewDate`, through the other door. Two copies of
+  // it would be two chances to have only one.
+  await assert.rejects(() => aGoal({ targetReviewDate: "2026-13-02" }), GoalError);
+  const born = await aGoal({ targetReviewDate: "2026-10-02" });
+  assert.equal(born.targetReviewDate, "2026-10-02");
 });

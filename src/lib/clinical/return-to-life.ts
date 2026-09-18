@@ -265,6 +265,7 @@ export async function createGoal(
   if (!args.patientStatement.trim()) {
     throw new GoalError("A goal needs the patient's own statement of it.");
   }
+  assertReviewDate(args.targetReviewDate ?? null);
 
   const id = ulid();
   const r = repo(ctx);
@@ -308,6 +309,59 @@ export async function confirmGoal(ctx: TenantContext, goalId: string, at: string
   await r.update(
     "return_to_life_goals",
     { status: "active", confirmed_by_person_id: person, confirmed_at: at, updated_at: at },
+    "id = ?", [goalId]
+  );
+  const row = await r.findOne<GoalRow>("return_to_life_goals", "id = ?", [goalId]);
+  return toGoal(row!);
+}
+
+/**
+ * A review date is a real calendar day, or nothing.
+ *
+ * Shape AND existence. A regex alone accepts 2026-13-02, which would be stored,
+ * read back, and rendered as a review date in a month that does not exist. The
+ * round trip through Date is what proves the day is real.
+ *
+ * One function because both doors need it: a goal can be created with a date
+ * and an existing one can be given a date, and two copies of this rule would be
+ * two chances to have only one of them.
+ */
+function assertReviewDate(date: string | null): void {
+  if (date === null) return;
+  const parsed = new Date(`${date}T00:00:00Z`);
+  if (
+    !/^\d{4}-\d{2}-\d{2}$/.test(date) ||
+    Number.isNaN(parsed.getTime()) ||
+    parsed.toISOString().slice(0, 10) !== date
+  ) {
+    throw new GoalError("A review date is a calendar day, as YYYY-MM-DD.");
+  }
+}
+
+/**
+ * Set or clear the date this goal is next reviewed.
+ *
+ * A DATE, NOT A SCHEDULE. Nothing fires on it and nothing is blocked by it; it
+ * is the clinician writing down when they intend to look again, so the goals
+ * screen can say whether that date has passed. `target_review_date` has existed
+ * since goals shipped and had no way in and no way out — `createGoal` accepted
+ * it, no form offered it, and no screen showed it, so in practice every goal
+ * carried null and the record was silent about intent.
+ *
+ * Null clears it, which is a real choice: a goal that is being worked
+ * continuously does not need a date, and an invented one would make the screen
+ * report a commitment nobody made.
+ */
+export async function setGoalReviewDate(
+  ctx: TenantContext, goalId: string, date: string | null, at: string
+): Promise<Goal> {
+  const r = repo(ctx);
+  const existing = await r.findOne<GoalRow>("return_to_life_goals", "id = ?", [goalId]);
+  if (!existing) throw new GoalError(`No such goal: ${goalId}`);
+  assertReviewDate(date);
+  await r.update(
+    "return_to_life_goals",
+    { target_review_date: date, updated_at: at },
     "id = ?", [goalId]
   );
   const row = await r.findOne<GoalRow>("return_to_life_goals", "id = ?", [goalId]);

@@ -272,8 +272,15 @@ export function summarizeProgress(
     return { statements: [], omitted: [], policyVersion: RETRIEVAL_POLICY_VERSION };
   }
 
-  const describe = (l: GoalLevel | null) =>
-    l === null ? "not recorded" : ladder.find((r) => r.level === l)?.description ?? "not described";
+  // The rung's own words, and NOT double-punctuated. A ladder is written in
+  // sentences — "I go to the corner shop with my sister." — and these templates
+  // add their own full stop, so every progress line on the screen ended in "..".
+  const describe = (l: GoalLevel | null) => {
+    const said = l === null
+      ? "not recorded"
+      : ladder.find((r) => r.level === l)?.description ?? "not described";
+    return said.replace(/[.!?]+\s*$/, "");
+  };
 
   const first = accepted[0];
   const last = accepted[accepted.length - 1];

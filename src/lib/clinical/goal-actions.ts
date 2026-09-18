@@ -7,7 +7,7 @@ import { PLATFORM_TENANT_ID } from "../db";
 import { audit } from "../audit";
 import type { TenantContext } from "../repository";
 import {
-  createGoal, confirmGoal, decideObservation, GoalError,
+  createGoal, confirmGoal, decideObservation, setGoalReviewDate, GoalError,
   GOAL_DOMAINS, GOAL_LEVELS,
   type GoalDomain, type GoalLadderRung, type GoalLevel,
 } from "./return-to-life";
@@ -75,9 +75,19 @@ export async function createGoalAction(formData: FormData): Promise<GoalActionRe
     ladder.push({ level, description });
   }
 
+  // Optional at creation. A goal set in the room often has a date agreed with
+  // it, and a goal that does not is not worse — the field is offered, never
+  // required, and an unset one reads as unset rather than as overdue.
+  //
+  // Passed through rather than filtered here: `createGoal` owns what a valid
+  // date is, and an action that quietly dropped a bad one would save the goal
+  // without the date the clinician typed and tell them it worked.
+  const reviewRaw = String(formData.get("targetReviewDate") ?? "").trim();
+  const targetReviewDate = reviewRaw === "" ? null : reviewRaw;
+
   try {
     const goal = await createGoal(ctx, {
-      personId, title, patientStatement, whyItMatters, domain, ladder,
+      personId, title, patientStatement, whyItMatters, domain, ladder, targetReviewDate,
     });
     await recordGoalCreated({
       goalId: goal.id, tenantId: ctx.tenantId, personId, domain, createdBy: clinicianId,
@@ -116,6 +126,34 @@ export async function confirmGoalAction(formData: FormData): Promise<GoalActionR
     await audit({
       actorId: clinicianId, actorRole: "clinician", family: "clinical",
       type: "return_goal_confirmed", target: goalId, detail: { personId: goal.personId },
+    });
+    revalidatePath(`/clinician/member/${personId}/goals`);
+    return { ok: true, goalId };
+  } catch (e) {
+    if (e instanceof GoalError) return { ok: false, error: e.message };
+    throw e;
+  }
+}
+
+/** Set or clear when this goal is next reviewed.
+ *
+ *  An empty field CLEARS the date rather than being rejected, because "we are
+ *  working this continuously and I do not want a date on it" is a real answer
+ *  and the screen must be able to say so. */
+export async function setGoalReviewDateAction(formData: FormData): Promise<GoalActionResult> {
+  const { ctx, clinicianId } = await clinicianContext();
+  const goalId = String(formData.get("goalId") ?? "");
+  const personId = String(formData.get("personId") ?? "");
+  const raw = String(formData.get("reviewDate") ?? "").trim();
+  const date = raw === "" ? null : raw;
+  try {
+    await setGoalReviewDate(ctx, goalId, date, new Date().toISOString());
+    await audit({
+      actorId: clinicianId, actorRole: "clinician", family: "clinical",
+      type: "return_goal_review_date_set", target: goalId,
+      // The date is an intention about care, not the patient's words, so it is
+      // safe to record. §12 keeps the wording out; this is not wording.
+      detail: { personId, reviewDate: date },
     });
     revalidatePath(`/clinician/member/${personId}/goals`);
     return { ok: true, goalId };
