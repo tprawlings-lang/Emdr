@@ -241,6 +241,16 @@ export const WORK_REGISTER: WorkEntry[] = [
     note: "The house measure was drawn inside a figure titled 'Validated measures over time' while carrying a panel note saying it had no validation to borrow — the panel disclaiming the authority its own frame granted it. Two figures now, on one shared window so the dates still line up. Missingness is the end gap only: the panel already prints the count and the first and latest reading, and the first version of the coverage list repeated all of it, which was obvious on the rendered screen and invisible in the source. What no panel can show is the distance from the last reading to today — a series that stopped in March and one that stopped last week are drawn identically from their own edge.",
   },
   {
+    id: "member.today-work-contract",
+    title: "The member's Today says what is asked of them, by whom, and what doing it shares",
+    // 17 September handoff, P5: the Today contract's eight states, each with a
+    // required presentation and exactly one primary action.
+    state: "reachable",
+    code: "src/lib/member/today-work.ts#todayWorkState",
+    test: "tests/today-work.test.tsx",
+    note: "The day already had a state — open, narrow, stabilizing, paused, crisis, interrupted, service_unavailable — answering how much can be done today. The handoff asks a different question: what is the next thing, where did it come from, and what does doing it share. The two states that matter most were indistinguishable: a module a clinician asked for and a module the day shape surfaced were the same card, in the same place, with the same words. Four of the five facts required beside an assigned item are about trust rather than the activity — who asked, why, what it shares, until when — and none was on the screen. Three things the rendered page then showed: the sharing rule printed as \"clinical-policy-2026-08-t1\", a policy identifier where a person expected a sentence and one the handoff rules out by name; the same activity offered twice with two framings and two start buttons, the weaker framing louder; and two durations for one activity, because two catalogues disagree about how long several modules take. `write_uncertain` is modelled and unreachable — nothing stores an unreconciled command — and PENDING_WRITE_TRACKED is the one line to change.",
+  },
+  {
     id: "clinical.thought-lifecycle",
     title: "The Thoughts page says which of the four states a piece of thinking is in, and who can read it",
     // 17 September handoff, P4: "Thoughts — separate capture, review, approved

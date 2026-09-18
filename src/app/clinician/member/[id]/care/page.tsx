@@ -67,7 +67,7 @@ function activeStatement(
 }
 
 /** What this screen does not know. Absence as a named state, never a blank. */
-function missingFor(plan: unknown, goals: number): string[] {
+function missingFor(plan: unknown, goals: number, assignments: number): string[] {
   const missing: string[] = [];
   if (!plan) missing.push("a care plan, which nobody has drafted");
   if (goals === 0) {
@@ -75,7 +75,15 @@ function missingFor(plan: unknown, goals: number): string[] {
       "what this person is trying to get back to — a person with no goal is not a person doing badly, it is a conversation that has not happened"
     );
   }
-  missing.push("what between-visit support is assigned, because assigned support is not built");
+  // THIS USED TO SAY "because assigned support is not built", unconditionally,
+  // directly above a working Assigned support panel with a working Assign
+  // control. It was true when it was written and stopped being true when the
+  // feature landed — a screen telling a clinician a feature does not exist
+  // while the feature sits under it. Nothing is missing when something is
+  // assigned, and when nothing is, the panel below says so in its own words.
+  if (assignments === 0) {
+    missing.push("what between-visit support is assigned, because none has been");
+  }
   return missing;
 }
 
@@ -149,7 +157,7 @@ export default async function MemberCarePage({
           statement: activeStatement(planRow, goals.length, pending.length),
           reason:
             "Assembled from what is on the record — the latest plan draft, the goals with an open status, and any transfer nobody has answered. Nothing here is computed from a model.",
-          missing: missingFor(planRow, goals.length),
+          missing: missingFor(planRow, goals.length, assignments.length),
           primaryAction: pending.length
             ? { href: "/clinician/handoffs", label: "Answer the transfer" }
             : goals.length === 0

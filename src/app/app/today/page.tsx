@@ -5,6 +5,14 @@ import { experienceContextFor } from "@/lib/experience/context";
 import { navigationFor } from "@/lib/experience/navigation";
 import { readMemberDay } from "@/lib/member/day-read";
 import { MemberShell } from "@/components/experience/MemberShell";
+import { TodayWorkPanel } from "@/components/member/TodayWorkPanel";
+import {
+  todayWorkState, assignedPresentation, PENDING_WRITE_TRACKED,
+} from "@/lib/member/today-work";
+import { assignmentsFor, isLive } from "@/lib/clinical/assigned-support";
+import { getModule } from "@/lib/modules";
+import { memberMinutes } from "@/lib/member/view";
+import { readingNow } from "@/lib/clock";
 import { MemberTodayView } from "@/components/experience/MemberTodayView";
 import { ResumePrompt } from "@/components/experience/ResumePrompt";
 import { buildMemberToday } from "@/lib/member/today";
@@ -76,6 +84,39 @@ export default async function DashboardPage({
     const experience = experienceContextFor({ ...user, tenantId: tenant?.tenant_id ?? "" });
     const { view, resume } = await readMemberDay({ userId: user.id });
 
+    // WHAT IS IN FRONT OF THEM, AND WHERE IT CAME FROM (P5's Today contract).
+    //
+    // A module a clinician asked for and a module the day shape surfaced were
+    // the same card in the same place with the same words, so the person could
+    // not tell whether somebody had asked them to do this. The assignment rows
+    // carry the five facts the handoff requires — who asked, why, how long,
+    // what it shares, until when — and the patient wording and sharing rule are
+    // stored WITH the assignment so they read what they were told at the time.
+    const now = await readingNow();
+    const live = tenant?.tenant_id
+      ? (await assignmentsFor({ tenantId: tenant.tenant_id, personId: user.id }, user.id)
+          .catch(() => []))
+          .filter((a) => isLive(a, now) && a.availability === "assigned")
+      : [];
+    const workState = todayWorkState({
+      restricted: view.dayState === "paused" || view.dayState === "crisis",
+      // Nothing in this build stores an unreconciled command, so this state is
+      // in the contract and unreachable. `PENDING_WRITE_TRACKED` is the one
+      // line to change when it is.
+      pendingWrite: PENDING_WRITE_TRACKED,
+      missingSources: view.dayState === "service_unavailable" ? ["Your day could not be read."] : [],
+      assignedCount: live.length,
+      checkinDue: false,
+      hasSuggestion: view.recommended !== null,
+      completedToday: view.recent.length > 0,
+    });
+    const first = live[0];
+    const assignedModule = first ? getModule(first.supportId) : null;
+    const assignedByName = first
+      ? ((await (await data()).get("SELECT name FROM users WHERE id = ?", [first.assignedBy])) as
+          { name: string } | undefined)?.name ?? null
+      : null;
+
     // §31.7: the screen was reached, and in which LOAD state.
     //
     // Two values, and deliberately not the day's own state. `readMemberDay`
@@ -101,7 +142,44 @@ export default async function DashboardPage({
         {/* §4.4: offered only after the server was asked, and above the day
             because somebody who left something unfinished came back for it. */}
         <ResumePrompt offer={resume} />
-        <MemberTodayView day={view} />
+        {/* Above the day, because an assignment is what somebody asked for and
+            the day below is what is otherwise open. */}
+        <div className="mb-6">
+          <TodayWorkPanel
+            state={workState}
+            supportHref={view.groundHref}
+            unavailable={["Your day could not be read."]}
+            assigned={
+              first && assignedModule
+                ? {
+                    label: assignedModule.name,
+                    href: `/app/session/${first.supportId}`,
+                    presentation: assignedPresentation({
+                      assignedByName,
+                      patientExplanation: first.patientExplanation,
+                      sharePolicy: first.sharePolicy,
+                      expiresAt: first.expiresAt,
+                      minutes: memberMinutes(first.supportId),
+                    }),
+                  }
+                : null
+            }
+          />
+        </div>
+        {/* THE SAME ACTIVITY, TWICE, WITH TWO FRAMINGS. The day's own
+            recommendation was rendered below the assigned panel even when it
+            was the same activity — so "asked for by your care team" sat above
+            a card offering the same thing as "start wherever you like", with
+            two start buttons. Two controls as equal next steps is exactly what
+            the Today contract forbids, and the weaker framing was the louder
+            of the two. */}
+        <MemberTodayView
+          day={
+            workState === "assigned_due" && first && view.recommended?.activityId === first.supportId
+              ? { ...view, recommended: null }
+              : view
+          }
+        />
       </MemberShell>
     );
   }

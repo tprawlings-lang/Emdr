@@ -123,7 +123,21 @@ const MINUTES: Record<string, number> = {
 };
 
 function ref(m: TherapyModule): PracticeRef {
-  return { id: m.id, name: m.name, minutes: MINUTES[m.id] ?? 15 };
+  return { id: m.id, name: m.name, minutes: memberMinutes(m.id) };
+}
+
+/**
+ * How long a member is told an activity takes.
+ *
+ * EXPORTED SO ONE NUMBER REACHES THEM. The assigned-support panel on Today
+ * needed a duration and reached for the module catalogue's `durationLabel`,
+ * which gave "15–20 min" beside this map's "About 10 minutes" for the same
+ * activity, on the same screen. Two catalogues disagree about several modules;
+ * which is right is a content decision, and until it is made every member
+ * surface reads the same one of them.
+ */
+export function memberMinutes(moduleId: string): number {
+  return MINUTES[moduleId] ?? 15;
 }
 
 /** Copy keys, versioned. §8: every member-facing string is a key, never an
