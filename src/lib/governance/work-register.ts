@@ -229,6 +229,18 @@ export const WORK_REGISTER: WorkEntry[] = [
     note: "An explicit full-list state rather than cursor paging: ?rows=all, same server order, total unchanged, and a way back. The wire between the link and the page is covered end to end, because a unit mutation that made the page ignore the parameter survived every unit test.",
   },
   {
+    id: "clinical.handoff-delivery-truth",
+    title: "Proposal, delivery, receipt and decision are four answers, and a proposal reaches the receiver's queue",
+    // UX 007. The screen was honest and unreadable in one sentence — "nobody
+    // has been notified, there is no delivery path in this build, so tell
+    // them" — which answered four questions at once, and then relied on the
+    // receiver opening a screen they had no reason to open.
+    state: "reachable",
+    code: "src/lib/clinical/handoff.ts#handoffProgress",
+    test: "tests/handoff-delivery.test.tsx",
+    note: "Two of the four are permanently negative and that is the content: nothing was sent because there is no channel, and whether it was read is unknown because nothing records a read. The queue rows carry both directions — a decision the receiver owes, actionable whatever the caseload model says, and the sender's own proposal still waiting — with the SENDER as owner, because reading the destination of an unanswered proposal is the inference the handoff model exists to refuse.",
+  },
+  {
     id: "clinical.capability-claims-are-derived",
     title: "What a screen says it can do is read from the switch that decides whether it renders",
     // UX 005. The Thoughts page said session preparation and patient-scoped

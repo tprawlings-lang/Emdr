@@ -643,6 +643,73 @@ export async function buildWorkQueue(args: {
     });
   }
 
+  // ── Proposed transfers of accountability (UX 007) ────────────────────────
+  //
+  // "Surface pending work." A transfer notifies nobody — there is no delivery
+  // path — so a proposal sat on /clinician/handoffs until the receiver happened
+  // to open a screen they had no reason to open. The workflow was honest about
+  // sending nothing and then relied on the receiver checking anyway, which is
+  // the same gap with a disclaimer in front of it.
+  //
+  // BOTH DIRECTIONS, AS DIFFERENT WORK. A proposal TO this clinician is a
+  // decision they owe: needs-action, and actionable whatever the caseload model
+  // says, because answering a transfer addressed to you is always yours to do —
+  // indeed the person is usually not yet on your caseload, which is the point.
+  // A proposal FROM them is waiting-on-staff: nothing for them to do but know
+  // that they are still accountable while it waits.
+  //
+  // Non-fatal, like the follow-ups below it: an addition to a clinician's day
+  // must not be able to take the day down with it.
+  try {
+    const { handoffsFor, isOpen } = await import("./handoff");
+    for (const h of handoffsFor({ clinicianId: args.clinicianId, tenantId: args.tenantId })) {
+      if (!isOpen(h.state)) continue;
+      const incoming = h.toClinicianId === args.clinicianId;
+      const row = caseById.get(h.personId);
+      items.push({
+        id: `handoff:${h.id}`,
+        group: incoming ? "needs_action" : "waiting_staff",
+        // Standard, not immediate. A transfer is accountability moving, which
+        // matters and is not an escalation; giving it a working band would let
+        // it outrank a person the safety engine is worried about.
+        band: "standard",
+        personId: h.personId,
+        personName: h.personName,
+        // The approved clinical vocabulary's words for this event, so the row
+        // and the audit log call it the same thing.
+        reason: incoming
+          ? "Transfer of accountability proposed to you"
+          : "Transfer of accountability you proposed",
+        detail: incoming
+          ? `${h.fromName} asked you to take over. Reason: ${h.reason}`
+          : `${h.toName} has not answered. Reason given: ${h.reason}`,
+        resolvedAt: null,
+        change: null,
+        evidenceAt: h.createdAt,
+        // THE SENDER, UNTIL IT IS ACCEPTED. Reading the destination of an
+        // unanswered proposal is the inference this whole module refuses to
+        // make, and the queue must not make it either.
+        ownerId: h.fromClinicianId,
+        ownerName: h.fromName,
+        dueAt: h.dueAt,
+        overdue: Boolean(h.dueAt && parseStamp(h.dueAt) < now.getTime()),
+        eventCount: 1,
+        action: "open",
+        actionable: incoming,
+        blockedReason: incoming
+          ? null
+          : `Waiting on ${h.toName} to accept or decline. Nobody has been notified.`,
+        safetyAuthority: false,
+        signalId: null,
+        supportFacts: [],
+        lastContactDays: row?.daysSinceContact ?? null,
+        lastActivityDays: row?.daysSinceActivity ?? null,
+      });
+    }
+  } catch (err) {
+    console.error("handoff queue rows failed (non-fatal):", err);
+  }
+
   // Approved follow-ups (Phase 3). The clinician's own note to themselves,
   // kept by them, surfacing as work.
   //

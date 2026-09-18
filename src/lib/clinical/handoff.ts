@@ -136,6 +136,118 @@ export function handoffsForPerson(args: { personId: string; tenantId: string }):
   return rows.map(hydrate);
 }
 
+// ---------------------------------------------------------------------------
+// Proposal, delivery, receipt, decision (UX 007)
+// ---------------------------------------------------------------------------
+//
+//   "Handoff workflow says it does not notify the recipient. Display delivery
+//   status honestly and surface pending work. Acceptance: proposal, delivery,
+//   receipt, and acceptance cannot be confused."
+//
+// The honesty was already here — every surface said "nobody has been notified"
+// — and that sentence was doing the work of four different answers at once. A
+// clinician reading it could not tell which of these was true: the proposal is
+// recorded (it is), a message was sent (none was, and none can be), the
+// receiver has seen it (nobody knows), the receiver has decided (not yet). Four
+// facts, one disclaimer, and the two that matter most to a person waiting on a
+// transfer — has it reached them, have they seen it — were the two the sentence
+// did not distinguish.
+//
+// So each step is its own value with its own evidence. Two of them are
+// negative, permanently, and that is the point: "not sent, because there is no
+// channel" and "not known, because nothing records a read" are answers, where a
+// blank is not.
+
+/** How far a transfer has actually got, per step. */
+export type HandoffStepState =
+  /** Happened, with a time. */
+  | "done"
+  /** Cannot happen in this build. Not a failure and not a wait. */
+  | "not_possible"
+  /** Could be true; nothing records it either way. */
+  | "not_recorded"
+  /** Waiting on a named person. */
+  | "pending"
+  /** Answered, and the answer was no. */
+  | "refused";
+
+export interface HandoffStep {
+  step: "proposal" | "delivery" | "receipt" | "decision";
+  label: string;
+  state: HandoffStepState;
+  /** One sentence a clinician can act on. */
+  said: string;
+  /** The evidence time, or null where there is none. Null is never rendered as
+   *  a time, which is the rule the escalation channel learned first. */
+  at: string | null;
+}
+
+/** Is there a configured way to tell a clinician a transfer was proposed?
+ *
+ *  False for this build, and a named constant rather than an environment
+ *  variable for the same reason ESCALATION_CHANNEL_CONFIGURED is: a setting
+ *  would let a deployment turn the claim on without the channel existing, which
+ *  is the failure the notification-truth work removed. It flips when a channel
+ *  exists AND can produce a receipt. */
+export const HANDOFF_CHANNEL_CONFIGURED = false;
+
+/**
+ * The four steps, answered from what is on the record.
+ *
+ * NOT ONE STATUS STRING. A single label has to pick which of the four facts to
+ * report, and whichever it picks, a reader supplies the other three from
+ * assumption — which is how "proposed" comes to mean "they know about it".
+ */
+export function handoffProgress(h: Handoff): HandoffStep[] {
+  const proposal: HandoffStep = {
+    step: "proposal",
+    label: "Proposed",
+    state: "done",
+    said: `${h.fromName} proposed the transfer to ${h.toName}, with a reason on the record.`,
+    at: h.createdAt,
+  };
+
+  const delivery: HandoffStep = HANDOFF_CHANNEL_CONFIGURED
+    ? { step: "delivery", label: "Delivered", state: "not_recorded",
+        said: "A channel exists and this proposal has no receipt from it.", at: null }
+    : {
+        step: "delivery",
+        label: "Delivered",
+        state: "not_possible",
+        said:
+          `Nothing was sent. There is no delivery path in this build, so ${h.toName} finds ` +
+          "this by opening Steady rather than by being told.",
+        at: null,
+      };
+
+  const receipt: HandoffStep = {
+    step: "receipt",
+    label: "Seen by the receiver",
+    state: "not_recorded",
+    said:
+      `Steady does not record when a proposal is read, so whether ${h.toName} has seen this ` +
+      "is unknown. An unanswered proposal is not evidence that they have.",
+    at: null,
+  };
+
+  const decision: HandoffStep =
+    h.state === "accepted"
+      ? { step: "decision", label: "Accepted", state: "done",
+          said: `${h.toName} accepted and is accountable for ${h.personName} from that point.`,
+          at: h.decidedAt }
+      : h.state === "declined"
+      ? { step: "decision", label: "Declined", state: "refused",
+          said: `${h.toName} declined. ${h.fromName} is still accountable.`, at: h.decidedAt }
+      : h.state === "withdrawn"
+      ? { step: "decision", label: "Withdrawn", state: "refused",
+          said: `${h.fromName} withdrew it. Accountability never moved.`, at: h.decidedAt }
+      : { step: "decision", label: "Decision", state: "pending",
+          said: `Waiting on ${h.toName}. ${h.fromName} is accountable for ${h.personName} until it is accepted.`,
+          at: null };
+
+  return [proposal, delivery, receipt, decision];
+}
+
 export type HandoffOutcome =
   | { ok: true; id: string; note: string }
   | { ok: false; reason: string };

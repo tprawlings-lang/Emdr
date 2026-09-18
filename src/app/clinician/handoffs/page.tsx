@@ -7,6 +7,7 @@ import { PLATFORM_TENANT_ID } from "@/lib/db";
 import { EmptyState } from "@/components/clinical/primitives";
 import { handoffsFor, isOpen, MIN_REASON, type Handoff } from "@/lib/clinical/handoff";
 import { proposeHandoffAction, resolveHandoffAction } from "@/lib/clinical/handoff-actions";
+import { HandoffProgress } from "@/components/clinical/HandoffProgress";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Handoffs — Steady Clinical" };
@@ -109,8 +110,10 @@ export default async function HandoffsPage({
           <strong>A transfer moves accountability only when it is accepted.</strong>
         </summary>
         <p className="mt-2">
-          Until then the clinician who proposed it still holds the person. Nobody is notified
-          when you propose or answer one — there is no delivery path in this build, so tell them.
+          Until then the clinician who proposed it still holds the person. Nothing is sent when
+          you propose or answer one — there is no delivery path in this build — so a proposal
+          also appears in the other clinician&rsquo;s work queue, and every transfer below says
+          step by step how far it has actually got.
         </p>
       </details>
 
@@ -193,8 +196,7 @@ export default async function HandoffsPage({
                 <HandoffFacts h={h} />
                 <p className="measure mt-2 text-sm text-ground">
                   <strong>You are still accountable for {h.personName}.</strong>{" "}
-                  {h.toName} has not answered, and has not been told — this build has no way
-                  to tell them.
+                  The steps above say exactly how far this has got.
                 </p>
                 <form action={resolveHandoffAction} className="mt-3">
                   <input type="hidden" name="handoffId" value={h.id} />
@@ -329,6 +331,11 @@ function HandoffFacts({ h }: { h: Handoff }) {
         {h.dueAt ? ` · answer needed by ${h.dueAt}` : " · no deadline given"}
       </p>
       <p className="measure mt-1 text-sm text-ground">“{h.reason}”</p>
+      {/* UX 007: what has actually happened, step by step. The one sentence
+          this replaces — "nobody has been notified" — was true and was doing
+          the work of four answers, so a reader supplied whichever three they
+          expected. */}
+      <HandoffProgress h={h} />
     </>
   );
 }
