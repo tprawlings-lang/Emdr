@@ -876,23 +876,41 @@ export function deviations(set: TrajectorySet): TrajectorySnapshot[] {
  * track". It names domains and a window; it does not grade the person.
  */
 export function trajectoryLine(set: TrajectorySet): string | null {
-  const moved = set.snapshots.filter((s) => isDeviation(s.state));
+  // STALLED IS SPLIT OFF FROM MOVED, and the reason is what a reader saw.
+  // `stalled` is a deviation — §8 is right that a course inside a narrow band
+  // for a whole window is worth attention — but it is not a CHANGE, and the
+  // trajectory page put "Recovery trajectory changed in Activation" directly
+  // above a badge reading "Within a narrow band". One screen, two sentences,
+  // flatly contradicting each other about the same domain.
+  //
+  // So each group is named in the words that describe it. §8's wording survives
+  // for the domains it was written about.
+  const changed = set.snapshots.filter((s) => isDeviation(s.state) && s.state !== "stalled");
+  const narrow = set.snapshots.filter((s) => s.state === "stalled");
   const improving = set.snapshots.filter((s) => s.state === "improving");
-  if (moved.length === 0 && improving.length === 0) return null;
+  if (changed.length === 0 && narrow.length === 0 && improving.length === 0) return null;
 
   const name = (list: TrajectorySnapshot[]) =>
     list.map((s) => s.label).join(", ");
 
-  if (moved.length === 0) {
-    return `Moving favourably in ${name(improving)} across the current review window.`;
+  const WINDOW = "across the current review window";
+  const narrowClause =
+    narrow.length === 0 ? ""
+    : ` ${name(narrow)} ${narrow.length === 1 ? "has" : "have"} stayed inside a narrow band.`;
+
+  if (changed.length === 0 && improving.length === 0) {
+    return `${name(narrow)} ${narrow.length === 1 ? "has" : "have"} stayed inside a narrow band ${WINDOW}.`;
+  }
+  if (changed.length === 0) {
+    return `Moving favourably in ${name(improving)} ${WINDOW}.${narrowClause}`;
   }
   if (improving.length === 0) {
-    return `Recovery trajectory changed in ${name(moved)} across the current review window.`;
+    return `Recovery trajectory changed in ${name(changed)} ${WINDOW}.${narrowClause}`;
   }
   // §4: "a patient can improve in one domain and worsen in another. Preserve
   // the disagreement." Both halves in one sentence, neither cancelling the
   // other out.
-  return `Recovery trajectory changed in ${name(moved)}, while ${name(improving)} moved favourably, across the current review window.`;
+  return `Recovery trajectory changed in ${name(changed)}, while ${name(improving)} moved favourably, ${WINDOW}.${narrowClause}`;
 }
 
 /** The compact shape Session Prep and the caseload table read (§9). */

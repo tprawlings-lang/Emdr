@@ -241,6 +241,16 @@ export const WORK_REGISTER: WorkEntry[] = [
     note: "The house measure was drawn inside a figure titled 'Validated measures over time' while carrying a panel note saying it had no validation to borrow — the panel disclaiming the authority its own frame granted it. Two figures now, on one shared window so the dates still line up. Missingness is the end gap only: the panel already prints the count and the first and latest reading, and the first version of the coverage list repeated all of it, which was obvious on the rendered screen and invisible in the source. What no panel can show is the distance from the last reading to today — a series that stopped in March and one that stopped last week are drawn identically from their own edge.",
   },
   {
+    id: "clinical.trajectory-findings-first",
+    title: "The trajectory page leads with which domain reached which state, and explains below",
+    // 17 September handoff, P4: "Trajectory — put findings first and technical
+    // explanation later. Descriptive status cannot be mistaken for a forecast."
+    state: "reachable",
+    code: "src/components/clinical/RecoveryTrajectoryCard.tsx#RecoveryTrajectoryCard",
+    test: "tests/trajectory-findings-first.test.tsx",
+    note: "It put both first: the card listed every domain with its state, the reading it was judged on and the reconstruction caveat, and each domain's own panel twenty lines below printed the same sentence again beside the threshold and the windows. The card now takes an `explanation` flag — false on the page that carries the detail, true on the overview and Session Prep where the card is the only thing there and a state with no reading behind it would be an unexplained verdict. And the summary sentence stopped contradicting the badge under it: a stalled domain is a deviation worth attention and is not a change, so \"Recovery trajectory changed in Activation\" sat directly above \"Within a narrow band\". Stalls are named in their own clause now; the handoff's wording survives for the domains it was written about.",
+  },
+  {
     id: "clinical.response-standing",
     title: "An exposure says its standing on one line, and missing follow-up is its own row",
     // 17 September handoff, P4: "Responses — summarize patterns and allow

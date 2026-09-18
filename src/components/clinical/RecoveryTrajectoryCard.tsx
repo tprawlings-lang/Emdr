@@ -57,6 +57,7 @@ export function RecoveryTrajectoryCard({
   href,
   linkLabel,
   boundary = true,
+  explanation = true,
 }: {
   personId: string;
   rows: TrajectoryCardRow[];
@@ -74,6 +75,16 @@ export function RecoveryTrajectoryCard({
    *  surrounding surface already states it: saying it twice on one screen
    *  teaches the reader to skip it, which costs the sentence its job. */
   boundary?: boolean;
+  /** Whether each row carries its technical explanation.
+   *
+   *  TRUE ON A SURFACE WHERE THIS CARD IS ALL THERE IS — the person overview
+   *  and Session Prep, where a state with no reading behind it would be an
+   *  unexplained verdict. FALSE on the trajectory page, where the same
+   *  sentence is printed again twenty lines down inside the domain's own
+   *  panel, along with the threshold it was judged against and the windows it
+   *  came from. The handoff's P4 line for this screen is "put findings first
+   *  and technical explanation later", and the card was putting both first. */
+  explanation?: boolean;
 }) {
   const target = href ?? `/clinician/member/${personId}/trajectory`;
 
@@ -99,12 +110,24 @@ export function RecoveryTrajectoryCard({
                         label. */}
                     {stateLabelFor(r.domainType, r.state)}
                   </span>
-                  <span className="text-xs text-olive">{DOMAIN_META[r.domainType].label}</span>
+                  {/* The domain TYPE, only when it is not the domain's own
+                      name. On a check-in lane the two are the same word, so
+                      the row read "Activation · Within a narrow band ·
+                      Activation" — which was invisible while the row also
+                      carried two lines of explanation and obvious the moment
+                      the row became three words. */}
+                  {DOMAIN_META[r.domainType].label.toLowerCase() !== r.label.toLowerCase() && (
+                    <span className="text-xs text-olive">{DOMAIN_META[r.domainType].label}</span>
+                  )}
                 </div>
-                <p className="measure mt-1 text-xs text-olive">{r.headline}</p>
-                {r.limitations.map((l) => (
-                  <p key={l} className="measure text-xs text-olive">{l}</p>
-                ))}
+                {explanation && (
+                  <>
+                    <p className="measure mt-1 text-xs text-olive">{r.headline}</p>
+                    {r.limitations.map((l) => (
+                      <p key={l} className="measure text-xs text-olive">{l}</p>
+                    ))}
+                  </>
+                )}
               </li>
             ))}
           </ul>

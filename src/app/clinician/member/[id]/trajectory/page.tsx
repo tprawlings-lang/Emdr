@@ -146,6 +146,14 @@ export default async function MemberTrajectoryPage({
           }
           href={`/clinician/member/${id}/record`}
           linkLabel="Open the longitudinal record these were read from"
+          // FINDINGS HERE, EXPLANATION BELOW. Every row's headline and
+          // limitations are printed again in that domain's own panel further
+          // down, beside the threshold it was judged against and the windows it
+          // was computed from — so carrying them here made the top of the page
+          // a second copy of the bottom of it, and the one thing a reader wants
+          // at a glance (which domains reached which state) was buried in its
+          // own evidence.
+          explanation={false}
         />
         {set.unavailable.length > 0 && (
           <p className="measure mt-3 text-xs text-olive">
