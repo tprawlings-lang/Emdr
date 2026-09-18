@@ -192,8 +192,24 @@ const BETWEEN_VISIT_TYPES = new Set([
   "intervention.completed", "intervention.response_recorded",
 ]);
 
+/**
+ * Whole days between two instants, as a reader counts them.
+ *
+ * CALENDAR DAYS, NOT ELAPSED HOURS. This floored a millisecond difference, so a
+ * session at 23:00 last night read "Last session was today" and the same
+ * session run at 09:00 read "1 day ago" — and, on the person overview, the
+ * brief and the last-session card disagreed by one about the same session
+ * because they measured from different ends of it. An age in days is a
+ * difference of days.
+ */
 function daysBetween(a: string, b: string): number {
-  return Math.floor(Math.abs(Date.parse(a) - Date.parse(b)) / 86_400_000);
+  const day = (t: string) => Date.parse(`${t.slice(0, 10)}T00:00:00Z`);
+  const from = day(a.includes("T") ? a : a.replace(" ", "T"));
+  const to = day(b.includes("T") ? b : b.replace(" ", "T"));
+  if (!Number.isFinite(from) || !Number.isFinite(to)) {
+    return Math.floor(Math.abs(Date.parse(a) - Date.parse(b)) / 86_400_000);
+  }
+  return Math.floor(Math.abs(to - from) / 86_400_000);
 }
 
 /** The most recent session, or null when there has not been one. */

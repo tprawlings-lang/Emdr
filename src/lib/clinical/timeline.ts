@@ -105,6 +105,11 @@ export interface Timeline {
 /** `${n}` for a number, or a word for a boolean — never a bare score without
  *  its name, because a caseload that says "34" teaches a clinician to trust a
  *  number they cannot interrogate. */
+/** A reading, or the fact that nobody took one. */
+function reading(v: unknown): string {
+  return typeof v === "number" ? String(v) : "not recorded";
+}
+
 function headlineFor(e: LongitudinalEvent): string {
   const p = e.payload;
   switch (e.event_type) {
@@ -116,10 +121,14 @@ function headlineFor(e: LongitudinalEvent): string {
         (Array.isArray(p.riskFlags) && p.riskFlags.length ? ` · flags: ${p.riskFlags.join(", ")}` : "");
     case "session.started":
       return `Session started — ${p.moduleId}${p.focus ? ` · focus: ${p.focus}` : ""}`;
+    // A MISSING READING IS SAID, NOT PRINTED AS `null`. These lines reach a
+    // clinician's brief, where "(peak null)" is a database value wearing the
+    // clothes of a clinical fact — and "SUDS 3 → null" reads as a reading that
+    // was taken and was nothing.
     case "session.completed":
-      return `Session completed — ${p.moduleId} · SUDS ${p.preSuds} → ${p.postSuds} (peak ${p.peakSuds})`;
+      return `Session completed — ${p.moduleId} · SUDS ${reading(p.preSuds)} → ${reading(p.postSuds)} (peak ${reading(p.peakSuds)})`;
     case "session.hard_stopped":
-      return `Session HARD STOP — ${p.moduleId} · ${p.hardStopReason ?? "reason not recorded"} · SUDS ${p.preSuds} → ${p.postSuds} (peak ${p.peakSuds})`;
+      return `Session HARD STOP — ${p.moduleId} · ${p.hardStopReason ?? "reason not recorded"} · SUDS ${reading(p.preSuds)} → ${reading(p.postSuds)} (peak ${reading(p.peakSuds)})`;
     case "intervention.completed":
       return `Practice — ${p.interventionId} (${p.interventionType}), ${p.durationSec}s`;
     case "lesson.read":

@@ -241,6 +241,17 @@ export const WORK_REGISTER: WorkEntry[] = [
     note: "The house measure was drawn inside a figure titled 'Validated measures over time' while carrying a panel note saying it had no validation to borrow — the panel disclaiming the authority its own frame granted it. Two figures now, on one shared window so the dates still line up. Missingness is the end gap only: the panel already prints the count and the first and latest reading, and the first version of the coverage list repeated all of it, which was obvious on the rendered screen and invisible in the source. What no panel can show is the distance from the last reading to today — a series that stopped in March and one that stopped last week are drawn identically from their own edge.",
   },
   {
+    id: "clinical.overview-goals-and-last-session",
+    title: "The person overview answers goals and the last session, not only changes and work",
+    // 17 September handoff, P4: "Patient overview — summarize changes,
+    // restrictions, work, goals, and recent session. Next work is clear
+    // without opening many pages."
+    state: "reachable",
+    code: "src/lib/clinical/recent-session.ts#recentSession",
+    test: "tests/recent-session.test.tsx",
+    note: "Four of the five were on it. The goals card was gated on having goals, so a person with none got no goals section at all — which reads as \"this product does not track goals\" rather than \"nobody has set one\", and the card's empty state, which offers to add one, had never been reachable. The last session was on no card: the engagement strip counts session DAYS (\"0 carry a session\"), a different fact that reads as the same one on a page where every other panel covers three weeks. The card names the module, how long ago, and how it ended — a stop is \"stopped early\" with its reason, never \"incomplete\", because a session that ended when somebody decided to end it is the safety system working. A missing close reading is unknown rather than no change, and a session with no readings at all is not 0 to 0.",
+  },
+  {
     id: "clinical.note-signing-confirmed",
     title: "Signing a note is confirmed against the words on screen, and no draft is written over silently",
     // 17 September handoff, P4: "Signed notes — clarify draft, signing, and

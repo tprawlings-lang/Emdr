@@ -39,6 +39,8 @@ import { newestEvidenceFor } from "@/lib/clinical/person-evidence";
 import { reviewsWithCurrency, type ReviewWithCurrency } from "@/lib/clinical/review-currency";
 import { ReviewLedger } from "@/components/clinical/ReviewLedger";
 import { readingFrame } from "@/lib/clock";
+import { recentSession } from "@/lib/clinical/recent-session";
+import { RecentSessionCard } from "@/components/clinical/RecentSessionCard";
 
 // Person overview (GUI and Decision-Surface Handoff §10.4).
 //
@@ -130,6 +132,19 @@ export default async function PersonOverviewPage({
   }
 
 
+  // ONE FRAME FOR THE PAGE. Two panels reading the clock separately can
+  // straddle midnight, and the trajectory cutoff and "three days ago" would
+  // then disagree about what day it is.
+  const asOf = (await readingFrame()).now.toISOString();
+
+  // The last session on file. Guarded like the other optional panels: the
+  // overview must survive one read failing, and a blank record page is a worse
+  // failure than a missing card.
+  const lastSession = await recentSession(id, { asOf }).catch((err) => {
+    console.error("recent session failed (non-fatal):", err);
+    return null;
+  });
+
   // The projection deliberately carries no patient-authored text (§12), so the
   // card's titles are read from the store. Two reads rather than widening the
   // projection: a downstream engine must not receive these strings.
@@ -156,7 +171,7 @@ export default async function PersonOverviewPage({
   let trajectorySentence: string | null = null;
   let trajectoryPolicyVersion = "";
   try {
-    const set = await computeTrajectory(ctx, id, { asOf: (await readingFrame()).now.toISOString() });
+    const set = await computeTrajectory(ctx, id, { asOf });
     trajectorySentence = trajectoryLine(set);
     trajectoryPolicyVersion = set.policyVersion;
     trajectoryRows = set.snapshots
@@ -277,12 +292,6 @@ export default async function PersonOverviewPage({
           your last review", because it is what a clinician reads in the minute
           before a session — placing it below the record would mean scrolling
           past the record to reach the thing that summarises it. */}
-      {goalRows.length > 0 && (
-        <div className="mt-6">
-          <ReturnToLifeCard personId={id} goals={goalRows} />
-        </div>
-      )}
-
       {/* Observed responses (§9). Beside the life goals rather than under the
           record, because the question it answers — what has tended to help this
           person — is read before a session, not looked up during one. It is
@@ -333,6 +342,25 @@ export default async function PersonOverviewPage({
           />
         </div>
       )}
+
+      {/* GOALS AND THE LAST SESSION, ALWAYS — the two the handoff's overview
+          line names that this page did not answer.
+
+          The goals card was gated on having goals, so a person with none got
+          no goals section at all, which reads as "this product does not track
+          goals" rather than "nobody has set one". Its empty state already
+          existed and offers to add one; it had simply never been reachable.
+
+          The last session was on no card here. The engagement strip counts
+          session DAYS — "0 carry a session" — which is a different fact and
+          reads as one on a page where every other panel covers three weeks. */}
+      <div className="mt-6">
+        <ReturnToLifeCard personId={id} goals={goalRows} />
+      </div>
+
+      <div className="mt-6">
+        <RecentSessionCard personId={id} session={lastSession} />
+      </div>
 
       {sessionPrep && (
         <div className="mt-6">
