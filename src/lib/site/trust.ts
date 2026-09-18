@@ -377,66 +377,23 @@ export const KNOWN_GAPS: Gap[] = [
 // Evidence (§11 evidence page structure)
 // ---------------------------------------------------------------------------
 
+/**
+ * A gap: something Steady does not have.
+ *
+ * THE CLAIMS THAT USED TO SHARE THIS TYPE HAVE MOVED to the governed evidence
+ * registry, which binds each of them to a product, a version, a population, an
+ * evidence type, its limitations, an approver and a review date. This shape
+ * stayed for `EVIDENCE_NEEDED`, and deliberately did not follow them: an
+ * approval that can expire would, on expiry, REMOVE a gap from the public page.
+ * That is the one direction this page must never move in.
+ */
 export interface EvidenceItem {
   claim: string;
   support: string;
   runnable: string | null;
 }
 
-export const EVIDENCE_METHOD: EvidenceItem[] = [
-  {
-    claim: "EMDR delivered by trained clinicians has published support for post-traumatic stress.",
-    support:
-      "Published research and clinical practice guidelines describe clinician-delivered EMDR. This is evidence about the method as practised by clinicians.",
-    runnable: null,
-  },
-  {
-    claim: "That evidence does not transfer to Steady.",
-    support:
-      "Steady is software delivering structured self-guided experiences between visits. No published study evaluates Steady. Method evidence must never be presented as product evidence.",
-    runnable: null,
-  },
-];
 
-export const EVIDENCE_SOFTWARE: EvidenceItem[] = [
-  {
-    claim: "Access decisions are deterministic and reproducible.",
-    support: "The safety suite covers the ordered gate chain and its rules.",
-    runnable: "npm run test:safety",
-  },
-  {
-    claim: "History can be rebuilt from the event log without drift.",
-    support:
-      "A reset produces a reproducible baseline, the backfill is idempotent, and projections rebuild byte-identically.",
-    runnable: "npm run demo -- verify",
-  },
-  {
-    claim: "Cross-tenant access is denied at the database layer.",
-    support: "Twelve attack cases run against a real Postgres cluster, and the job blocks the build.",
-    runnable: "npm run test:rls",
-  },
-  {
-    claim: "Cross-tenant access is denied at the application layer.",
-    support: "Eighteen isolation cases and twelve transaction cases.",
-    runnable: "npx tsx --test tests/tenant-isolation.test.ts",
-  },
-  {
-    claim: "Clinical summaries cannot display an uncitable claim.",
-    support:
-      "A validator independent of the generator drops claims with no citation and claims citing events outside the evidence set.",
-    runnable: "npx tsx --test tests/clinical-surface.test.ts",
-  },
-  {
-    claim: "Public pages cannot silently regain retail or compliance claims.",
-    support: "A source-level guard implements the claims policy as a build gate.",
-    runnable: "npx tsx --test tests/public-copy-guard.test.ts",
-  },
-  {
-    claim: "The interface meets automated accessibility checks.",
-    support: "An axe-core audit blocks on any serious or critical violation across the public surfaces.",
-    runnable: "npm run test:e2e",
-  },
-];
 
 export const EVIDENCE_NEEDED: EvidenceItem[] = [
   {
@@ -467,17 +424,3 @@ export const EVIDENCE_NEEDED: EvidenceItem[] = [
   },
 ];
 
-export const EVIDENCE_BLS: EvidenceItem[] = [
-  {
-    claim: "Bilateral stimulation Part 6 is an active validation workstream, not a shipped feature.",
-    support:
-      "The environment can demonstrate intended protocol states, stop conditions, and escalation paths as a labelled simulation using fabricated scenarios.",
-    runnable: null,
-  },
-  {
-    claim: "Autonomous stimulation is off, and no configuration can turn it on.",
-    support:
-      "An explicit condition of the existing clinical sign-off, enforced in code: the policy loader refuses a configuration that would let the engine govern.",
-    runnable: "npx tsx --test tests/clinical-policy.test.ts",
-  },
-];

@@ -241,6 +241,18 @@ export const WORK_REGISTER: WorkEntry[] = [
     note: "The house measure was drawn inside a figure titled 'Validated measures over time' while carrying a panel note saying it had no validation to borrow — the panel disclaiming the authority its own frame granted it. Two figures now, on one shared window so the dates still line up. Missingness is the end gap only: the panel already prints the count and the first and latest reading, and the first version of the coverage list repeated all of it, which was obvious on the rendered screen and invisible in the source. What no panel can show is the distance from the last reading to today — a series that stopped in March and one that stopped last week are drawn identically from their own edge.",
   },
   {
+    id: "governance.evidence-registry",
+    title: "Every public claim comes from one governed registry, and an expired one stops rendering",
+    // 17 September handoff, P5: "Generate every public claim and count from one
+    // governed evidence registry. Do not maintain separate numbers in page
+    // copy." The finding it answers is somebody else's — public counts varying
+    // between pages — and it lands squarely here.
+    state: "reachable",
+    code: "src/lib/governance/evidence-registry.ts#resolveClaim",
+    test: "tests/evidence-registry.test.ts",
+    note: "The public evidence page carried claims as three fields — claim, support, runnable — with counts written into the prose: \"eighteen isolation cases and twelve transaction cases\", right when typed and checked by nobody, wrong the moment somebody adds a test. A claim is a record now: what product and version it is about, which population, what kind of evidence, what it cannot support, which surfaces may show it, who approved it and when that lapses. Resolution fails closed on every branch — unapproved, expired, wrong surface, no limitation stated — because rendering a lapsed claim is the harm and a missing sentence is an inconvenience. A count lives in a field with the file it comes from, and a guard counts the file. Two types were added to the handoff's four and both say why: software_verification, because calling a passing suite \"product telemetry\" would describe a test run as operational data about real use; and absence_of_evidence, because the page rendered \"Published research · about Steady\" over the sentence \"that evidence does not transfer to Steady\". EVIDENCE_NEEDED stayed ungoverned on purpose: an approval that can expire would, on expiry, remove a gap from a public page.",
+  },
+  {
     id: "member.today-work-contract",
     title: "The member's Today says what is asked of them, by whom, and what doing it shares",
     // 17 September handoff, P5: the Today contract's eight states, each with a
