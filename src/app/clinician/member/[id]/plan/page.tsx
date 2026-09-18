@@ -9,6 +9,8 @@ import { ReviewBadge, EmptyState } from "@/components/clinical/primitives";
 import { readingFrame } from "@/lib/clock";
 import { buildBetweenVisitPlan } from "@/lib/clinical/between-visit-plan";
 import { BetweenVisitPlanView } from "@/components/clinical/BetweenVisitPlanView";
+import { lastPlanReview, planReviewStanding } from "@/lib/clinical/plan-review";
+import { PlanReviewAction } from "@/components/clinical/PlanReviewAction";
 
 export const dynamic = "force-dynamic";
 
@@ -25,8 +27,14 @@ export const dynamic = "force-dynamic";
 // on the full record where the audit trail is, rather than duplicated here as a
 // second path to the same write.
 
-export default async function ClinicianPlanPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function ClinicianPlanPage({
+  params, searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ done?: string }>;
+}) {
   const { id } = await params;
+  const { done } = await searchParams;
   const clinician = await requireClinician();
   const c = await data();
   const me = (await c.get("SELECT tenant_id FROM users WHERE id = ?", [clinician.id])) as
@@ -37,6 +45,12 @@ export default async function ClinicianPlanPage({ params }: { params: Promise<{ 
   if (!person) notFound();
 
   const [tracks, planRow] = await Promise.all([getMemberTracks(id), getProgramPlan(id)]);
+
+  // Where this plan's review stands, against the version on screen.
+  const planStanding = planReviewStanding(
+    await lastPlanReview({ personId: id, tenantId }),
+    planRow?.created_at ?? null,
+  );
 
   // The shared between-visit plan. Assembled on read from the care plan, goals,
   // assignments, sessions and safety state — the handoff is explicit that it
@@ -102,9 +116,23 @@ export default async function ClinicianPlanPage({ params }: { params: Promise<{ 
             <p className="mt-4 border-t border-ground/10 pt-3 text-xs text-olive">
               Generated {planRow.created_at.slice(0, 16)} by{" "}
               {planRow.generated_by === "ai" ? "a model" : "fixed rules"}. The member sees the same
-              status label. Approve or correct it on the full record, where the action is audited.
+              status label.
             </p>
           </div>
+        )}
+
+        {/* THE PERMITTED ACTION, HERE. This screen used to end by sending the
+            reader to the full record — the hunt the handoff names — and the
+            control there approves the generated SUMMARY, so following the
+            instruction would have attested to a different artefact. */}
+        {planRow && (
+          <PlanReviewAction
+            personId={id}
+            planId={planRow.id}
+            planVersion={planRow.created_at}
+            standing={planStanding}
+            done={done === "reviewed"}
+          />
         )}
       </section>
     </PersonShell>

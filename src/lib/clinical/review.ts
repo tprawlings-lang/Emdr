@@ -58,6 +58,16 @@ export async function approve(args: {
   /** Event ids the reviewed material rested on — so the approval is anchored
    *  to specific evidence rather than to "the screen as it looked". */
   evidenceIds: string[];
+  /**
+   * The version of what was reviewed, when the reviewed thing is not a set of
+   * events — a generated plan, a computed summary.
+   *
+   * The handoff's completion semantics ask a review to record "the reviewed
+   * evidence version", and `evidenceIds` cannot carry it for something that is
+   * regenerated rather than appended. Without it the currency policy has to
+   * answer `unknown`, which is honest and useless.
+   */
+  evidenceAt?: string | null;
   note?: string;
 }): Promise<ReviewResult> {
   const eventId = await appendEvent({
@@ -68,6 +78,7 @@ export async function approve(args: {
       subject: args.subject,
       action: "approve",
       evidenceIds: args.evidenceIds,
+      evidenceAt: args.evidenceAt ?? null,
       note: args.note ?? null,
       policyVersion: activePolicy().version,
     },

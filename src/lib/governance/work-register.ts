@@ -241,6 +241,16 @@ export const WORK_REGISTER: WorkEntry[] = [
     note: "The house measure was drawn inside a figure titled 'Validated measures over time' while carrying a panel note saying it had no validation to borrow — the panel disclaiming the authority its own frame granted it. Two figures now, on one shared window so the dates still line up. Missingness is the end gap only: the panel already prints the count and the first and latest reading, and the first version of the coverage list repeated all of it, which was obvious on the rendered screen and invisible in the source. What no panel can show is the distance from the last reading to today — a series that stopped in March and one that stopped last week are drawn identically from their own edge.",
   },
   {
+    id: "clinical.plan-review-beside-the-plan",
+    title: "The care plan carries the one review action it permits, bound to the version on screen",
+    // 17 September handoff, P4: "Care plan — place the permitted review action
+    // beside the plan. User does not hunt through the full record."
+    state: "reachable",
+    code: "src/lib/clinical/plan-review.ts#planReviewStanding",
+    test: "tests/plan-review.test.tsx",
+    note: "The screen ended with \"approve or correct it on the full record, where the action is audited\" — the hunt, written down — and it pointed at the wrong control: the approval on the record page is about the generated SUMMARY, a different artefact resting on different evidence, so a clinician who followed the instruction would have attested to something they were not looking at. The plan's own review is its own subject, recorded beside the plan, with the three things it does not do printed next to it rather than inferred from the absence of other buttons. The plan's generated-at travels with the approval and runs through the same currency policy the queue uses, so a plan regenerated afterwards makes the review out of date instead of silently inheriting it. `approve` gained an optional evidence version for this: the completion semantics ask for \"the reviewed evidence version\", and event ids cannot carry it for something regenerated rather than appended.",
+  },
+  {
     id: "clinical.session-sequence-provenance",
     title: "A session's events carry the time they happened and the record they came from",
     // 17 September handoff, P4: "Session detail — order events and connect

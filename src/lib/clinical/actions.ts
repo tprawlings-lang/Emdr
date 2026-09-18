@@ -14,6 +14,7 @@ import { data } from "../data";
 import { PLATFORM_TENANT_ID } from "../db";
 import { closeAlert, AlertClosureError } from "./alerts";
 import { approve, correct, override, recordFeedback, ReviewError, type FeedbackCategory } from "./review";
+import { PLAN_REVIEW_SUBJECT } from "./plan-review";
 import {
   fileNote, setNoteStatus, ReviewNoteError,
   type NotePriority, type NoteStatus,
@@ -58,6 +59,37 @@ export async function approveSummaryAction(formData: FormData) {
   await approve({ clinicianId: clinician.id, personId, tenantId, subject: "summary", evidenceIds, note });
   revalidatePath(`/clinician/member/${personId}/record`);
   redirect(`/clinician/member/${personId}/record?done=approved`);
+}
+
+/**
+ * Record that a clinician has read and accepts the generated care plan.
+ *
+ * BESIDE THE PLAN, not on the full record. The plan screen used to end with
+ * "approve or correct it on the full record" — which is the hunt the handoff
+ * names, and which pointed at the wrong control: the one on the record page
+ * approves the generated SUMMARY, a different artefact with different evidence
+ * under it.
+ *
+ * The plan's version travels with the approval, so a plan regenerated afterwards
+ * makes the review out of date instead of silently inheriting it.
+ */
+export async function reviewPlanAction(formData: FormData) {
+  const clinician = await requireClinician();
+  const tenantId = await actingTenant(clinician.id);
+  const personId = String(formData.get("personId") ?? "");
+  const planId = String(formData.get("planId") ?? "");
+  const planVersion = String(formData.get("planVersion") ?? "") || null;
+  const note = String(formData.get("note") ?? "").slice(0, 1000) || undefined;
+
+  await approve({
+    clinicianId: clinician.id, personId, tenantId,
+    subject: PLAN_REVIEW_SUBJECT,
+    evidenceIds: planId ? [planId] : [],
+    evidenceAt: planVersion,
+    note,
+  });
+  revalidatePath(`/clinician/member/${personId}/plan`);
+  redirect(`/clinician/member/${personId}/plan?done=reviewed`);
 }
 
 export async function correctRecordAction(formData: FormData) {
