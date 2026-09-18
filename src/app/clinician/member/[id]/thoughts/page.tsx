@@ -14,6 +14,7 @@ import {
   listThoughts, transcriptVersions, sessionForPerson,
 } from "@/lib/clinical/thought-store";
 import { itemsByIds, approvedMemory } from "@/lib/clinical/memory-store";
+import { ThoughtLifecycle } from "@/components/clinical/ThoughtLifecycle";
 import { labelsFor, readableDay } from "@/lib/clinical/session-label";
 import { ClinicalMemoryPanel } from "@/components/clinical/ClinicalMemoryPanel";
 import { loadThoughtForReview } from "@/lib/clinical/thought-review-load";
@@ -339,6 +340,18 @@ export default async function MemberThoughtsPage({
                 ))}
               </ul>
             )}
+          </Panel>
+
+          {/* THE FOUR STATES, ONCE, ABOVE THE THINGS THAT ARE IN THEM. The
+              surfaces were already separate; what a reader had to assemble from
+              five footnotes down the page is which state a given piece of
+              thinking is in and who can read it. */}
+          <Panel
+            title="Private, proposed, approved, filed"
+            className="mt-6"
+            footnote="Every action on this page is in the audit trail, whichever state the thing is in."
+          >
+            <ThoughtLifecycle />
           </Panel>
 
           {extractionAvailable && (

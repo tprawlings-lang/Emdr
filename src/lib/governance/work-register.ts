@@ -241,6 +241,17 @@ export const WORK_REGISTER: WorkEntry[] = [
     note: "The house measure was drawn inside a figure titled 'Validated measures over time' while carrying a panel note saying it had no validation to borrow — the panel disclaiming the authority its own frame granted it. Two figures now, on one shared window so the dates still line up. Missingness is the end gap only: the panel already prints the count and the first and latest reading, and the first version of the coverage list repeated all of it, which was obvious on the rendered screen and invisible in the source. What no panel can show is the distance from the last reading to today — a series that stopped in March and one that stopped last week are drawn identically from their own edge.",
   },
   {
+    id: "clinical.thought-lifecycle",
+    title: "The Thoughts page says which of the four states a piece of thinking is in, and who can read it",
+    // 17 September handoff, P4: "Thoughts — separate capture, review, approved
+    // memory, and Ask. User knows what is private, proposed, approved, or
+    // filed."
+    state: "reachable",
+    code: "src/lib/clinical/thought-lifecycle.ts#THOUGHT_LIFECYCLE",
+    test: "tests/thought-lifecycle.test.tsx",
+    note: "The surfaces were already separate — a recorder, a transcript list, kept items, themes and Ask each in their own panel. What the page never said in one place is which STATE a given piece of thinking is in and who can read it: that answer was spread across five footnotes down a long page, each true about its own corner, together a state machine nobody had written down. The fourth state is one this product cannot observe — a note draft is assembled on the way to a screen, stored nowhere, and copied out as text, so nothing reports back that it was filed and an item filed last week looks exactly like one that never left the page. It is listed and marked \"Steady cannot tell you this\" rather than dropped (which would let a reader assume three states are all there are) or badged (which would be a claim nobody checked). Rejected and superseded are deliberately not states: they are things that happened to an item, not places it sits.",
+  },
+  {
     id: "clinical.draft-note-source-availability",
     title: "The note draft says where items come from, separately from what was ticked",
     // 17 September handoff, P4: "Draft note — model source availability and
