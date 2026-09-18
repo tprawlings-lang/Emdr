@@ -4,6 +4,7 @@ import { EVIDENCE_NEEDED } from "@/lib/site/trust";
 import {
   EVIDENCE_CLAIMS, claimsFor, EVIDENCE_TYPE_LABEL, type EvidenceClaim,
 } from "@/lib/governance/evidence-registry";
+import { recordPublication } from "@/lib/governance/claim-usage";
 
 export const metadata = {
   title: "Evidence and validation — Steady",
@@ -48,13 +49,20 @@ function ClaimList({ claims }: { claims: EvidenceClaim[] }) {
 // delivering EMDR — presenting it as evidence for Steady would be the single
 // most misleading thing this site could do, and it is the exact move the old
 // page made by putting trial statistics under the product story.
-export default function EvidencePage() {
+export default async function EvidencePage() {
   // Resolved for THIS surface, at today's date. An expired claim, one nobody
   // approved, or one approved for the trust page and not this one does not
   // render — and the withheld list below says so rather than the page quietly
   // getting shorter.
   const asOf = new Date().toISOString().slice(0, 10);
   const { shown, withheld } = claimsFor(EVIDENCE_CLAIMS, { surface: "/evidence", asOf });
+
+  // PUBLISHING IS A USE, and the handoff asks for every publication version
+  // that used a claim to be recorded. This is that moment: these words, in
+  // this version, on this route, from this build. It writes once per version —
+  // the render after a deploy, not the one after that — and it cannot fail the
+  // page, because the page is public.
+  await recordPublication(shown, { surface: "/evidence" });
   const method = shown.filter((c) => c.claimId.startsWith("method."));
   const software = shown.filter((c) => c.claimId.startsWith("software."));
   const bls = shown.filter((c) => c.claimId.startsWith("bls."));

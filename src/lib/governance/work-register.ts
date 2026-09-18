@@ -576,6 +576,13 @@ export const WORK_REGISTER: WorkEntry[] = [
       "not built, because they would be built on words nobody has signed.",
   },
   {
+    id: "governance.claim-usage-ledger",
+    title: "Every export or publication version that used a claim",
+    state: "reachable",
+    code: "src/lib/governance/claim-usage.ts#recordClaimUse",
+    test: "tests/claim-usage.test.ts",
+  },
+  {
     id: "ops.backups",
     title: "Nightly encrypted off-site backups",
     state: "held",

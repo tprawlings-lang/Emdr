@@ -3,6 +3,8 @@ import { data } from "@/lib/data";
 import { audit } from "@/lib/audit";
 import { noteSignal } from "@/lib/telemetry/store";
 import { SMALL_CELL } from "@/components/charts/aggregate";
+import { EVIDENCE_CLAIMS } from "@/lib/governance/evidence-registry";
+import { claimsUsedIn, claimVersion, recordClaimUse, buildIdentity } from "@/lib/governance/claim-usage";
 import {
   supersedeEarlier, openDownloadWindow, EXPORT_STATES, type ExportState,
 } from "./export-job";
@@ -221,6 +223,34 @@ export async function createExport(req: ExportRequest): Promise<ExportResult> {
       contentHash, signature, createdAt,
     ],
   );
+
+  // Handoff 17 September, P5: "Record every export or publication version that
+  // used a claim."
+  //
+  // A SCAN OF THE FILE, not a list the caller passes. What governs whether
+  // this has to be recorded is whether a governed claim's words are IN the
+  // file, and the file is right here — so nobody has to remember. Today it
+  // finds nothing, because no export embeds a registry claim; the moment one
+  // does, the record writes itself instead of depending on whoever made that
+  // edit knowing the ledger exists.
+  //
+  // AND IT FAILS THE EXPORT, unlike the publication path. Same reasoning as
+  // the audit event above: a file carrying a public claim out of the building
+  // with no record of which version of that claim it carried is worse than a
+  // refused export. A public page cannot take that line, because a public page
+  // is also how somebody reaches the crisis link.
+  const usedClaims = claimsUsedIn(csv, EVIDENCE_CLAIMS);
+  for (const claim of usedClaims) {
+    await recordClaimUse({
+      claimId: claim.claimId,
+      claimVersion: claimVersion(claim),
+      vehicle: "export",
+      reference: id,
+      productVersion: buildIdentity(),
+      publicText: claim.publicText,
+      firstUsedAt: createdAt,
+    });
+  }
 
   // Handoff 09 §6, Package 5: "Export is a job, not a button… expired, failed,
   // and superseded outputs identified."

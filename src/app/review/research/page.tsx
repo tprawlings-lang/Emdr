@@ -6,6 +6,8 @@ import { registryVersion } from "@/lib/metrics/cohorts";
 import { listExports } from "@/lib/intelligence/export";
 import { PLANNING_TENANT_ID } from "@/lib/planning/scope";
 import { requestResearchExport } from "@/lib/review/actions";
+import { claimUsageLedger, groupUsage } from "@/lib/governance/claim-usage";
+import { EVIDENCE_CLAIMS } from "@/lib/governance/evidence-registry";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Research workspace — Steady Review" };
@@ -30,6 +32,9 @@ export default async function ResearchWorkspacePage({
   const table = await cohortTable();
   const version = registryVersion();
   const recent = await listExports(PLANNING_TENANT_ID, 10);
+  const usage = groupUsage(await claimUsageLedger());
+  const approved = EVIDENCE_CLAIMS.filter((c) => c.approvalStatus === "approved");
+  const withUse = approved.filter((c) => usage.some((u) => u.claimId === c.claimId)).length;
 
   const suppressed = table.rows.filter((r) => r.suppressed).length;
 
@@ -160,6 +165,48 @@ export default async function ResearchWorkspacePage({
                 <p className="mt-1 font-mono text-xs text-olive">
                   {e.rowCount} rows · {e.suppressedCells} cells suppressed · filter {e.filterHash} · content {e.contentHash.slice(0, 16)}
                 </p>
+              </li>
+            ))}
+          </ul>
+        )}
+      </Panel>
+
+      <Panel
+        title="Where each claim has gone"
+        className="mt-6"
+        footnote="A claim is recorded the first time a build publishes it or an export embeds it, with the words as they were. Withdrawing a claim stops it rendering; it does not recall what already left."
+      >
+        <p className="text-sm text-olive">
+          {withUse} of {approved.length} approved claims have a recorded use.{" "}
+          {withUse === 0
+            ? "Nothing has been recorded yet — a publication is written the first time the surface that carries it renders on this build."
+            : "A claim with no recorded use has not been published by this build."}
+        </p>
+
+        {usage.length > 0 && (
+          <ul className="mt-4 space-y-4">
+            {usage.map((u) => (
+              <li key={u.claimId} className="rounded-xl border border-ground/10 px-4 py-3 text-sm">
+                <p className="font-mono text-xs text-app-ink">{u.claimId}</p>
+                <ul className="mt-2 space-y-2">
+                  {u.versions.map((v) => (
+                    <li key={v.claimVersion}>
+                      {/* THE WORDS AS THEY WERE, not as they are. This is the
+                          only place an earlier version of a withdrawn claim can
+                          still be read. */}
+                      <p className="text-app-ink">&ldquo;{v.publicText}&rdquo;</p>
+                      <p className="mt-1 font-mono text-xs text-olive">version {v.claimVersion}</p>
+                      <ul className="mt-1 space-y-0.5 text-xs text-olive">
+                        {v.uses.map((use) => (
+                          <li key={use.id}>
+                            {use.vehicle === "export" ? "Export" : "Published"} · {use.reference} · build{" "}
+                            <span className="font-mono">{use.productVersion}</span> · first {use.firstUsedAt}
+                          </li>
+                        ))}
+                      </ul>
+                    </li>
+                  ))}
+                </ul>
               </li>
             ))}
           </ul>

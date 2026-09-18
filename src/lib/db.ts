@@ -1100,6 +1100,36 @@ export const SCHEMA_SQL = `
   );
   CREATE INDEX IF NOT EXISTS idx_export_jobs_tenant ON export_jobs(tenant_id, created_at);
 
+  -- Where a governed claim has already gone (17 September handoff, P5:
+  -- "Record every export or publication version that used a claim").
+  --
+  -- NOT TENANT-SCOPED, and that is not an omission. A publication is the
+  -- product saying something to the world; an export is a file leaving one
+  -- tenant. The row that matters is "this sentence, in this version, went out
+  -- by this route", and scoping the ledger to a tenant would make the public
+  -- half of it homeless.
+  --
+  -- public_text IS STORED, not derived. A version hash proves two versions
+  -- differ. It cannot tell anybody what the withdrawn one said, and the source
+  -- will not have it once the words change — which is the whole case for
+  -- writing a row at the moment of use.
+  CREATE TABLE IF NOT EXISTS claim_uses (
+    id TEXT PRIMARY KEY,
+    claim_id TEXT NOT NULL,
+    claim_version TEXT NOT NULL,
+    vehicle TEXT NOT NULL CHECK (vehicle IN ('publication','export')),
+    -- The route for a publication, the export id for an export.
+    reference TEXT NOT NULL,
+    product_version TEXT NOT NULL,
+    public_text TEXT NOT NULL,
+    first_used_at TEXT NOT NULL
+  );
+  -- ONE ROW PER VERSION, NOT PER VIEW. The uniqueness is the dedupe: a public
+  -- page renders on every request and must not write on every request.
+  CREATE UNIQUE INDEX IF NOT EXISTS idx_claim_uses_version
+    ON claim_uses(claim_id, claim_version, vehicle, reference);
+  CREATE INDEX IF NOT EXISTS idx_claim_uses_claim ON claim_uses(claim_id, first_used_at);
+
   -- A cost model is an ESTIMATE and its status is the whole point: a draft and
   -- an approved model must never render alike, and a superseded one must stay
   -- readable so an old report can be reproduced.

@@ -68,6 +68,18 @@ export const PRESERVED_TABLES = [
   // side: "turning off presentation does not delete signal, action, or evidence
   // history" — and turning presentation back on is not the reset's to do either.
   "tenant_feature_flags",
+  // The claim-usage ledger. Its ENTIRE PURPOSE is outliving the thing that
+  // produced it: it records that a build published a sentence, or that a file
+  // left carrying one, with the words as they were at the time. A reset that
+  // wiped it would delete the only record of what an export carried, at the
+  // request of somebody who was tidying up a demo environment — which is the
+  // drift the ledger exists to end, performed by the cleanup.
+  //
+  // The export rows a reset deletes do leave claim-use rows pointing at export
+  // ids that no longer resolve. That is the correct residue and not a dangling
+  // reference to repair: "a file with this id carried these words" stays true
+  // after the job record is gone, and is exactly the fact worth keeping.
+  "claim_uses",
 ] as const;
 
 export const DEMO_DATA_TABLES = [
