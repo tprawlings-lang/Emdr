@@ -35,6 +35,7 @@ export function ClinicianHomeView({
   selectedRowId,
   assignees,
   basePath = "/clinician/today",
+  showingAll = false,
 }: {
   home: ClinicianHome;
   view: ViewState;
@@ -42,6 +43,8 @@ export function ClinicianHomeView({
   selectedRowId: string | null;
   assignees: Array<{ id: string; name: string }>;
   basePath?: string;
+  /** Whether the caller asked for the whole list rather than the first page. */
+  showingAll?: boolean;
 }) {
   const selected = home.items.find((r) => r.id === selectedRowId) ?? null;
   const coverage = coverageNote(home.coverage);
@@ -168,17 +171,37 @@ export function ClinicianHomeView({
           </ul>
         )}
 
+        {/* UX 001. This control used to build its own href — `?filter=` when
+            something was showing, the bare path otherwise — and the cap only
+            applies when NOTHING is showing, so it always resolved to the page
+            the reader was already on. Clicking "29 more" redrew the same
+            twenty-nine-short list.
+
+            It goes through `hrefFor` now, like every other control here, which
+            is also what keeps the active filter and the open row on the way
+            through. */}
         {home.totalItems > home.items.length && (
           <p className="mt-3 text-sm">
-            <Link
-              href={home.showing ? `${basePath}?filter=${home.showing}` : basePath}
-              className="underline"
-            >
-              {home.totalItems - home.items.length} more
+            <Link href={hrefFor({ rows: "all" })} className="underline">
+              Show the remaining {home.totalItems - home.items.length}
             </Link>{" "}
             <span className="text-xs text-olive">
               — in the same server order, nothing filtered out.
             </span>
+          </p>
+        )}
+
+        {/* And back. A list that can only grow is a control with no opposite,
+            and the reader who opened 300 rows to find one has no way to
+            restore the view they were working in. */}
+        {showingAll && home.totalItems > 0 && (
+          <p className="mt-3 text-sm">
+            <span className="text-xs text-olive">
+              Showing all {home.totalItems}.{" "}
+            </span>
+            <Link href={hrefFor({ rows: null })} className="underline">
+              Show the first page instead
+            </Link>
           </p>
         )}
 

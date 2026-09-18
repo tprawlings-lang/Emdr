@@ -594,3 +594,87 @@ test("a safety row will not close on an acknowledgement", async ({ page }) => {
   // article was chosen rather than assumed.
   await expect(page.getByText(/An immediate-band alert/)).toBeVisible();
 });
+
+test("the control that offers the rest of the queue actually shows the rest", async ({ page }) => {
+  // UX 001, observed and source confirmed: "The 29 more control returned to
+  // the same capped queue."
+  //
+  // THIS IS AN END-TO-END TEST BECAUSE THE DEFECT LIVED IN THE WIRE. The
+  // projection was right — it capped the page and reported the whole total —
+  // and the control's href was wrong in a way that only showed when something
+  // followed it. A unit mutation that made the PAGE ignore the parameter
+  // survived every test until this one: the link was still correct, the
+  // projection was still correct, and the reader still got the same ten rows.
+  await signInAsClinician(page);
+  await page.goto("/clinician/today");
+
+  const more = page.getByRole("link", { name: /Show the remaining \d+/ });
+  const count = async () => page.locator("main li").count();
+
+  if ((await more.count()) === 0) {
+    // Fewer rows than the cap in this dataset; there is nothing to page.
+    return;
+  }
+
+  const label = (await more.first().innerText()).match(/(\d+)/);
+  const promised = Number(label?.[1] ?? 0);
+  expect(promised).toBeGreaterThan(0);
+
+  const before = await count();
+  await more.first().click();
+  await expect(page).toHaveURL(/rows=all/);
+  const after = await count();
+
+  expect(after).toBeGreaterThan(before);
+  expect(after - before).toBe(promised);
+
+  // And back, because a list that can only grow strands the reader who opened
+  // three hundred rows to find one.
+  const back = page.getByRole("link", { name: /Show the first page instead/ });
+  await expect(back).toBeVisible();
+  await back.click();
+  // Wait for the navigation before counting. The first version of this counted
+  // immediately and read 38 rows on a page that was still the expanded one —
+  // a race in the test that looked exactly like the control not working.
+  await expect(page).toHaveURL(/\/clinician\/today(?!.*rows=all)/);
+  await expect(page.getByRole("link", { name: /Show the remaining \d+/ })).toBeVisible();
+  expect(await count()).toBe(before);
+});
+
+test("primary work appears promptly on the console screens", async ({ page }) => {
+  // UX 010's acceptance condition, measured: "Primary work appears promptly at
+  // supported viewport sizes."
+  //
+  // WHY THIS IS HERE AND NOT IN A SOURCE GUARD. The unit rule refuses a
+  // standing paragraph over forty words, and a mutation defeated it by
+  // splitting one essay into two shorter ones — per-paragraph limits count
+  // punctuation. A static total is no better: these files carry ten paragraphs
+  // of which four render in any one state, so summing them punishes a screen
+  // for handling more cases.
+  //
+  // What cannot be punctuated away is where the first control actually lands.
+  // Before this work it was 813px on Handoffs, 628 on the caseload and 559 on
+  // the module queue, at 1280x900 — below the fold on a laptop in the ordinary
+  // case where nothing is waiting.
+  const BUDGET = 700;
+  await signInAsClinician(page);
+  await page.setViewportSize({ width: 1280, height: 900 });
+
+  const measured: string[] = [];
+  for (const route of ["/clinician/handoffs", "/clinician/caseload", "/clinician/unlocks"]) {
+    await page.goto(route);
+    const top = await page.evaluate(() => {
+      const main = document.querySelector("main");
+      if (!main) return null;
+      const work = main.querySelector(
+        "table, form, button, input, select, ul li a, ol li a, a[href*='/clinician/member/']"
+      );
+      return work ? Math.round(work.getBoundingClientRect().top + window.scrollY) : null;
+    });
+    expect(top, `${route} has nothing to act on at all`).not.toBeNull();
+    measured.push(`${route}: ${top}px`);
+    expect(top!, `${route} puts the first action ${top}px down, past the ${BUDGET}px budget`)
+      .toBeLessThanOrEqual(BUDGET);
+  }
+  console.log("first action: " + measured.join(" · "));
+});

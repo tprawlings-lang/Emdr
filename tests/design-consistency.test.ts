@@ -257,7 +257,14 @@ test("folding an essay did not fold the claim it carries", () => {
   // bare "More" would pass the length rule while hiding the point.
   const REQUIRED: Array<[string, RegExp]> = [
     ["src/app/clinician/handoffs/page.tsx", /A transfer moves accountability only when it is accepted/],
-    ["src/app/clinician/caseload/page.tsx", /not\s*\{?\s*"?\s*\n?\s*clinical approval/],
+    // DERIVED, NOT WRITTEN, which is why this looks for the call rather than
+    // the words. The first version of this guard matched the literal "not
+    // clinical approval" in the summary — and the summary now says
+    // {policyApproval(policy)}, which renders "PROVISIONAL, not clinically
+    // approved" from the policy itself. That is the stronger form: a literal
+    // keeps saying "not approved" on the day somebody approves the policy, and
+    // a call cannot.
+    ["src/app/clinician/caseload/page.tsx", /policyApproval\(/],
     ["src/app/clinician/unlocks/page.tsx", /Members can reach them\s*\n?\s*without a decision here/],
   ];
   for (const [rel, claim] of REQUIRED) {

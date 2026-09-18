@@ -196,11 +196,41 @@ export function activePolicy(): ClinicalPolicy {
 
 /** One-line description of the policy in force, for display on any surface that
  *  depends on it. Handoff §2: a demo screen must not imply approval. */
-export function policyBanner(p: ClinicalPolicy = activePolicy()): string {
+/**
+ * Whether this configuration has been clinically approved, and by whom.
+ *
+ * SPLIT OUT OF `policyBanner` BECAUSE THE TWO HALVES BELONG IN DIFFERENT
+ * PLACES. The parameter list — companion, caseload, coverage, alert, re-entry,
+ * engine — is configuration detail a reader opens when they want to check it.
+ * The approval state is a claim a demonstration surface must never be without
+ * (handoff §2), and folding it behind a disclosure hid it: the caseload's own
+ * end-to-end test caught that within the hour.
+ *
+ * Derived, never written down. A screen that hardcodes "not clinically
+ * approved" keeps saying it on the day somebody approves the policy.
+ */
+export function policyApproval(p: ClinicalPolicy = activePolicy()): string {
+  return p.approved
+    ? `Policy ${p.version} — approved: ${p.approvedBy}`
+    : `Policy ${p.version} — PROVISIONAL, not clinically approved`;
+}
+
+/** The configuration itself, without the approval claim. What a reader opens
+ *  when they want to check the settings. */
+export function policyParameters(p: ClinicalPolicy = activePolicy()): string {
   return (
     `Policy ${p.version} — companion: ${p.companionVisibility}, caseload: ${p.caseload}, ` +
     `coverage: ${p.coverage}, alert: ${p.alertConsequence}, re-entry: ${p.reEntry}, ` +
-    `engine: ${p.autonomous}` +
+    `engine: ${p.autonomous}`
+  );
+}
+
+/** Both halves, for a surface that wants one sentence. Composed from the two
+ *  above so the parameter list has one source and the approval claim has one
+ *  wording, however a screen chooses to split them. */
+export function policyBanner(p: ClinicalPolicy = activePolicy()): string {
+  return (
+    policyParameters(p) +
     (p.approved ? ` (approved: ${p.approvedBy})` : " — PROVISIONAL, not clinically approved")
   );
 }

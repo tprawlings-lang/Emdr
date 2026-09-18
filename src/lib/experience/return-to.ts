@@ -63,7 +63,7 @@ export const DEFAULT_RETURN = {
  *   re-show "handoff accepted" on a screen where nothing had just happened,
  *   which is a result message that is no longer true.
  */
-const CARRIED: readonly string[] = [...VIEW_FILTERS, "band", "filter", "page"];
+const CARRIED: readonly string[] = [...VIEW_FILTERS, "band", "filter", "page", "rows"];
 
 /**
  * What to store for a request, or null if this is not somewhere to come back to.

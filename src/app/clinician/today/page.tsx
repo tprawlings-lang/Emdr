@@ -116,6 +116,19 @@ export default async function CommandCenterPage({
     const experience = experienceContextFor({ ...clinician, tenantId });
     const view = fromSearchParams(params, tenantId);
     const selectedRowId = typeof params.row === "string" ? params.row : null;
+    // UX 001: "The 29 more control returned to the same capped queue."
+    //
+    // The cap applies only to the unfiltered combined view — a filtered bucket
+    // has always been uncapped — and `showing` is null in exactly that case, so
+    // the control's href resolved to the page it was already on. Every time.
+    //
+    // The handoff offers two answers, "actual pagination or an explicit
+    // full-list state". This is the second: one parameter, the same server
+    // order, nothing filtered out, and the total unchanged. Cursor-based paging
+    // is the right answer when the queue is long enough that rendering it all
+    // is the problem, and it needs the snapshot the amendment describes so a
+    // row cannot move under a pointer between pages. That is not this fix.
+    const showingAll = params.rows === "all";
 
     const home = clinicianHome({
       ctx: experience,
@@ -123,7 +136,7 @@ export default async function CommandCenterPage({
       view,
       showing: filter === "stable" ? null : filter,
       now: new Date().toISOString(),
-      rowsPerBucket: filter === null ? ROWS_PER_BUCKET : Number.MAX_SAFE_INTEGER,
+      rowsPerBucket: filter === null && !showingAll ? ROWS_PER_BUCKET : Number.MAX_SAFE_INTEGER,
     });
 
     // Who work could be assigned to. Queried here rather than in the
@@ -169,6 +182,7 @@ export default async function CommandCenterPage({
           view={view}
           selectedRowId={selectedRowId}
           assignees={assignees}
+          showingAll={showingAll}
         />
       </ExperienceShell>
     );

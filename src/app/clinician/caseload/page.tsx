@@ -5,7 +5,7 @@ import { data } from "@/lib/data";
 import { PLATFORM_TENANT_ID } from "@/lib/db";
 import { buildCaseload, isCoverageAction } from "@/lib/clinical/caseload";
 import { alertQueue, overdueAlerts } from "@/lib/clinical/alerts";
-import { activePolicy, policyBanner } from "@/lib/clinical-policy";
+import { activePolicy, policyApproval, policyParameters } from "@/lib/clinical-policy";
 import { closeAlertAction } from "@/lib/clinical/actions";
 import { NoteForm } from "@/components/clinical/NoteForm";
 import { PriorityBadge, OwnerChip, FreshnessLabel } from "@/components/clinical/primitives";
@@ -99,12 +99,21 @@ export default async function ClinicalConsole({
           above a clinician's alert queue, on every visit, for a fact that does
           not change between visits. */}
       <details className="mt-4 rounded-2xl border border-state-caution/40 bg-state-caution-bg px-4 py-3 text-sm text-ground">
+        {/* THE APPROVAL STATE IS IN THE SUMMARY, and the first version of this
+            fold put it in the body. The caseload's own end-to-end test caught
+            it: "not clinically approved" went from visible to hidden, which is
+            precisely the safety constraint the disclosure rule says must stay
+            on screen. What folds is the configuration detail.
+
+            And it is derived rather than written: a screen that hardcodes
+            "not clinically approved" keeps saying it on the day somebody
+            approves the policy. */}
         <summary className="cursor-pointer">
-          <strong>Provisional configuration.</strong> These are demonstration assumptions, not
-          clinical approval.
+          <strong>Provisional configuration.</strong> {policyApproval(policy)}. These are
+          demonstration assumptions.
         </summary>
         <p className="measure mt-2 text-sm">
-          {policyBanner(policy)}. The packet seeking ratification is{" "}
+          {policyParameters(policy)}. The packet seeking ratification is{" "}
           <code className="text-xs">clinical-pilot-2026-09</code>, which is unsubmitted.
         </p>
       </details>

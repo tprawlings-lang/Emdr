@@ -39,6 +39,7 @@ import {
   EXPERIENCE_FLAGS, ALL_EXPERIENCE_FLAGS, experienceFlagEnabled, clinicianShellEnabled,
 } from "../src/lib/experience/flags";
 import { ready, empty, projectionFailed } from "../src/lib/presentation/envelope";
+import { rememberable } from "../src/lib/experience/return-to";
 import type { WorkQueue, WorkItem } from "../src/lib/clinical/work-queue";
 import { COURSE_SECTIONS, layerFor } from "../src/components/clinical/PersonShell";
 import { CONSOLE_SCREENS } from "../src/components/clinical/ClinicianPage";
@@ -546,4 +547,75 @@ test("a home whose first row is not actionable says so rather than inventing one
   const h = home([item({ actionable: false, blockedReason: "Not your caseload." })]);
   assert.equal(h.primary, null);
   assert.match(h.primaryAbsentNote!, /Not your caseload|no single strongest action/);
+});
+
+// ---------------------------------------------------------------------------
+// UX 001 — the "more" control leads somewhere
+// ---------------------------------------------------------------------------
+
+test("a capped queue reports the whole total, not the page it is showing", () => {
+  // The count above the list was never the defect: "the counts are never
+  // capped" has held since Package 2. What was wrong is what the control
+  // beside them did.
+  const many = Array.from({ length: 39 }, (_, i) => item({ id: `w-${i}`, personId: `p-${i}` }));
+  const h = home(many);
+  assert.equal(h.items.length, 10, "the page is not capped");
+  assert.equal(h.totalItems, 39, "the total reported the page rather than the bucket");
+});
+
+test("asking for the whole list gives the whole list, in the same order", () => {
+  // "Implement actual pagination or an explicit full-list state. Every item is
+  // reachable. Totals, filters, and return state remain correct."
+  const many = Array.from({ length: 39 }, (_, i) => item({ id: `w-${i}`, personId: `p-${i}` }));
+  const capped = home(many);
+  const all = clinicianHome({
+    ctx, envelope: ready(meta(), queue(many)),
+    view: emptyViewState("t-1"), showing: null, now: NOW,
+    rowsPerBucket: Number.MAX_SAFE_INTEGER,
+  });
+
+  assert.equal(all.items.length, 39, "the full-list state did not return every item");
+  assert.equal(all.totalItems, 39, "the total moved when the page size did");
+  // Same server order, nothing filtered out — the claim the control makes.
+  assert.deepEqual(
+    all.items.slice(0, capped.items.length).map((i) => i.id),
+    capped.items.map((i) => i.id),
+    "the expanded list reordered the rows the reader was already looking at"
+  );
+});
+
+test("the control that offers the rest does not point at the page it is on", () => {
+  // UX 001, observed and source confirmed: "The 29 more control returned to
+  // the same capped queue."
+  //
+  // THE CAUSE, and the reason a rendering test is worth having here: the
+  // control built its own href — `?filter=` when a bucket was showing, the
+  // bare path otherwise — and the cap applies ONLY when no bucket is showing.
+  // So the two branches collapsed into one and it always resolved to the
+  // current page. A test of the projection could not have seen this; the
+  // projection was right.
+  const src = read("src/components/experience/ClinicianHomeView.tsx");
+  const body = code(src);
+
+  // The href comes from the shared helper, which is what carries the filter
+  // and the open row through.
+  assert.match(body, /hrefFor\(\{\s*rows:\s*"all"\s*\}\)/,
+    "the more control does not ask for the full list");
+  assert.doesNotMatch(
+    body,
+    /href=\{home\.showing \? `\$\{basePath\}\?filter=\$\{home\.showing\}` : basePath\}/,
+    "the more control still builds an href that resolves to the current page"
+  );
+  // And there is a way back, because a list that can only grow strands the
+  // reader who opened three hundred rows to find one.
+  assert.match(body, /hrefFor\(\{\s*rows:\s*null\s*\}\)/,
+    "nothing returns the reader to the first page");
+});
+
+test("the full-list state survives a return from a person record", () => {
+  // The return control rebuilds the view a clinician left. Expanding the queue
+  // and opening somebody should not silently re-collapse it on the way back.
+  const kept = rememberable("/clinician/today", "?rows=all&filter=needs_attention");
+  assert.ok(kept?.includes("rows=all"), `the expanded view was dropped: ${kept}`);
+  assert.ok(kept?.includes("filter=needs_attention"));
 });

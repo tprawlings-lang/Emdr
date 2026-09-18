@@ -217,6 +217,18 @@ export const WORK_REGISTER: WorkEntry[] = [
     note: "Handoffs 813px to 602px before the first action, unlocks 559 to 465, caseload 628 to 599. The summary of each disclosure keeps the sentence that must not be missed.",
   },
   {
+    id: "experience.queue-paging",
+    title: "The control offering the rest of the queue shows the rest of the queue",
+    // UX 001. The projection was right all along — it capped the page and
+    // reported the whole total. The control built its own href, and the cap
+    // applies only when no bucket is showing, so both its branches resolved to
+    // the page the reader was already on.
+    state: "reachable",
+    code: "src/lib/experience/return-to.ts#rememberable",
+    test: "tests/clinician-shell.test.ts",
+    note: "An explicit full-list state rather than cursor paging: ?rows=all, same server order, total unchanged, and a way back. The wire between the link and the page is covered end to end, because a unit mutation that made the page ignore the parameter survived every unit test.",
+  },
+  {
     id: "clinical.contact-vs-activity",
     title: "Contact and member activity are separate facts",
     state: "reachable",
