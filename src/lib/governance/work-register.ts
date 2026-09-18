@@ -181,6 +181,25 @@ export const WORK_REGISTER: WorkEntry[] = [
     note: "ClinicianHomeView carries its own scope strip, rows, evidence panel and result. Moving it onto WorkList is a real refactor of the busiest clinician screen rather than a wrapper, so it was not folded into the template's first pass.",
   },
   {
+    id: "clinical.display-vocabulary",
+    title: "Clinician-facing words replace raw event keys, with the raw key retained",
+    // UX 009. The audit column rendered `e.type.replace(/_/g, " ")`, which is
+    // the identifier with its punctuation changed — it reads as English and
+    // means nothing a clinician would say.
+    state: "reachable",
+    code: "src/lib/clinical/event-vocabulary.ts#displayTermFor",
+    test: "tests/clinical-approval.test.ts",
+    note: "86 terms. The words are NOT clinically approved yet: the approval record has no attestation, the product says so above the table, and checkApproval() fails until named reviewers and a date are recorded against the content hash.",
+  },
+  {
+    id: "governance.clinical-approval-binding",
+    title: "A clinical approval is bound to a hash of the exact words it was given for",
+    state: "reachable",
+    code: "src/lib/governance/clinical-approval.ts#checkApproval",
+    test: "tests/clinical-approval.test.ts",
+    note: "Changing one word or one note invalidates the sign-off rather than inheriting it. The stored document at docs/approvals/ is generated from the same source, so the document and the product cannot disagree.",
+  },
+  {
     id: "clinical.contact-vs-activity",
     title: "Contact and member activity are separate facts",
     state: "reachable",

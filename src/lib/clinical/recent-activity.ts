@@ -43,6 +43,7 @@
 
 import { data } from "../data";
 import { activePolicy, companionContentAllowed, type ClinicalPolicy } from "../clinical-policy";
+import { displayTermFor } from "./event-vocabulary";
 import { buildCaseload } from "./caseload";
 
 export const ACTIVITY_VERSION = "recent-activity.1.0.0";
@@ -313,7 +314,12 @@ export async function buildRecentActivity(args: {
       // Safety reads as safety here too. §2's rule about the queue holds in the
       // feed: a safety obligation and a review signal must never be worded so
       // they could be mistaken for each other.
-      headline: `a safety obligation was raised: ${r.alert_type.replace(/_/g, " ")}`,
+      // UX 009: the raw alert key used to land in this sentence with its
+      // underscores swapped, so a clinician read "a safety obligation was
+      // raised: checkin safety positive". The approved words say what happened;
+      // an unapproved key still comes through as its raw value rather than
+      // being guessed at.
+      headline: `a safety obligation was raised: ${displayTermFor(r.alert_type).term.toLowerCase()}`,
       detail: `${r.severity} · ${r.status === "reviewed" ? "closed" : "open"} · ${r.detail}`,
       href: `/clinician/alerts/${r.id}`,
     })
