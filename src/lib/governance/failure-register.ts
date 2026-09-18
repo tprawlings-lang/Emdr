@@ -194,24 +194,45 @@ export const FAILURE_REGISTER: FailureScenario[] = [
     scenario: "A member withdraws consent while a clinician has their page open.",
     required: "Revalidate reads and writes, and remove newly forbidden content.",
     area: "permissions",
-    state: "gap",
-    injections: [],
+    state: "proven",
+    injections: ["tests/permission-change.test.ts"],
+    note:
+      "Withdrawal is injected against a live gate chain: the next read fails the consent step and " +
+      "sends the member back to consent rather than to a dead end. THE HALF THAT MATTERS MOST IS " +
+      "THE ONE THAT MUST NOT CHANGE — grounding stays open, and so do the consent and account " +
+      "pages, because a chain that read withdrawal as 'this person may no longer be here' would " +
+      "take grounding away at the exact moment somebody withdrew, and hide from them the record " +
+      "of the decision they had just made.",
   },
   {
     id: "permissions.flag-changes-after-page-load",
     scenario: "A capability is turned off after the page rendered.",
     required: "Revalidate at command time and show the new restriction.",
     area: "permissions",
-    state: "gap",
-    injections: [],
+    state: "proven",
+    injections: ["tests/permission-change.test.ts"],
+    note:
+      "TWO FINDINGS RATHER THAN ONE FIX. A runtime flag in this build gates a surface and never a " +
+      "write — Appendix B's rule — which is why a flag flipped mid-session cannot strand a " +
+      "command; that rule is now enforced by a guard instead of documented, because the first " +
+      "person to add a flag over a write would have no reason to know it exists. And the " +
+      "authority that CAN change mid-session, the actor's role, is re-resolved per command: the " +
+      "redirect it produces is now rethrown rather than swallowed by the catch-all, which had " +
+      "been turning a revoked role into 'Steady could not confirm this' — telling somebody their " +
+      "write might have landed when what happened was that they were signed out.",
   },
   {
     id: "permissions.browser-back-restores-restricted-content",
     scenario: "Somebody presses back after access was removed or a session ended.",
     required: "Test browser cache and session boundaries.",
     area: "permissions",
-    state: "gap",
-    injections: [],
+    state: "proven",
+    injections: ["tests/e2e/session-boundary.spec.ts"],
+    note:
+      "IN A BROWSER, BECAUSE NOTHING ELSE CAN ANSWER IT. Every other check asks what the server " +
+      "sends; this asks what the browser KEPT. It passes today on a framework default, which is " +
+      "the reason to pin it: the spec asserts the no-store header directly as well as the " +
+      "behaviour, so a config change that removed it fails here rather than on a shared computer.",
   },
 
   // ── Tenancy ────────────────────────────────────────────────────────────

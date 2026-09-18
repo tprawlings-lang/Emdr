@@ -97,7 +97,28 @@ export interface RecordedChange {
  * constructed at the surface — see the comment on `reconcileHint` — and appears
  * here only so the mapping is exhaustive.
  */
+/**
+ * A framework control-flow signal, not a failure.
+ *
+ * `redirect()` and `notFound()` work by THROWING, and Next identifies the
+ * throw by a `digest` string. A catch-all that swallows one turns a navigation
+ * into an outcome — and the outcome it would produce here is the worst
+ * available: `indeterminate` tells a person Steady cannot say whether their
+ * write landed and not to repeat it, when what actually happened is that their
+ * authority was revoked and they should have been sent to a different page.
+ *
+ * This does not fire today, because `requireClinician` is resolved before the
+ * try block in every action below. It is here because that is an ordering
+ * nobody can see from inside the catch, and moving one line would make every
+ * revoked-authority redirect read as an uncertain write.
+ */
+function isFrameworkControlFlow(err: unknown): boolean {
+  const digest = (err as { digest?: unknown })?.digest;
+  return typeof digest === "string" && /^NEXT_(REDIRECT|NOT_FOUND|HTTP_ERROR_FALLBACK)/.test(digest);
+}
+
 function fromError(err: unknown, key: string): CommandResult<never> {
+  if (isFrameworkControlFlow(err)) throw err;
   if (err instanceof AttentionSignalError || err instanceof CommandError) {
     return rejected(err.message);
   }
