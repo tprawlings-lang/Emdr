@@ -1,5 +1,20 @@
 // Telling two people apart when their names read the same (17 September
-// handoff, P6).
+// handoff, P6; §5's "where names match, use a permitted secondary identifier
+// rather than initials alone").
+//
+// ONE RULE, ONE IMPLEMENTATION — AND IT WAS TWO. The clinician's queue had
+// carried a `disambiguator` since §5 landed, computed by a private function in
+// clinician-home.ts with the same reasoning as everything below it: only where
+// a name repeats, never initials, a slice of the record id. This module was
+// written months later for the caseload table without finding it, which is
+// precisely the drift the work register exists to catch.
+//
+// THE TWO HAD ALREADY DIVERGED, which is the argument rather than the tidiness:
+// this one folds case and surrounding space before comparing and that one did
+// not, so "Ines Mwangi" and " ines mwangi " collided here and read as two
+// different people there. Both surfaces call this now. They still SAY it
+// differently — a chip on a table, a phrase in a drawer — because presentation
+// is theirs; which rows are ambiguous, and what marks them, is one decision.
 //
 //   "Two people share a display name → Use an approved secondary identifier
 //   with minimum exposure."
@@ -73,3 +88,16 @@ export function nameFor<T extends Named>(d: Disambiguated<T>): string {
 export const RECORD_MARK_NOTE =
   "Two or more people on this screen have the same name. The short code tells the records apart; " +
   "it is part of the record's identifier and means nothing outside Steady.";
+
+/**
+ * The queue's phrasing of the same mark.
+ *
+ * A DRAWER READS AS A SENTENCE AND A TABLE CELL DOES NOT. The queue has room to
+ * say what the code is; the caseload's name column does not, and puts the same
+ * four characters in a chip with the explanation in its title. Both come from
+ * `disambiguate`, so a row that is ambiguous in one place is ambiguous in the
+ * other.
+ */
+export function markPhrase(mark: string): string {
+  return `id ending ${mark}`;
+}

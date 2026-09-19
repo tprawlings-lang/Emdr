@@ -23,7 +23,7 @@ import fs from "node:fs";
 import { getDb } from "../src/lib/db";
 import { data } from "../src/lib/data";
 import {
-  disambiguate, nameFor, recordMark, RECORD_MARK_NOTE,
+  disambiguate, nameFor, recordMark, markPhrase, RECORD_MARK_NOTE,
 } from "../src/lib/clinical/disambiguate";
 import { isEditing } from "../src/components/clinical/AttentionSignalDrawer";
 import { saveDraft, noteById, NoteError } from "../src/lib/clinical/notes";
@@ -242,4 +242,30 @@ test("a draft cannot be saved against a person it does not belong to", async () 
   });
   assert.equal(ok.forked, false);
   assert.match((await noteById(id, tenant))!.body, /A second pass/);
+});
+
+test("the queue and the caseload disambiguate by one rule, not two", () => {
+  // ONE RULE, ONE IMPLEMENTATION — and it was two. The clinician's queue had
+  // carried a disambiguator since §5 landed, computed by a private function
+  // with the same reasoning; this module was written months later for the
+  // caseload table without finding it. The two had already diverged, which is
+  // the argument rather than the tidiness: this one folds case and surrounding
+  // space before comparing and that one did not, so two rows whose names
+  // differed only in case read as two people in the queue and as one in the
+  // table.
+  const src = fs.readFileSync("src/lib/experience/clinician-home.ts", "utf8");
+  assert.match(
+    src,
+    /disambiguate\(/,
+    "the queue computes its own collision set again, beside this one",
+  );
+  assert.ok(
+    !/const byName = new Map<string, string\[\]>\(\)/.test(src),
+    "the queue's private copy of the rule is back",
+  );
+
+  // The phrasing stays a surface decision: a drawer has room for a sentence and
+  // a table cell does not.
+  assert.equal(markPhrase("D1E2"), "id ending D1E2");
+  assert.match(markPhrase(recordMark("aaaa-bbbb-cccc-d1e2")), /^id ending [A-Z0-9]{4}$/);
 });

@@ -30,6 +30,7 @@
 // action is unavailable has to explain itself where the action would have been.
 
 import type { Envelope } from "../presentation/envelope";
+import { disambiguate, markPhrase } from "@/lib/clinical/disambiguate";
 import type { WorkItem, WorkQueue, UiGroup } from "../clinical/work-queue";
 import { uiGroupFor, UI_GROUP_LABEL } from "../clinical/work-queue";
 import type { PriorityBand } from "../clinical/caseload";
@@ -171,26 +172,21 @@ function secondaryFor(item: WorkItem, now: string): SecondaryFact[] {
  * §5's "where names match, use a permitted secondary identifier rather than
  * initials alone."
  *
- * INITIALS ARE THE FAILURE THIS AVOIDS. Two people called Aiko on one caseload
- * rendered as "Aiko N." and "Aiko I." is a distinction a tired clinician reads
- * wrong, and the consequence is a note on the wrong record. The disambiguator
- * is only added where a name actually repeats — adding it everywhere would put
- * an identifier on every row for no reason, which §18 discourages.
+ * THIS WAS A SECOND IMPLEMENTATION OF ONE RULE. It computed its own collision
+ * set and its own mark, beside `src/lib/clinical/disambiguate.ts`, which does
+ * the same thing for the caseload table — and the two had already diverged:
+ * that one folds case and surrounding space before comparing and this one did
+ * not, so two rows whose names differed only in case read as two people here
+ * and as one there. The rule lives in one place now; the phrasing stays here,
+ * because a drawer has room for a sentence and a table cell does not.
  */
 function disambiguators(items: WorkItem[]): Map<string, string> {
-  const byName = new Map<string, string[]>();
-  for (const i of items) {
-    const list = byName.get(i.personName) ?? [];
-    if (!list.includes(i.personId)) list.push(i.personId);
-    byName.set(i.personName, list);
-  }
+  const marked = disambiguate(
+    items.map((i) => ({ personId: i.personId, displayName: i.personName })),
+  );
   const out = new Map<string, string>();
-  for (const [, ids] of byName) {
-    if (ids.length < 2) continue;
-    // The last six of the person id: already on screen elsewhere in the
-    // console, stable, and not a name somebody could mistake for another
-    // person's.
-    for (const id of ids) out.set(id, `id ending ${id.slice(-6)}`);
+  for (const m of marked) {
+    if (m.mark) out.set(m.row.personId, markPhrase(m.mark));
   }
   return out;
 }
