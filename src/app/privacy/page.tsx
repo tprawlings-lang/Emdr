@@ -27,7 +27,7 @@ export default function PrivacyPage() {
 
       <section className="mt-10">
         <h2 className="type-display text-2xl font-medium text-ground">Three different things</h2>
-        <div className="mt-3 overflow-x-auto">
+        <div tabIndex={0} className="mt-3 overflow-x-auto">
           <table className="w-full min-w-[36rem] border-collapse text-sm">
             <caption className="sr-only">How the public site, the demo, and a future service differ</caption>
             <thead>

@@ -656,6 +656,13 @@ export const WORK_REGISTER: WorkEntry[] = [
     test: "tests/page-coverage.test.ts",
   },
   {
+    id: "ops.performance-measures-named",
+    title: "Which of the release's seven performance measures this run actually covers",
+    state: "reachable",
+    code: "src/lib/performance/budget.ts#measureCoverage",
+    test: "tests/performance-measures.test.ts",
+  },
+  {
     id: "ops.backups",
     title: "Nightly encrypted off-site backups",
     state: "held",

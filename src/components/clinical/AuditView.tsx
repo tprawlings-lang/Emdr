@@ -152,7 +152,7 @@ export function AuditTable({
   return (
     <>
     <VocabularyNotice types={entries.map((e) => e.type)} />
-    <div className="mt-6 overflow-x-auto rounded-3xl border border-ground/10 bg-linen shadow-soft">
+    <div tabIndex={0} className="mt-6 overflow-x-auto rounded-3xl border border-ground/10 bg-linen shadow-soft">
       <table className="w-full min-w-[44rem] text-sm">
         <caption className="sr-only">Audit entries, most recent first</caption>
         <thead className="bg-sand/40 text-left">

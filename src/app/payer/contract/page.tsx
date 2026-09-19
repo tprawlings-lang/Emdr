@@ -108,7 +108,7 @@ export default async function PayerContractPage({
                   <summary className="cursor-pointer text-sm font-medium text-app-ink">
                     The same measures as a table
                   </summary>
-                  <div className="mt-4 overflow-x-auto">
+                  <div tabIndex={0} className="mt-4 overflow-x-auto">
                     <table className="w-full text-sm">
                       <caption className="sr-only">Agreed measures, observed value against target</caption>
                     <thead>

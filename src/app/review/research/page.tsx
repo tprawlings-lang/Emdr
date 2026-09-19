@@ -96,7 +96,7 @@ export default async function ResearchWorkspacePage({
       </Panel>
 
       <Panel title="Cohorts" className="mt-6" footnote={`Registry version ${version}`}>
-        <div className="overflow-x-auto">
+        <div tabIndex={0} className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-ground/10 text-left text-olive">

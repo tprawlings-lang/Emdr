@@ -68,7 +68,7 @@ export default function ClinicalPage() {
           of imagining it. <strong>Every default below is a demonstration assumption, not a
           clinical approval.</strong>
         </p>
-        <div className="mt-4 overflow-x-auto">
+        <div tabIndex={0} className="mt-4 overflow-x-auto">
           <table className="w-full min-w-[34rem] border-collapse text-sm">
             <caption className="sr-only">Configurable clinical policies and their provisional defaults</caption>
             <thead>

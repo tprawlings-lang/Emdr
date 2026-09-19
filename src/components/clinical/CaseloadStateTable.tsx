@@ -115,7 +115,7 @@ export function CaseloadStateTable({ state }: { state: CaseloadState }) {
     <div className="mt-4">
       {/* Wide content scrolls in its own container; the page body never scrolls
           sideways. */}
-      <div className="overflow-x-auto rounded-3xl border border-ground/10 bg-linen">
+      <div tabIndex={0} className="overflow-x-auto rounded-3xl border border-ground/10 bg-linen">
         <table className="w-full min-w-[52rem] border-collapse text-left">
           <caption className="sr-only">
             Caseload clinical state. Each person has a separate state per column; there is no

@@ -218,7 +218,7 @@ export default function Home() {
             A short, honest matrix matters more than a long feature list. This is where the
             platform actually stands.
           </p>
-          <div className="mt-6 overflow-x-auto">
+          <div tabIndex={0} className="mt-6 overflow-x-auto">
             <table className="w-full min-w-[36rem] border-collapse text-sm">
               <caption className="sr-only">Current capability status against target</caption>
               <thead>

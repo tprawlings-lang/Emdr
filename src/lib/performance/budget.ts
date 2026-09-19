@@ -159,3 +159,90 @@ export interface PerformanceRun {
   measurements: Measurement[];
   breaches: string[];
 }
+
+// ---------------------------------------------------------------------------
+// What P7 asks to be measured, and what this run actually measures
+// ---------------------------------------------------------------------------
+//
+// The 17 September handoff names seven measures: "time to usable queue, time to
+// usable patient overview, action acknowledgment, evidence-panel opening,
+// large-list navigation, export completion, and projection freshness."
+//
+// THIS RUN MEASURES TIME TO FIRST BYTE, which is two of the seven and is not
+// quite either of them. "Time to usable" includes the render and the data
+// arriving; first byte is the server's part of it. Reporting the two as if they
+// were the same would make the fastest number the headline for the slowest
+// question, so the difference is recorded rather than smoothed.
+//
+// The five that are not measured are not measured. Each says what it would take,
+// because "not measured" with no next step is a row that will still be here at
+// the next release.
+
+export interface NamedMeasure {
+  name: string;
+  covered: boolean;
+  /** What answers it, or what it would take to answer it. */
+  note: string;
+}
+
+export const NAMED_MEASURES: NamedMeasure[] = [
+  {
+    name: "Time to usable queue",
+    covered: true,
+    note:
+      "Measured as time to first byte on /clinician/today, p95 over 25 samples. NOT the same as " +
+      "usable: the render and the rows arriving are after first byte, and are not in this number.",
+  },
+  {
+    name: "Time to usable patient overview",
+    covered: true,
+    note:
+      "Measured as time to first byte on a person's record, p95 over 25 samples, with the same " +
+      "limitation.",
+  },
+  {
+    name: "Action acknowledgment",
+    covered: false,
+    note:
+      "Not measured. It is the interval between a clinician pressing a row action and the screen " +
+      "saying what happened — a browser measurement around a server action, not a page load. The " +
+      "existing harness samples navigations only.",
+  },
+  {
+    name: "Evidence-panel opening",
+    covered: false,
+    note:
+      "Not measured. The panel opens by navigation with a query parameter, so it is measurable " +
+      "with the existing harness; nobody has added the route with a row selected.",
+  },
+  {
+    name: "Large-list navigation",
+    covered: false,
+    note:
+      "Not measured. The caseload is sampled at its default page; paging deep into a list of " +
+      "17,569 people is the case that would show a difference and is not sampled.",
+  },
+  {
+    name: "Export completion",
+    covered: false,
+    note:
+      "Not measured. An export is a write with a signature and a job row, so the number is a " +
+      "command duration rather than a page load, and the harness has no way to time one.",
+  },
+  {
+    name: "Projection freshness",
+    covered: false,
+    note:
+      "Not measured. This is a lag rather than a latency — how far behind the read model is — and " +
+      "it is a property of the data rather than of a request.",
+  },
+];
+
+/** Reported, so a screen cannot show two of seven as though it were seven. */
+export function measureCoverage(): { covered: number; total: number; missing: string[] } {
+  return {
+    covered: NAMED_MEASURES.filter((m) => m.covered).length,
+    total: NAMED_MEASURES.length,
+    missing: NAMED_MEASURES.filter((m) => !m.covered).map((m) => m.name),
+  };
+}

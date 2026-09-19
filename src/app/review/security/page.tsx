@@ -207,7 +207,7 @@ export default async function AccessEnforcementPage() {
         title="Every protected route"
         footnote="Grouped by audience, in register order. A dash means the route does not owe that step."
       >
-        <div className="overflow-x-auto">
+        <div tabIndex={0} className="overflow-x-auto">
           <table className="w-full text-left text-xs">
             <caption className="sr-only">
               Each protected route against the eight steps of the permission and consent sequence

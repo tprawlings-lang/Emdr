@@ -126,7 +126,7 @@ export default async function ClinicianPopulationPage() {
           title="Everyone on your panel"
           footnote="Baseline and latest are the first and most recent completed measure. A change needs both — one reading is a baseline, not a trajectory."
         >
-          <div className="overflow-x-auto">
+          <div tabIndex={0} className="overflow-x-auto">
             <table className="w-full min-w-[40rem] text-sm">
               <thead>
                 <tr className="border-b border-ground/10 text-left text-xs text-olive">

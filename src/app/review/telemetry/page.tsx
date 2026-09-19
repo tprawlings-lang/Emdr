@@ -163,7 +163,7 @@ export default async function TelemetryPage() {
             completing a queue row writes the first rows.
           </p>
         ) : (
-          <div className="overflow-x-auto">
+          <div tabIndex={0} className="overflow-x-auto">
             <table className="w-full text-left text-sm">
               <thead className="text-xs uppercase text-olive">
                 <tr>

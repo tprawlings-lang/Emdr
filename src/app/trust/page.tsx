@@ -61,7 +61,7 @@ export default function TrustPage() {
           The complete list. Any egress not on it is a finding, and that is the property the
           threat model tests.
         </p>
-        <div className="mt-3 overflow-x-auto">
+        <div tabIndex={0} className="mt-3 overflow-x-auto">
           <table className="w-full min-w-[36rem] border-collapse text-sm">
             <caption className="sr-only">Egress points and the control required before real data</caption>
             <thead>

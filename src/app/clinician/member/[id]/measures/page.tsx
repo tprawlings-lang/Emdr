@@ -294,7 +294,7 @@ export default async function MemberDetailPage({
 
       <section className="mt-8">
         <h2 className="type-display text-2xl font-medium">Screenings</h2>
-        <div className="mt-2 overflow-x-auto rounded-3xl border border-ground/10 bg-linen shadow-soft">
+        <div tabIndex={0} className="mt-2 overflow-x-auto rounded-3xl border border-ground/10 bg-linen shadow-soft">
           <table className="w-full text-sm">
             <thead className="bg-sand/40 text-left">
               <tr>
@@ -329,7 +329,7 @@ export default async function MemberDetailPage({
 
       <section className="mt-8">
         <h2 className="type-display text-2xl font-medium">Check-ins (last 14)</h2>
-        <div className="mt-2 overflow-x-auto rounded-3xl border border-ground/10 bg-linen shadow-soft">
+        <div tabIndex={0} className="mt-2 overflow-x-auto rounded-3xl border border-ground/10 bg-linen shadow-soft">
           <table className="w-full text-sm">
             <thead className="bg-sand/40 text-left">
               <tr>
@@ -359,7 +359,7 @@ export default async function MemberDetailPage({
 
       <section className="mt-8">
         <h2 className="type-display text-2xl font-medium">Sessions (last 20)</h2>
-        <div className="mt-2 overflow-x-auto rounded-3xl border border-ground/10 bg-linen shadow-soft">
+        <div tabIndex={0} className="mt-2 overflow-x-auto rounded-3xl border border-ground/10 bg-linen shadow-soft">
           <table className="w-full text-sm">
             <thead className="bg-sand/40 text-left">
               <tr>

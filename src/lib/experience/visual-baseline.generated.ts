@@ -9,7 +9,7 @@
 import type { VisualBaseline } from "./visual-baseline";
 
 export const VISUAL_BASELINE: VisualBaseline = {
-  "capturedAt": "2026-09-19T03:36:41.969Z",
+  "capturedAt": "2026-09-19T04:43:57.096Z",
   "conditions": "1280x900 with motion frozen, signed in per role, against a production build over the hermetic e2e seed (rm -rf .e2e-data && npm run demo -- reset && npm run start) — the same environment tests/e2e/visual-baseline.spec.ts compares against",
   "screens": [
     {
@@ -394,6 +394,10 @@ export const VISUAL_BASELINE: VisualBaseline = {
         {
           "level": 2,
           "text": "What this does not measure"
+        },
+        {
+          "level": 2,
+          "text": "What the release asks to be measured"
         }
       ],
       "landmarks": [
@@ -404,10 +408,15 @@ export const VISUAL_BASELINE: VisualBaseline = {
       ],
       "palette": {
         "background": [
+          "lab(97.846 -6.95 1.855)",
+          "lab(98.625 -0.636 8.423)",
           "rgb(226, 237, 241)",
+          "rgb(251, 248, 242)",
           "rgb(255, 253, 248)"
         ],
         "text": [
+          "lab(28.864 -26.925 5.46)",
+          "lab(31.229 30.263 40.038)",
           "rgb(23, 58, 50)",
           "rgb(47, 58, 51)",
           "rgb(55, 93, 112)",
@@ -416,12 +425,15 @@ export const VISUAL_BASELINE: VisualBaseline = {
       },
       "rhythm": [
         "-8px",
+        "2px",
         "4px",
         "8px",
+        "10px",
         "12px",
         "16px",
         "20px",
-        "24px"
+        "24px",
+        "40px"
       ]
     },
     {

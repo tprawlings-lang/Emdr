@@ -112,7 +112,7 @@ export default async function OrgLocationsPage() {
                   <summary className="cursor-pointer text-sm font-medium text-app-ink">
                     The same rows as a table
                   </summary>
-                  <div className="mt-4 overflow-x-auto">
+                  <div tabIndex={0} className="mt-4 overflow-x-auto">
                     <table className="w-full text-sm">
                       <caption className="sr-only">
                         Sites compared by referred population, contact rate, care start rate and median wait

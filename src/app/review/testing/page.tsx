@@ -252,7 +252,7 @@ export default async function TestingConsole({
         <h2 className="type-display text-2xl font-medium">What you can exercise right now</h2>
         <p className="mt-1 text-sm text-olive">{postureNote()}</p>
 
-        <div className="mt-4 overflow-x-auto">
+        <div tabIndex={0} className="mt-4 overflow-x-auto">
           <table className="w-full min-w-[44rem] border-collapse text-sm">
             <caption className="sr-only">Capabilities available in this environment</caption>
             <thead>

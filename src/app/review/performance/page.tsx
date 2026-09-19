@@ -1,7 +1,9 @@
 import { ReviewPage } from "@/components/clinical/ReviewPage";
 import { Panel, Callout, SummaryCards } from "@/components/app/surfaces";
 import { requireReviewAccess } from "@/lib/auth";
-import { BUDGETS, MIN_SAMPLES, type BudgetClass } from "@/lib/performance/budget";
+import {
+  BUDGETS, MIN_SAMPLES, NAMED_MEASURES, measureCoverage, type BudgetClass,
+} from "@/lib/performance/budget";
 import { PERFORMANCE_RUN } from "@/lib/performance/run.generated";
 
 export const dynamic = "force-dynamic";
@@ -33,6 +35,7 @@ export default async function PerformanceBudgetsPage() {
   await requireReviewAccess();
 
   const run = PERFORMANCE_RUN;
+  const measures = measureCoverage();
   const within = run.measurements.filter((m) => m.withinBudget).length;
   const measured = new Set(run.measurements.map((m) => m.cls));
   const unmeasured = CLASS_ORDER.filter((c) => !measured.has(c));
@@ -154,6 +157,38 @@ export default async function PerformanceBudgetsPage() {
           </li>
         </ul>
       </Panel>
+
+      {/* ---------------- What the release asks to be measured ---------------- */}
+      {/* P7 names seven measures. THIS RUN COVERS TWO, and reporting seven rows
+          with five of them blank would read as a formatting problem rather than
+          as the finding. Each uncovered row says what it would take, because
+          "not measured" with no next step is a row that will still be here at
+          the next release. */}
+      <section className="mt-10">
+        <h2 className="type-display text-2xl font-medium">What the release asks to be measured</h2>
+        <p className="measure mt-1 text-sm text-olive">
+          {measures.covered} of {measures.total} named measures are covered by this run, and both
+          are measured as time to FIRST BYTE — the server&rsquo;s part of &ldquo;time to
+          usable&rdquo;, not the whole of it. The render and the data arriving come after.
+        </p>
+        <ul className="mt-4 space-y-2">
+          {NAMED_MEASURES.map((m) => (
+            <li key={m.name} className="rounded-2xl border border-ground/10 bg-linen px-4 py-3 text-sm">
+              <div className="flex flex-wrap items-baseline justify-between gap-2">
+                <span className="font-medium text-ground">{m.name}</span>
+                <span
+                  className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                    m.covered ? "bg-emerald-50 text-emerald-900" : "bg-amber-50 text-amber-900"
+                  }`}
+                >
+                  {m.covered ? "Measured" : "Not measured"}
+                </span>
+              </div>
+              <p className="measure mt-1 text-olive">{m.note}</p>
+            </li>
+          ))}
+        </ul>
+      </section>
     </ReviewPage>
   );
 }
