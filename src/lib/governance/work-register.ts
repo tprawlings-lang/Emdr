@@ -608,6 +608,58 @@ export const WORK_REGISTER: WorkEntry[] = [
       "of a caution colour that would imply one.",
   },
   {
+    id: "governance.environment-policy",
+    title: "One policy governs entry, storage, display and export",
+    state: "reachable",
+    code: "src/lib/governance/environment-policy.ts#readTier",
+    test: "tests/environment-policy.test.ts",
+    note:
+      "UX 008. Every screen says DEMO — FABRICATED DATA — NOT CLINICAL CARE, and the product also " +
+      "has a pilot: an enrollment code, a consent and terms flow, a place limit, and a tenant of " +
+      "its own so no metric spans real and fabricated people. BOTH STATEMENTS ARE TRUE OF " +
+      "DIFFERENT STATES, and nothing said which state a deployment was in — a reader inferred it " +
+      "from a banner, and a banner is not a policy. DECIDED 19 SEPTEMBER: real consented " +
+      "participants are what the pilot is FOR, and no environment takes one until the gates that " +
+      "protect them pass. Two tiers, each naming what it permits per data class for each of UX " +
+      "008's four verbs; the current tier is READ from live facts rather than declared, so an " +
+      "environment cannot be in the pilot tier because somebody set a variable. `enrollmentState` " +
+      "now separates CONFIGURED from OPEN, which is the state nothing could previously describe. " +
+      "Every failure direction lands on fabricated-only: an unresolved gate is not a passing one, " +
+      "an unreadable gate table is not a passing one, and a data class nobody listed permits " +
+      "nothing. No tier permits a real participant's record to leave in a file — admitting " +
+      "somebody and exporting their record are two decisions, and granting the second with the " +
+      "first is how a consent scope quietly widens. " +
+      "REPORTED AND NOT ENFORCED, WHICH IS THE HALF THAT IS NOT DONE. " +
+      "`open: configured && permittedByTier` was written, tested and taken back out: " +
+      "`resolveEvidence` returns `unavailable` for every attested gate unconditionally and " +
+      "nothing anywhere records an attestation, so that one line does not mean gates-first — it " +
+      "means enrollment is closed permanently, in every deployment, with no configuration that " +
+      "reopens it, and it takes the enrollment suite down with it (a wrong access code, an " +
+      "unticked acknowledgement and a minor at account creation are each proven by driving a flow " +
+      "that would no longer run). A one-way door that also deletes the evidence for three safety " +
+      "refusals is not a check. `permittedByTier` is computed and tested so wiring it is one word, " +
+      "and what it waits on is `governance.attestation-record`.",
+  },
+  {
+    id: "governance.attestation-record",
+    title: "An attested gate can actually be attested",
+    state: "proposed",
+    code: null,
+    test: null,
+    note:
+      "FOUND BY TRYING TO ENFORCE THE ENVIRONMENT POLICY. Three of p99's eight gates are " +
+      "attestations — authorization, accessibility and analytics integrity — and `resolveEvidence` " +
+      "returns `unavailable` for all three unconditionally, with a summary saying the attestation " +
+      "is 'recorded with a reference to the evidence'. NOTHING RECORDS ONE. There is no store, no " +
+      "form and no owner field: the sentence describes a mechanism that does not exist, which is " +
+      "the same class of claim the work register was written to retire, in the module that decides " +
+      "whether a deployment may hold real people. It reads as incomplete rather than as green, " +
+      "which is the honest direction — and it makes the pilot tier unreachable by anybody, which " +
+      "is why the environment policy is reported and not enforced. Building it needs one decision " +
+      "this codebase must not take: who may attest each gate, and what happens to an attestation " +
+      "when the thing it attested changes.",
+  },
+  {
     id: "clinical.assignment-is-read-back",
     title: "Assigning work changes what the queue says",
     state: "reachable",
@@ -647,7 +699,12 @@ export const WORK_REGISTER: WorkEntry[] = [
       "PURPOSE for the part that remains: whether each word should be DELETED or BUILT is a " +
       "clinical-vocabulary decision, and §13 calls the list closed because an action type nobody " +
       "defined is an action nobody can count or audit — removing four from it is exactly the kind " +
-      "of change that list exists to make deliberate.",
+      "of change that list exists to make deliberate. DECIDED 19 SEPTEMBER: the four are features the " +
+      "product should have, and the decision is to SHELF them until the 17 September handoff is " +
+      "finished, then readdress. So they stay in the vocabulary deliberately rather than by " +
+      "oversight — which is the whole difference this entry exists to record, and the reason the " +
+      "seed is still forbidden from writing them: a word kept for a feature somebody intends to " +
+      "build is not a licence to fabricate records of it in the meantime.",
   },
   {
     id: "clinical.maintenance-language-held",

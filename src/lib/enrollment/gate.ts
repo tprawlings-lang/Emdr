@@ -31,6 +31,7 @@
 import crypto from "node:crypto";
 
 import { data } from "../data";
+import { readTier, mayAdmitParticipant, type TierReading } from "../governance/environment-policy";
 
 /** How many real people may enrol against one code. */
 export const ENROLLMENT_LIMIT = 25;
@@ -48,6 +49,38 @@ export const ENROLLMENT_LIMIT = 25;
  */
 export function enrollmentOpen(): boolean {
   return Boolean(process.env.EMDR_ENROLLMENT_CODE);
+}
+
+/**
+ * The environment's tier, read rather than declared.
+ *
+ * ENROLLMENT BEING OPEN IS AN INTENTION; THE GATES PASSING IS THE EVIDENCE.
+ * Until this existed, one environment variable was the whole distance between
+ * a demonstration and a deployment holding real people's clinical records —
+ * and which side of that line a deployment stood on was something a reader had
+ * to infer from a banner. UX 008 is exactly that: "pilot-account language
+ * conflicts with fabricated-only policy statements".
+ *
+ * RESOLVED HERE, SO EVERY CALLER GETS THE SAME ANSWER. The signup page, the
+ * admin screen and the review console were each free to read
+ * `enrollmentOpen()` and decide for themselves what it meant.
+ *
+ * FAILS TOWARD FABRICATED-ONLY. Anything that cannot be resolved — a gate with
+ * no evidence, a database this cannot open — reads as not-passing, so the
+ * direction of every uncertainty is away from admitting a real participant.
+ */
+export async function environmentTier(): Promise<TierReading> {
+  const gatePassed: Record<string, boolean> = {};
+  try {
+    const [{ getDb }, { resolveEvidence }] = await Promise.all([
+      import("../db"),
+      import("../review/gates"),
+    ]);
+    for (const [id, ev] of resolveEvidence(getDb())) gatePassed[id] = ev.status === "pass";
+  } catch {
+    // Left empty on purpose: an unreadable gate table is not a passing one.
+  }
+  return readTier({ enrollmentOpen: enrollmentOpen(), gatePassed });
 }
 
 /**
@@ -88,7 +121,37 @@ export async function enrolledCount(): Promise<number> {
 }
 
 export interface EnrollmentState {
+  /** Whether the signup route admits anybody. Still CONFIGURATION, and the
+   *  next paragraph is why it is not yet the tier.
+   *
+   *  NOT WIRED TO `permittedByTier`, DELIBERATELY, AND THIS IS THE WHOLE NOTE.
+   *  The obvious change is `open: configured && permittedByTier`, and it was
+   *  written, tested, and then taken back out — because two of the five gates
+   *  the pilot requires are ATTESTED, `resolveEvidence` returns `unavailable`
+   *  for every attested gate unconditionally, and NOTHING ANYWHERE RECORDS AN
+   *  ATTESTATION. So that one line does not mean "gates first". It means
+   *  enrollment is closed permanently, in every deployment, with no
+   *  configuration that reopens it — and it takes the enrollment suite's
+   *  refusals down with it: a wrong access code, an unticked acknowledgement
+   *  and a minor at account creation are all proven by driving a flow that
+   *  would no longer run.
+   *
+   *  A one-way door that also deletes the evidence for three safety refusals
+   *  is not a check, so the tier is REPORTED here and consulted by nobody until
+   *  an attestation can be recorded. `permittedByTier` is the value that line
+   *  needs, already computed and already tested, so wiring it is one word once
+   *  somebody decides who may attest. */
   open: boolean;
+  /** What the environment policy says, separately from what is configured.
+   *  False today in every deployment, and the reason is above. */
+  permittedByTier: boolean;
+  /** A code is set. The operator's intention, separate from whether the
+   *  environment has earned it, because "nobody configured a pilot" and "a
+   *  pilot is configured and a safety gate is failing" are different facts and
+   *  a screen that rendered them identically would hide the second. */
+  configured: boolean;
+  /** Why, when `open` is false despite being configured. */
+  tier: TierReading;
   enrolled: number;
   limit: number;
   remaining: number;
@@ -97,10 +160,14 @@ export interface EnrollmentState {
 
 /** The gate's state, for a screen to render rather than re-derive. */
 export async function enrollmentState(): Promise<EnrollmentState> {
-  const open = enrollmentOpen();
+  const configured = enrollmentOpen();
+  const tier = await environmentTier();
   const enrolled = await enrolledCount();
   return {
-    open,
+    open: configured,
+    permittedByTier: mayAdmitParticipant(tier),
+    configured,
+    tier,
     enrolled,
     limit: ENROLLMENT_LIMIT,
     remaining: Math.max(0, ENROLLMENT_LIMIT - enrolled),

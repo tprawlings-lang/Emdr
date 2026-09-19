@@ -194,7 +194,20 @@ test("the state a screen renders agrees with the gate that refuses", async () =>
   resetDemoData(db);
   await withCode(CODE, async () => {
     let s = await enrollmentState();
-    assert.equal(s.open, true);
+    assert.equal(s.configured, true, "the code is set, so the operator intends a pilot");
+    assert.equal(s.open, true, "a configured deployment stopped admitting anybody");
+    // THE POLICY IS REPORTED AND NOT ENFORCED, and this asserts the gap rather
+    // than hiding it. `open: configured && permittedByTier` was written and
+    // taken back out: two of the five gates the pilot requires are attested,
+    // every attested gate resolves `unavailable` unconditionally, and nothing
+    // records an attestation — so that line closes enrollment permanently, in
+    // every deployment, and takes three safety refusals' evidence with it.
+    assert.equal(
+      s.permittedByTier, false,
+      "the policy says a real participant may be admitted, which no gate currently supports",
+    );
+    assert.ok(s.tier.blockedBy.length > 0, "nothing was named as blocking, so nothing was checked");
+    assert.equal(s.tier.tier, "T0_demonstration");
     assert.equal(s.full, false);
     assert.equal(s.remaining, ENROLLMENT_LIMIT);
 

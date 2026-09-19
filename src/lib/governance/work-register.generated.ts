@@ -540,6 +540,28 @@ export const REGISTER_FINDINGS: EntryFinding[] = [
     "problems": []
   },
   {
+    "id": "governance.environment-policy",
+    "claimed": "reachable",
+    "supported": "reachable",
+    "facts": {
+      "defined": true,
+      "tested": true,
+      "wired": true
+    },
+    "problems": []
+  },
+  {
+    "id": "governance.attestation-record",
+    "claimed": "proposed",
+    "supported": "proposed",
+    "facts": {
+      "defined": false,
+      "tested": false,
+      "wired": false
+    },
+    "problems": []
+  },
+  {
     "id": "clinical.assignment-is-read-back",
     "claimed": "reachable",
     "supported": "reachable",

@@ -7,6 +7,7 @@ import { ADMIN_RAIL } from "@/lib/app/rails";
 import { logout } from "@/lib/actions";
 import { FITNESS_ITEMS, screenerCaveat } from "@/lib/fitness-screener";
 import { enrollmentState } from "@/lib/enrollment/gate";
+import { TIER_LABEL } from "@/lib/governance/environment-policy";
 import { backupConfigured } from "@/lib/backup";
 import { resetParticipantPasswordAction } from "@/lib/enrollment/pilot-actions";
 import { recordOfflineAcceptanceAction } from "@/lib/enrollment/terms-actions";
@@ -68,6 +69,38 @@ export default async function PilotConsolePage({
       railFooter={<form action={logout}><button className="hover:underline">Sign out</button></form>}
     >
       <div className="space-y-6">
+        {/* WHICH ENVIRONMENT THIS IS, AND WHY — above everything, because it
+            governs whether any of the rest may happen. UX 008: a reader used to
+            have to infer this from a banner, and a banner is not a policy.
+
+            The configured-but-not-open state is the one that had no words: an
+            operator who set the code and a deployment that has earned a pilot
+            were indistinguishable, and one environment variable was the whole
+            distance between a demonstration and a deployment holding real
+            people's clinical records. */}
+        <div
+          data-testid="environment-tier"
+          className={`rounded-2xl border px-4 py-3 ${
+            gate.tier.tier === "T1_pilot"
+              ? "border-state-caution/40 bg-state-caution-bg"
+              : "border-ground/15 bg-app-surface"
+          }`}
+        >
+          <p className="text-sm font-medium text-app-ink">
+            {TIER_LABEL[gate.tier.tier]}
+          </p>
+          <p className="measure mt-1 text-sm text-olive">{gate.tier.policy.statement}</p>
+          <p className="measure mt-2 text-xs text-olive">{gate.tier.because}</p>
+          {gate.configured && !gate.permittedByTier && (
+            <p className="measure mt-2 text-xs text-state-support">
+              This policy is REPORTED AND NOT ENFORCED. The signup route still admits people on
+              the enrollment code alone. Wiring the tier into it would close enrollment
+              permanently — two of the five gates are attestations, and nothing in this build
+              records one — so the decision it waits on is who may attest.
+            </p>
+          )}
+        </div>
+
         {error && (
           <p className="rounded-2xl border border-state-support bg-state-support-bg px-4 py-3 text-sm text-state-support">
             {error}
