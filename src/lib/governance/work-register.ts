@@ -642,22 +642,61 @@ export const WORK_REGISTER: WorkEntry[] = [
   },
   {
     id: "governance.attestation-record",
-    title: "An attested gate can actually be attested",
+    title: "A signed gate reads as signed",
+    state: "reachable",
+    code: "src/lib/governance/attestation.ts#allAttestations",
+    test: "tests/attestation.test.ts",
+    note:
+      "THE FILING WAS WRONG AND THE FIX WAS SMALLER THAN THE FINDING. This was recorded as 'nothing " +
+      "records an attestation — there is no store, no form and no owner field'. There is all three. " +
+      "`signOffGate` requires a reviewer, computes the gate's fingerprint, REFUSES a sign-off made " +
+      "against a stale one, records the decision with its evidence reference and audits it, from a " +
+      "form that has been on the release console the whole time. `resolveEvidence` never read it " +
+      "back, so a reviewer could sign a gate and the gate would go on saying nobody had. " +
+      "THE THIRD WRITE-WITH-NO-READER IN A WEEK, after requestUnlock/decideUnlock and after " +
+      "assignWork, and the one that mattered most: these gates decide whether a deployment may " +
+      "hold real people. A FIRST ATTEMPT BUILT A SECOND TABLE — `gate_attestations`, with every " +
+      "column `review_decisions` already had including the fingerprint binding — and it was " +
+      "deleted; a test asserts it is not there, because two records of one fact disagree the first " +
+      "time either moves. A refusal is now distinguishable from an absence, which it was not: " +
+      "'nobody has reviewed this' and 'a reviewer blocked it' rendered as the same grey cell.",
+  },
+  {
+    id: "governance.signoff-does-not-invalidate-itself",
+    title: "Signing a gate does not invalidate the signature",
+    state: "reachable",
+    code: "src/lib/review/gates.ts#resolveEvidence",
+    test: "tests/attestation.test.ts",
+    note:
+      "FOUND BY SIGNING A GATE IN A BROWSER AND WATCHING IT STAY GREY. The sign-off's own state was " +
+      "briefly added to the gate's `facts` so a reader could see it — and `currentFingerprint` " +
+      "hashes exactly that map. So recording an approval flipped the state from unsigned to " +
+      "current, which changed the fingerprint, which meant the approval had been made against a " +
+      "version that no longer existed, so the gate read unsigned again and the fingerprint flipped " +
+      "back. A signature invalidated by its own existence. Nothing in the type system or the suite " +
+      "objected, and the screen said 'Not resolved' both before and after — which is the same " +
+      "answer for 'nobody signed it' and 'you just signed it and it did not take'. The facts are " +
+      "what was attested TO and nothing else.",
+  },
+  {
+    id: "governance.resolved-gate-results",
+    title: "A gate's last resolved result is recorded",
     state: "proposed",
     code: null,
     test: null,
     note:
-      "FOUND BY TRYING TO ENFORCE THE ENVIRONMENT POLICY. Three of p99's eight gates are " +
-      "attestations — authorization, accessibility and analytics integrity — and `resolveEvidence` " +
-      "returns `unavailable` for all three unconditionally, with a summary saying the attestation " +
-      "is 'recorded with a reference to the evidence'. NOTHING RECORDS ONE. There is no store, no " +
-      "form and no owner field: the sentence describes a mechanism that does not exist, which is " +
-      "the same class of claim the work register was written to retire, in the module that decides " +
-      "whether a deployment may hold real people. It reads as incomplete rather than as green, " +
-      "which is the honest direction — and it makes the pilot tier unreachable by anybody, which " +
-      "is why the environment policy is reported and not enforced. Building it needs one decision " +
-      "this codebase must not take: who may attest each gate, and what happens to an attestation " +
-      "when the thing it attested changes.",
+      "FOUND BY WIRING THE ENVIRONMENT POLICY'S ENFORCEMENT. `clinical_language` and " +
+      "`projection_parity` resolve to `unavailable` in every deployment — not because they fail, " +
+      "but because `resolveEvidence` does not compute either unless the caller hands it in: one " +
+      "needs the copy-review tally the review screen holds, the other a ledger rebuild that is " +
+      "deliberately not run on a page load. The environment tier is read on the signup page, so " +
+      "asking for either there would be free and wrong or correct and unaffordable. Requiring them " +
+      "anyway would have been the same one-way door as before, dressed as diligence: a gate that " +
+      "cannot pass closes enrollment permanently. They are named in " +
+      "`T1_GATES_NOT_YET_RESOLVABLE` rather than dropped, because a requirement quietly removed " +
+      "from a list is how a list stops meaning anything. What they need is somewhere to record a " +
+      "resolved result with the time it was resolved — the same shape as a sign-off, and for the " +
+      "same reason.",
   },
   {
     id: "clinical.assignment-is-read-back",

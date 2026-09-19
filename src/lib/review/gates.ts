@@ -33,6 +33,7 @@ import { replayScenarios } from "../safety/scenarios";
 import { SITE_CLAIMS_VERSION } from "../site/registry";
 import { SAFETY_CONFIG_VERSION } from "../safety/governance";
 import { dependencyFacts } from "./release-readiness";
+import type { AttestationState } from "../governance/attestation";
 
 export type EvidenceClass = "measured" | "on_demand" | "attested";
 
@@ -188,6 +189,11 @@ export interface ResolveOptions {
   projectionParity?: { identical: boolean; compared: number; diffs: number } | null;
   /** The clinical-language decision tally, from the clinical review screen. */
   clinicalLanguage?: { total: number; approved: number; blocked: number; changesRequested: number } | null;
+  /** Gate id -> whether somebody has signed it and whether that still holds.
+   *  Supplied by the caller for the same reason as the two above: reading it
+   *  needs the async data layer this synchronous table does not want. Omitted
+   *  means unsigned, never signed. */
+  attestations?: ReadonlyMap<string, AttestationState>;
 }
 
 /**
@@ -290,11 +296,46 @@ export function resolveEvidence(db: Database.Database, opts: ResolveOptions = {}
   });
 
   // --- The three the system cannot check for itself.
+  //
+  // READ FROM THE ATTESTATION RECORD NOW, and until that record existed this
+  // loop returned `unavailable` unconditionally while its summary said an
+  // attestation was "recorded with a reference to the evidence". Nothing
+  // recorded one, so the sentence described a mechanism that did not exist —
+  // and these three gates were unpassable by anybody, which made the pilot
+  // tier unreachable in every deployment.
+  //
+  // PASSED IN BY THE CALLER, because reading them needs the async data layer
+  // and this table is synchronous and cheap on purpose. A caller that does not
+  // supply them gets the honest old answer rather than a silent pass: the
+  // default below is `unsigned`, not `current`.
   for (const id of ["authorization", "accessibility", "analytics_integrity"]) {
+    const state = opts.attestations?.get(id) ?? { status: "unsigned" as const };
+    const facts = attestedFacts(id);
+    const who = state.status === "unsigned" ? null : state.decision.actorRole;
+    const when = state.status === "unsigned" ? null : state.decision.createdAt.slice(0, 10);
     out.set(id, {
-      status: "unavailable",
-      summary: "Not machine-checkable. This gate is an attestation by its named owner, recorded with a reference to the evidence",
-      facts: attestedFacts(id),
+      status: state.status === "current" ? "pass" : "unavailable",
+      summary:
+        state.status === "current"
+          ? `Signed off by a ${who} on ${when}` +
+            (state.evidenceRef ? ` — evidence: ${state.evidenceRef}` : " — no evidence reference was given")
+          // A REFUSAL IS NOT AN ABSENCE. "Nobody has reviewed this" and "a
+          // reviewer blocked it" are opposite facts, and until this read the
+          // record back they rendered as the same grey cell.
+          : state.status === "refused"
+            ? `A ${who} recorded "${state.decision.decision.replace("_", " ")}" on ${when}` +
+              (state.decision.rationale ? `: ${state.decision.rationale}` : "")
+            : "Not machine-checkable. This gate is an attestation by its named owner, recorded with a reference to the evidence",
+      // THE FACTS ARE WHAT WAS ATTESTED TO, AND NOTHING ELSE. The sign-off's
+      // own state was briefly added here, and it made signing a gate
+      // impossible: `currentFingerprint` hashes exactly this map, so recording
+      // an approval flipped `signOff` from "unsigned" to "current", which
+      // changed the fingerprint, which meant the approval had been made against
+      // a version that no longer existed — so the gate read unsigned again, and
+      // the fingerprint flipped back. A signature that invalidates itself by
+      // existing. Found by signing a gate in a browser and watching it stay
+      // grey; nothing in the type system or the suite objected.
+      facts,
     });
   }
 

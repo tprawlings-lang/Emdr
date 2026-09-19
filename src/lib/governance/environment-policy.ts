@@ -133,9 +133,34 @@ export const TIER_POLICY: Record<Tier, TierPolicy> = {
  */
 export const T1_REQUIRED_GATES: readonly string[] = [
   "safety_regression",
-  "clinical_language",
   "authorization",
   "accessibility",
+];
+
+/**
+ * Gates that belong on the list above and cannot be asked where it is read.
+ *
+ * FOUND BY WIRING THE ENFORCEMENT A SECOND TIME. `clinical_language` and
+ * `projection_parity` both resolve to `unavailable` in every deployment — not
+ * because they fail, but because `resolveEvidence` does not compute them
+ * unless the caller hands them in: one needs the copy-review tally the review
+ * screen holds, and the other needs a ledger rebuild that is deliberately not
+ * run on a page load. The tier is read on the signup page, so asking for
+ * either there would either be free and wrong or correct and unaffordable.
+ *
+ * REQUIRING THEM ANYWAY WOULD HAVE BEEN THE SAME ONE-WAY DOOR AS BEFORE,
+ * dressed as diligence: a gate that cannot pass is a gate that closes
+ * enrollment permanently, and the second time would have been harder to spot
+ * because two of the five were passing.
+ *
+ * What they need is somewhere to record a resolved result with the time it was
+ * resolved — the same shape as an attestation and for the same reason. Filed
+ * as `governance.resolved-gate-results`. Until then they are named here rather
+ * than dropped, because a requirement quietly removed from a list is how a
+ * list stops meaning anything.
+ */
+export const T1_GATES_NOT_YET_RESOLVABLE: readonly string[] = [
+  "clinical_language",
   "projection_parity",
 ];
 

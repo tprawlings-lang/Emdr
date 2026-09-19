@@ -72,11 +72,15 @@ export function enrollmentOpen(): boolean {
 export async function environmentTier(): Promise<TierReading> {
   const gatePassed: Record<string, boolean> = {};
   try {
-    const [{ getDb }, { resolveEvidence }] = await Promise.all([
+    const [{ getDb }, { resolveEvidence }, { allAttestations }] = await Promise.all([
       import("../db"),
       import("../review/gates"),
+      import("../governance/attestation"),
     ]);
-    for (const [id, ev] of resolveEvidence(getDb())) gatePassed[id] = ev.status === "pass";
+    const attestations = await allAttestations();
+    for (const [id, ev] of resolveEvidence(getDb(), { attestations })) {
+      gatePassed[id] = ev.status === "pass";
+    }
   } catch {
     // Left empty on purpose: an unreadable gate table is not a passing one.
   }
@@ -121,29 +125,26 @@ export async function enrolledCount(): Promise<number> {
 }
 
 export interface EnrollmentState {
-  /** Whether the signup route admits anybody. Still CONFIGURATION, and the
-   *  next paragraph is why it is not yet the tier.
+  /** Open to a real participant right now: configured AND permitted by the
+   *  environment's tier.
    *
-   *  NOT WIRED TO `permittedByTier`, DELIBERATELY, AND THIS IS THE WHOLE NOTE.
-   *  The obvious change is `open: configured && permittedByTier`, and it was
-   *  written, tested, and then taken back out — because two of the five gates
-   *  the pilot requires are ATTESTED, `resolveEvidence` returns `unavailable`
-   *  for every attested gate unconditionally, and NOTHING ANYWHERE RECORDS AN
-   *  ATTESTATION. So that one line does not mean "gates first". It means
-   *  enrollment is closed permanently, in every deployment, with no
-   *  configuration that reopens it — and it takes the enrollment suite's
-   *  refusals down with it: a wrong access code, an unticked acknowledgement
-   *  and a minor at account creation are all proven by driving a flow that
-   *  would no longer run.
+   *  THIS LINE WAS WRITTEN, TAKEN BACK OUT, AND PUT BACK, and the round trip is
+   *  the useful part. Wiring it the first time did not mean "gates first" — it
+   *  meant enrollment closed permanently in every deployment with no
+   *  configuration that reopened it, because two of the five gates the pilot
+   *  requires are attested and nothing anywhere recorded an attestation. It
+   *  also took three safety refusals' evidence down with it: a wrong access
+   *  code, an unticked acknowledgement and a minor at account creation are each
+   *  proven by driving a flow that would no longer run.
    *
-   *  A one-way door that also deletes the evidence for three safety refusals
-   *  is not a check, so the tier is REPORTED here and consulted by nobody until
-   *  an attestation can be recorded. `permittedByTier` is the value that line
-   *  needs, already computed and already tested, so wiring it is one word once
-   *  somebody decides who may attest. */
+   *  A one-way door that deletes the evidence for three safety refusals is not
+   *  a check. So the record was built first, the gate can now be signed and can
+   *  expire on its own, and this is a door that opens again. */
   open: boolean;
-  /** What the environment policy says, separately from what is configured.
-   *  False today in every deployment, and the reason is above. */
+  /** What the environment policy says, separately from what an operator
+   *  configured. Kept apart so a screen can tell "nobody set up a pilot" from
+   *  "a pilot is set up and a gate is not signed" — the state UX 008 found
+   *  nothing able to describe. */
   permittedByTier: boolean;
   /** A code is set. The operator's intention, separate from whether the
    *  environment has earned it, because "nobody configured a pilot" and "a
@@ -164,7 +165,7 @@ export async function enrollmentState(): Promise<EnrollmentState> {
   const tier = await environmentTier();
   const enrolled = await enrolledCount();
   return {
-    open: configured,
+    open: configured && mayAdmitParticipant(tier),
     permittedByTier: mayAdmitParticipant(tier),
     configured,
     tier,

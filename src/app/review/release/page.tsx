@@ -4,6 +4,7 @@ import { Panel, Callout } from "@/components/app/surfaces";
 import { requireReviewAccess } from "@/lib/auth";
 import { getDb } from "@/lib/db";
 import { RELEASE_GATES, resolveEvidence, type EvidenceClass, type EvidenceStatus } from "@/lib/review/gates";
+import { allAttestations } from "@/lib/governance/attestation";
 import { decisionsAt } from "@/lib/review/decisions";
 import { reviewableSurfaces, copyVersion } from "@/lib/review/clinical-copy";
 import { recordGateSignoff } from "@/lib/review/actions";
@@ -96,7 +97,12 @@ export default async function ReleaseGatesPage({
     changesRequested: surfaces.filter((s) => clinicalDecisions.get(s.id)?.decision === "changes_requested").length,
   };
 
-  const evidence = resolveEvidence(db, { projectionParity, clinicalLanguage: clinicalTally });
+  // The attestations, read before the table is resolved. Omitting them is not
+  // neutral: an attested gate with no record supplied reads as unsigned, which
+  // is what this console showed for every one of them before anything could be
+  // signed.
+  const attestations = await allAttestations();
+  const evidence = resolveEvidence(db, { projectionParity, clinicalLanguage: clinicalTally, attestations });
 
   // A decision is in force only at the CURRENT fingerprint. One recorded
   // against an earlier evidence state is fetched separately and shown as

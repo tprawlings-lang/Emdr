@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { signOffPilotGates } from "./helpers/pilot-gates";
 
 // Public enrollment is closed (Redesign handoff §12).
 //
@@ -8,6 +9,15 @@ import { test, expect } from "@playwright/test";
 // shut — because that is the half of the §1/§3 release gate that stops the
 // review environment from re-accumulating real identifiers.
 test.skip(Boolean(process.env.E2E_BASE_URL), "runs against the hermetic seeded server");
+
+// The pilot gates, signed first. This spec's subject is the FORM's refusals —
+// that a stranger cannot put a real identity into this environment — and the
+// form is only reachable once the environment policy permits a participant at
+// all. The policy's own refusal is proven in tests/enrollment-gate.test.ts,
+// where it does not depend on which browser spec ran first.
+test.beforeEach(async ({ page }) => {
+  await signOffPilotGates(page);
+});
 
 test("the signup route creates no account without the access code", async ({ page }) => {
   // THIS TEST CHANGED WITH THE BEHAVIOUR, deliberately, and the §12 promise it

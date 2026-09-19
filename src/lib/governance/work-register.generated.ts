@@ -552,6 +552,28 @@ export const REGISTER_FINDINGS: EntryFinding[] = [
   },
   {
     "id": "governance.attestation-record",
+    "claimed": "reachable",
+    "supported": "reachable",
+    "facts": {
+      "defined": true,
+      "tested": true,
+      "wired": true
+    },
+    "problems": []
+  },
+  {
+    "id": "governance.signoff-does-not-invalidate-itself",
+    "claimed": "reachable",
+    "supported": "reachable",
+    "facts": {
+      "defined": true,
+      "tested": true,
+      "wired": true
+    },
+    "problems": []
+  },
+  {
+    "id": "governance.resolved-gate-results",
     "claimed": "proposed",
     "supported": "proposed",
     "facts": {

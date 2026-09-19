@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { signOffPilotGates } from "./helpers/pilot-gates";
 
 // Enrolling in the pilot, from the public signup page.
 //
@@ -20,6 +21,10 @@ test.skip(
 
 // Matches playwright.config.ts's webServer env.
 const CODE = "e2e-placeholder-enrollment-code";
+
+test.beforeEach(async ({ page }) => {
+  await signOffPilotGates(page);
+});
 
 /** A fresh address per run, so a re-run is not refused as a duplicate. */
 function freshEmail(tag: string): string {

@@ -16,6 +16,7 @@ import test from "node:test";
 
 import {
   readTier, permits, mayAdmitParticipant, TIER_POLICY, T1_REQUIRED_GATES,
+  T1_GATES_NOT_YET_RESOLVABLE,
   type DataClass, type Verb,
 } from "../src/lib/governance/environment-policy";
 
@@ -97,4 +98,23 @@ test("every tier states its rule in a sentence somebody can act on", () => {
     assert.ok(policy.statement.length > 80, `${tier} has no usable statement`);
     assert.equal(policy.tier, tier, `${tier}'s policy is filed under the wrong key`);
   }
+});
+
+
+test("a gate that cannot be resolved where the tier is read is not required", () => {
+  // THE ONE-WAY DOOR, SECOND ATTEMPT. `clinical_language` and
+  // `projection_parity` resolve to `unavailable` in every deployment — not
+  // because they fail, but because `resolveEvidence` does not compute either
+  // unless the caller hands it in. Requiring them would close enrollment
+  // permanently again, and it would have been harder to spot because the other
+  // three pass.
+  for (const g of T1_GATES_NOT_YET_RESOLVABLE) {
+    assert.ok(
+      !T1_REQUIRED_GATES.includes(g),
+      `${g} is required and cannot be resolved where the tier is read, so no deployment can ever reach the pilot tier`,
+    );
+  }
+  // NAMED RATHER THAN DROPPED. A requirement quietly removed from a list is
+  // how a list stops meaning anything.
+  assert.ok(T1_GATES_NOT_YET_RESOLVABLE.length > 0);
 });
