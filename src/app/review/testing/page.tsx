@@ -141,9 +141,11 @@ export default async function TestingConsole({
         <h2 className="type-display text-2xl font-medium">What has been proven to survive failure</h2>
         <p className="measure mt-1 text-sm text-olive">
           {coverage.proven} of {coverage.total} scenarios have a test that injects the failure and
-          asserts what must happen. {coverage.gaps} have nothing that injects them, and{" "}
-          {coverage.held} are held with a reason. A scenario counts as proven only when a named
-          test file mentions it, so a row cannot claim evidence from a file that never tested it.
+          asserts what must happen. {coverage.gaps}{" "}
+          {coverage.gaps === 1 ? "has nothing that injects it" : "have nothing that injects them"}, and{" "}
+          {coverage.held} {coverage.held === 1 ? "is" : "are"} held with a reason. A scenario counts
+          as proven only when a named test file mentions it, so a row cannot claim evidence from a
+          file that never tested it.
         </p>
 
         {(["uncertain_writes", "reset", "stale_evidence", "concurrency", "permissions", "tenancy", "presentation", "safety"] as FailureArea[])

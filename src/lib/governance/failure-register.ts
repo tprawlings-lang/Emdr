@@ -204,9 +204,17 @@ export const FAILURE_REGISTER: FailureScenario[] = [
       "proposer cancellation, role loss, scope loss, overlapping proposals, failed notification, " +
       "and proposer unavailability.",
     area: "concurrency",
-    state: "gap",
-    injections: [],
-    note: "Eight named sub-cases. None is injected.",
+    state: "proven",
+    injections: ["tests/ownership-transfer.test.ts"],
+    note:
+      "EIGHT SUB-CASES AND ONE PROPERTY: accountability moves on acceptance and on nothing else — " +
+      "not on proposal, not on the sender leaving, not on the receiver losing the role, and not " +
+      "on a notification that was never built. Every state the type allows is checked, so a state " +
+      "added later cannot default to the receiver by omission. Two of the first assertions turned " +
+      "out to be wrong rather than the product: one used the wrong parameter names, and the other " +
+      "read the delivery step's LABEL — which is \"Delivered\" and says \"Nothing was sent. There " +
+      "is no delivery path in this build.\" Naming a step after the fact it answers is the right " +
+      "design; the test was reading a heading and calling it a claim.",
   },
 
   // ── Permissions changing under an open page ────────────────────────────
