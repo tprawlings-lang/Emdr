@@ -1237,12 +1237,26 @@ function generateInner(db: Database.Database): GeneratedCounts {
       // closed care-action vocabulary rather than invented, and "message"
       // becomes a CONTACT ATTEMPT rather than a message, because this build has
       // no delivery path and a seed that implied one would be seeding a claim.
+      //
+      // "note" WRITES NO CARE ACTION, AND THAT IS THE PRODUCT'S BEHAVIOUR
+      // RATHER THAN A GAP IN THE SEED. `CARE_ACTIONS` lists eight; the product
+      // writes four — `review`, `contact`, `add_followup` and `resolve` — and
+      // nothing anywhere writes `record_thought`, which is where this mapping
+      // sent a clinician's note on the first pass. That put 249 rows of a shape
+      // no clinician can produce into the demonstration, displayed on no screen:
+      // fabricated evidence of a workflow that does not exist. A seed's job is
+      // to be a busy version of what the product does, not a richer one.
+      //
+      // The four unwritten vocabulary entries are a real finding and are filed
+      // as `clinical.unreachable-care-actions` rather than fixed from here — a
+      // seed is not the place to decide whether a word should be deleted or
+      // built.
       const careAction =
         kind === "review" ? "review"
           : kind === "message" ? "contact"
             : kind === "assign" ? "add_followup"
-              : "record_thought";
-      insCareAction.run(
+              : null;
+      if (careAction) insCareAction.run(
         popId("care", `${row.id}:${i}`), tenant, personId,
         clinicianPersonId(row.clinician), careAction,
         // WHICH DICTIONARY IS THE p28 SPLIT, not a formatting choice: one
@@ -1251,9 +1265,9 @@ function generateInner(db: Database.Database): GeneratedCounts {
         // "Discussed pacing. Member preferred to stay on stabilization" beside
         // "Follow-up recorded" put a clinical judgement on an administrative
         // act, which is the confusion the two dictionaries exist to prevent.
-        careAction === "contact" || careAction === "add_followup"
-          ? pick(OPERATIONAL_NOTES, seed, i + 1)
-          : pick(CLINICIAN_COMMENTS, seed, i),
+        careAction === "review"
+          ? pick(CLINICIAN_COMMENTS, seed, i)
+          : pick(OPERATIONAL_NOTES, seed, i + 1),
         dayStamp(epoch, day, 14),
       );
       // The signed note, for the outreach that produced one. NOT EVERY

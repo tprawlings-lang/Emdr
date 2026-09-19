@@ -24,6 +24,9 @@ import {
 import { orgTenantId, armFor, tenantForRow, REGION_NAMES } from "../src/lib/demo-population-seed";
 import { getDb } from "../src/lib/db";
 import { data } from "../src/lib/data";
+import {
+  CARE_ACTIONS, PRODUCT_WRITTEN_CARE_ACTIONS, UNWRITTEN_CARE_ACTIONS, type CareAction,
+} from "../src/lib/clinical/attention-vocabulary";
 
 const ROOT = process.cwd();
 const read = (p: string) => fs.readFileSync(path.join(ROOT, p), "utf8");
@@ -283,6 +286,19 @@ test("the clinician events the generator writes have care actions behind them", 
   assert.ok((byKind.get("review") ?? 0) > 0, "no review was seeded");
   assert.ok((byKind.get("add_followup") ?? 0) > 0, "no assignment was seeded");
 
+  // THE SEED MAY ONLY WRITE WHAT THE PRODUCT WRITES. `CARE_ACTIONS` lists
+  // eight and the product writes four; this mapping reached for a fifth,
+  // `record_thought`, which nothing anywhere writes and no screen reads. That
+  // put 249 rows of a shape no clinician can produce into the demonstration.
+  // A busy version of what the product does — not a richer one.
+  for (const kind of byKind.keys()) {
+    assert.ok(
+      PRODUCT_WRITTEN_CARE_ACTIONS.includes(kind as CareAction),
+      `the seed writes "${kind}", which no code path in the product writes — ` +
+      "it is fabricated evidence of a workflow that does not exist",
+    );
+  }
+
   // AND NOT EVERYBODY. A population where every person has been contacted is
   // as false as one where nobody has, and "longest since contact" needs both
   // to have anything to sort.
@@ -332,4 +348,58 @@ test("the seeded free text passes the identity scan it is now covered by", async
   const careNotes = scan.coverage.filter((c) => c.table === "between_visit_care_actions");
   assert.ok(careNotes.some((c) => c.scanned > 0), "the scan read no care notes, so it is not covering them");
   assert.equal(scan.severity, "clean", `the seeded text contaminated the population: ${JSON.stringify(scan.findings.slice(0, 2))}`);
+});
+
+
+test("the written/unwritten split of the care vocabulary matches the source", () => {
+  // A HAND-MAINTAINED SPLIT DRIFTS EXACTLY LIKE A HAND-MAINTAINED REGISTER, and
+  // this one is load-bearing in both directions: a word that gains a writer and
+  // stays on the unwritten list understates the product, and a word that loses
+  // its last writer and stays on the written list is how `record_thought` would
+  // come back. So it is checked against the tree rather than remembered.
+  //
+  // WHAT COUNTS, AND WHAT THIS CANNOT SEE. An action counts as written when its
+  // name appears as a string literal anywhere in the product source. That is
+  // weaker than "reaches `recordCareAction`" and it is deliberate: the first
+  // version looked for `action: "<name>"` and missed `resolve`, whose only
+  // writer picks it through a ternary — a check that reports a live action as
+  // dead is worse than one that is generous, because the register would then
+  // carry a finding about a feature that exists.
+  //
+  // It cannot tell a writer from a mention. What it can do is fail the moment a
+  // name with no home in the product is used anywhere, which is the regression
+  // being guarded: `record_thought` reads like a built feature and is a word.
+  //
+  // THE MODULES THAT ENUMERATE THE VOCABULARY ARE EXCLUDED, not the ones that
+  // use it: the vocabulary itself, the ledger's inclusion list, and the seed.
+  // `care-history.ts` names `adjust_plan_link` in `CONTACT_LEDGER_ACTIONS` —
+  // a READER's list of what it would show if anything wrote one — and counting
+  // that as a writer reported a dead action as live, which is the finding
+  // erasing itself. A seed that could vote here would be marking its own
+  // homework, and the seed is what invented the `record_thought` rows.
+  const root = path.join(__dirname, "..", "src");
+  const files: string[] = [];
+  const walk = (d: string) => {
+    for (const e of fs.readdirSync(d, { withFileTypes: true })) {
+      const full = path.join(d, e.name);
+      if (e.isDirectory()) walk(full);
+      else if (/\.tsx?$/.test(e.name) && !/demo-population-generator|attention-vocabulary|care-history/.test(e.name)) {
+        files.push(fs.readFileSync(full, "utf8"));
+      }
+    }
+  };
+  walk(root);
+  const src = files.join("\n");
+
+  const written = CARE_ACTIONS.filter((a) => new RegExp(`["']${a}["']`).test(src));
+  assert.deepEqual(
+    [...written].sort(),
+    [...PRODUCT_WRITTEN_CARE_ACTIONS].sort(),
+    "PRODUCT_WRITTEN_CARE_ACTIONS no longer matches what the source writes",
+  );
+  assert.deepEqual(
+    [...UNWRITTEN_CARE_ACTIONS].sort(),
+    CARE_ACTIONS.filter((a) => !written.includes(a)).sort(),
+    "UNWRITTEN_CARE_ACTIONS is not the complement of what the source writes",
+  );
 });

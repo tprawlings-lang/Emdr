@@ -176,6 +176,33 @@ export const CARE_ACTIONS = [
 ] as const;
 export type CareAction = (typeof CARE_ACTIONS)[number];
 
+/**
+ * The four the product actually writes.
+ *
+ * CLOSED IS NOT THE SAME AS BUILT, which is what this constant is for. §13's
+ * vocabulary names eight actions; four of them have no writer anywhere —
+ * `record_thought`, `open_session_prep`, `review_trajectory` and
+ * `adjust_plan_link` — and two of those four would render on no screen even if
+ * something wrote them. A word in a closed vocabulary reads exactly like a
+ * built feature, and the demo seed proved it: reaching for `record_thought` as
+ * the obvious home for a clinician's note put 249 rows of a shape no clinician
+ * can produce into the demonstration, invisible everywhere.
+ *
+ * NAMED HERE RATHER THAN IN THE TEST that checks it, so that somebody choosing
+ * an action type meets the distinction at the vocabulary instead of finding it
+ * after seeding a thousand rows. tests/demo-population.test.ts holds this list
+ * to the source, so it cannot quietly go stale in either direction.
+ */
+export const PRODUCT_WRITTEN_CARE_ACTIONS: readonly CareAction[] = [
+  "review", "contact", "add_followup", "resolve",
+];
+
+/** The other four: defined, unwritten, and — for the first two — unreadable.
+ *  Filed as `clinical.unreachable-care-actions`; the decision is whether to
+ *  delete the words or build what writes and reads them. */
+export const UNWRITTEN_CARE_ACTIONS: readonly CareAction[] =
+  CARE_ACTIONS.filter((a) => !PRODUCT_WRITTEN_CARE_ACTIONS.includes(a));
+
 export interface CareActionRecord {
   id: string;
   personId: string;

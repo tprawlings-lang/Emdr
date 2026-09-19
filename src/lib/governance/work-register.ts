@@ -589,6 +589,27 @@ export const WORK_REGISTER: WorkEntry[] = [
       "from a fresh walk.",
   },
   {
+    id: "clinical.unreachable-care-actions",
+    title: "Four of the eight care actions have no writer",
+    state: "held",
+    code: "src/lib/clinical/attention-vocabulary.ts#UNWRITTEN_CARE_ACTIONS",
+    test: "tests/demo-population.test.ts",
+    note:
+      "FOUND BY DRIVING THE SEED, not by reading the vocabulary. §13's care-action vocabulary is " +
+      "closed — eight names — and the product writes four: `review`, `contact`, `add_followup` and " +
+      "`resolve`. Nothing anywhere writes `record_thought`, `open_session_prep`, " +
+      "`review_trajectory` or `adjust_plan_link`, and the first two would render on no screen even " +
+      "if something did: the care ledger shows four action types and the review ledger shows one. " +
+      "CLOSED IS NOT THE SAME AS BUILT, and a word in a closed vocabulary reads exactly like a " +
+      "built feature — which is how the demo seed came to write 249 `record_thought` rows, a shape " +
+      "no clinician can produce, displayed nowhere. The seed is fixed and the split is now named at " +
+      "the vocabulary and checked against the source, so neither can go stale quietly. HELD ON " +
+      "PURPOSE for the part that remains: whether each word should be DELETED or BUILT is a " +
+      "clinical-vocabulary decision, and §13 calls the list closed because an action type nobody " +
+      "defined is an action nobody can count or audit — removing four from it is exactly the kind " +
+      "of change that list exists to make deliberate.",
+  },
+  {
     id: "clinical.maintenance-language-held",
     title: "Maintenance words are written down, guarded, and held for review",
     state: "held",
