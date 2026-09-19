@@ -150,3 +150,44 @@ export function coverageNote(c: Coverage): string | null {
     (lastGood ? ` ${lastGood}.` : "")
   );
 }
+
+/**
+ * The count line above a list, made honest about what it counted.
+ *
+ * 17 September handoff, P6: "One provider fails and queue looks empty → SHOW
+ * INCOMPLETE COVERAGE, NEVER A REASSURING ZERO."
+ *
+ * The coverage notice above the rows was doing the work, and it is the right
+ * notice — but the headline still read "0 items need review", and the headline
+ * is what people read. A clinician who glances at a queue and sees zero has
+ * been told there is nothing to do; a caution box under it saying some sources
+ * could not be read is a correction to a claim that should not have been made.
+ *
+ * So the count states its own denominator when there is one. A number from a
+ * partial read is not the same fact as a number from a complete one, and at
+ * zero the difference is the whole message.
+ */
+export function orientingCount(
+  args: { total: number; coverage: Coverage; groupLabel?: string }
+): string {
+  const { total, coverage, groupLabel } = args;
+  const items = `${total} item${total === 1 ? "" : "s"}`;
+
+  if (coverage.complete) {
+    // "1 item need review" was what the previous construction produced, because
+    // the verb was outside the pluralisation.
+    return groupLabel ? `${groupLabel} — ${items}.` : `${items} ${total === 1 ? "needs" : "need"} review.`;
+  }
+
+  if (total === 0) {
+    // THE CASE THIS EXISTS FOR. "Nothing needs review" and "nothing could be
+    // read" are opposite statements and look identical as a zero.
+    return groupLabel
+      ? `${groupLabel} — nothing from the sources that could be read. This is not a complete queue.`
+      : "Nothing from the sources that could be read. This is not a complete queue, and an empty one is not the same as no work.";
+  }
+
+  return groupLabel
+    ? `${groupLabel} — ${items} from the sources that could be read.`
+    : `${items} from the sources that could be read. More may exist.`;
+}

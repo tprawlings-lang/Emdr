@@ -36,7 +36,7 @@ import type { PriorityBand } from "../clinical/caseload";
 import type { ExperienceContext } from "./context";
 import { navigationFor } from "./navigation";
 import {
-  assertRoleHome, fullCoverage, partialCoverage,
+  assertRoleHome, fullCoverage, partialCoverage, orientingCount,
   type RoleHome, type Coverage,
 } from "./role-home";
 import type { ViewState } from "./view-state";
@@ -312,9 +312,13 @@ export function clinicianHome(args: {
     audience: ctx.audience,
     asking: {
       question: "Your attention queue",
-      orienting: showing
-        ? `${UI_GROUP_LABEL[showing]} — ${total} item${total === 1 ? "" : "s"}.`
-        : `${total} item${total === 1 ? "" : "s"} need review.`,
+      // The count says what it counted. A zero from a partial read and a zero
+      // from a complete one are opposite statements that look identical.
+      orienting: orientingCount({
+        total,
+        coverage,
+        groupLabel: showing ? UI_GROUP_LABEL[showing] : undefined,
+      }),
     },
     // §8.2: "one strongest action." The first row's, because the queue is
     // already in the order the domain decided — so the strongest action is the

@@ -262,24 +262,29 @@ export const FAILURE_REGISTER: FailureScenario[] = [
     scenario: "A search suggestion or a cached answer crosses an organization boundary.",
     required: "Prevent it at the server and in cache keys.",
     area: "tenancy",
-    state: "gap",
-    injections: [],
+    state: "proven",
+    injections: ["tests/partial-and-scope.test.ts"],
     note:
-      "Cross-tenant reads are tested hard, and the context cache key is tested for completeness. " +
-      "Neither is an injection of this scenario: nothing poisons a cache and then reads it as the " +
-      "other tenant.",
+      "The server-side half is attacked by the boundary suites. THE CACHE HALF IS THE ONE THAT " +
+      "FAILS SILENTLY — a key missing an input serves one person's assembled drawer to a reader " +
+      "looking at somebody else, and nothing about the answer looks wrong. Each input is removed " +
+      "in turn and the key must move; the unchanged inputs must still collide, or the check would " +
+      "pass on a key that was simply random.",
   },
   {
     id: "tenancy.several-queries-infer-a-small-group",
     scenario: "A sequence of differently filtered queries narrows to a group too small to report.",
     required: "Review complementary suppression and differencing controls.",
     area: "tenancy",
-    state: "gap",
-    injections: [],
+    state: "proven",
+    injections: ["tests/partial-and-scope.test.ts"],
     note:
-      "Single-query small-cell suppression is enforced and tested in the file as well as on the " +
-      "screen. DIFFERENCING IS NOT SUPPRESSION: two permitted queries whose difference is one " +
-      "person defeat a per-query threshold, and nothing here measures that.",
+      "DIFFERENCING IS NOT DEFEATED BY A PER-QUERY THRESHOLD: two permitted queries whose " +
+      "difference is one person each pass it. What bounds it here is that there is no query " +
+      "builder — an analyst chooses from a fixed set of versioned cohort definitions and cannot " +
+      "compose a new one, so the set of available differences is finite, enumerable and " +
+      "reviewable rather than open. That is the control, and it is a property of the surface " +
+      "rather than a filter, so it is asserted where adding a free-text filter would break it.",
   },
 
   // ── Presentation of failure ────────────────────────────────────────────
@@ -288,23 +293,30 @@ export const FAILURE_REGISTER: FailureScenario[] = [
     scenario: "A source fails and a screen that reads it shows nothing.",
     required: "Show incomplete coverage, never a reassuring zero.",
     area: "presentation",
-    state: "gap",
-    injections: [],
+    state: "proven",
+    injections: ["tests/partial-and-scope.test.ts"],
     note:
-      "The presentation envelope carries coverage and missingness and the screens read it. What " +
-      "is missing is the injection: nothing takes a source away mid-render and reads what the " +
-      "screen then says.",
+      "THE COVERAGE NOTICE WAS RIGHT AND THE HEADLINE WAS NOT. A queue that read nothing still " +
+      "said '0 items need review' above a caution box explaining that some sources were " +
+      "unreadable — a correction to a claim that should not have been made, under the number a " +
+      "clinician actually glances at. The count now states its own denominator, and at zero says " +
+      "an empty queue is not the same as no work. A complete read still says the plain thing: a " +
+      "headline that hedged every time would teach people to ignore the hedge.",
   },
   {
     id: "presentation.export-filter-changes-during-generation",
     scenario: "The filter changes between the screen being reviewed and the file being produced.",
     required: "Bind the export to the reviewed filter snapshot.",
     area: "presentation",
-    state: "gap",
-    injections: [],
+    state: "proven",
+    injections: ["tests/partial-and-scope.test.ts"],
     note:
-      "Filter parity is enforced by hashing the filter the CALLER passed, and the hash is tested " +
-      "for stability. Nothing changes the filter mid-generation and checks which one the file got.",
+      "THE INJECTION HAS TO LAND MID-FLIGHT, and mutating the caller's object afterwards proves " +
+      "nothing. A timer cannot do it either: the database is synchronous behind promises, so the " +
+      "whole export resolves on the microtask queue. So the filter WIDENS ON BEING READ — the " +
+      "first read returns what the screen showed, every read after it returns something broader. " +
+      "A hash taken at entry binds the file to the reviewed filter; moving that one line later " +
+      "fails the test.",
   },
   {
     id: "presentation.unassigned-work-accumulates",
@@ -313,6 +325,14 @@ export const FAILURE_REGISTER: FailureScenario[] = [
     area: "presentation",
     state: "gap",
     injections: [],
+    note:
+      "HALF OF THIS IS A DECISION, NOT A BUILD. Ownership is already a first-class state on every " +
+      "queue row and null renders as unassigned, so displaying the debt — how much is unowned and " +
+      "how long the oldest has been — is ordinary work. The escalation rule is not: who work " +
+      "falls to when nobody claims it, and after how long, is an operational decision this " +
+      "codebase must not invent. The handoff says as much about the neighbouring case: 'any " +
+      "fallback assignment policy needs an operational decision.' Left open rather than closed " +
+      "with a default nobody chose.",
   },
 
   // ── Safety-consequential ───────────────────────────────────────────────
