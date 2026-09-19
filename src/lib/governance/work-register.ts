@@ -589,6 +589,25 @@ export const WORK_REGISTER: WorkEntry[] = [
       "from a fresh walk.",
   },
   {
+    id: "clinical.unclaimed-work-is-counted",
+    title: "Unclaimed work is counted where somebody will see it",
+    state: "reachable",
+    code: "src/lib/clinical/ownership-debt.ts#ownershipDebt",
+    test: "tests/ownership-debt.test.ts",
+    note:
+      "The failure register's scenario is that work nobody owns builds up UNNOTICED, and the " +
+      "noticing is what a queue cannot do by itself: ownership is on every row, so a clinician " +
+      "can read twenty owners and still not know that nine of them say nobody. Counted over the " +
+      "WHOLE queue rather than the bucket showing — pressing a count must not change how much " +
+      "unclaimed work exists — and keyed on the owner NAME rather than the id, because a row " +
+      "whose id resolves to no name renders as Unassigned, which is how a panel could have " +
+      "reported zero debt over a list that said Unassigned throughout. IT DOES NOT ESCALATE, and " +
+      "a test reads the module's code with comments and string literals stripped to keep it that " +
+      "way: who unclaimed work falls to, and after how long, is an operational decision this " +
+      "codebase must not invent, so the screen carries the absence of the rule in words instead " +
+      "of a caution colour that would imply one.",
+  },
+  {
     id: "clinical.assignment-is-read-back",
     title: "Assigning work changes what the queue says",
     state: "reachable",

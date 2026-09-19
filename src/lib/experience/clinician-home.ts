@@ -36,6 +36,7 @@ import { uiGroupFor, UI_GROUP_LABEL } from "../clinical/work-queue";
 import type { PriorityBand } from "../clinical/caseload";
 import type { ExperienceContext } from "./context";
 import { navigationFor } from "./navigation";
+import { ownershipDebt, type OwnershipDebt } from "../clinical/ownership-debt";
 import {
   assertRoleHome, fullCoverage, partialCoverage, orientingCount,
   type RoleHome, type Coverage,
@@ -199,6 +200,11 @@ export interface ClinicianHome extends RoleHome<QueueRowView> {
   /** Which bucket is showing, from the view state rather than from a parameter
    *  this layer parsed. */
   showing: UiGroup | null;
+  /** How much of this queue nobody has claimed.
+   *
+   *  OVER THE WHOLE QUEUE, NOT THE BUCKET SHOWING. Pressing a count must not
+   *  change how much unclaimed work exists. */
+  debt: OwnershipDebt;
   /** The presentation state, carried through so a failed projection stays a
    *  failed projection rather than becoming an empty home. */
   envelopeState: Envelope<WorkQueue>["state"];
@@ -253,6 +259,10 @@ export function clinicianHome(args: {
       navigation,
       generatedAt: now,
       counts: emptyCounts,
+      // A queue that failed to load has no debt to report. Reporting zero
+      // unclaimed items for a queue nobody could read would be the empty-state
+      // failure the envelope exists to prevent, one panel over.
+      debt: ownershipDebt([], new Date(now)),
       stableCount: 0,
       stablePersonIds: [],
       showing,
@@ -340,6 +350,11 @@ export function clinicianHome(args: {
     navigation,
     generatedAt: queue.computedAt,
     counts: queue.uiCounts,
+    // OVER `queue.items`, NOT `inShowing` OR `rows`. `rows` is paged and
+    // `inShowing` is filtered; counting either would make the debt move when a
+    // clinician pressed a bucket or opened a long list, and a figure that
+    // changes with the view is the one number on the screen nobody can act on.
+    debt: ownershipDebt(queue.items, new Date(now)),
     stableCount: queue.stableCount,
     stablePersonIds: queue.stablePersonIds,
     showing,

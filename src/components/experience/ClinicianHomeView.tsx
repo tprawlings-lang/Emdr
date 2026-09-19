@@ -8,6 +8,7 @@ import { QueueEvidencePanel } from "./QueueEvidencePanel";
 import { RestoreFocus } from "./RestoreFocus";
 import { QueueConfirmations } from "./QueueConfirmations";
 import { RowActions } from "./RowActions";
+import { ownershipDebtStatement, OWNERSHIP_DEBT_LIMIT } from "@/lib/clinical/ownership-debt";
 
 // The Command Center, rendered (handoff 09 §5, Package 2).
 //
@@ -128,6 +129,38 @@ export function ClinicianHomeView({
               This queue is not complete. What is missing is a source Steady could not read, not an
               absence of work.
             </p>
+          </div>
+        )}
+
+        {/* UNCLAIMED WORK, BEFORE THE ROWS, for the reason coverage is: a count
+            under a list is a count somebody reads after deciding the list is
+            complete. Rendered only when there is some — a panel that says
+            "0 unclaimed" every morning is a panel nobody reads on the morning
+            it says nine.
+
+            NOT A WARNING TONE. There is no rule in this build for who
+            unclaimed work falls to or after how long, so nothing here is late
+            — and a caution colour would be this screen inventing the deadline
+            the register says it must not. Neutral, with the absence of the
+            rule stated in words. */}
+        {home.debt.unowned > 0 && (
+          <div
+            data-testid="ownership-debt"
+            className="mt-4 rounded-2xl border border-ground/15 bg-linen px-4 py-3"
+          >
+            <p className="measure text-sm text-app-ink">
+              {ownershipDebtStatement(home.debt)}
+              {home.debt.oldestWaitDays !== null && home.debt.oldestPersonName && (
+                <>
+                  {" "}The longest has been waiting{" "}
+                  <strong>
+                    {home.debt.oldestWaitDays} day{home.debt.oldestWaitDays === 1 ? "" : "s"}
+                  </strong>{" "}
+                  ({home.debt.oldestPersonName}).
+                </>
+              )}
+            </p>
+            <p className="measure mt-1 text-xs text-olive">{OWNERSHIP_DEBT_LIMIT}</p>
           </div>
         )}
 

@@ -235,7 +235,15 @@ function stamp(d: Date): string {
   return d.toISOString().replace("T", " ").slice(0, 19);
 }
 
-function parseStamp(s: string): number {
+/** Milliseconds from either spelling this codebase stores.
+ *
+ *  EXPORTED RATHER THAN COPIED. Eight variants of this line already exist under
+ *  `src/lib`, and they do not agree: two append "Z" unconditionally, which is
+ *  wrong for a string that already carries an offset. A ninth written for the
+ *  ownership count would be a ninth chance to disagree with the queue it is
+ *  counting — and a comparison that spans two spellings is exactly how a
+ *  same-day row once sorted as older than it was. */
+export function parseStamp(s: string): number {
   const t = Date.parse(s.replace(" ", "T") + (s.includes("T") || s.endsWith("Z") ? "" : "Z"));
   return Number.isFinite(t) ? t : 0;
 }

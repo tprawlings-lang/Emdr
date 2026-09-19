@@ -622,3 +622,62 @@ test("the full-list state survives a return from a person record", () => {
   assert.ok(kept?.includes("rows=all"), `the expanded view was dropped: ${kept}`);
   assert.ok(kept?.includes("filter=needs_attention"));
 });
+
+// ---------------------------------------------------------------------------
+// Unclaimed work
+// ---------------------------------------------------------------------------
+
+test("the unclaimed count is over the whole queue, not the bucket on screen", () => {
+  // PRESSING A COUNT MUST NOT CHANGE HOW MUCH UNCLAIMED WORK EXISTS. The rows
+  // are filtered by bucket and paged; counting either list would make the debt
+  // rise and fall as a clinician moved around the screen, and a figure that
+  // moves with the view is the one number on the page nobody can act on.
+  //
+  // THIS IS THE ASSERTION THE PURE TESTS COULD NOT MAKE. `ownershipDebt` is
+  // right either way — the choice of which list to hand it is here, and a
+  // mutation that passed `inShowing` instead of `queue.items` passed every test
+  // in tests/ownership-debt.test.ts.
+  const items = [
+    item({ id: "a", group: "needs_action", ownerName: null }),
+    item({ id: "b", group: "waiting_member", ownerName: null }),
+    item({ id: "c", group: "waiting_staff", ownerName: null }),
+  ];
+  const everything = clinicianHome({
+    ctx, envelope: ready(meta(), queue(items)),
+    view: emptyViewState("t-1"), showing: null, now: NOW, rowsPerBucket: 10,
+  });
+  const oneBucket = clinicianHome({
+    ctx, envelope: ready(meta(), queue(items)),
+    view: emptyViewState("t-1"), showing: "needs_attention", now: NOW, rowsPerBucket: 10,
+  });
+  assert.equal(everything.debt.unowned, 3);
+  assert.equal(
+    oneBucket.debt.unowned, 3,
+    "filtering to one bucket changed how much unclaimed work the screen reports",
+  );
+  assert.equal(oneBucket.items.length, 1, "the fixture did not actually filter, so nothing was tested");
+});
+
+test("paging does not change the unclaimed count either", () => {
+  const many = Array.from({ length: 25 }, (_, i) => item({ id: `u-${i}`, personId: `p-${i}`, ownerName: null }));
+  const h = clinicianHome({
+    ctx, envelope: ready(meta(), queue(many)),
+    view: emptyViewState("t-1"), showing: null, now: NOW, rowsPerBucket: 5,
+  });
+  assert.equal(h.items.length, 5, "the fixture did not actually page");
+  assert.equal(h.debt.unowned, 25, "the count followed the page rather than the queue");
+  assert.equal(h.debt.peopleUnowned, 25);
+});
+
+test("a queue that failed to load reports no debt rather than none owed", () => {
+  // An envelope that could not be read has nothing to count. Reporting zero
+  // unclaimed items for a queue nobody could load is the empty-state failure
+  // §30.8 exists to prevent, one panel over: it reads as a clear day.
+  const h = clinicianHome({
+    ctx, envelope: { state: "failed", data: null, reason: "projection unavailable" } as never,
+    view: emptyViewState("t-1"), showing: null, now: NOW, rowsPerBucket: 10,
+  });
+  assert.equal(h.debt.total, 0);
+  assert.equal(h.debt.unowned, 0);
+  assert.equal(h.envelopeState, "failed", "the failure state stopped travelling");
+});

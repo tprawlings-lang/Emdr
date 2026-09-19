@@ -529,6 +529,17 @@ export const REGISTER_FINDINGS: EntryFinding[] = [
     "problems": []
   },
   {
+    "id": "clinical.unclaimed-work-is-counted",
+    "claimed": "reachable",
+    "supported": "reachable",
+    "facts": {
+      "defined": true,
+      "tested": true,
+      "wired": true
+    },
+    "problems": []
+  },
+  {
     "id": "clinical.assignment-is-read-back",
     "claimed": "reachable",
     "supported": "reachable",

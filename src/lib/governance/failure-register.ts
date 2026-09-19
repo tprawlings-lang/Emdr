@@ -346,7 +346,12 @@ export const FAILURE_REGISTER: FailureScenario[] = [
       "owner' over a row that said Unassigned, permanently, and every one of 35 rows on the demo " +
       "caseload read Unassigned. Fixed and tested (tests/work-assignment.test.ts), which is what " +
       "makes 'how much is unowned' a number worth displaying rather than a count of a display " +
-      "bug. The debt panel itself is still to build.",
+      "bug. THE DEBT IS NOW ON THE SCREEN (src/lib/clinical/ownership-debt.ts, above the rows for " +
+      "the reason coverage is): how many items, across how many people, and how long the oldest " +
+      "has waited — over the whole queue rather than the bucket showing, so pressing a count " +
+      "cannot change how much unclaimed work exists. It carries no threshold and no caution " +
+      "colour, because either would be this codebase choosing the escalation rule that is the " +
+      "half still open.",
   },
 
   // ── Safety-consequential ───────────────────────────────────────────────
