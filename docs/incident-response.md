@@ -45,6 +45,40 @@ exempt us.
 - Check state law overlays in parallel: WA My Health My Data, NV, CT have
   their own consumer-health-data triggers and shorter practical timelines.
 
+## Real information found in a fabricated environment
+
+The identity scan reads the fabricated population's own columns and reports a
+value shaped like a real-world identifier — a deliverable email domain, a
+government identifier, a telephone number, a street address. A finding means
+somebody's real detail is sitting in a demonstration dataset that is reset,
+exported, screen-shared and shown to reviewers.
+
+**This is an incident, and the remedy is never the label.** The temptation is
+specific and worth naming: the environment already carries a FABRICATED flag,
+and the flag is about the ACCOUNT rather than about any particular value, so it
+does not become true by being left on. Changing what a screen says about the
+data does not change what is in it, and a dataset relabelled instead of cleaned
+is one that leaves the building with the finding intact.
+
+1. **Declare it.** Same trigger as everything above: suspicion is enough.
+2. **Stop the export path before the cleanup.** Anything already generated may
+   carry the value. `export_jobs` records every file, its filter and its
+   content hash — use it to list what left, then supersede or expire those
+   outputs. A cleaned database and a circulating CSV is a fix on one side only.
+3. **Remove the value, not the row.** Keep the record so the demonstration
+   stays coherent; replace the contaminated value with a generated one from the
+   seed's own vocabulary. Deleting the person hides the finding from the scan
+   without answering how it arrived.
+4. **Find how it arrived.** A pasted note, an import, a real account whose
+   provenance was never stated, a fixture copied from somewhere. Until that is
+   answered the same value comes back on the next reset.
+5. **Re-run the scan and let the gate speak.** `demo_identity` fails while the
+   scan is anything but clean, so the release gate stays blocked; a clean
+   re-run is the evidence, not an assertion that it was handled.
+6. **Record it.** The scan is a point-in-time reading, and a clean one afterwards
+   is indistinguishable from one that was never dirty. The finding, its shape
+   (never its value), how it arrived and what was done go in the postmortem.
+
 ## Contacts
 - Counsel: retained (reviewed ToS/Privacy 2026-06-10) — [insert current contact details]
 - Cyber liability insurer / breach hotline: [insert after policy bound — see

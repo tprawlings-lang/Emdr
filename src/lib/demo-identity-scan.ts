@@ -144,6 +144,18 @@ export const SCAN_TARGETS: Array<{
   { table: "user_triggers", idColumn: "id", personColumn: "user_id", columns: ["trigger_name", "notes"] },
   { table: "early_warning_signs", idColumn: "id", personColumn: "user_id", columns: ["sign_name"] },
   { table: "alerts", idColumn: "id", personColumn: "user_id", columns: ["detail", "review_note"] },
+  // CLINICIAN FREE TEXT ABOUT A PERSON, which this list did not cover and
+  // should have. The scan's own rule for telephone numbers says crisis lines
+  // belong in the crisis resource list rather than in a person's record — and
+  // a care note is where somebody pastes a callback number while demonstrating,
+  // because it is the field that invites typing what just happened. Found by
+  // trying to inject a contaminated value and watching the scan stay clean.
+  { table: "between_visit_care_actions", idColumn: "id", personColumn: "person_id",
+    columns: ["note", "correction_reason"] },
+  // The note body is encrypted at rest, so this will usually count rather than
+  // read — which is the honest outcome and is reported as coverage rather than
+  // as a clean result over nothing.
+  { table: "clinical_notes", idColumn: "id", personColumn: "person_id", columns: ["body"] },
 ];
 
 export interface ScanCoverage {

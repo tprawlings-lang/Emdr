@@ -421,12 +421,20 @@ export const FAILURE_REGISTER: FailureScenario[] = [
     scenario: "Real person information is found in a fabricated-data environment.",
     required: "Use incident handling. Do not solve it by changing the banner.",
     area: "safety",
-    state: "gap",
-    injections: [],
+    state: "proven",
+    injections: ["tests/synthetic-contamination.test.ts"],
     note:
-      "The identity scan runs over the demo data and is tested, and it is what would FIND this. " +
-      "What is untested is what happens next: finding real information is a stop condition with " +
-      "an incident path, and nothing exercises the path.",
+      "THE SCAN WAS WELL TESTED AND WHAT HAPPENS NEXT WAS NOT, which is where the handoff puts " +
+      "its emphasis: do not solve it by changing the banner. The injection follows the " +
+      "consequences — the scan turns, the release gate fails and reads the scan rather than a " +
+      "stored verdict somebody could edit, and the fabricated flag does not move, because it is " +
+      "about the ACCOUNT and makes no claim about any value in the database. A guard keeps it " +
+      "that way: the flag reading the scan would be a finding changing a label instead of the " +
+      "data. WRITING THE INJECTION FOUND A COVERAGE GAP — clinician free text was not scanned at " +
+      "all, and a care note is exactly where somebody pastes a callback number while " +
+      "demonstrating. The runbook now has a named path for this, which the test holds to its " +
+      "shape: stop the export path first, remove the value rather than the row, and answer how " +
+      "it arrived.",
   },
   {
     id: "safety.visual-change-hides-a-stop-control",
