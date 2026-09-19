@@ -37,6 +37,8 @@ import {
 import { careActionsForPerson } from "@/lib/clinical/attention-signals";
 import { newestEvidenceFor } from "@/lib/clinical/person-evidence";
 import { reviewsWithCurrency, type ReviewWithCurrency } from "@/lib/clinical/review-currency";
+import { careHistory, CONTACT_LEDGER_ACTIONS, type CareHistoryEntry } from "@/lib/clinical/care-history";
+import { CareHistoryLedger } from "@/components/clinical/CareHistoryLedger";
 import { ReviewLedger } from "@/components/clinical/ReviewLedger";
 import { readingFrame } from "@/lib/clock";
 import { recentSession } from "@/lib/clinical/recent-session";
@@ -121,12 +123,20 @@ export default async function PersonOverviewPage({
   // identify anything. Guarded on its own: a person's record must survive one
   // subsystem being unreadable.
   let reviews: ReviewWithCurrency[] = [];
+  let between: CareHistoryEntry[] = [];
   try {
-    const [records, newestEvidenceAt] = await Promise.all([
-      careActionsForPerson(ctx, id, 5),
+    // ASKED FOR SEPARATELY, AND THE FILTER IS IN THE QUERY. This took the
+    // newest five care actions of any kind and kept the reviews among them, so
+    // a person with five recent contact attempts read "Nobody has recorded a
+    // review of this person yet" over a review that was sitting right behind
+    // them.
+    const [reviewRecords, betweenRecords, newestEvidenceAt] = await Promise.all([
+      careActionsForPerson(ctx, id, { limit: 5, actions: ["review"] }),
+      careActionsForPerson(ctx, id, { limit: 10, actions: CONTACT_LEDGER_ACTIONS }),
       newestEvidenceFor(ctx, id),
     ]);
-    reviews = reviewsWithCurrency(records, newestEvidenceAt);
+    reviews = reviewsWithCurrency(reviewRecords, newestEvidenceAt);
+    between = careHistory(betweenRecords);
   } catch (err) {
     console.error("review ledger failed (non-fatal):", err instanceof Error ? err.name : "unknown");
   }
@@ -494,6 +504,10 @@ export default async function PersonOverviewPage({
           </section>
 
           <ReviewLedger reviews={reviews} />
+
+          {/* What was done between visits. Beside the reviews, not among them:
+              a review has a currency and a contact attempt does not. */}
+          <CareHistoryLedger entries={between} />
 
           {/* ---- Gate review (§9.2) ---- */}
           <section aria-labelledby="gates">

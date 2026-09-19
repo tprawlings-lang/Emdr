@@ -574,10 +574,29 @@ export async function recordCareAction(
 }
 
 export async function careActionsForPerson(
-  ctx: TenantContext, personId: string, limit = 25
+  ctx: TenantContext, personId: string,
+  opts: number | { limit?: number; actions?: readonly CareAction[] } = 25
 ): Promise<CareActionRecord[]> {
+  // THE FILTER HAS TO HAPPEN IN THE QUERY, NOT AFTER IT, and it did not.
+  //
+  // Every caller took the newest N care actions of ANY kind and filtered
+  // afterwards. The review ledger asked for five and kept the reviews among
+  // them — so a person with five recent contact attempts and a review before
+  // them read "Nobody has recorded a review of this person yet", which is a
+  // false statement about a clinical record rather than a short list.
+  //
+  // The vocabulary is closed, so the kinds are parameterised rather than
+  // interpolated and an unknown one cannot reach the SQL.
+  const { limit = 25, actions } = typeof opts === "number" ? { limit: opts, actions: undefined } : opts;
+  const kinds = actions?.filter((a) => (CARE_ACTIONS as readonly string[]).includes(a)) ?? null;
+
+  const where = kinds && kinds.length > 0
+    ? `person_id = ? AND action_type IN (${kinds.map(() => "?").join(",")})`
+    : "person_id = ?";
+  const params = kinds && kinds.length > 0 ? [personId, ...kinds] : [personId];
+
   const rows = await repo(ctx).findMany<CareRow>(
-    "between_visit_care_actions", "person_id = ?", [personId],
+    "between_visit_care_actions", where, params,
     { orderBy: "completed_at DESC, id DESC", limit }
   );
   return rows.map(toCareAction);

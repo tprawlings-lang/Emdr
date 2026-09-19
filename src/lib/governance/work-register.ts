@@ -663,6 +663,13 @@ export const WORK_REGISTER: WorkEntry[] = [
     test: "tests/performance-measures.test.ts",
   },
   {
+    id: "clinical.between-visit-work-is-readable",
+    title: "Contact attempts and assignments appear on the record they were written to",
+    state: "reachable",
+    code: "src/lib/clinical/care-history.ts#careHistory",
+    test: "tests/care-history.test.ts",
+  },
+  {
     id: "ops.backups",
     title: "Nightly encrypted off-site backups",
     state: "held",
