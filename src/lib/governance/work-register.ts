@@ -187,7 +187,20 @@ export const WORK_REGISTER: WorkEntry[] = [
     state: "proposed",
     code: null,
     test: null,
-    note: "ClinicianHomeView carries its own scope strip, rows, evidence panel and result. Moving it onto WorkList is a real refactor of the busiest clinician screen rather than a wrapper, so it was not folded into the template's first pass.",
+    note:
+      "ClinicianHomeView carries its own scope strip, rows, evidence panel and result. Moving it " +
+      "onto WorkList is a real refactor of the busiest clinician screen rather than a wrapper, so " +
+      "it was not folded into the template's first pass. LOOKED AT PROPERLY SINCE, and it is two " +
+      "decisions rather than one job. First, the template's `evidence` slot and the Command " +
+      "Center's evidence panel are DIFFERENT THINGS WITH THE SAME NAME: `EvidenceSlot` is a " +
+      "projection disclosure or a sentence saying where evidence lives, rendered below the rows, " +
+      "and QueueEvidencePanel is a per-row non-modal aside beside them — §1.4's ruling, and UX " +
+      "011's fix. Passing one as the other would put the row detail under the list and undo both. " +
+      "Second, WorkList renders `purpose` ABOVE everything, and §5 answers its operating question " +
+      "in a fixed order — the counts, then coverage, then the rows — with the orienting sentence " +
+      "after the scope strip. Adopting the template moves that sentence to the top of the busiest " +
+      "clinician screen. Both are defensible and they produce visibly different screens, so this " +
+      "stays proposed: it needs somebody to choose, not somebody to type.",
   },
   {
     id: "clinical.display-vocabulary",
