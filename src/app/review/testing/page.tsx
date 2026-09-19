@@ -16,6 +16,7 @@ import { activePolicy, policyBanner } from "@/lib/clinical-policy";
 import {
   FAILURE_REGISTER, AREA_LABEL, failureCoverage, type FailureArea,
 } from "@/lib/governance/failure-register";
+import { pageCoverage, coverageSummary, COLUMNS } from "@/lib/review/page-coverage";
 
 export const dynamic = "force-dynamic";
 
@@ -60,6 +61,8 @@ export default async function TestingConsole({
   const stats = summarise(notes);
   const matrix = exerciseMatrix();
   const coverage = failureCoverage();
+  const pages = pageCoverage();
+  const pageSummary = coverageSummary(pages);
 
   return (
     <ReviewPage
@@ -129,6 +132,63 @@ export default async function TestingConsole({
         <ul className="measure mt-2 space-y-1 text-sm text-olive">
           {NOT_CAUGHT.map((n) => <li key={n}>{n}</li>)}
         </ul>
+      </section>
+
+      {/* ---------------- The page coverage matrix ---------------- */}
+      {/* P7 asks for twelve things recorded per route. THE INTERESTING ANSWER IS
+          WHICH COLUMNS ARE EMPTY: a matrix assembled by hand would be filled in,
+          because a blank cell looks like an oversight and the person filling it
+          has a deadline. Every column here reads a source that already exists,
+          and a column with no source says so.
+
+          Shown as counts rather than as 143 rows by 13 columns, which nobody
+          would read. What a reviewer needs is which evidence is missing and
+          where. */}
+      <section className="mt-10">
+        <h2 className="type-display text-2xl font-medium">Page coverage</h2>
+        <p className="measure mt-1 text-sm text-olive">
+          {pageSummary.routes} registered routes. Each column below is derived from a source that
+          already exists — the route register, the access inventory, the committed structural
+          baseline, and the automated sweeps that now run over every working route.
+        </p>
+
+        <ul className="mt-4 space-y-1">
+          {COLUMNS.map((col) => {
+            const n = pageSummary.answered[col.label];
+            const all = n === pageSummary.routes;
+            const none = n === 0;
+            return (
+              <li key={col.label} className="flex flex-wrap items-baseline justify-between gap-2 rounded-xl border border-ground/10 bg-linen px-4 py-2 text-sm">
+                <span className="text-ground">{col.label}</span>
+                <span
+                  className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                    all ? "bg-emerald-50 text-emerald-900" : none ? "bg-rose-50 text-rose-900" : "bg-amber-50 text-amber-900"
+                  }`}
+                >
+                  {n} of {pageSummary.routes}
+                </span>
+              </li>
+            );
+          })}
+        </ul>
+
+        {pageSummary.emptyColumns.length > 0 && (
+          <div className="mt-4 rounded-2xl border border-state-caution/40 bg-state-caution-bg/40 px-4 py-3">
+            <p className="measure text-sm text-app-ink">
+              No route can answer: {pageSummary.emptyColumns.join(", ")}.
+            </p>
+            {/* The reason, from the first row: these columns are empty for the
+                same reason on every route, so quoting one is quoting all of
+                them. The first three are writing; the last two are a person. */}
+            <ul className="measure mt-1 space-y-0.5 text-sm text-olive">
+              {(["primaryAction", "presentationStates", "keyboardEvidence", "screenReaderEvidence"] as const)
+                .map((key) => {
+                  const cell = pages[0]?.[key];
+                  return cell && !cell.known ? <li key={key}>{cell.because}</li> : null;
+                })}
+            </ul>
+          </div>
+        )}
       </section>
 
       {/* ---------------- What has been proven to survive failure ---------------- */}

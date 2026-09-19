@@ -8,6 +8,7 @@ import { decisionsAt } from "@/lib/review/decisions";
 import { reviewableSurfaces, copyVersion } from "@/lib/review/clinical-copy";
 import { recordGateSignoff } from "@/lib/review/actions";
 import { resolvedGates } from "@/lib/review/gate-rows";
+import { versionReport } from "@/lib/version";
 import {
   RELEASE_DEFINITION, answerItem, definitionSummary,
 } from "@/lib/review/release-definition";
@@ -116,6 +117,12 @@ export default async function ReleaseGatesPage({
   }));
 
   const scope = releaseScope();
+  // The build this reading was taken against, and the moment it was taken. Both
+  // from the running process rather than from the register's own stamp: the
+  // register records when the ROUTES were reconciled, and a package assembled
+  // today from a build made yesterday is two different dates.
+  const packageCommit = versionReport().commitShort;
+  const readAt = new Date().toISOString().slice(0, 16).replace("T", " ") + " UTC";
   const gateRows: GateRow[] = resolved.map((r) => r.row);
   const open = blockers(gateRows);
   const clear = releaseClear(gateRows);
@@ -132,6 +139,76 @@ export default async function ReleaseGatesPage({
       title="Release gates"
       lede="The eight gates a release has to clear. A sign-off is recorded against the evidence it was shown, so changing the evidence reopens the gate rather than inheriting its approval."
     >
+      {/* ---------------- The acceptance package ---------------- */}
+      {/* P7's exit evidence is "a dated acceptance package", and the date is the
+          load-bearing word: evidence is a reading taken somewhere, at a time,
+          against a build. A package that said what passed without saying which
+          build it read, in which environment, on what day, would be a claim
+          about software in general.
+
+          IT SAYS IT IS NOT ACCEPTED, because it is not. The last line of the
+          release definition is a signature, and an assembled package is the
+          thing that signature is about rather than a substitute for it. */}
+      <Panel
+        title="Acceptance package"
+        className="mb-8"
+        footnote="Assembled at read time from the registers below. Nothing here is a box somebody ticked."
+      >
+        <dl className="grid gap-x-6 gap-y-2 text-sm sm:grid-cols-[11rem_1fr]">
+          <div className="contents">
+            <dt className="text-olive">Scope</dt>
+            <dd className="text-app-ink">{scope.scope}</dd>
+          </div>
+          <div className="contents">
+            <dt className="text-olive">Environment</dt>
+            <dd className="text-app-ink">{scope.environment}</dd>
+          </div>
+          <div className="contents">
+            <dt className="text-olive">Build being read</dt>
+            <dd className="text-app-ink">
+              <span className="font-mono text-xs">
+                {packageCommit ?? "unidentified — evidence read here cannot be tied to a build"}
+              </span>
+              {/* TWO COMMITS ON ONE SCREEN ANSWER TWO QUESTIONS, and a reviewer
+                  comparing them would be comparing a reading to a
+                  reconciliation. This is the build answering right now; the
+                  panel below carries the commit the ROUTE REGISTER was
+                  reconciled at, which is older by design and does not move when
+                  a build does. */}
+              <span className="mt-0.5 block text-xs text-olive">
+                The build serving this page. Not the register reconciliation commit below.
+              </span>
+            </dd>
+          </div>
+          <div className="contents">
+            <dt className="text-olive">Read at</dt>
+            <dd className="text-app-ink">{readAt}</dd>
+          </div>
+          <div className="contents">
+            <dt className="text-olive">Routes in scope</dt>
+            <dd className="text-app-ink">{scope.routeCount}</dd>
+          </div>
+          <div className="contents">
+            <dt className="text-olive">Release definition</dt>
+            <dd className="text-app-ink">
+              {summary.met} answered, {summary.failing} not met, {summary.outstanding} waiting on a person
+            </dd>
+          </div>
+          <div className="contents">
+            <dt className="text-olive">Gates</dt>
+            <dd className="text-app-ink">
+              {open.length === 0 ? "No blocking gate" : `${open.length} blocking`}
+            </dd>
+          </div>
+          <div className="contents">
+            <dt className="text-olive">Accepted</dt>
+            <dd className="text-app-ink">
+              No. The product owner and required reviewers have not signed this scope.
+            </dd>
+          </div>
+        </dl>
+      </Panel>
+
       {error === "reason_required" && (
         <Callout tone="support" label="Not recorded" className="mb-6">
           Blocking a gate or requesting changes needs a reason. Whoever has to resolve it cannot act on a refusal that does not say what is wrong.

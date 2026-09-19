@@ -649,6 +649,13 @@ export const WORK_REGISTER: WorkEntry[] = [
     test: "tests/release-definition.test.ts",
   },
   {
+    id: "governance.page-coverage-matrix",
+    title: "Per-route evidence, derived, with the empty columns named",
+    state: "reachable",
+    code: "src/lib/review/page-coverage.ts#pageCoverage",
+    test: "tests/page-coverage.test.ts",
+  },
+  {
     id: "ops.backups",
     title: "Nightly encrypted off-site backups",
     state: "held",
