@@ -537,19 +537,20 @@ export const WORK_REGISTER: WorkEntry[] = [
   {
     id: "demo.seeded-contact-notes",
     title: "The fabricated population has a contact history",
-    // FOUND BY DRIVING THE FIX. Now that the contact column reads a signed
-    // contact note rather than the member's own check-ins, every one of the
-    // 240 fabricated profiles correctly reads "None recorded" — nobody has
-    // ever contacted them, because the seed writes no contact notes. That is
-    // true and it looks sparse, and a presenter could reasonably read the
-    // empty column as a bug rather than as the honest answer.
-    //
-    // Seeding contact notes would make the demonstration both rich and true.
-    // Filed rather than done: it is seed work, not a correctness fix, and the
-    // column is right either way.
-    state: "proposed",
-    code: null,
-    test: null,
+    state: "reachable",
+    code: "src/lib/demo-population-generator.ts#generatePopulationHistory",
+    test: "tests/demo-population.test.ts",
+    note:
+      "Done, and it turned out to be two records rather than one. The generator has always " +
+      "written `clinician.reviewed` events; nothing wrote the CARE ACTIONS those events describe, " +
+      "so a person's record showed no between-visit work at all. They are written from the same " +
+      "loop now, so the event log and the ledger agree by construction rather than by a second " +
+      "pass. The caseload's contact column reads a DIFFERENT record — a signed contact note — and " +
+      "the demo had none of any kind, so seeding care actions alone would have left that column " +
+      "exactly as empty while filling the record below it. Signed notes are seeded only on the " +
+      "demo clinician's own caseload, because eleven of the twelve fabricated clinicians are " +
+      "persons rather than accounts, and a note signed by somebody who never held that person is " +
+      "worse than an empty column.",
   },
   {
     id: "governance.work-register-screen",

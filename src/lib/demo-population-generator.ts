@@ -10,7 +10,8 @@ import { EVERYDAY_FUNCTION } from "./measures/house";
 import {
   MANIFEST, DATASET_VERSION, seedFor, type ManifestRow, type Archetype,
 } from "./demo-population-manifest";
-import { tenantForRow, clinicianPersonId } from "./demo-population-seed";
+import { tenantForRow, clinicianPersonId, DEMO_CLINICIAN_CODE } from "./demo-population-seed";
+import { DEMO_CLINICIAN_ID } from "./demo-seed";
 import { accessProfileFor } from "./demo-population-disparity";
 import {
   CALENDAR_DAYS, MIN_MEASURES, PERSON_DAYS, demoEpoch, enrolmentDayFor, exposureDaysFor,
@@ -684,6 +685,46 @@ function generateInner(db: Database.Database): GeneratedCounts {
     `INSERT INTO therapy_sessions (id, user_id, tenant_id, module_id, status,
        pre_suds, post_suds, started_at, ended_at)
      VALUES (?, ?, ?, ?, 'completed', ?, ?, ?, ?)`);
+  // The care-time ledger, written from the SAME loop as the clinician events
+  // below (p14's clinician actions).
+  //
+  // THE EVENT LOG SAID A CLINICIAN ACTED AND THE CARE LEDGER SAID NOTHING. The
+  // generator has always written `clinician.reviewed` events with an
+  // operational note; nothing wrote the care actions those events describe, so
+  // the caseload's contact column and a person's record both read empty across
+  // all 240 profiles. That is the state the work register recorded as
+  // `demo.seeded-contact-notes`: true, sparse, and readable as a bug.
+  //
+  // WRITTEN FROM ONE LOOP RATHER THAN A SECOND PASS, because two passes over
+  // the same fabricated history would disagree the first time either moved —
+  // the same failure as a derived cache nobody rebuilds. The event and the care
+  // action share a day, a note and a clinician by construction.
+  // A SIGNED CONTACT NOTE IS A DIFFERENT RECORD FROM A RECORDED ATTEMPT, and
+  // the caseload reads the first one.
+  //
+  // Its "last contact" column asks when somebody from the team was last in
+  // touch and answers it from a SIGNED clinical note of kind `contact` — which
+  // the demo had none of, in any kind, so every one of the 240 profiles read
+  // "None recorded". Seeding care actions alone would have left that column
+  // exactly as empty while filling the record below it, which is the sort of
+  // half-fix that looks like a whole one.
+  //
+  // THE TWO ARE NOT THE SAME THING AND ARE NOT MADE THE SAME. A care action is
+  // workflow: a clinician pressed a button and said what happened. A signed
+  // note is clinical documentation, immutable by trigger, attested by a named
+  // clinician. Fewer people have one, which is true of a real caseload too.
+  const insNote = db.prepare(
+    `INSERT INTO clinical_notes
+       (id, tenant_id, person_id, clinician_id, kind, body, status, signed_at, signed_by,
+        created_at, updated_at)
+     VALUES (?, ?, ?, ?, 'contact', ?, 'signed', ?, ?, ?, ?)
+     ON CONFLICT(id) DO NOTHING`);
+  const insCareAction = db.prepare(
+    `INSERT INTO between_visit_care_actions
+       (id, tenant_id, person_id, clinician_person_id, action_type, note,
+        completed_at, source_surface)
+     VALUES (?, ?, ?, ?, ?, ?, ?, 'demo_seed')
+     ON CONFLICT(id) DO UPDATE SET completed_at = excluded.completed_at`);
   const insEvent = db.prepare(
     `INSERT INTO longitudinal_events
        (id, tenant_id, person_id, event_type, payload_version, payload, actor_id,
@@ -1168,10 +1209,17 @@ function generateInner(db: Database.Database): GeneratedCounts {
     const actionCount = rng.int(1, 8);
     for (let i = 0; i < actionCount; i++) {
       const day = startDay + 3 + Math.floor(rng.next() * Math.max(1, exposureGenerated - 4));
+      // DRAWN ONCE, USED TWICE. Read inline in the payload and again for the
+      // care action, this would draw a SECOND number: the event and the ledger
+      // row would describe different actions, and every value after this point
+      // in the stream would shift — re-dating the whole fabricated population
+      // against a committed baseline. p14's rule is that re-running a version
+      // produces the same values, and an extra draw breaks it silently.
+      const kind = ["review", "message", "note", "assign"][rng.int(0, 3)];
       insEvent.run(
         popId("action", `${row.id}:${i}`), tenant, personId, "clinician.reviewed",
         JSON.stringify({
-          kind: ["review", "message", "note", "assign"][rng.int(0, 3)],
+          kind,
           // Free text from a FIXED dictionary. p28: never ask a language model
           // to invent uncontrolled clinical narratives at runtime.
           note: pick(CLINICIAN_COMMENTS, seed, i),
@@ -1183,6 +1231,56 @@ function generateInner(db: Database.Database): GeneratedCounts {
         clinicianPersonId(row.clinician), "clinician",
         dayStamp(epoch, day, 14), dayStamp(epoch, day, 14), PROV, null, null,
       );
+
+      // THE SAME ACTION, IN THE LEDGER THE SCREENS READ. The event's `kind`
+      // already distinguishes a review from an outreach; it is mapped onto the
+      // closed care-action vocabulary rather than invented, and "message"
+      // becomes a CONTACT ATTEMPT rather than a message, because this build has
+      // no delivery path and a seed that implied one would be seeding a claim.
+      const careAction =
+        kind === "review" ? "review"
+          : kind === "message" ? "contact"
+            : kind === "assign" ? "add_followup"
+              : "record_thought";
+      insCareAction.run(
+        popId("care", `${row.id}:${i}`), tenant, personId,
+        clinicianPersonId(row.clinician), careAction,
+        // WHICH DICTIONARY IS THE p28 SPLIT, not a formatting choice: one
+        // describes what the system did, the other is a professional's
+        // judgement. An outreach and an assignment are both workflow — reading
+        // "Discussed pacing. Member preferred to stay on stabilization" beside
+        // "Follow-up recorded" put a clinical judgement on an administrative
+        // act, which is the confusion the two dictionaries exist to prevent.
+        careAction === "contact" || careAction === "add_followup"
+          ? pick(OPERATIONAL_NOTES, seed, i + 1)
+          : pick(CLINICIAN_COMMENTS, seed, i),
+        dayStamp(epoch, day, 14),
+      );
+      // The signed note, for the outreach that produced one. NOT EVERY
+      // ATTEMPT: a clinician writes a note when something happened worth
+      // recording, and a caseload where every row has been documented is as
+      // false as one where none has. Two attempts in three, deterministically:
+      // a clinician writes up most of what they did and not all of it, and the
+      // column then has people who were contacted, people who were not, and
+      // enough of both that "longest since contact" has something to sort.
+      // ONLY WHERE A CLINICIAN CAN ACTUALLY SIGN ONE. `clinical_notes.clinician_id`
+      // references `users`, and eleven of the twelve fabricated clinicians are
+      // PERSONS rather than accounts — nobody signs in as them, deliberately,
+      // because twelve unused logins are twelve more credentials to rotate.
+      // Attributing their people's notes to the one clinician who does have an
+      // account would be a signature by somebody who never held that person,
+      // which is worse than an empty column.
+      //
+      // So the demo clinician's own caseload has contact history and the other
+      // eleven do not — which is where it matters anyway, since that is the
+      // account a presenter signs in as.
+      if (careAction === "contact" && i % 3 !== 0 && row.clinician === DEMO_CLINICIAN_CODE) {
+        const at = dayStamp(epoch, day, 15);
+        insNote.run(
+          popId("note", `${row.id}:${i}`), tenant, personId, DEMO_CLINICIAN_ID,
+          pick(OPERATIONAL_NOTES, seed, i + 1), at, DEMO_CLINICIAN_ID, at, at,
+        );
+      }
       counts.clinicianActions++;
     }
 

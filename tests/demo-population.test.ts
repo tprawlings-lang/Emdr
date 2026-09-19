@@ -259,3 +259,77 @@ test("every fabricated name says so", async () => {
     "a demo person's name does not say it is fabricated — a screenshot of this is a record");
 });
 
+
+// ---------------------------------------------------------------------------
+// Between-visit history
+// ---------------------------------------------------------------------------
+
+test("the clinician events the generator writes have care actions behind them", async () => {
+  // `generatePopulationHistory` has always written `clinician.reviewed` events
+  // and nothing wrote the CARE ACTIONS those events describe, so a person's
+  // record showed no between-visit work at all across the whole population.
+  // They come out of the same loop now: one draw of the kind, one day, one
+  // note, two rows. Two passes over the same fabricated history would disagree
+  // the first time either moved.
+  getDb();
+  const c = await data();
+
+  const actions = (await c.all(
+    `SELECT action_type, COUNT(*) AS n FROM between_visit_care_actions GROUP BY action_type`, [],
+  )) as { action_type: string; n: number }[];
+  const byKind = new Map(actions.map((a) => [a.action_type, Number(a.n)]));
+
+  assert.ok((byKind.get("contact") ?? 0) > 0, "no contact attempt was seeded, so the record reads empty");
+  assert.ok((byKind.get("review") ?? 0) > 0, "no review was seeded");
+  assert.ok((byKind.get("add_followup") ?? 0) > 0, "no assignment was seeded");
+
+  // AND NOT EVERYBODY. A population where every person has been contacted is
+  // as false as one where nobody has, and "longest since contact" needs both
+  // to have anything to sort.
+  const contacted = (await c.get(
+    "SELECT COUNT(DISTINCT person_id) AS n FROM between_visit_care_actions WHERE action_type = 'contact'", [],
+  )) as { n: number };
+  const profiles = (await c.get(
+    "SELECT COUNT(*) AS n FROM users WHERE email LIKE ?", [MANIFEST_EMAIL_LIKE],
+  )) as { n: number };
+  assert.ok(Number(contacted.n) > 0);
+  assert.ok(
+    Number(contacted.n) < Number(profiles.n),
+    "every profile has a contact attempt, which is not a caseload anybody recognises",
+  );
+});
+
+test("a seeded contact note is signed by a clinician who could have signed it", async () => {
+  // `clinical_notes.clinician_id` references `users`, and eleven of the twelve
+  // fabricated clinicians are PERSONS rather than accounts — nobody signs in as
+  // them. Attributing their people's notes to the one clinician who does have
+  // an account would be a signature by somebody who never held that person,
+  // which is worse than the empty column this was fixing.
+  getDb();
+  const c = await data();
+
+  const notes = (await c.all(
+    `SELECT n.id, n.clinician_id, n.signed_by, n.status, n.kind
+       FROM clinical_notes n WHERE n.kind = 'contact'`, [],
+  )) as { id: string; clinician_id: string; signed_by: string | null; status: string }[];
+  assert.ok(notes.length > 0, "no signed contact note was seeded, so the caseload column is still empty");
+
+  for (const n of notes) {
+    assert.equal(n.status, "signed", "a draft contact note was seeded; the column reads signed notes only");
+    assert.equal(n.signed_by, n.clinician_id, "the note names one clinician and is signed by another");
+    const user = await c.get("SELECT id FROM users WHERE id = ?", [n.clinician_id]);
+    assert.ok(user, `${n.clinician_id} signed a note and has no account`);
+  }
+});
+
+test("the seeded free text passes the identity scan it is now covered by", async () => {
+  // The scan reads `between_visit_care_actions.note` since P6. A seed that
+  // wrote a callback number into a care note would contaminate the
+  // demonstration with something shaped like a real identifier — and the seed
+  // is the one writer big enough to do it 1,000 times.
+  const { runIdentityScan } = await import("../src/lib/demo-identity-scan");
+  const scan = runIdentityScan(getDb());
+  const careNotes = scan.coverage.filter((c) => c.table === "between_visit_care_actions");
+  assert.ok(careNotes.some((c) => c.scanned > 0), "the scan read no care notes, so it is not covering them");
+  assert.equal(scan.severity, "clean", `the seeded text contaminated the population: ${JSON.stringify(scan.findings.slice(0, 2))}`);
+});
