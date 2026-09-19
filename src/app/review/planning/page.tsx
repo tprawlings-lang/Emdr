@@ -81,7 +81,7 @@ export default async function PlanningSignalsPage() {
 
         {tenants.length === 0 ? (
           <Panel title="Not available to this role">
-            <p className="measure text-ground/90">
+            <p className="measure text-ground">
               Planning review is open to the reviewer and demo admin roles. p50 gives the
               organization and payer roles a subset view, and it is not built: every cohort
               declared so far spans several organizations, so there is nothing for a
@@ -122,7 +122,7 @@ export default async function PlanningSignalsPage() {
               footnote="Evidence is frozen at detection. A later reading that disagrees is a new signal under a new dataset version, not an edit to this one."
             >
               {signals.length === 0 ? (
-                <p className="measure text-sm text-ground/90">
+                <p className="measure text-sm text-ground">
                   No rule produced a signal on this dataset. That is an answer, not an empty
                   state — the table below says which rules were evaluated and which could not be.
                 </p>

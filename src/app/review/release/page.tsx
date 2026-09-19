@@ -388,7 +388,7 @@ export default async function ReleaseGatesPage({
                     shown as complete. A required checkbox is the confirmation that
                     still works with scripting unavailable. */}
                 <label className="flex items-start gap-2 text-sm text-olive">
-                  <input type="checkbox" required className="mt-1" />
+                  <input type="checkbox" required className="size-6 shrink-0 mt-1" />
                   <span>
                     I have read the evidence above, and I am recording this against fingerprint{" "}
                     <span className="font-mono text-xs">{fp}</span>.

@@ -81,11 +81,11 @@ export function ReviewPage({
       railHref={REVIEW_RAIL}
       railFooter={
         <>
-          <Link href="/clinician/today" className="block hover:underline">
+          <Link href="/clinician/today" className="inline-flex min-h-6 items-center hover:underline">
             Clinical console
           </Link>
           <form action={logout} className="mt-2">
-            <button className="hover:underline">Sign out</button>
+            <button className="inline-flex min-h-6 items-center hover:underline">Sign out</button>
           </form>
         </>
       }

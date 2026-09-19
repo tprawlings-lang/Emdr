@@ -62,7 +62,7 @@ export default async function MemberClinicalRecord({
         <p className="-mt-2 text-sm text-olive">
           No such member in your organization.
         </p>
-        <Link href="/clinician/caseload" className="mt-4 inline-block text-sm text-olive underline">
+        <Link href="/clinician/caseload" className="mt-4 inline-flex min-h-6 items-center text-sm text-olive underline">
           ← Caseload
         </Link>
       </ClinicianPage>

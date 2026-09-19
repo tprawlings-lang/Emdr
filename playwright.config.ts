@@ -48,10 +48,15 @@ export default defineConfig({
     },
     {
       name: "stateful",
-      // BOTH SPECS WRITE. They run after the read-only projects and in order,
+      // THESE SPECS WRITE. They run after the read-only projects and in order,
       // because a recorded contact and a completed review change the queue the
-      // other one reads.
-      testMatch: /(queue-concurrency|contact-attempts)\.spec\.ts/,
+      // other one reads. The demo clock joined them after turning up as a flake
+      // in a full parallel run and passing every time it was run alone: it
+      // moves a ONE-ROW GLOBAL clock and asserts on what other consoles then
+      // show, so any spec reading a date while it is mid-move sees a different
+      // environment. Serial is not a workaround here — it is what the thing
+      // under test actually is.
+      testMatch: /(queue-concurrency|contact-attempts|demo-clock)\.spec\.ts/,
       dependencies: ["chromium"],
       fullyParallel: false,
       use: { ...devices["Desktop Chrome"] },

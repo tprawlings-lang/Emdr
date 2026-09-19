@@ -185,7 +185,7 @@ export function OrgPage({
       railHref={ORGANIZATION_RAIL}
       railFooter={
         <form action={logout}>
-          <button className="hover:underline">Sign out</button>
+          <button className="inline-flex min-h-6 items-center hover:underline">Sign out</button>
         </form>
       }
       aside={aside}

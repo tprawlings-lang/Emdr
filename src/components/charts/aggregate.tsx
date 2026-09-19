@@ -561,7 +561,14 @@ export function IntervalChart({
         <span className="text-olive">{unit}</span>
       </p>
 
-      <table className="sr-only">
+      {/* THE WRAPPER CARRIES sr-only, NOT THE TABLE. `sr-only` sets width:1px
+          and relies on overflow:hidden to clip — and a table ignores a width
+          smaller than its content, because table-layout:auto treats width as a
+          minimum. So the accessible data table behind this chart was laid out
+          at its natural 617px inside a 320px viewport and pushed the whole page
+          sideways. Found by measuring reflow on every route rather than on the
+          two everybody looks at. */}
+      <div className="sr-only"><table>
         <caption>Modelled {unit} by scenario. Estimates, not observed values.</caption>
         <thead>
           <tr>
@@ -577,7 +584,7 @@ export function IntervalChart({
             </tr>
           ))}
         </tbody>
-      </table>
+      </table></div>
     </div>
   );
 }
@@ -706,7 +713,14 @@ export function Line({ series, unit }: { series: Series[]; unit: string }) {
 
       {/* The accessible representation. A sighted reader gets the shape; every
           reader gets the numbers, including the gaps, stated as gaps. */}
-      <table className="sr-only">
+      {/* THE WRAPPER CARRIES sr-only, NOT THE TABLE. `sr-only` sets width:1px
+          and relies on overflow:hidden to clip — and a table ignores a width
+          smaller than its content, because table-layout:auto treats width as a
+          minimum. So the accessible data table behind this chart was laid out
+          at its natural 617px inside a 320px viewport and pushed the whole page
+          sideways. Found by measuring reflow on every route rather than on the
+          two everybody looks at. */}
+      <div className="sr-only"><table>
         <caption>{series.map((s) => s.name).join(" and ")} by period, in {unit}</caption>
         <thead>
           <tr>
@@ -724,7 +738,7 @@ export function Line({ series, unit }: { series: Series[]; unit: string }) {
             </tr>
           ))}
         </tbody>
-      </table>
+      </table></div>
 
       <ul className="mt-3 flex flex-wrap gap-x-5 gap-y-1">
         {series.map((s, si) => (

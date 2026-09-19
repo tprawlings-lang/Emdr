@@ -203,7 +203,7 @@ export default async function TestingConsole({
                 <th scope="col" className="py-2 font-medium">Notes</th>
               </tr>
             </thead>
-            <tbody className="text-ground/80">
+            <tbody className="text-ground">
               {matrix.map((m) => (
                 <tr key={m.id} data-testid="exercise-row" className="border-b border-ground/10 align-top">
                   <td className="py-2 pr-4 font-medium text-ground">{m.name}</td>
@@ -221,7 +221,7 @@ export default async function TestingConsole({
                   </td>
                   <td className="py-2 pr-4 text-xs">
                     {m.href ? (
-                      <Link href={m.href} className="underline">{m.href}</Link>
+                      <Link href={m.href} className="inline-flex min-h-6 items-center underline">{m.href}</Link>
                     ) : (
                       <span className="text-olive">—</span>
                     )}
@@ -292,10 +292,10 @@ export default async function TestingConsole({
                 <p className="mt-1 text-sm">
                   <span className="text-olive">Requested:</span> {n.requested}
                 </p>
-                <p className="mt-1 text-[11px] text-olive">
+                <p className="mt-1 text-xs text-olive">
                   {n.reviewerName} ({n.reviewerRole}) · {n.createdAt} · policy{" "}
-                  <code className="text-[10px]">{n.policyVersion ?? "—"}</code> · safety config{" "}
-                  <code className="text-[10px]">{n.configVersion ?? "—"}</code>
+                  <code className="text-xs">{n.policyVersion ?? "—"}</code> · safety config{" "}
+                  <code className="text-xs">{n.configVersion ?? "—"}</code>
                 </p>
 
                 <form action={setNoteStatusAction} className="mt-2 flex flex-wrap items-center gap-2">
@@ -333,7 +333,7 @@ export default async function TestingConsole({
           {show === "markdown" && (
             <pre
               data-testid="notes-markdown"
-              className="mt-3 max-h-96 overflow-auto rounded-2xl border border-ground/15 bg-ivory p-4 text-[11px]"
+              className="mt-3 max-h-96 overflow-auto rounded-2xl border border-ground/15 bg-ivory p-4 text-xs"
             >
               {toMarkdown(notes)}
             </pre>

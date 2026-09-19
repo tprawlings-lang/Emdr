@@ -47,7 +47,7 @@ export function OpeningQuestions({
                 <dd className="measure text-sm text-ground/90" data-trace="definition">{a.definition}</dd>
               </dl>
               <p className="mt-2 text-xs">
-                <Link href={a.evidenceHref} className="text-olive underline">{a.evidenceLabel}</Link>
+                <Link href={a.evidenceHref} className="inline-flex min-h-6 items-center text-olive underline">{a.evidenceLabel}</Link>
               </p>
             </details>
           </li>

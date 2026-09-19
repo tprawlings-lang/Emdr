@@ -9,7 +9,7 @@
 import type { VisualBaseline } from "./visual-baseline";
 
 export const VISUAL_BASELINE: VisualBaseline = {
-  "capturedAt": "2026-09-18T19:12:12.669Z",
+  "capturedAt": "2026-09-19T03:36:41.969Z",
   "conditions": "1280x900 with motion frozen, signed in per role, against a production build over the hermetic e2e seed (rm -rf .e2e-data && npm run demo -- reset && npm run start) — the same environment tests/e2e/visual-baseline.spec.ts compares against",
   "screens": [
     {
@@ -408,8 +408,6 @@ export const VISUAL_BASELINE: VisualBaseline = {
           "rgb(255, 253, 248)"
         ],
         "text": [
-          "oklab(0.336 -0.018 0.007 / 0.6)",
-          "oklab(0.336 -0.018 0.007 / 0.8)",
           "rgb(23, 58, 50)",
           "rgb(47, 58, 51)",
           "rgb(55, 93, 112)",
@@ -465,10 +463,6 @@ export const VISUAL_BASELINE: VisualBaseline = {
           "rgb(255, 253, 248)"
         ],
         "text": [
-          "oklab(0.336 -0.018 0.007 / 0.5)",
-          "oklab(0.336 -0.018 0.007 / 0.6)",
-          "oklab(0.336 -0.018 0.007 / 0.7)",
-          "oklab(0.336 -0.018 0.007 / 0.8)",
           "rgb(122, 81, 16)",
           "rgb(23, 58, 50)",
           "rgb(47, 58, 51)",
@@ -526,10 +520,6 @@ export const VISUAL_BASELINE: VisualBaseline = {
           "rgb(255, 253, 248)"
         ],
         "text": [
-          "oklab(0.336 -0.018 0.007 / 0.5)",
-          "oklab(0.336 -0.018 0.007 / 0.6)",
-          "oklab(0.336 -0.018 0.007 / 0.7)",
-          "oklab(0.336 -0.018 0.007 / 0.8)",
           "rgb(23, 58, 50)",
           "rgb(47, 58, 51)",
           "rgb(55, 93, 112)",

@@ -82,7 +82,7 @@ export function RecentActivityFeed({ activity }: { activity: RecentActivity }) {
                   {i.detail && <p className="measure mt-0.5 text-xs text-olive">{i.detail}</p>}
                   {i.href && (
                     <p className="mt-1 text-xs">
-                      <Link href={i.href} className="text-olive underline">Open it</Link>
+                      <Link href={i.href} className="inline-flex min-h-6 items-center text-olive underline">Open it</Link>
                     </p>
                   )}
                 </li>

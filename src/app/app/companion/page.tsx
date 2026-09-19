@@ -75,7 +75,7 @@ export default async function CompanionPage({
                   <li key={t.id}>{t.trigger_name}</li>
                 ))}
               </ul>
-              <Link href="/app/settings/memory" className="mt-2 inline-block text-xs underline">
+              <Link href="/app/settings/memory" className="mt-2 inline-flex min-h-6 items-center text-xs underline">
                 Memory controls
               </Link>
             </div>
@@ -88,7 +88,7 @@ export default async function CompanionPage({
                   <li key={t}>{t}</li>
                 ))}
               </ul>
-              <Link href="/app/ground" className="mt-2 inline-block text-xs underline">
+              <Link href="/app/ground" className="mt-2 inline-flex min-h-6 items-center text-xs underline">
                 Ground now
               </Link>
             </div>

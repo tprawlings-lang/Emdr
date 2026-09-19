@@ -90,9 +90,9 @@ export default async function AccessEnforcementPage() {
               <div key={s.n} className="rounded-xl border border-ground/10 bg-app-surface p-4">
                 <div className="flex flex-wrap items-baseline justify-between gap-2">
                   <p className="text-sm font-semibold">
-                    <span className="tabular-nums text-ground/50">{s.n}.</span> {s.name}
+                    <span className="tabular-nums text-olive">{s.n}.</span> {s.name}
                   </p>
-                  <span className="text-xs text-ground/60">
+                  <span className="text-xs text-olive">
                     {s.proof === "behaviourally"
                       ? "no single mechanism to find — proven by attack"
                       : gaps === 0
@@ -104,16 +104,16 @@ export default async function AccessEnforcementPage() {
                 </div>
                 <dl className="mt-2 space-y-1 text-xs">
                   <div className="grid gap-1 sm:grid-cols-[9rem_1fr] sm:gap-3">
-                    <dt className="text-ground/60">Check</dt>
+                    <dt className="text-olive">Check</dt>
                     <dd>{s.check}</dd>
                   </div>
                   <div className="grid gap-1 sm:grid-cols-[9rem_1fr] sm:gap-3">
-                    <dt className="text-ground/60">On failure</dt>
+                    <dt className="text-olive">On failure</dt>
                     <dd>{s.onFailure}</dd>
                   </div>
                   {s.evidence.length > 0 && (
                     <div className="grid gap-1 sm:grid-cols-[9rem_minmax(0,1fr)] sm:gap-3">
-                      <dt className="text-ground/60">Evidence</dt>
+                      <dt className="text-olive">Evidence</dt>
                       {/* `minmax(0,1fr)` and `min-w-0`, the same as the row
                           below: a bare `1fr` track keeps its automatic minimum
                           width, so a long list of markers runs off the right
@@ -125,7 +125,7 @@ export default async function AccessEnforcementPage() {
                     </div>
                   )}
                   <div className="grid gap-1 sm:grid-cols-[9rem_minmax(0,1fr)] sm:gap-3">
-                    <dt className="text-ground/60">Attacked by</dt>
+                    <dt className="text-olive">Attacked by</dt>
                     <dd className="min-w-0 break-words">
                       {s.attackedBy.map((t) => <code key={t} className="mr-2">{t}</code>)}
                     </dd>
@@ -153,7 +153,7 @@ export default async function AccessEnforcementPage() {
         footnote="A route here owes a step and does not show it at the depth this looks. That is either a real gap or a mechanism further down than one call — both worth a reviewer's attention, neither a verdict."
       >
         {withGaps.length === 0 ? (
-          <p className="measure text-sm text-ground/70">
+          <p className="measure text-sm text-olive">
             Every protected route shows every step it owes. That is not the same as being
             secure, and an empty panel is the moment that is easiest to forget: a static
             walk proves a guard is called, never that it is correct. The open questions
@@ -171,12 +171,12 @@ export default async function AccessEnforcementPage() {
                   <p className="text-sm font-semibold">
                     Step {s.n} — {s.name}
                   </p>
-                  <p className="mt-1 text-xs text-ground/70">
+                  <p className="mt-1 text-xs text-olive">
                     {routes.length === 1
                       ? "1 route owes this and does not show it."
                       : `${routes.length} routes owe this and do not show it.`}
                   </p>
-                  <p className="mt-2 break-words text-xs text-ground/70">
+                  <p className="mt-2 break-words text-xs text-olive">
                     {routes.map((r) => <code key={r.path} className="mr-2">{r.path}</code>)}
                   </p>
                 </div>
@@ -195,9 +195,9 @@ export default async function AccessEnforcementPage() {
             <div key={`${e.path}-${e.step}`} className="rounded-xl border border-ground/10 bg-app-surface p-4">
               <p className="text-sm">
                 <code>{e.path}</code>{" "}
-                <span className="text-ground/60">does not owe step {e.step}</span>
+                <span className="text-olive">does not owe step {e.step}</span>
               </p>
-              <p className="measure mt-1 text-xs text-ground/80">{e.reason}</p>
+              <p className="measure mt-1 text-xs text-ground">{e.reason}</p>
             </div>
           ))}
         </div>
@@ -212,7 +212,7 @@ export default async function AccessEnforcementPage() {
             <caption className="sr-only">
               Each protected route against the eight steps of the permission and consent sequence
             </caption>
-            <thead className="uppercase text-ground/60">
+            <thead className="uppercase text-olive">
               <tr>
                 <th scope="col" className="px-2 py-2">Route</th>
                 {ACCESS_STEPS.map((s) => (
@@ -252,7 +252,7 @@ export default async function AccessEnforcementPage() {
                           : isExempt ? (exemption(r.path, s.n)?.reason ?? "") : undefined;
                         return (
                           <td key={s.n} className="px-2 py-1.5 text-center" title={title}>
-                            <span className={label === "not shown" ? "font-medium text-state-serious" : "text-ground/70"}>
+                            <span className={label === "not shown" ? "font-medium text-state-serious" : "text-olive"}>
                               {label}
                             </span>
                           </td>

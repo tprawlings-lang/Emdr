@@ -151,13 +151,15 @@ export const WORK_REGISTER: WorkEntry[] = [
   {
     id: "experience.review-console-legibility",
     title: "The reviewer console meets the same legibility floor as the clinical surfaces",
-    state: "proposed",
-    // Stated as null rather than omitted: the type makes both keys required
-    // and nullable, so "there is no code yet" is something an author writes
-    // down rather than something a reader infers from a missing field.
-    code: null,
-    test: null,
-    note: "About 30 sub-12px and faded uses across /review. A different audience and a different job, so it was scoped out of the first pass rather than swept blind.",
+    state: "reachable",
+    code: "src/lib/experience/quality.ts#opacityFloorFor",
+    test: "tests/design-consistency.test.ts",
+    note:
+      "Done, and the estimate was low. Pointing an automated accessibility scan at the signed-in " +
+      "product returned 179 serious contrast violations across five reviewer screens — the faded " +
+      "ink was not a legibility preference, it was a conformance failure. Both design rules now " +
+      "cover /review rather than excluding it, and the opacity rule gained a per-token floor: " +
+      "olive is already the secondary ink, and text-olive/80 computes to 4.09:1 on ivory.",
   },
   {
     id: "experience.page-templates",

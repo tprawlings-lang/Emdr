@@ -165,7 +165,7 @@ export default function VoiceInput({
         {status}
       </p>
 
-      <p className="mt-1 text-xs text-olive/80">
+      <p className="mt-1 text-xs text-olive">
         Your device does the listening — Steady receives only the words you keep, never a
         recording. You can always type instead.
       </p>

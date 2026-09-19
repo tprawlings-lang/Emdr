@@ -396,7 +396,14 @@ export function Slope({
       </p>
 
       {/* The accessible reading. The dots are a shape; this is the data. */}
-      <table className="sr-only">
+      {/* THE WRAPPER CARRIES sr-only, NOT THE TABLE. `sr-only` sets width:1px
+          and relies on overflow:hidden to clip — and a table ignores a width
+          smaller than its content, because table-layout:auto treats width as a
+          minimum. So the accessible data table behind this chart was laid out
+          at its natural 617px inside a 320px viewport and pushed the whole page
+          sideways. Found by measuring reflow on every route rather than on the
+          two everybody looks at. */}
+      <div className="sr-only"><table>
         <caption>{unit} at open and close, per session</caption>
         <thead>
           <tr><th scope="col">Session</th><th scope="col">At open</th><th scope="col">At close</th></tr>
@@ -410,7 +417,7 @@ export function Slope({
             </tr>
           ))}
         </tbody>
-      </table>
+      </table></div>
     </div>
   );
 }

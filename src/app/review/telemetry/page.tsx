@@ -88,7 +88,7 @@ export default async function TelemetryPage() {
               <div key={s.name} className="rounded-xl border border-ground/10 bg-app-surface p-4">
                 <div className="flex flex-wrap items-baseline justify-between gap-2">
                   <code className="text-sm font-semibold">{s.name}</code>
-                  <span className="text-xs text-ground/60">
+                  <span className="text-xs text-olive">
                     {noSurface
                       ? "no surface records this yet"
                       : n === 0
@@ -96,26 +96,26 @@ export default async function TelemetryPage() {
                         : `${n} recorded`}
                   </span>
                 </div>
-                <p className="mt-1 text-sm text-ground/80">{s.purpose}</p>
-                <p className="mt-1 text-xs text-ground/70">
+                <p className="mt-1 text-sm text-ground">{s.purpose}</p>
+                <p className="mt-1 text-xs text-olive">
                   <span className="font-semibold">Privacy rule:</span> {s.privacyRule}
                 </p>
                 <dl className="mt-3 space-y-1">
                   {s.fields.map((f) => (
                     <div key={f.name} className="grid gap-1 text-xs sm:grid-cols-[12rem_1fr] sm:gap-3">
-                      <dt><code>{f.name}</code> <span className="text-ground/50">({f.kind})</span></dt>
-                      <dd className="text-ground/70">{KIND_MEANING[f.kind]}</dd>
+                      <dt><code>{f.name}</code> <span className="text-olive">({f.kind})</span></dt>
+                      <dd className="text-olive">{KIND_MEANING[f.kind]}</dd>
                     </div>
                   ))}
                 </dl>
                 {s.recordedFrom.length > 0 && (
-                  <p className="mt-2 text-xs text-ground/60">
+                  <p className="mt-2 text-xs text-olive">
                     Recorded from{" "}
                     {s.recordedFrom.map((f) => <code key={f} className="mr-2">{f}</code>)}
                   </p>
                 )}
                 {s.deviation && (
-                  <p className="mt-2 rounded-lg bg-moss/40 p-3 text-xs text-ground/80">
+                  <p className="mt-2 rounded-lg bg-moss/40 p-3 text-xs text-ground">
                     <span className="font-semibold">Not carried here:</span> {s.deviation}
                   </p>
                 )}
@@ -136,11 +136,11 @@ export default async function TelemetryPage() {
             return (
               <div key={q.question} className="rounded-xl border border-ground/10 bg-app-surface p-4">
                 <p className="text-sm font-semibold">{q.question}</p>
-                <p className="mt-1 text-xs text-ground/70">
+                <p className="mt-1 text-xs text-olive">
                   Answered by{" "}
                   {q.answeredBy.map((s) => <code key={s} className="mr-2">{s}</code>)}
                 </p>
-                <p className="mt-2 text-xs text-ground/80">
+                <p className="mt-2 text-xs text-ground">
                   {answerable
                     ? missing.length === 0
                       ? "Every signal behind this question has fired in this environment."
@@ -158,14 +158,14 @@ export default async function TelemetryPage() {
         footnote="Field values only. There is no person to resolve on any of these rows, by construction."
       >
         {recent.length === 0 ? (
-          <p className="text-sm text-ground/70">
+          <p className="text-sm text-olive">
             Nothing recorded in this environment yet. Reaching a decision surface or
             completing a queue row writes the first rows.
           </p>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
-              <thead className="text-xs uppercase text-ground/60">
+              <thead className="text-xs uppercase text-olive">
                 <tr>
                   <th scope="col" className="px-3 py-2">Signal</th>
                   <th scope="col" className="px-3 py-2">Actor role</th>
@@ -178,12 +178,12 @@ export default async function TelemetryPage() {
                   <tr key={`${r.signal}-${r.createdAt}-${i}`} className={i % 2 === 1 ? "bg-moss/40" : ""}>
                     <td className="px-3 py-2"><code className="text-xs">{r.signal}</code></td>
                     <td className="px-3 py-2 text-xs">{r.actorRole ?? "—"}</td>
-                    <td className="px-3 py-2 text-xs text-ground/70">
+                    <td className="px-3 py-2 text-xs text-olive">
                       {Object.keys(r.fields).length === 0
                         ? "—"
                         : Object.entries(r.fields).map(([k, v]) => `${k}=${v}`).join(" · ")}
                     </td>
-                    <td className="px-3 py-2 text-xs text-ground/60">{r.createdAt}</td>
+                    <td className="px-3 py-2 text-xs text-olive">{r.createdAt}</td>
                   </tr>
                 ))}
               </tbody>
@@ -193,12 +193,12 @@ export default async function TelemetryPage() {
       </Panel>
 
       <Panel title="What no signal may name">
-        <p className="text-sm text-ground/80">
+        <p className="text-sm text-ground">
           A field whose name matches any of these is refused by the catalog,
           whatever its kind — the two things kept out of every row are a
           person&apos;s identity and a person&apos;s words:
         </p>
-        <p className="mt-2 break-words text-xs text-ground/70">
+        <p className="mt-2 break-words text-xs text-olive">
           <code>{FORBIDDEN_FIELD_NAME.source.replace(/\|/g, " · ")}</code>
         </p>
       </Panel>

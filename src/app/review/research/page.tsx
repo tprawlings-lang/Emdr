@@ -140,7 +140,7 @@ export default async function ResearchWorkspacePage({
             />
           </label>
           <label className="flex items-start gap-2 text-sm text-olive">
-            <input type="checkbox" required className="mt-1" />
+            <input type="checkbox" required className="size-6 shrink-0 mt-1" />
             <span>
               I am requesting cohort-level counts at registry version <span className="font-mono text-xs">{version}</span>.
               This creates a signed, audited disclosure record.

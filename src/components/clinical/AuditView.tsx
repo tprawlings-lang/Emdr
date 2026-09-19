@@ -71,7 +71,7 @@ function EventName({ type }: { type: string }) {
           raw key
         </span>
       )}
-      <code className="mt-0.5 block text-xs text-olive/90">{t.key}</code>
+      <code className="mt-0.5 block text-xs text-olive">{t.key}</code>
     </>
   );
 }

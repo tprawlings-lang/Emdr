@@ -45,7 +45,7 @@ export function MemberPage({
         // and a member who cannot leave an account on a shared computer is a
         // privacy problem, not a layout one.
         <form action={logout}>
-          <button className="hover:underline">Sign out</button>
+          <button className="inline-flex min-h-6 items-center hover:underline">Sign out</button>
         </form>
       }
       aside={aside}

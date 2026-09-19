@@ -144,7 +144,7 @@ export default async function ClinicianPopulationPage() {
                     <td className="py-2.5">
                       <Link
                         href={`/clinician/member/${r.personId}`}
-                        className="text-state-info underline"
+                        className="inline-flex min-h-6 items-center text-state-info underline"
                       >
                         {r.name}
                       </Link>
@@ -199,7 +199,7 @@ function Group({
         <ul className="mt-1 flex flex-wrap gap-x-3 gap-y-1">
           {rows.map((r) => (
             <li key={r.personId} data-testid="group-member">
-              <Link href={`/clinician/member/${r.personId}`} className="text-sm text-state-info underline">
+              <Link href={`/clinician/member/${r.personId}`} className="inline-flex min-h-6 items-center text-sm text-state-info underline">
                 {r.name}
               </Link>
             </li>

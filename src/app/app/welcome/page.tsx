@@ -76,7 +76,7 @@ export default async function WelcomePage() {
         Continue
       </Link>
       <p className="mt-3 text-center text-sm">
-        <Link href="/crisis" className="text-state-info underline">
+        <Link href="/crisis" className="inline-flex min-h-6 items-center text-state-info underline">
           I need support right now
         </Link>
       </p>

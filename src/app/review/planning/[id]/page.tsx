@@ -151,7 +151,7 @@ export default async function PlanningSignalPage({
           footnote="Lineage references point at the metric run behind each number. The full definitions and history are at the lineage endpoint below."
         >
           {signal.metric_refs.length === 0 ? (
-            <p className="measure text-sm text-ground/90">
+            <p className="measure text-sm text-ground">
               This rule reads no metric run — its inputs are operational counts rather than a
               computed metric, so there is no lineage reference to follow.
             </p>
@@ -176,7 +176,7 @@ export default async function PlanningSignalPage({
           footnote="Stratified comparisons are level 2 on p36's ladder — observed within these strata. A difference that shrinks inside a stratum is an observation about that stratum, not a demonstration that it is the cause."
         >
           {explanations.length === 0 ? (
-            <p className="measure text-sm text-ground/90">
+            <p className="measure text-sm text-ground">
               This signal&rsquo;s cohort is no longer in the registry, so the alternatives cannot be
               recomputed against it.
             </p>
@@ -238,7 +238,7 @@ export default async function PlanningSignalPage({
           footnote="Supplied by the server after policy evaluation. The action posted back is re-checked against this same computation, so a request for an action that was not offered is refused rather than performed."
         >
           {signal.allowed_actions.length === 0 ? (
-            <p className="measure text-sm text-ground/90">
+            <p className="measure text-sm text-ground">
               No action is available to this role in this state. {state.state === "retired"
                 ? "A retired signal is read only: p35 permits no reactivation, only a new version."
                 : "p50 gives this role read access to planning output and not its lifecycle."}
@@ -304,7 +304,7 @@ export default async function PlanningSignalPage({
           footnote="Every view, comment, state change and lineage fetch is written to the hash-chained audit log. This table is the state changes, readable without granting access to the log itself."
         >
           {history.length === 0 ? (
-            <p className="measure text-sm text-ground/90">
+            <p className="measure text-sm text-ground">
               No state change has been recorded. The signal is in {signal.state.replace(/_/g, " ")},
               which it entered when the rule fired.
             </p>

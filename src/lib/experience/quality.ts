@@ -128,3 +128,25 @@ export const NEVER_IMPLY: Record<AbsenceState, string> = {
   forbidden: "a missing route",
   expired: "approved access",
 };
+
+/**
+ * How far a text colour may be faded before it stops being legible.
+ *
+ * IN src RATHER THAN IN THE ASSERTION, for the reason this file already holds
+ * the touch-target numbers: a product decision that exists only inside a test
+ * is one nobody can find when they are deciding whether to fade something.
+ *
+ * PER TOKEN, BECAUSE ONE NUMBER WAS WRONG. Eighty was measured against `ground`
+ * on a light surface, where a genuinely secondary note still clears its pair
+ * with room. `olive` is ALREADY the secondary ink, so fading it fades twice:
+ * `text-olive/80` computes to 4.09:1 on ivory, which axe reports as a serious
+ * violation at any size under 18pt. A hundred means the modifier is refused
+ * outright on that token.
+ */
+export const TEXT_OPACITY_FLOOR: Record<string, number> = { olive: 100 };
+export const TEXT_OPACITY_FLOOR_DEFAULT = 80;
+
+/** The floor for a colour token, by name. */
+export function opacityFloorFor(token: string): number {
+  return TEXT_OPACITY_FLOOR[token] ?? TEXT_OPACITY_FLOOR_DEFAULT;
+}

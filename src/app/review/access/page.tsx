@@ -155,7 +155,7 @@ export default async function AccessRequestsPage({
                           <textarea name="rationale" rows={2} maxLength={1000} className="w-full rounded-xl border border-ground/20 bg-app-surface px-3 py-2" />
                         </label>
                         <label className="flex items-start gap-2 text-sm text-olive">
-                          <input type="checkbox" required className="mt-1" />
+                          <input type="checkbox" required className="size-6 shrink-0 mt-1" />
                           <span>
                             I am granting the <strong>{r.requestedRole}</strong> role until{" "}
                             {new Date(r.expiresAt).toLocaleDateString()}, for the stated purpose only.

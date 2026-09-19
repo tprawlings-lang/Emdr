@@ -164,7 +164,7 @@ export default function LiveVoice({
       <p role="status" aria-live="polite" className="mt-1 text-xs text-olive">
         {status}
       </p>
-      <p className="mt-1 text-xs text-olive/80">
+      <p className="mt-1 text-xs text-olive">
         When listening is on, speak naturally and pause — you don&apos;t need to press anything. Your
         device does the listening; only text is sent. You can stop any time.
       </p>

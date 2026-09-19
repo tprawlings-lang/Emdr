@@ -16,6 +16,7 @@
 // diff and obvious on screen.
 
 import { strict as assert } from "node:assert";
+import { opacityFloorFor } from "../src/lib/experience/quality";
 import test from "node:test";
 import fs from "node:fs";
 import path from "node:path";
@@ -165,6 +166,13 @@ test("no shared surface wrapper renders block children inside an inline element"
 // Legibility: the 17 September handoff's metadata rule
 // ---------------------------------------------------------------------------
 
+// THE REVIEWER CONSOLE IS NO LONGER EXCLUDED FROM EITHER RULE. It was, with a
+// reason — a different audience, a different job, and most of the remaining
+// uses — and the exclusion held until an automated accessibility scan was
+// pointed at the signed-in product and returned 179 serious contrast
+// violations across five reviewer screens. A rule that skips the place its
+// violations live is a rule that reports the rest of the codebase.
+
 test("no text on a clinical or member surface is shrunk below the type scale", () => {
   // "Keep routine metadata readable. Do not make it tiny or excessively muted."
   //
@@ -179,11 +187,6 @@ test("no text on a clinical or member surface is shrunk below the type scale", (
   // not a particular number.
   const offenders: string[] = [];
   for (const f of FILES) {
-    // The reviewer console is a different audience and a different job, and it
-    // carries most of the remaining uses. Out of scope here deliberately, and
-    // recorded as `experience.review-console-legibility` rather than quietly
-    // skipped.
-    if (rel(f).startsWith("src/app/review")) continue;
     const body = prose(fs.readFileSync(f, "utf8"));
     for (const m of body.matchAll(/text-\[(\d+)px\]/g)) {
       if (Number(m[1]) < 12) offenders.push(`${rel(f)}: ${m[0]}`);
@@ -203,10 +206,16 @@ test("no text on a clinical or member surface is faded below legibility", () => 
   // outright would ban a legitimate hover and border use of the same syntax.
   const offenders: string[] = [];
   for (const f of FILES) {
-    if (rel(f).startsWith("src/app/review")) continue;
     const body = prose(fs.readFileSync(f, "utf8"));
-    for (const m of body.matchAll(/\btext-[a-z][a-z-]*\/(\d+)\b/g)) {
-      if (Number(m[1]) < 80) offenders.push(`${rel(f)}: ${m[0]}`);
+    for (const m of body.matchAll(/\btext-([a-z][a-z-]*)\/(\d+)\b/g)) {
+      // OLIVE IS ALREADY THE SECONDARY TOKEN, and fading it fades twice. The
+      // 80% line was measured against `ground` on a light surface, where a
+      // secondary note still clears its pair; `text-olive/80` computes to
+      // 4.09:1 on ivory, which axe reports as a serious violation at any size
+      // under 18pt. Found by pointing an automated scan at the signed-in
+      // product rather than by reading the rule again.
+      const floor = opacityFloorFor(m[1]);
+      if (Number(m[2]) < floor) offenders.push(`${rel(f)}: ${m[0]}`);
     }
   }
   assert.deepEqual(offenders, [], `text faded below 80%:\n  ${offenders.join("\n  ")}`);

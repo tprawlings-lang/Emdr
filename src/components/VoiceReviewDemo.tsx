@@ -30,7 +30,7 @@ export default function VoiceReviewDemo() {
           className="mt-1 w-full rounded-lg border border-ground/15 bg-ivory px-3 py-2 text-sm"
         />
       </label>
-      <p className="mt-1 text-[11px] text-olive/80">
+      <p className="mt-1 text-xs text-olive">
         Preview uses your browser’s built-in speech recognition. In the shipped mobile app,
         recognition runs on-device and no audio leaves the phone (VOICE_INPUT_ON_DEVICE).
       </p>

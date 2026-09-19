@@ -86,19 +86,19 @@ export default async function PerformanceBudgetsPage() {
               <div key={cls} className="rounded-xl border border-ground/10 bg-app-surface p-4">
                 <div className="flex flex-wrap items-baseline justify-between gap-2">
                   <p className="text-sm font-semibold capitalize">{cls}</p>
-                  <span className="text-xs text-ground/60">
+                  <span className="text-xs text-olive">
                     p{b.percentile} under <span className="tabular-nums">{b.ttfbMs} ms</span>
                   </span>
                 </div>
-                <p className="measure mt-1 text-xs text-ground/80">{b.why}</p>
+                <p className="measure mt-1 text-xs text-ground">{b.why}</p>
                 {rows.length === 0 ? (
-                  <p className="mt-2 text-xs text-ground/60">
+                  <p className="mt-2 text-xs text-olive">
                     No surface of this class was measured in the last run, so this budget is
                     declared and unverified.
                   </p>
                 ) : (
                   <table className="mt-3 w-full text-left text-xs">
-                    <thead className="uppercase text-ground/60">
+                    <thead className="uppercase text-olive">
                       <tr>
                         <th scope="col" className="py-1">Surface</th>
                         <th scope="col" className="py-1 text-right">p95</th>
@@ -114,11 +114,11 @@ export default async function PerformanceBudgetsPage() {
                           <td className={`py-1 text-right tabular-nums ${m.withinBudget ? "" : "font-medium text-state-serious"}`}>
                             {m.p95Ms} ms
                           </td>
-                          <td className="py-1 text-right tabular-nums text-ground/60">{m.samples[0]} ms</td>
-                          <td className="py-1 text-right tabular-nums text-ground/60">
+                          <td className="py-1 text-right tabular-nums text-olive">{m.samples[0]} ms</td>
+                          <td className="py-1 text-right tabular-nums text-olive">
                             {m.samples[m.samples.length - 1]} ms
                           </td>
-                          <td className="py-1 text-right tabular-nums text-ground/60">{m.samples.length}</td>
+                          <td className="py-1 text-right tabular-nums text-olive">{m.samples.length}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -131,7 +131,7 @@ export default async function PerformanceBudgetsPage() {
       </Panel>
 
       <Panel title="What this does not measure">
-        <ul className="measure space-y-2 text-sm text-ground/80">
+        <ul className="measure space-y-2 text-sm text-ground">
           <li>
             <span className="font-medium">Anything a browser does after the response.</span>{" "}
             The budget is time to the server&apos;s first byte, so a page that arrives fast and

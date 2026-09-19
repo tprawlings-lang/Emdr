@@ -130,7 +130,7 @@ export function AppShell({
                 if (!href) {
                   return (
                     <li key={r.slug}>
-                      <span className={`${base} cursor-default text-olive/60`} aria-disabled>
+                      <span className={`${base} cursor-default text-olive`} aria-disabled>
                         {r.label}
                       </span>
                     </li>

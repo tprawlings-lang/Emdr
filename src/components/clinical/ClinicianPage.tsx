@@ -85,11 +85,11 @@ function LayerNav({ layer, here }: { layer: RailSlug; here?: string }) {
 export function ClinicianRailFooter() {
   return (
     <>
-      <Link href="/review/audit" className="block hover:underline">
+      <Link href="/review/audit" className="inline-flex min-h-6 items-center hover:underline">
         Review console
       </Link>
       <form action={logout} className="mt-2">
-        <button className="hover:underline">Sign out</button>
+        <button className="inline-flex min-h-6 items-center hover:underline">Sign out</button>
       </form>
     </>
   );

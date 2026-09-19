@@ -59,7 +59,7 @@ export default async function AuditConsolePage() {
 
       <ChainBanner chain={feed.chain} />
 
-      <p className="mt-3 rounded-2xl border border-ground/15 bg-linen px-4 py-3 text-xs text-ground/80">
+      <p className="mt-3 rounded-2xl border border-ground/15 bg-linen px-4 py-3 text-xs text-ground">
         {scopeNote()}
         {feed.outOfScope > 0 && (
           <>
@@ -74,7 +74,7 @@ export default async function AuditConsolePage() {
           A trace's whole value is that somebody can check it later, and a
           banner that says the chain verified helps nobody once the table has
           been pasted into a document. This line travels with the rows. */}
-      <p className="mt-3 font-mono text-[11px] text-olive/70">
+      <p className="mt-3 font-mono text-xs text-olive">
         {feed.meta.projectionVersion} · generated {feed.meta.generatedAt.slice(0, 19).replace("T", " ")} ·{" "}
         {feed.meta.sourceWatermark
           ? `newest entry ${feed.meta.sourceWatermark}`

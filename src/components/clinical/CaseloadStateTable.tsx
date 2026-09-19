@@ -238,7 +238,7 @@ export function CaseloadStateTable({ state }: { state: CaseloadState }) {
                   <p key={i} className="measure text-olive">{l}</p>
                 ))}
                 <p className="mt-1">
-                  <Link href={`/clinician/member/${r.personId}/goals`} className="underline">
+                  <Link href={`/clinician/member/${r.personId}/goals`} className="inline-flex min-h-6 items-center underline">
                     Open the goals
                   </Link>
                 </p>
@@ -252,7 +252,7 @@ export function CaseloadStateTable({ state }: { state: CaseloadState }) {
                   record, never a claim about cause.
                 </p>
                 <p className="mt-1">
-                  <Link href={`/clinician/member/${r.personId}/responses`} className="underline">
+                  <Link href={`/clinician/member/${r.personId}/responses`} className="inline-flex min-h-6 items-center underline">
                     Open the response record
                   </Link>
                 </p>
@@ -279,7 +279,7 @@ export function CaseloadStateTable({ state }: { state: CaseloadState }) {
                       readings, never a prediction.
                     </p>
                     <p className="mt-1">
-                      <Link href={`/clinician/member/${r.personId}/trajectory`} className="underline">
+                      <Link href={`/clinician/member/${r.personId}/trajectory`} className="inline-flex min-h-6 items-center underline">
                         Open the trajectory
                       </Link>
                     </p>
@@ -301,7 +301,7 @@ export function CaseloadStateTable({ state }: { state: CaseloadState }) {
                     </p>
                     <p className="text-olive">Computed under policy {state.columnVersions.load}.</p>
                     <p className="mt-1">
-                      <Link href={`/clinician/member/${r.personId}/load`} className="underline">
+                      <Link href={`/clinician/member/${r.personId}/load`} className="inline-flex min-h-6 items-center underline">
                         Open the load reading
                       </Link>
                     </p>

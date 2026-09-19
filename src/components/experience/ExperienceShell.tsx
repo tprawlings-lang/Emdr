@@ -164,11 +164,11 @@ export function ExperienceShell({
                   ))}
                 </ul>
                 <div className="mt-2 flex flex-wrap items-baseline gap-x-4 gap-y-1 px-3 text-sm text-olive lg:mt-3 lg:block lg:space-y-1.5">
-                  <Link href="/review/status" className="hover:underline lg:block">
+                  <Link href="/review/status" className="inline-flex min-h-6 items-center hover:underline">
                     What works and what does not
                   </Link>
                   <form action={logout}>
-                    <button className="hover:underline">Sign out</button>
+                    <button className="inline-flex min-h-6 items-center hover:underline">Sign out</button>
                   </form>
                 </div>
               </div>

@@ -151,9 +151,9 @@ export default async function AutonomousReview({ searchParams }: { searchParams:
   const progress = signoffProgress(allRules.map((r) => r.id), signoffs);
   const verdictBadge = (ruleId: string) => {
     const v = signoffs.get(ruleId)?.verdict;
-    if (v === "agree") return <span className="ml-2 rounded bg-state-safe-bg/60 px-1.5 py-0.5 text-[10px] text-ground">agreed</span>;
-    if (v === "needs_change") return <span className="ml-2 rounded bg-state-support-bg/60 px-1.5 py-0.5 text-[10px] text-state-support">needs change</span>;
-    return <span className="ml-2 rounded bg-linen px-1.5 py-0.5 text-[10px] text-olive">unreviewed</span>;
+    if (v === "agree") return <span className="ml-2 rounded bg-state-safe-bg/60 px-1.5 py-0.5 text-xs text-ground">agreed</span>;
+    if (v === "needs_change") return <span className="ml-2 rounded bg-state-support-bg/60 px-1.5 py-0.5 text-xs text-state-support">needs change</span>;
+    return <span className="ml-2 rounded bg-linen px-1.5 py-0.5 text-xs text-olive">unreviewed</span>;
   };
   const registerRow = (r: { id: string; category: string; reason: string }) => {
     const current = signoffs.get(r.id);
@@ -161,10 +161,10 @@ export default async function AutonomousReview({ searchParams }: { searchParams:
       <div key={r.id} className="rounded-lg border border-ground/10 bg-linen/40 px-3 py-2">
         <div className="flex items-center gap-2">
           <code className="text-xs font-medium">{r.id}</code>
-          <span className="text-[10px] text-olive">({r.category})</span>
+          <span className="text-xs text-olive">({r.category})</span>
           {verdictBadge(r.id)}
         </div>
-        <p className="mt-0.5 text-xs text-ground/70">{r.reason}</p>
+        <p className="mt-0.5 text-xs text-olive">{r.reason}</p>
         <form action={recordRuleSignoff} className="mt-2 flex flex-wrap items-center gap-2">
           <input type="hidden" name="rule_id" value={r.id} />
           <input
@@ -185,7 +185,7 @@ export default async function AutonomousReview({ searchParams }: { searchParams:
   };
 
   const field = "mt-1 w-full rounded-lg border border-ground/15 bg-ivory px-3 py-1.5 text-sm";
-  const chk = "flex items-center gap-2 text-sm text-ground/90";
+  const chk = "flex items-center gap-2 text-sm text-ground";
 
   return (
     <ReviewPage
@@ -214,10 +214,10 @@ export default async function AutonomousReview({ searchParams }: { searchParams:
         <span className="rounded bg-state-support-bg/60 px-2 py-0.5 text-state-support">{progress.needsChange} needs change</span>
         <span className="rounded bg-linen px-2 py-0.5 text-olive">{progress.unreviewed} unreviewed</span>
         <span className="text-olive">of {progress.total} rules</span>
-        <a href="#register" className="underline text-olive">go to register ↓</a>
+        <a href="#register" className="inline-flex min-h-6 items-center underline text-olive">go to register ↓</a>
       </div>
 
-      <p className="mt-4 rounded-xl border border-ground/15 bg-linen px-4 py-3 text-sm text-ground/80">
+      <p className="mt-4 rounded-xl border border-ground/15 bg-linen px-4 py-3 text-sm text-ground">
         Everything below is <strong>simulation and observation only</strong>. The engine is in shadow mode and governs
         nothing a member sees. Values are provisional pending your sign-off — see
         {" "}<code className="text-xs">docs/autonomous/01-signoff-ledger.md</code>.
@@ -258,22 +258,22 @@ export default async function AutonomousReview({ searchParams }: { searchParams:
           </div>
 
           <div className="mt-4 grid grid-cols-2 gap-2">
-            <label className={chk}><input type="checkbox" name="harmUrge" defaultChecked={on(sp.harmUrge)} /> harm urge</label>
-            <label className={chk}><input type="checkbox" name="feelsSafe" defaultChecked={sp._sim ? on(sp.feelsSafe) : true} /> feels safe</label>
-            <label className={chk}><input type="checkbox" name="substance" defaultChecked={on(sp.substance)} /> substance</label>
-            <label className={chk}><input type="checkbox" name="missingCheckin" defaultChecked={on(sp.missingCheckin)} /> no check-in today</label>
+            <label className={chk}><input type="checkbox" className="size-6 shrink-0" name="harmUrge" defaultChecked={on(sp.harmUrge)} /> harm urge</label>
+            <label className={chk}><input type="checkbox" className="size-6 shrink-0" name="feelsSafe" defaultChecked={sp._sim ? on(sp.feelsSafe) : true} /> feels safe</label>
+            <label className={chk}><input type="checkbox" className="size-6 shrink-0" name="substance" defaultChecked={on(sp.substance)} /> substance</label>
+            <label className={chk}><input type="checkbox" className="size-6 shrink-0" name="missingCheckin" defaultChecked={on(sp.missingCheckin)} /> no check-in today</label>
           </div>
 
           <p className="mt-4 text-xs font-medium text-olive">Program-fit flags</p>
           <div className="mt-1 grid grid-cols-2 gap-2">
-            <label className={chk}><input type="checkbox" name="fit_selfharm" defaultChecked={on(sp.fit_selfharm)} /> self-harm 30d (state)</label>
-            <label className={chk}><input type="checkbox" name="fit_unsafe" defaultChecked={on(sp.fit_unsafe)} /> unsafe situation (state)</label>
-            <label className={chk}><input type="checkbox" name="fit_psychdx" defaultChecked={on(sp.fit_psychdx)} /> psychotic/dissoc. dx (trait)</label>
-            <label className={chk}><input type="checkbox" name="fit_hosp" defaultChecked={on(sp.fit_hosp)} /> hospitalized 12m (trait)</label>
-            <label className={chk}><input type="checkbox" name="fit_substance" defaultChecked={on(sp.fit_substance)} /> substance dependence (trait)</label>
-            <label className={chk}><input type="checkbox" name="fit_seizure" defaultChecked={on(sp.fit_seizure)} /> seizure/photosensitive (soft)</label>
-            <label className={chk}><input type="checkbox" name="fit_acute" defaultChecked={on(sp.fit_acute)} /> acute medical (soft)</label>
-            <label className={chk}><input type="checkbox" name="under18" defaultChecked={on(sp.under18)} /> under 18</label>
+            <label className={chk}><input type="checkbox" className="size-6 shrink-0" name="fit_selfharm" defaultChecked={on(sp.fit_selfharm)} /> self-harm 30d (state)</label>
+            <label className={chk}><input type="checkbox" className="size-6 shrink-0" name="fit_unsafe" defaultChecked={on(sp.fit_unsafe)} /> unsafe situation (state)</label>
+            <label className={chk}><input type="checkbox" className="size-6 shrink-0" name="fit_psychdx" defaultChecked={on(sp.fit_psychdx)} /> psychotic/dissoc. dx (trait)</label>
+            <label className={chk}><input type="checkbox" className="size-6 shrink-0" name="fit_hosp" defaultChecked={on(sp.fit_hosp)} /> hospitalized 12m (trait)</label>
+            <label className={chk}><input type="checkbox" className="size-6 shrink-0" name="fit_substance" defaultChecked={on(sp.fit_substance)} /> substance dependence (trait)</label>
+            <label className={chk}><input type="checkbox" className="size-6 shrink-0" name="fit_seizure" defaultChecked={on(sp.fit_seizure)} /> seizure/photosensitive (soft)</label>
+            <label className={chk}><input type="checkbox" className="size-6 shrink-0" name="fit_acute" defaultChecked={on(sp.fit_acute)} /> acute medical (soft)</label>
+            <label className={chk}><input type="checkbox" className="size-6 shrink-0" name="under18" defaultChecked={on(sp.under18)} /> under 18</label>
           </div>
 
           {companionText ? <input type="hidden" name="companionText" value={companionText} /> : null}
@@ -334,7 +334,7 @@ export default async function AutonomousReview({ searchParams }: { searchParams:
           <div className="mt-4">
             <p className="text-xs font-medium text-olive">Rules fired ({decision.hits.length})</p>
             {decision.hits.length === 0 ? (
-              <p className="mt-1 text-sm text-ground/70">No restrictions — clear at the readiness ceiling.</p>
+              <p className="mt-1 text-sm text-olive">No restrictions — clear at the readiness ceiling.</p>
             ) : (
               <ul className="mt-1 space-y-1.5">
                 {decision.hits.map((h) => (
@@ -342,7 +342,7 @@ export default async function AutonomousReview({ searchParams }: { searchParams:
                     <code className="text-xs font-medium text-ground">{h.id}</code>
                     <span className="ml-2 text-xs text-olive">({h.category})</span>
                     {verdictBadge(h.id)}
-                    <p className="mt-0.5 text-ground/80">{h.reason}</p>
+                    <p className="mt-0.5 text-ground">{h.reason}</p>
                   </li>
                 ))}
               </ul>
@@ -380,7 +380,7 @@ export default async function AutonomousReview({ searchParams }: { searchParams:
         <h2 className="type-display text-xl">Recent shadow decisions ({shadow.length})</h2>
         <p className="mt-1 text-xs text-olive">Real autonomous decisions logged during beta (coded, no free text).</p>
         {shadow.length === 0 ? (
-          <p className="mt-3 text-sm text-ground/70">No shadow decisions logged yet — they appear as members use the app.</p>
+          <p className="mt-3 text-sm text-olive">No shadow decisions logged yet — they appear as members use the app.</p>
         ) : (
           <div className="mt-3 max-h-96 overflow-y-auto">
             <table className="w-full text-left text-xs">
@@ -390,9 +390,9 @@ export default async function AutonomousReview({ searchParams }: { searchParams:
               <tbody>
                 {shadow.slice(0, 100).map((e) => (
                   <tr key={e.id} className="border-t border-ground/10 align-top">
-                    <td className="py-1.5 pr-3 whitespace-nowrap text-ground/70">{e.created_at}</td>
+                    <td className="py-1.5 pr-3 whitespace-nowrap text-olive">{e.created_at}</td>
                     <td className="pr-3"><code>{e.event_type}</code></td>
-                    <td className="text-ground/80"><code className="break-all">{e.detail_json}</code></td>
+                    <td className="text-ground"><code className="break-all">{e.detail_json}</code></td>
                   </tr>
                 ))}
               </tbody>
@@ -425,7 +425,7 @@ export default async function AutonomousReview({ searchParams }: { searchParams:
             <label className="text-sm">Minutes elapsed
               <input className={field} type="number" min="0" max="60" name="s_minutes" defaultValue={sp.s_minutes ?? "0"} />
             </label>
-            <label className={`${chk} mt-6`}><input type="checkbox" name="s_oriented" defaultChecked={sp._ssim ? on(sp.s_oriented) : true} /> oriented</label>
+            <label className={`${chk} mt-6`}><input type="checkbox" className="size-6 shrink-0" name="s_oriented" defaultChecked={sp._ssim ? on(sp.s_oriented) : true} /> oriented</label>
           </div>
           <input type="hidden" name="_ssim" value="1" />
           <button type="submit" className="mt-5 w-full rounded-full bg-sage px-5 py-2.5 text-sm font-medium text-ground hover:bg-sage-deep">
@@ -436,7 +436,7 @@ export default async function AutonomousReview({ searchParams }: { searchParams:
         <div className="rounded-2xl border border-ground/15 bg-white p-5">
           <h2 className="type-display text-xl">What the session engine decides</h2>
           {!sessionResult ? (
-            <p className="mt-3 text-sm text-ground/70">Enter a starting SUDS (and optionally a post-set reading) to evaluate.</p>
+            <p className="mt-3 text-sm text-olive">Enter a starting SUDS (and optionally a post-set reading) to evaluate.</p>
           ) : (
             <>
               <div className={`mt-3 inline-flex rounded-full border px-4 py-1.5 text-sm font-medium ${
@@ -448,7 +448,7 @@ export default async function AutonomousReview({ searchParams }: { searchParams:
               }`}>
                 {sessionResult.action}
               </div>
-              <p className="mt-3 text-sm text-ground/80">{sessionResult.reason}</p>
+              <p className="mt-3 text-sm text-ground">{sessionResult.reason}</p>
               <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
                 <dt className="text-olive">May offer next set</dt><dd>{sessionResult.allowNextSet ? "yes" : "no"}</dd>
                 {sessionResult.effects.cooldownHours ? (<><dt className="text-olive">Cooldown</dt><dd>{sessionResult.effects.cooldownHours}h</dd></>) : null}
@@ -469,14 +469,14 @@ export default async function AutonomousReview({ searchParams }: { searchParams:
             {voiceInputEnabled() ? "on in this demo" : "off"}
           </span>
         </div>
-        <p className="mt-1 text-sm text-ground/80">
+        <p className="mt-1 text-sm text-ground">
           Members can answer a free-text reflection by speaking instead of typing — the human
           feel of being heard. Below is exactly what a member sees, for you to try and sign off.
         </p>
 
         <div className="mt-4 grid gap-4 md:grid-cols-2">
           <VoiceReviewDemo />
-          <div className="rounded-xl border border-ground/10 bg-linen/40 p-4 text-xs leading-relaxed text-ground/80">
+          <div className="rounded-xl border border-ground/10 bg-linen/40 p-4 text-xs leading-relaxed text-ground">
             <p className="text-sm font-medium text-ground">How it works &amp; where it stops</p>
             <ul className="mt-2 list-disc space-y-1.5 pl-4">
               <li><strong>Typing always works.</strong> Voice is an accessibility option, never required; deaf and hard-of-hearing members keep a fully equivalent typed path.</li>
@@ -531,7 +531,7 @@ export default async function AutonomousReview({ searchParams }: { searchParams:
       {/* ── Therapy knowledge base ─────────────────────────────────────── */}
       <section id="therapy-kb" className="mt-8 rounded-2xl border border-ground/15 bg-white p-5">
         <h2 className="type-display text-xl">Therapy knowledge base</h2>
-        <p className="mt-1 text-sm text-ground/80">
+        <p className="mt-1 text-sm text-ground">
           The companion&apos;s technique library — {TECHNIQUES.length} techniques across{" "}
           {MODALITIES.length} modalities, each gated by minimum tier and an activation ceiling.
           Retrieval is deterministic (same member state → same selection); everything the model
@@ -547,18 +547,18 @@ export default async function AutonomousReview({ searchParams }: { searchParams:
                 <summary className="cursor-pointer text-sm font-medium">
                   {m.name} <span className="ml-1 text-xs text-olive">({techs.length} technique{techs.length === 1 ? "" : "s"})</span>
                 </summary>
-                <p className="mt-2 text-xs text-ground/70">{m.rationale}</p>
+                <p className="mt-2 text-xs text-olive">{m.rationale}</p>
                 <div className="mt-2 space-y-2">
                   {techs.map((t) => (
                     <div key={t.id} className="rounded-lg border border-ground/10 bg-ivory px-3 py-2 text-xs">
                       <div className="flex flex-wrap items-center gap-2">
                         <code className="font-medium">{t.id}</code>
-                        <span className="rounded bg-linen px-1.5 py-0.5 text-[10px] text-olive">{t.category}</span>
-                        <span className="rounded bg-state-caution-bg px-1.5 py-0.5 text-[10px]">min tier: {TIER_LABEL[t.minTier]}</span>
-                        <span className="rounded bg-state-caution-bg px-1.5 py-0.5 text-[10px]">max activation: {t.maxActivation}/10</span>
+                        <span className="rounded bg-linen px-1.5 py-0.5 text-xs text-olive">{t.category}</span>
+                        <span className="rounded bg-state-caution-bg px-1.5 py-0.5 text-xs">min tier: {TIER_LABEL[t.minTier]}</span>
+                        <span className="rounded bg-state-caution-bg px-1.5 py-0.5 text-xs">max activation: {t.maxActivation}/10</span>
                       </div>
-                      <p className="mt-1 text-ground/80"><span className="font-medium">{t.name}</span> — {t.purpose}</p>
-                      <p className="mt-1 text-ground/70">{t.guidance}</p>
+                      <p className="mt-1 text-ground"><span className="font-medium">{t.name}</span> — {t.purpose}</p>
+                      <p className="mt-1 text-olive">{t.guidance}</p>
                       {t.avoidWhen.length > 0 && (
                         <p className="mt-1 text-state-support">Avoid when: {t.avoidWhen.join("; ")}</p>
                       )}

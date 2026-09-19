@@ -129,11 +129,11 @@ export function PayerPage({
       railHref={PAYER_RAIL}
       railFooter={
         <>
-          <Link href="/organization/overview" className="block hover:underline">
+          <Link href="/organization/overview" className="inline-flex min-h-6 items-center hover:underline">
             Provider network
           </Link>
           <form action={logout} className="mt-2">
-            <button className="hover:underline">Sign out</button>
+            <button className="inline-flex min-h-6 items-center hover:underline">Sign out</button>
           </form>
         </>
       }

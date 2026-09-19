@@ -96,7 +96,7 @@ export function StateNotice<T>({
             {e.missing.map((m) => (
               <li key={m.source} className="text-sm text-olive">
                 {m.source} — {m.reason}
-                {m.lastGoodAt && <span className="text-olive/80"> (last good {m.lastGoodAt})</span>}
+                {m.lastGoodAt && <span className="text-olive"> (last good {m.lastGoodAt})</span>}
               </li>
             ))}
           </ul>

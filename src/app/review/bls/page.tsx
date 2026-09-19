@@ -113,7 +113,7 @@ export default async function BlsOversightPage() {
 
         <div className="mt-4 rounded-2xl border border-ground/15 bg-linen/40 px-4 py-3">
           <p className="text-xs uppercase tracking-wide text-olive">Resourcing parameters in force</p>
-          <p className="mt-1 text-sm text-ground/80">
+          <p className="mt-1 text-sm text-ground">
             {cfg.hz} Hz · {cfg.passesPerSet} passes per set · maximum {cfg.maxSets} sets ·{" "}
             {cfg.cueWordRequired ? "cue word required" : "no cue word required"}. Short and slow
             by design: the set length is what keeps installation from becoming processing.
@@ -128,7 +128,7 @@ export default async function BlsOversightPage() {
           <ul className="mt-2 space-y-1">
             {Object.entries(cfg.switches).map(([k, v]) => (
               <li key={k}>
-                <code className="text-[11px]">{k}</code> — {v ? "ENGAGED" : "not engaged"}
+                <code className="text-xs">{k}</code> — {v ? "ENGAGED" : "not engaged"}
               </li>
             ))}
           </ul>
@@ -162,10 +162,10 @@ export default async function BlsOversightPage() {
                   {GATE_STATE_LABEL[g.state]}
                 </span>
               </div>
-              <p className="mt-1 text-sm text-ground/80">{g.detail}</p>
+              <p className="mt-1 text-sm text-ground">{g.detail}</p>
               {g.evidence && (
                 <p className="mt-1 text-xs text-olive">
-                  <code className="text-[11px]">{g.evidence}</code>
+                  <code className="text-xs">{g.evidence}</code>
                 </p>
               )}
             </li>
@@ -202,9 +202,9 @@ export default async function BlsOversightPage() {
                   {s.enabled ? "enabled" : "not enabled"}
                 </span>
               </div>
-              <p className="mt-1 text-sm text-ground/80">{s.scope}</p>
+              <p className="mt-1 text-sm text-ground">{s.scope}</p>
               <p className="mt-1 text-xs text-olive">{s.because}</p>
-              <p className="mt-2 text-xs text-ground/80">
+              <p className="mt-2 text-xs text-ground">
                 <strong>Entry:</strong> {s.entry.join(" · ")}
                 {s.cohort ? ` · cohort ${s.cohort}` : ""}
                 {s.window ? ` · ${s.window}` : ""}
@@ -226,7 +226,7 @@ export default async function BlsOversightPage() {
             {PRE_REGISTERED.map(([k, v]) => (
               <div key={k} className="rounded-2xl border border-ground/10 bg-linen/40 px-4 py-3">
                 <dt className="text-xs uppercase tracking-wide text-olive">{k}</dt>
-                <dd className="mt-0.5 text-sm text-ground/80">{v}</dd>
+                <dd className="mt-0.5 text-sm text-ground">{v}</dd>
               </div>
             ))}
           </dl>
@@ -243,7 +243,7 @@ export default async function BlsOversightPage() {
               <li
                 key={s}
                 data-testid="hard-stop"
-                className="rounded-2xl border border-state-support/40 bg-state-support-bg/40 px-4 py-3 text-sm text-ground/80"
+                className="rounded-2xl border border-state-support/40 bg-state-support-bg/40 px-4 py-3 text-sm text-ground"
               >
                 <span className="font-medium text-state-support">{i + 1}.</span> {s}
               </li>

@@ -170,7 +170,7 @@ export default async function ReviewStatusPage() {
             {AWAITING_CLINICAL_REVIEW.filter((f) => !mayEnterTaskQueue(f.review)).map((f) => (
               <li key={f.feature} className="py-2.5">
                 <p className="text-sm font-medium text-ground">{f.feature}</p>
-                <p className="measure mt-1 text-sm text-ground/70">{f.review.withholds}</p>
+                <p className="measure mt-1 text-sm text-olive">{f.review.withholds}</p>
               </li>
             ))}
           </ul>
@@ -197,7 +197,7 @@ export default async function ReviewStatusPage() {
                 </dd>
                 <dd className="col-span-2">
                   <p className="measure mt-1 text-sm text-app-ink">{d.answer}</p>
-                  <p className="measure mt-1 font-mono text-[11px] text-olive">{d.where}</p>
+                  <p className="measure mt-1 font-mono text-xs text-olive">{d.where}</p>
                 </dd>
               </div>
             ))}
@@ -269,7 +269,7 @@ export default async function ReviewStatusPage() {
                 <dd className="font-mono text-xs text-ground">{policy.version}</dd>
                 <dd className="col-span-2">
                   <p className="measure text-xs text-olive">{policy.decides}</p>
-                  <p className="font-mono text-[11px] text-olive">{policy.module}</p>
+                  <p className="font-mono text-xs text-olive">{policy.module}</p>
                 </dd>
               </div>
             ))}
