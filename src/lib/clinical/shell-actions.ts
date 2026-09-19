@@ -252,6 +252,15 @@ export async function assignWork(input: CommandInput<{ personId: string; ownerId
     // produced two ownership records for one decision, and the queue reads the
     // newest — so the visible effect was nothing, until somebody read the care
     // history and found the same decision made twice.
+    //
+    // "THE QUEUE READS THE NEWEST" WAS THE INTENTION AND NOT THE BEHAVIOUR, for
+    // as long as this comment stood. The queue read no assignment at all: it
+    // built its owner from the signal and the caseload, so this command
+    // answered "Recorded <name> as the owner" over a row that said Unassigned,
+    // through a reload and permanently. It reads them now —
+    // `latestAssignments` in work-queue.ts — and tests/work-assignment.test.ts
+    // holds the two ends of the `owner:` encoding together, since renaming the
+    // prefix on either side compiles and type-checks.
     return runOnce(command, async () => {
       const recordId = await recordCareAction(ctx, {
         personId: subject.personId,

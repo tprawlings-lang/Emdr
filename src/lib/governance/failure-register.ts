@@ -334,13 +334,19 @@ export const FAILURE_REGISTER: FailureScenario[] = [
     state: "gap",
     injections: [],
     note:
-      "HALF OF THIS IS A DECISION, NOT A BUILD. Ownership is already a first-class state on every " +
-      "queue row and null renders as unassigned, so displaying the debt — how much is unowned and " +
-      "how long the oldest has been — is ordinary work. The escalation rule is not: who work " +
-      "falls to when nobody claims it, and after how long, is an operational decision this " +
-      "codebase must not invent. The handoff says as much about the neighbouring case: 'any " +
-      "fallback assignment policy needs an operational decision.' Left open rather than closed " +
-      "with a default nobody chose.",
+      "HALF OF THIS IS A DECISION, NOT A BUILD. The escalation rule — who work falls to when " +
+      "nobody claims it, and after how long — is an operational decision this codebase must not " +
+      "invent. The handoff says as much about the neighbouring case: 'any fallback assignment " +
+      "policy needs an operational decision.' Left open rather than closed with a default nobody " +
+      "chose. " +
+      "THE OTHER HALF WAS WORSE THAN ORDINARY WORK, AND THIS ROW SAID SO WRONGLY. It read " +
+      "'ownership is already a first-class state on every queue row and null renders as " +
+      "unassigned', which was true of the type and false of the product: the queue never read the " +
+      "assignment the Assign control wrote, so a clinician was told 'Recorded <name> as the " +
+      "owner' over a row that said Unassigned, permanently, and every one of 35 rows on the demo " +
+      "caseload read Unassigned. Fixed and tested (tests/work-assignment.test.ts), which is what " +
+      "makes 'how much is unowned' a number worth displaying rather than a count of a display " +
+      "bug. The debt panel itself is still to build.",
   },
 
   // ── Safety-consequential ───────────────────────────────────────────────

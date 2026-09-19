@@ -589,6 +589,27 @@ export const WORK_REGISTER: WorkEntry[] = [
       "from a fresh walk.",
   },
   {
+    id: "clinical.assignment-is-read-back",
+    title: "Assigning work changes what the queue says",
+    state: "reachable",
+    code: "src/lib/clinical/work-queue.ts#buildWorkQueue",
+    test: "tests/work-assignment.test.ts",
+    note:
+      "FOUND BY PRESSING THE BUTTON. A clinician chose an owner and was told \"Recorded Noor " +
+      "Fontaine as the owner\"; the row went on saying Unassigned, through a reload and " +
+      "permanently, and every one of 35 rows on the demo caseload read the same. THREE FAULTS " +
+      "STACKED INTO ONE SYMPTOM, which is why reading any one of them made the code look right. " +
+      "`assignWork` records the owner as a care action carrying `owner:<personId>` — a sound " +
+      "decision, since the care vocabulary is closed — and the queue read no assignment at all, " +
+      "while its own comment claimed it read the newest. An assigned owner is a PERSON and a " +
+      "derived one is a USER, because `primaryClinicianId` comes off `module_unlocks.clinician_id`, " +
+      "so the name map built from `users` alone resolved a person-id owner to nothing — and a row " +
+      "with no owner NAME renders as Unassigned however right its id is, which would have made " +
+      "the first fix look like no fix. Newest wins, tenant-scoped in the query rather than " +
+      "filtered after, and a test holds the two ends of the `owner:` encoding together because " +
+      "renaming the prefix on either side compiles and type-checks.",
+  },
+  {
     id: "clinical.unreachable-care-actions",
     title: "Four of the eight care actions have no writer",
     state: "held",

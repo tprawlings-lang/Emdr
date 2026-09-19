@@ -418,6 +418,8 @@ async function mergeAttentionSignals(args: {
   clinicianId: string;
   caseload: CaseloadRow[];
   ownerNames: Map<string, string>;
+  /** The owner to show: an assignment somebody made, else the derivation. */
+  ownerFor: (personId: string, derived: string | null) => string | null;
   changeFor: (personId: string, evidenceAt: string) => string | null;
   now: Date;
 }): Promise<{
@@ -490,8 +492,8 @@ async function mergeAttentionSignals(args: {
         signal.changeText ??
         (signal.state === "acknowledged" ? "You have reviewed this" : args.changeFor(signal.personId, signal.lastDetectedAt)),
       evidenceAt: signal.lastDetectedAt,
-      ownerId: signal.ownerPersonId ?? row.primaryClinicianId,
-      ownerName: args.ownerNames.get(signal.ownerPersonId ?? row.primaryClinicianId ?? "") ?? null,
+      ownerId: args.ownerFor(signal.personId, signal.ownerPersonId ?? row.primaryClinicianId),
+      ownerName: args.ownerNames.get(args.ownerFor(signal.personId, signal.ownerPersonId ?? row.primaryClinicianId) ?? "") ?? null,
       dueAt: signal.dueAt,
       overdue: false,
       eventCount: 1,
@@ -526,6 +528,38 @@ async function mergeAttentionSignals(args: {
   };
 }
 
+/**
+ * The latest owner somebody actually assigned, per person.
+ *
+ * READ BACK FROM WHERE THE COMMAND WRITES IT. `assignWork` records an
+ * assignment as a care action carrying `owner:<personId>` in `outcome_state`,
+ * because the care vocabulary is closed and inventing a ninth value from a
+ * presentation module is the wrong direction for a rule to travel. That is a
+ * sound decision and it left the value in a column nothing on the queue read.
+ *
+ * NEWEST PER PERSON. Reassignment is a correction as often as it is a first
+ * decision, and the ledger appends rather than updating — so the row a
+ * clinician means is the last one they wrote, not the first.
+ *
+ * TENANT-SCOPED IN THE QUERY rather than filtered after: an owner read across
+ * tenants would be a cross-tenant disclosure of who works where, arriving
+ * through a display field.
+ */
+async function latestAssignments(tenantId: string): Promise<Map<string, string>> {
+  const c = await data();
+  const rows = (await c.all(
+    `SELECT person_id, outcome_state, completed_at
+       FROM between_visit_care_actions
+      WHERE tenant_id = ? AND outcome_state LIKE 'owner:%'
+      ORDER BY completed_at ASC`,
+    [tenantId]
+  )) as Array<{ person_id: string; outcome_state: string }>;
+  const out = new Map<string, string>();
+  // Ascending, so a later row overwrites an earlier one and the last write wins.
+  for (const r of rows) out.set(r.person_id, r.outcome_state.slice("owner:".length));
+  return out;
+}
+
 export async function buildWorkQueue(args: {
   clinicianId: string;
   tenantId: string;
@@ -540,24 +574,57 @@ export async function buildWorkQueue(args: {
     buildCaseload({ clinicianId: args.clinicianId, tenantId: args.tenantId, policy, now }),
   ]);
 
+  // WHO THE ROW SAYS OWNS IT — read back from the assignment the clinician
+  // actually made.
+  //
+  // `assignWork` recorded an owner and answered "Recorded <name> as the owner",
+  // and the row went on saying Unassigned, through a reload, forever. The
+  // assignment was written to the care ledger as `owner:<person>` and read by
+  // exactly one surface — the person's between-visit history — while the queue
+  // that offered the control built its owner from the signal and the caseload
+  // and never looked. `assignWork`'s own comment said "the queue reads the
+  // newest", which was the intention rather than the behaviour.
+  //
+  // NEWEST WINS, which is what that comment assumed: an assignment is a
+  // correction as often as it is a first decision, and the ledger appends.
+  const assigned = await latestAssignments(args.tenantId);
+
   // Owner display names, resolved once rather than per row. §10.3 requires a
   // current owner on every row, and §23.2 forbids "an alert without a clear
   // owner and possible action" — an id is not an owner to a human reading it.
+  //
+  // TWO ID SPACES, AND THE ROW HAS TO SURVIVE BOTH. An assigned owner is a
+  // PERSON: the domain field is `ownerPersonId`, assignees come from
+  // `role_assignments`, and being able to sign in was never a condition of
+  // owning work. A derived `primaryClinicianId` is a USER, because it is read
+  // off `module_unlocks.clinician_id`, which references `users`. This map was
+  // built from `users` alone, so every person-id owner resolved to nothing and
+  // rendered as Unassigned — which is how an assignment could succeed and
+  // remain invisible even once the queue started reading it.
   const ownerIds = [
     ...new Set([
       ...alerts.map((a) => a.ownerId),
       ...caseload.rows.map((r) => r.primaryClinicianId),
+      ...assigned.values(),
     ].filter((x): x is string => !!x)),
   ];
   const ownerNames = new Map<string, string>();
   if (ownerIds.length) {
     const c = await data();
+    const placeholders = ownerIds.map(() => "?").join(",");
     const rows = (await c.all(
-      `SELECT id, name FROM users WHERE id IN (${ownerIds.map(() => "?").join(",")})`,
-      ownerIds
+      `SELECT id, name FROM users WHERE id IN (${placeholders})
+       UNION ALL
+       SELECT id, display_name AS name FROM persons WHERE id IN (${placeholders})`,
+      [...ownerIds, ...ownerIds]
     )) as Array<{ id: string; name: string }>;
-    for (const r of rows) ownerNames.set(r.id, r.name);
+    for (const r of rows) if (!ownerNames.has(r.id)) ownerNames.set(r.id, r.name);
   }
+
+  /** The owner to show: an assignment somebody made, else whatever the row
+   *  derived. An explicit decision outranks a derivation. */
+  const ownerFor = (personId: string, derived: string | null): string | null =>
+    assigned.get(personId) ?? derived;
 
   // The most recent resolved alert per person is the "last review" that `change`
   // is measured against. Real and cheap; no invented comparison.
@@ -612,8 +679,8 @@ export async function buildWorkQueue(args: {
       resolvedAt: a.resolvedAt,
       change: changeFor(a.personId, a.createdAt),
       evidenceAt: a.createdAt,
-      ownerId: a.ownerId ?? row?.primaryClinicianId ?? null,
-      ownerName: ownerNames.get(a.ownerId ?? row?.primaryClinicianId ?? "") ?? null,
+      ownerId: ownerFor(a.personId, a.ownerId ?? row?.primaryClinicianId ?? null),
+      ownerName: ownerNames.get(ownerFor(a.personId, a.ownerId ?? row?.primaryClinicianId ?? null) ?? "") ?? null,
       dueAt: a.dueAt,
       overdue: a.overdue,
       eventCount: g.alerts.length,
@@ -650,8 +717,8 @@ export async function buildWorkQueue(args: {
       resolvedAt: null,
       change: changeFor(r.personId, evidenceAt),
       evidenceAt,
-      ownerId: r.primaryClinicianId,
-      ownerName: ownerNames.get(r.primaryClinicianId ?? "") ?? null,
+      ownerId: ownerFor(r.personId, r.primaryClinicianId),
+      ownerName: ownerNames.get(ownerFor(r.personId, r.primaryClinicianId) ?? "") ?? null,
       dueAt: null,
       overdue: false,
       eventCount: 1,
@@ -776,8 +843,8 @@ export async function buildWorkQueue(args: {
           resolvedAt: null,
           change: null,
           evidenceAt: f.approvedAt,
-          ownerId: f.approvedBy ?? row.primaryClinicianId,
-          ownerName: ownerNames.get(f.approvedBy ?? row.primaryClinicianId ?? "") ?? null,
+          ownerId: ownerFor(row.personId, f.approvedBy ?? row.primaryClinicianId),
+          ownerName: ownerNames.get(ownerFor(row.personId, f.approvedBy ?? row.primaryClinicianId) ?? "") ?? null,
           dueAt: null,
           overdue: false,
           eventCount: 1,
@@ -820,6 +887,7 @@ export async function buildWorkQueue(args: {
         clinicianId: args.clinicianId,
         caseload: caseload.rows,
         ownerNames,
+        ownerFor,
         changeFor,
         now,
       });
