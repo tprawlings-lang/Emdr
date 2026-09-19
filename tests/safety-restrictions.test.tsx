@@ -1,3 +1,9 @@
+// RELEASE DEFINITION EVIDENCE for `states.restrictions-missing-unresolved` — see
+// src/lib/review/release-definition.ts. That checklist names this file, and its
+// verifier requires this file to name the line back: a test that does not say
+// what it is evidence for can be rewritten into something else while the
+// checklist keeps its tick.
+
 import { strict as assert } from "node:assert";
 import test from "node:test";
 import fs from "node:fs";

@@ -105,10 +105,10 @@ const OFF_SURFACE: Record<string, string> = {
     "PRE-EXISTING GAP, same shape as action.ts above: the shared presentation contract from §8.2 is defined and unconsumed.",
 
   // ---- The work register ------------------------------------------------
-  "src/lib/governance/work-register.ts":
-    "The list of what is built and what each claim rests on. Its consumer is the build: tests/work-register.test.ts checks every entry against the source and fails when one stops being true. Surfacing it on a review screen is real work and is tracked as `governance.work-register-screen`, proposed — recorded in the register itself rather than left as an intention, since a register that hides its own gap is the thing it exists to prevent.",
   "src/lib/experience/disclosure.ts":
     "The rule for how much a screen may say before it lets somebody work (UX 010), and the reader that finds the paragraphs breaking it. The SCREENS obey the rule; they do not import it, which is why nothing outside the suite refers to this. It lives in src/ rather than in the test because a product decision that exists only inside an assertion is one nobody can find when they are deciding whether to add another paragraph.",
+  "src/lib/review/release-definition-verify.ts":
+    "The check behind the release definition. The definition itself IS on a screen — the release console answers each of the handoff's twenty-three lines — but the checking is a build-time question about files on disk: does the named test exist, and does it mention the line it claims to hold. A page cannot ask that without reading the repository at request time.",
   "src/lib/governance/failure-register-verify.ts":
     "The check behind the failure register. The register itself IS on a screen — the testing console shows which failures something injects and which nobody has tried — but the verification is a build-time question about files on disk: does the named test exist, and does it actually mention the scenario it claims to be evidence for. A page cannot ask that, and a page that tried would be reading the repository at request time.",
   "src/lib/governance/work-register-verify.ts":

@@ -1,3 +1,9 @@
+// RELEASE DEFINITION EVIDENCE for `time.windows-and-freshness` — see
+// src/lib/review/release-definition.ts. That checklist names this file, and its
+// verifier requires this file to name the line back: a test that does not say
+// what it is evidence for can be rewritten into something else while the
+// checklist keeps its tick.
+
 // The clock contract (17 September handoff, UX 003).
 //
 //   "Observed. The demo clock showed December 2025 while clinical evidence used

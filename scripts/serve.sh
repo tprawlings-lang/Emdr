@@ -38,6 +38,17 @@ export EMDR_SESSION_SECRET="${EMDR_SESSION_SECRET:-e2e-placeholder-session-secre
 export EMDR_DATA_KEY="${EMDR_DATA_KEY:-e2e-placeholder-data-key}"
 export EMDR_REVIEW_ACCESS_CODE="${EMDR_REVIEW_ACCESS_CODE:-e2e-placeholder-review-code}"
 
+# WHICH BUILD THIS IS. The release definition's "release evidence identifies the
+# exact deployed build" failed here and passed on Render, which is the wrong way
+# round for a line about evidence: the platform sets RENDER_GIT_COMMIT on the
+# running service, and evidence gathered against a locally served build could
+# not be tied to anything. Taken from git when the repository is there, so a
+# build somebody drove by hand says what it was.
+if [ -z "${EMDR_BUILD_COMMIT:-}" ] && command -v git >/dev/null 2>&1; then
+  EMDR_BUILD_COMMIT="$(git rev-parse HEAD 2>/dev/null || true)"
+  [ -n "$EMDR_BUILD_COMMIT" ] && export EMDR_BUILD_COMMIT
+fi
+
 # WHO IS LISTENING, without lsof.
 #
 # `lsof -ti tcp:3000` returns NOTHING in this container even while a server is

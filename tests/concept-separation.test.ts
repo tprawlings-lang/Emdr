@@ -1,3 +1,9 @@
+// RELEASE DEFINITION EVIDENCE for `records.kinds-cannot-be-confused` — see
+// src/lib/review/release-definition.ts. That checklist names this file, and its
+// verifier requires this file to name the line back: a test that does not say
+// what it is evidence for can be rewritten into something else while the
+// checklist keeps its tick.
+
 process.env.EMDR_DATA_DIR = `/tmp/steady-concepts-${process.pid}-${Date.now()}`;
 process.env.EMDR_DEMO = "0";
 process.env.EMDR_DATA_KEY = process.env.EMDR_DATA_KEY ?? "concepts-test-key";

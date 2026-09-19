@@ -552,10 +552,18 @@ export const WORK_REGISTER: WorkEntry[] = [
   {
     id: "governance.work-register-screen",
     title: "The work register, readable on a review screen",
-    // The register's own unfinished business, in the register. Its consumer
-    // today is the build; nobody can read it without opening a source file,
+    // The register's own unfinished business, in the register. Its consumer was
+    // the build alone; nobody could read it without opening a source file,
     // which is most of what makes a handoff paragraph go stale in the first
     // place.
+    //
+    // PARTLY ANSWERED, AND NOT BY DESIGN. The release definition reads this
+    // register to answer three of its lines — whether assigned support and the
+    // shared plan are reachable, and whether every held item still says why —
+    // so those facts now appear on the release console. The register itself is
+    // still not a screen: nobody can browse it, and the entries the definition
+    // does not ask about remain invisible. Kept proposed for that reason rather
+    // than promoted on a technicality.
     state: "proposed",
     code: null,
     test: null,
@@ -630,6 +638,13 @@ export const WORK_REGISTER: WorkEntry[] = [
     state: "reachable",
     code: "src/lib/clinical/notes.ts#saveDraft",
     test: "tests/safety-failures.test.ts",
+  },
+  {
+    id: "governance.release-definition",
+    title: "The release definition, answered from the product rather than ticked",
+    state: "reachable",
+    code: "src/lib/review/release-definition.ts#RELEASE_DEFINITION",
+    test: "tests/release-definition.test.ts",
   },
   {
     id: "ops.backups",

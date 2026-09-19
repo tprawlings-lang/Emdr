@@ -131,6 +131,34 @@ export type Workspace =
   | "review_console"
   | "demo_ops";
 
+/**
+ * Who is accountable for a workspace, in the vocabulary the release gates
+ * already use.
+ *
+ * BY WORKSPACE RATHER THAN BY ROUTE, and that is the honest granularity. The
+ * release definition asks that every route have "a reconciled status and an
+ * accountable owner"; putting a name on each of seventy-odd URLs would produce
+ * seventy-odd names that drift independently and mean the same thing. Ownership
+ * in this product is by area — the person who answers for the payer console
+ * answers for all of it — so the owner is recorded where it is actually held
+ * and every route resolves to one.
+ */
+export const WORKSPACE_OWNER: Record<Workspace, string> = {
+  site: "Product and legal review",
+  auth: "Security",
+  member_day: "Clinical",
+  member_activity: "Clinical",
+  member_account: "Privacy",
+  command_center: "Clinical",
+  patients: "Clinical",
+  person_record: "Clinical",
+  clinician_reports: "Data and product",
+  org_console: "Data and product",
+  payer_console: "Data and product",
+  review_console: "Product and QA",
+  demo_ops: "Product and QA",
+};
+
 export interface RouteEntry {
   /** The route, as Next resolves it. Dynamic segments in brackets. */
   path: string;

@@ -1,3 +1,9 @@
+// RELEASE DEFINITION EVIDENCE for `queue.counts-pagination-filters-return` — see
+// src/lib/review/release-definition.ts. That checklist names this file, and its
+// verifier requires this file to name the line back: a test that does not say
+// what it is evidence for can be rewritten into something else while the
+// checklist keeps its tick.
+
 // The clinician work queue (GUI and Decision-Surface Handoff §10.3, §20.3).
 //
 // §20.3's acceptance criteria are the specification, and each is a property

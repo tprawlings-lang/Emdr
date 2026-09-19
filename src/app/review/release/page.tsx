@@ -9,6 +9,9 @@ import { reviewableSurfaces, copyVersion } from "@/lib/review/clinical-copy";
 import { recordGateSignoff } from "@/lib/review/actions";
 import { resolvedGates } from "@/lib/review/gate-rows";
 import {
+  RELEASE_DEFINITION, answerItem, definitionSummary,
+} from "@/lib/review/release-definition";
+import {
   releaseScope, blockers, releaseClear, groupFailures, briefFor,
   reopenedBy, GATE_DEPENDENCIES, DEPENDENCY_LABEL,
   BLOCKER_LABEL, type GateRow,
@@ -64,6 +67,8 @@ export default async function ReleaseGatesPage({
 }) {
   await requireReviewAccess();
   const { parity, error, stale, was } = await searchParams;
+  const answers = RELEASE_DEFINITION.map(answerItem);
+  const summary = definitionSummary(answers);
   const db = getDb();
 
   // The on-demand check, only when asked for. A ledger rebuild on every page
@@ -397,6 +402,56 @@ export default async function ReleaseGatesPage({
           );
         })}
       </div>
+
+      {/* ---------------- The release definition ---------------- */}
+      {/* The handoff's twenty-three lines. NOT A SECOND SET OF GATES: a gate is
+          a reviewer's signature, and these are the conditions that signature is
+          about. Most answer themselves from the product's own registers at read
+          time, which is why they can be trusted on a screen — nothing here is a
+          box somebody ticked. */}
+      <section className="mt-10">
+        <h2 className="type-display text-2xl font-medium">The release definition</h2>
+        <p className="measure mt-1 text-sm text-olive">
+          {summary.met} of {summary.total} lines are answered yes.{" "}
+          {summary.failing > 0
+            ? `${summary.failing} ${summary.failing === 1 ? "is" : "are"} answered no. `
+            : "None is answered no. "}
+          {summary.outstanding} {summary.outstanding === 1 ? "is" : "are"} waiting on a person.
+          Waiting is not failing: nobody having done something yet and something being wrong are
+          different states, and an acceptance package that rendered them alike would be worth less
+          than no package.
+        </p>
+
+        <ul className="mt-4 space-y-2">
+          {RELEASE_DEFINITION.map((item, i) => {
+            const a = answers[i];
+            const tone =
+              a.met === true
+                ? "bg-emerald-50 text-emerald-900"
+                : a.met === false
+                  ? "bg-rose-50 text-rose-900"
+                  : "bg-amber-50 text-amber-900";
+            const label =
+              a.met === true ? "Answered" : a.met === false ? "Not met" : "Waiting on a person";
+            return (
+              <li key={item.id} className="rounded-2xl border border-ground/10 bg-linen px-4 py-3 text-sm">
+                <div className="flex flex-wrap items-baseline justify-between gap-2">
+                  <span className="font-medium text-ground">{item.text}</span>
+                  <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${tone}`}>{label}</span>
+                </div>
+                <p className="measure mt-1 text-olive">{a.because}</p>
+                <p className="mt-1 text-xs text-olive">
+                  {item.answerable === "computed"
+                    ? "Computed from the product's own registers, now."
+                    : item.answerable === "attested"
+                      ? `Held by ${item.evidence?.join(", ")}`
+                      : `Waiting on ${item.owner}`}
+                </p>
+              </li>
+            );
+          })}
+        </ul>
+      </section>
     </ReviewPage>
   );
 }

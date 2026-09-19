@@ -1,3 +1,9 @@
+// RELEASE DEFINITION EVIDENCE for `states.restrictions-missing-unresolved` — see
+// src/lib/review/release-definition.ts. That checklist names this file, and its
+// verifier requires this file to name the line back: a test that does not say
+// what it is evidence for can be rewritten into something else while the
+// checklist keeps its tick.
+
 // The shared access states (§26, "Shared access states — 8 screens").
 //
 // These are the screens nobody looks at until they are the only screen a

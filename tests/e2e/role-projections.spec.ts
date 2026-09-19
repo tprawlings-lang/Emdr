@@ -1,3 +1,9 @@
+// RELEASE DEFINITION EVIDENCE for `roles.signed-in-route-and-task-coverage` — see
+// src/lib/review/release-definition.ts. That checklist names this file, and its
+// verifier requires this file to name the line back: a test that does not say
+// what it is evidence for can be rewritten into something else while the
+// checklist keeps its tick.
+
 import { test, expect } from "@playwright/test";
 
 // Six roles, one ledger, in a browser (handoff 07 §4.1 p40, §4.2 p41, §6.1 p52).
