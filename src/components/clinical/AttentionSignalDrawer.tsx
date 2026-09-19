@@ -63,6 +63,28 @@ function SectionHeading({ children }: { children: React.ReactNode }) {
   );
 }
 
+/**
+ * Whether focus is in something a person is typing into.
+ *
+ * Exported so the rule is testable without a browser, and so a second shortcut
+ * added later uses the same definition rather than a near-copy that forgets
+ * `contenteditable`.
+ */
+export function isEditing(target: EventTarget | null): boolean {
+  const el = target as HTMLElement | null;
+  if (!el || typeof el.tagName !== "string") return false;
+  const tag = el.tagName.toLowerCase();
+  if (tag === "textarea") return true;
+  if (tag === "select") return true;
+  if (tag === "input") {
+    // A checkbox or a radio is not a text field, and Escape out of a drawer
+    // with one focused is the behaviour somebody expects.
+    const type = (el as HTMLInputElement).type?.toLowerCase() ?? "text";
+    return !["checkbox", "radio", "button", "submit", "reset", "range"].includes(type);
+  }
+  return el.isContentEditable === true;
+}
+
 export function AttentionSignalDrawer({
   personId, personName, signalId, label = "Open review",
 }: {
@@ -125,6 +147,17 @@ export function AttentionSignalDrawer({
 
     function onKeyDown(e: KeyboardEvent) {
       if (e.key === "Escape") {
+        // NOT WHILE SOMEBODY IS TYPING. 17 September handoff, P6: "Shortcut
+        // fires inside a note editor → scope shortcuts and avoid destructive
+        // single-key commands."
+        //
+        // This drawer contains a note field, and Escape closed it from
+        // anywhere — so a clinician half-way through writing what they did
+        // about a safety signal lost it to a key people press to mean "get rid
+        // of the autocomplete". The keystroke is not destructive anywhere else
+        // in the drawer, which is why it stayed unnoticed: the one place it
+        // costs something is the one place there is something to lose.
+        if (isEditing(e.target)) return;
         e.preventDefault();
         setOpen(false);
         return;

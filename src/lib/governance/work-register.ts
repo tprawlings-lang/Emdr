@@ -618,6 +618,20 @@ export const WORK_REGISTER: WorkEntry[] = [
     test: "tests/stale-evidence.test.ts",
   },
   {
+    id: "clinical.two-people-one-name",
+    title: "A record mark, only on the rows a reader could confuse",
+    state: "reachable",
+    code: "src/lib/clinical/disambiguate.ts#disambiguate",
+    test: "tests/safety-failures.test.ts",
+  },
+  {
+    id: "clinical.draft-belongs-to-its-person",
+    title: "A draft cannot be saved against somebody else's record",
+    state: "reachable",
+    code: "src/lib/clinical/notes.ts#saveDraft",
+    test: "tests/safety-failures.test.ts",
+  },
+  {
     id: "ops.backups",
     title: "Nightly encrypted off-site backups",
     state: "held",

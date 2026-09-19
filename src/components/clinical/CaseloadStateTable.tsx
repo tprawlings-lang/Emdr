@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { disambiguate, RECORD_MARK_NOTE } from "@/lib/clinical/disambiguate";
 import type { CaseloadState, CaseloadStateRow } from "@/lib/clinical/caseload-state";
 import {
   FUNCTION_LABEL, RESPONSE_LABEL, FUNCTION_WINDOW_DAYS,
@@ -97,6 +98,10 @@ function responseTone(row: CaseloadStateRow): "neutral" | "settled" | "watch" | 
 }
 
 export function CaseloadStateTable({ state }: { state: CaseloadState }) {
+  // Scoped to what is on this screen: "is this name ambiguous" is a question
+  // about the rows in front of the reader, not about the database.
+  const marked = disambiguate(state.rows);
+
   if (state.rows.length === 0) {
     return (
       <p className="measure mt-4 text-sm text-ground">
@@ -127,7 +132,7 @@ export function CaseloadStateTable({ state }: { state: CaseloadState }) {
             </tr>
           </thead>
           <tbody>
-            {state.rows.map((r) => (
+            {marked.map(({ row: r, mark }) => (
               <tr key={r.personId} data-testid="caseload-state-row" className="border-b border-ground/10 last:border-b-0 align-top">
                 <th scope="row" className="px-4 py-3 font-normal">
                   <div className="flex flex-wrap items-center gap-2">
@@ -138,6 +143,19 @@ export function CaseloadStateTable({ state }: { state: CaseloadState }) {
                     >
                       {r.displayName}
                     </Link>
+                    {/* ONLY WHERE TWO ROWS READ THE SAME. Printing an
+                        identifier beside every name would be a standing
+                        disclosure bought to fix a problem most rows do not
+                        have. */}
+                    {mark && (
+                      <span
+                        data-testid="record-mark"
+                        title={RECORD_MARK_NOTE}
+                        className="rounded-full border border-ground/20 px-2 py-0.5 font-mono text-xs text-olive"
+                      >
+                        {mark}
+                      </span>
+                    )}
                   </div>
                 </th>
                 <td className="px-4 py-3">

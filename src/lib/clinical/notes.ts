@@ -225,6 +225,25 @@ export async function saveDraft(args: {
     if (existing.clinicianId !== args.clinicianId) {
       throw new NoteError("This is somebody else's draft.");
     }
+    // AND IT IS THIS PERSON'S DRAFT. 17 September handoff, P6: "Draft opens
+    // under the wrong patient → persist identity context and VALIDATE THE
+    // TARGET BEFORE SAVING."
+    //
+    // The note is found by its own id, so the body lands on the note it came
+    // from whatever the form said — but the form said a person, and nothing
+    // checked that the two agreed. A clinician with two records open, or a
+    // page that navigated between opening the editor and pressing save, could
+    // submit one person's words against another person's id: the redirect, the
+    // confirmation and the breadcrumb would all name the wrong person over a
+    // note that belongs to the right one. That is not a disclosure — both are
+    // in the same tenant — it is a clinician being told they wrote something
+    // they did not, which is its own harm and harder to notice.
+    if (existing.personId !== args.personId) {
+      throw new NoteError(
+        "This draft belongs to a different person's record. Open their record and try again — " +
+        "nothing was saved.",
+      );
+    }
     // NO SILENT OVERWRITE. This was an unconditional UPDATE, so a second tab —
     // or the same clinician returning to a stale form — replaced whatever the
     // first one had written with no trace that anything had been lost. The

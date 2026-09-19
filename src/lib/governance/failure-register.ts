@@ -341,32 +341,66 @@ export const FAILURE_REGISTER: FailureScenario[] = [
     scenario: "A draft is opened, or restored, against a different person than it was written for.",
     required: "Persist identity context and validate the target before saving.",
     area: "safety",
-    state: "gap",
-    injections: [],
+    state: "proven",
+    injections: ["tests/safety-failures.test.ts"],
+    note:
+      "A REAL GAP, FOUND BY WRITING THE INJECTION. A draft is found by its own id, so the body " +
+      "landed on the note it came from whatever the form said — but the form also carried a " +
+      "person, and nothing checked that the two agreed. A clinician with two records open could " +
+      "submit one person's words against another person's id, and the redirect, the confirmation " +
+      "and the breadcrumb would all name the wrong person over a note belonging to the right one. " +
+      "Not a disclosure, since both are in one tenant: a clinician being told they wrote " +
+      "something they did not, which is harder to notice.",
   },
   {
     id: "safety.two-people-share-a-display-name",
     scenario: "Two people in one caseload render identically.",
     required: "Use an approved secondary identifier with minimum exposure.",
     area: "safety",
-    state: "gap",
-    injections: [],
+    state: "proven",
+    injections: ["tests/safety-failures.test.ts"],
+    note:
+      "NOT HYPOTHETICAL: the fabricated population contains four people with one name and three " +
+      "with another, because the generator draws from a list. MINIMUM EXPOSURE IS THE HARD HALF — " +
+      "putting a record number beside every name solves the collision by printing an identifier " +
+      "for everybody, including the majority whose names are already unique, which is a standing " +
+      "disclosure to anybody walking past the screen. So the mark appears only on rows that " +
+      "collide within the list being shown, and it is a slice of the record's own identifier " +
+      "rather than a date of birth or an initial: a fact about the row, meaningless outside " +
+      "Steady, and exactly as good at telling two rows apart.",
   },
   {
     id: "safety.shortcut-fires-inside-a-note-editor",
     scenario: "A keyboard shortcut fires while somebody is typing a note.",
     required: "Scope shortcuts and avoid destructive single-key commands.",
     area: "safety",
-    state: "gap",
-    injections: [],
+    state: "proven",
+    injections: ["tests/safety-failures.test.ts"],
+    note:
+      "THE DRAWER CONTAINS A NOTE FIELD AND ESCAPE CLOSED IT FROM ANYWHERE, so a clinician " +
+      "half-way through writing what they did about a safety signal lost it to a key people press " +
+      "to mean 'get rid of the autocomplete'. The keystroke costs nothing anywhere else in the " +
+      "drawer, which is why it went unnoticed: the one place it costs something is the one place " +
+      "there is something to lose. It is scoped to non-editing focus now, and still closes from " +
+      "everywhere else — a drawer Escape could not dismiss would be a worse keyboard trap than " +
+      "the one this fixes. A walk over the components keeps the second half true: no single " +
+      "letter triggers anything destructive.",
   },
   {
     id: "safety.retrieved-material-carries-instructions",
     scenario: "Retrieved or member-supplied text contains instructions aimed at the system.",
     required: "Treat source text as data, never as permission or as an executable instruction.",
     area: "safety",
-    state: "gap",
-    injections: [],
+    state: "proven",
+    injections: ["tests/safety-failures.test.ts"],
+    note:
+      "THE STRONGEST FORM OF THIS GUARANTEE IS AN ABSENCE. A transcript, a note and a retrieved " +
+      "memory item are all text somebody else wrote, and the answer built from them is assembled " +
+      "by a deterministic rules engine — there is no model in the path to be instructed, because " +
+      "no key is configured and the gateway says so. A prompt-injection defence that depended on " +
+      "filtering would be weaker than the one that exists. The output guard for the day one IS " +
+      "configured checks what was produced rather than trusting the producer, which is the same " +
+      "discipline the summary validator uses.",
   },
   {
     id: "safety.notification-shows-a-name-on-a-lock-screen",
