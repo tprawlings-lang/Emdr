@@ -3106,6 +3106,28 @@ export const ACCESS_INVENTORY: AccessInventory = {
       "exempt": []
     },
     {
+      "path": "/review/work",
+      "audience": "reviewer",
+      "file": "app/review/work/page.tsx",
+      "owed": [
+        1,
+        2,
+        5
+      ],
+      "found": {
+        "1": [
+          "requireUser(",
+          "requireReviewAccess("
+        ],
+        "2": [
+          "requireReviewAccess("
+        ],
+        "5": []
+      },
+      "missing": [],
+      "exempt": []
+    },
+    {
       "path": "/review/planning",
       "audience": "reviewer",
       "file": "app/review/planning/page.tsx",
@@ -3329,8 +3351,8 @@ export const ACCESS_INVENTORY: AccessInventory = {
       "exempt": []
     }
   ],
-  "protectedCount": 118,
-  "complete": 118,
+  "protectedCount": 119,
+  "complete": 119,
   "gapsByStep": {
     "1": 0,
     "2": 0,

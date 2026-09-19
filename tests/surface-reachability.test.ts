@@ -111,8 +111,14 @@ const OFF_SURFACE: Record<string, string> = {
     "The check behind the release definition. The definition itself IS on a screen — the release console answers each of the handoff's twenty-three lines — but the checking is a build-time question about files on disk: does the named test exist, and does it mention the line it claims to hold. A page cannot ask that without reading the repository at request time.",
   "src/lib/governance/failure-register-verify.ts":
     "The check behind the failure register. The register itself IS on a screen — the testing console shows which failures something injects and which nobody has tried — but the verification is a build-time question about files on disk: does the named test exist, and does it actually mention the scenario it claims to be evidence for. A page cannot ask that, and a page that tried would be reading the repository at request time.",
-  "src/lib/governance/work-register-verify.ts":
-    "The check behind the register above: it asks whether each entry's symbol exists, whether a test names it, and whether anything outside its own module refers to it. That last question is what a feature built, tested and reachable from nothing fails — which is how requestUnlock and decideUnlock sat done and unreachable for weeks. Run by the suite, not by a page.",
+  // `work-register-verify.ts` WAS LISTED HERE and no longer belongs, which is
+  // the list working rather than the list being wrong. Its two siblings above
+  // are still off-surface for the reason they give: a page cannot ask a
+  // build-time question about files on disk. The work register now answers that
+  // the other way round — the walk runs in scripts/gen-work-register.ts, its
+  // findings are committed, and /review/work renders them. The code still never
+  // executes on a page; its OUTPUT is what a reviewer reads, which is a
+  // different thing from unreachable.
 
   // ---- Handoff 09 Package 1: the experience contracts -------------------
   //

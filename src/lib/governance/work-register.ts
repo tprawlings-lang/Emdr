@@ -23,11 +23,18 @@
 // how far the claim has actually been taken.
 //
 // THE POINT IS THE VERIFICATION, NOT THE LIST. A hand-maintained list drifts
-// exactly like the paragraphs it replaces. `scripts/gen-work-register.ts`
-// checks every entry against the source — the symbol exists, a test names it,
-// and for anything claiming to be `reachable`, something other than its own
-// module and its own tests refers to it. That last check is the one that would
-// have caught the unlock gap, and it is the reason this file is worth having.
+// exactly like the paragraphs it replaces. `work-register-verify.ts` checks
+// every entry against the source — the symbol exists, a test names it, and for
+// anything claiming to be `reachable`, something other than its own module and
+// its own tests refers to it. That last check is the one that would have caught
+// the unlock gap, and it is the reason this file is worth having.
+// `scripts/gen-work-register.ts` commits the result of that walk so
+// /review/work can render it without reading a filesystem that a deployed
+// build does not have.
+//
+// THIS PARAGRAPH NAMED THE SCRIPT BEFORE THE SCRIPT EXISTED. The check was
+// real and lived somewhere else; the first sentence of the file about drift
+// pointed at a path nobody could open. Found by going to write the script.
 
 export type WorkState =
   /** Decided, not built. */
@@ -555,21 +562,18 @@ export const WORK_REGISTER: WorkEntry[] = [
   {
     id: "governance.work-register-screen",
     title: "The work register, readable on a review screen",
-    // The register's own unfinished business, in the register. Its consumer was
-    // the build alone; nobody could read it without opening a source file,
-    // which is most of what makes a handoff paragraph go stale in the first
-    // place.
-    //
-    // PARTLY ANSWERED, AND NOT BY DESIGN. The release definition reads this
-    // register to answer three of its lines — whether assigned support and the
-    // shared plan are reachable, and whether every held item still says why —
-    // so those facts now appear on the release console. The register itself is
-    // still not a screen: nobody can browse it, and the entries the definition
-    // does not ask about remain invisible. Kept proposed for that reason rather
-    // than promoted on a technicality.
-    state: "proposed",
-    code: null,
-    test: null,
+    state: "reachable",
+    code: "src/lib/review/work-register-view.ts#registerRows",
+    test: "tests/work-register.test.ts",
+    note:
+      "/review/work, in the audit layer. The evidence is on each row rather than behind the state " +
+      "word: a screen that printed \"reachable\" and nothing else would be a prettier copy of the " +
+      "handoff paragraph this register replaced, and the reader has to be able to disbelieve the " +
+      "word. Held and proposed entries are lifted to the top, because that is the half a stale " +
+      "document gets wrong in the expensive direction. The walk is COMMITTED rather than run on " +
+      "the screen — `verifyRegister` reads `src` and `tests` off disk and neither is present in a " +
+      "deployed build — and tests/work-register.test.ts fails when the committed findings drift " +
+      "from a fresh walk.",
   },
   {
     id: "clinical.maintenance-language-held",

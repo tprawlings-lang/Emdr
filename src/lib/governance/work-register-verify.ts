@@ -20,6 +20,13 @@ export interface EntryFinding {
   claimed: WorkState;
   /** The strongest claim the source actually supports. */
   supported: WorkState;
+  /** The three facts `supported` was collapsed from.
+   *
+   *  CARRIED RATHER THAN RE-DERIVED, because the collapse loses the case this
+   *  module was rewritten for: wired-but-untested reports as `built`, which is
+   *  also what unwired-and-untested reports as. A screen given only the
+   *  collapsed state would describe two different situations with one word. */
+  facts: EntryFacts;
   problems: string[];
 }
 
@@ -132,7 +139,7 @@ export function verifyRegister(entries: WorkEntry[] = WORK_REGISTER): EntryFindi
 
     const supported: WorkState =
       !facts.defined ? "proposed" : facts.tested && facts.wired ? "reachable" : facts.tested ? "tested" : "built";
-    return { id: entry.id, claimed: entry.state, supported, problems };
+    return { id: entry.id, claimed: entry.state, supported, facts, problems };
   });
 }
 

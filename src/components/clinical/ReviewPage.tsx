@@ -37,6 +37,7 @@ export const REVIEW_SCREENS: Array<{ href: string; label: string; layer: RailSlu
   { href: "/review/performance", label: "Performance budgets", layer: "evidence" },
   { href: "/review/audit", label: "Audit trail", layer: "audit" },
   { href: "/review/lineage", label: "Lineage trace", layer: "audit" },
+  { href: "/review/work", label: "Work register", layer: "audit" },
 ];
 
 function LayerNav({ layer, here }: { layer: RailSlug; here?: string }) {
