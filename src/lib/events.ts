@@ -360,6 +360,16 @@ export interface AppendEventArgs {
   /** When it happened in the world. Defaults to now. Differs from recorded_at
    *  for anything ingested from an external system. */
   occurredAt?: string;
+  /** When THIS SYSTEM learned it. Defaults to now, which is right for anything
+   *  a person does here.
+   *
+   *  SETTABLE BECAUSE LATE ARRIVAL IS REAL. A record imported from another
+   *  system, a backfill, or a correction to something from March all happened
+   *  before Steady heard about them, and a store that can only say "now" cannot
+   *  express the difference — which is the difference every as-of
+   *  reconstruction is built on. It is never taken from a request; the callers
+   *  that pass it are imports, seeds and tests. */
+  recordedAt?: string;
   tenantId?: string;
   sourceSystem?: string;
   provenance?: Provenance;
@@ -439,9 +449,9 @@ export async function appendEvent(args: AppendEventArgs): Promise<string> {
   await c.run(
     `INSERT INTO longitudinal_events
        (id, tenant_id, person_id, event_type, payload_version, payload,
-        actor_id, actor_type, occurred_at, source_system, provenance,
+        actor_id, actor_type, occurred_at, recorded_at, source_system, provenance,
         correlation_id, supersedes_event_id)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, CURRENT_TIMESTAMP), ?, ?, ?, ?)`,
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, CURRENT_TIMESTAMP), COALESCE(?, CURRENT_TIMESTAMP), ?, ?, ?, ?)`,
     [
       id,
       tenantId,
@@ -452,6 +462,9 @@ export async function appendEvent(args: AppendEventArgs): Promise<string> {
       args.actorId === undefined ? args.personId : args.actorId,
       args.actorType ?? "patient",
       args.occurredAt ?? null,
+      // Stored in the form everything else compares against, so an as-of
+      // cutoff and a recorded stamp are the same shape of string.
+      args.recordedAt ? asOfBound(args.recordedAt) : null,
       args.sourceSystem ?? "steady",
       JSON.stringify(args.provenance ?? {}),
       args.correlationId ?? null,
@@ -509,6 +522,17 @@ export interface ReadEventsFilter {
   limit?: number;
 }
 
+/**
+ * A cutoff in the form timestamps are stored in.
+ *
+ * "2026-09-18T09:00:00.000Z" and "2026-09-18 09:00:00" are the same instant and
+ * do not compare as text. Exported so a caller that has to build its own
+ * comparison uses the same rule rather than a second one that nearly matches.
+ */
+export function asOfBound(asOf: string): string {
+  return asOf.slice(0, 19).replace("T", " ");
+}
+
 /** Read events in append order. */
 export async function readEvents(f: ReadEventsFilter = {}): Promise<LongitudinalEvent[]> {
   const where: string[] = [];
@@ -516,7 +540,26 @@ export async function readEvents(f: ReadEventsFilter = {}): Promise<Longitudinal
   if (f.personId) { where.push("person_id = ?"); params.push(f.personId); }
   if (f.tenantId) { where.push("tenant_id = ?"); params.push(f.tenantId); }
   if (f.afterId) { where.push("id > ?"); params.push(f.afterId); }
-  if (f.asOf) { where.push("recorded_at <= ?"); params.push(f.asOf); }
+  // AS-OF IS COMPARED IN ONE FORMAT, and it was not.
+  //
+  // `recorded_at` takes the column default `datetime('now')`, which SQLite
+  // writes as "2026-09-19 08:00:00" — a space. Callers pass an ISO instant,
+  // "2026-09-18T09:00:00.000Z" — a T. The comparison is on TEXT, and " " sorts
+  // before "T", so every row recorded on the cutoff's own date passed the
+  // filter whatever its time: a reconstruction "as of 09:00" quietly included
+  // an event recorded at 23:00 that evening. That is precisely the future-data
+  // leakage this parameter exists to prevent, and it was invisible because it
+  // only ever showed up as a test that started failing the day the date rolled
+  // over — same-day rows had been passing by accident, and next-day rows
+  // suddenly stopped.
+  //
+  // Both sides are narrowed to "YYYY-MM-DD HH:MM:SS" before comparing. The
+  // expression form works on both backends and is applied to the column rather
+  // than the parameter alone, because rows exist in both spellings.
+  if (f.asOf) {
+    where.push("replace(substr(recorded_at, 1, 19), 'T', ' ') <= ?");
+    params.push(asOfBound(f.asOf));
+  }
   if (f.types && f.types.length > 0) {
     where.push(`event_type IN (${f.types.map(() => "?").join(",")})`);
     params.push(...f.types);

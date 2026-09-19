@@ -136,28 +136,49 @@ export const FAILURE_REGISTER: FailureScenario[] = [
     scenario: "A clinician decides on evidence that changed while they were reading it.",
     required: "Detect the version mismatch and show the relevant change.",
     area: "stale_evidence",
-    state: "gap",
-    injections: [],
+    state: "proven",
+    injections: ["tests/stale-evidence.test.ts"],
     note:
-      "The queue's concurrency spec proves the CONCURRENT case — two clinicians, one row, second " +
-      "told rather than overwritten. Evidence moving under a single reader is a different " +
-      "injection and nothing performs it.",
+      "DETECTION WAS BUILT AND THE SHOWING WAS A VERSION STRING. A reader told 'the queue now " +
+      "holds open@2026-09-12T08:00:00Z' has the evidence that something moved and none of what " +
+      "they need, so the honest response to the warning is to press through it — which is the " +
+      "behaviour a version check exists to prevent. A conflict now says which of the two things " +
+      "happened, because they mean opposite things: somebody else acting is a question about " +
+      "coordination, and new evidence arriving is a question about the decision itself. For " +
+      "alerts it separates one closed by somebody else from one raised that the reader has " +
+      "not seen.",
   },
   {
     id: "stale.correction-changes-a-trajectory",
     scenario: "A correction to an earlier observation changes an interpretation already shown.",
     required: "Preserve the old version and explain the new interpretation.",
     area: "stale_evidence",
-    state: "gap",
-    injections: [],
+    state: "proven",
+    injections: ["tests/stale-evidence.test.ts"],
+    note:
+      "THE ONE THE OBVIOUS IMPLEMENTATION GETS WRONG. A correction to a March observation recorded " +
+      "in September occurs BEFORE a review made in June, so a staleness check comparing " +
+      "occurrence times would leave that review reading current over a record that changed " +
+      "underneath it. The handoff's time model is the fix — when it happened and when we learned " +
+      "are different columns — and the injection puts the two stamps on opposite sides of every " +
+      "other row so only the right column can pass. The earlier review is not rewritten: it " +
+      "stands as what was decided, with the currency verdict computed beside it.",
   },
   {
     id: "stale.answer-cites-corrected-evidence",
     scenario: "A generated answer cites evidence that has since been corrected.",
     required: "Mark it stale or regenerate under an explicit policy.",
     area: "stale_evidence",
-    state: "gap",
-    injections: [],
+    state: "proven",
+    injections: ["tests/stale-evidence.test.ts"],
+    note:
+      "THE POLICY IS REGENERATE, and it is enforced by there being nowhere to put an answer: no " +
+      "summary or retrieved answer is written to a table, so nobody can be served one that cites " +
+      "evidence corrected since. The single generated artefact that IS durable is approved " +
+      "clinical memory, and a corrected source supersedes the item rather than editing it while " +
+      "retrieval reads approved items only. Two of these assertions are source checks, because " +
+      "the property is an absence: a behavioural test can show today's answer matches today's " +
+      "record, but not that no code path stores one — and storing one is the change that breaks it.",
   },
 
   // ── Concurrency and ownership ──────────────────────────────────────────

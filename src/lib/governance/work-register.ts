@@ -604,6 +604,20 @@ export const WORK_REGISTER: WorkEntry[] = [
     test: "tests/environment-generation.test.ts",
   },
   {
+    id: "platform.as-of-is-one-format",
+    title: "A point-in-time read compares two timestamps in the same spelling",
+    state: "reachable",
+    code: "src/lib/events.ts#asOfBound",
+    test: "tests/stale-evidence.test.ts",
+  },
+  {
+    id: "clinical.conflict-says-what-changed",
+    title: "A stale decision is told which of the two things moved",
+    state: "reachable",
+    code: "src/lib/clinical/row-version.ts#explainVersionChange",
+    test: "tests/stale-evidence.test.ts",
+  },
+  {
     id: "ops.backups",
     title: "Nightly encrypted off-site backups",
     state: "held",

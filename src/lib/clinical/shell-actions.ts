@@ -21,7 +21,7 @@ import {
 } from "../experience/command";
 import { runOnce } from "../command-log";
 import { newestEvidenceFor } from "./person-evidence";
-import { signalRowVersion, alertRowVersion } from "./row-version";
+import { signalRowVersion, alertRowVersion, explainVersionChange } from "./row-version";
 
 // The clinician's separated commands (handoff 09 §5, §9; Package 2).
 //
@@ -322,9 +322,13 @@ async function completeReviewWithoutSignal(args: {
   // reader has not seen, is caught rather than closed on their behalf.
   const currentVersion = alertRowVersion(open);
   if (args.expectedVersion && args.expectedVersion !== currentVersion) {
+    // WHAT CHANGED, not that something did. P6: "detect the version mismatch
+    // and show the relevant change." A reader handed only a version string has
+    // been given the evidence that something moved and none of what they need,
+    // so the honest response is to press through the warning.
     return stale(
-      "The safety alerts on this person changed while you were reading. Look at what is open " +
-      "now before closing anything.",
+      `${explainVersionChange(args.expectedVersion, currentVersion)} ` +
+      "Look at what is open now before closing anything.",
       currentVersion
     );
   }
@@ -441,7 +445,8 @@ export async function completeReview(input: CommandInput<{ personId: string; not
       const currentVersion = signalRowVersion(signal);
       if (command.expectedVersion && command.expectedVersion !== currentVersion) {
         return stale(
-          "Somebody else changed this while you were reading it. Read what changed before deciding again.",
+          `${explainVersionChange(command.expectedVersion, currentVersion)} ` +
+          "Read what changed before deciding again.",
           currentVersion
         );
       }

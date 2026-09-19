@@ -131,6 +131,8 @@ export async function recordCheckin(args: {
    *  so. */
   checkinId: string;
   /** Timestamp shared with the `checkins` row, so a replay matches it exactly. */
+  /** When Steady learned it, for a backfilled or corrected reading. */
+  recordedAt?: string;
   occurredAt?: string;
   checkinDate: string;
   activation: number;
@@ -147,6 +149,7 @@ export async function recordCheckin(args: {
   await appendEventSafe({
     personId: args.userId,
     type: "daily_checkin.completed",
+    recordedAt: args.recordedAt,
     occurredAt: args.occurredAt,
     payload: {
       projectionId: args.checkinId,

@@ -127,6 +127,14 @@ test("a domain with readings but nothing to compare is not counted as read", asy
     await recordCheckin({
       userId: member, checkinId: newId(), checkinDate: day,
       occurredAt: `${day}T09:00:00.000Z`,
+      // AND WHEN STEADY LEARNED IT. This fixture used to say only when the
+      // reading happened, so the events were recorded at the wall clock and a
+      // reconstruction as of a fixed date should have excluded them — it did
+      // not, because the as-of comparison was between two different timestamp
+      // spellings and same-day rows passed by accident. The test went red the
+      // morning the date rolled over. A fixture for a point-in-time read has
+      // to state both clocks.
+      recordedAt: `${day}T09:00:00.000Z`,
       activation: 3, shutdown: 2, dissociation: 1, sleepQuality: 6,
       harmUrge: false, feelsSafe: true, substanceFlag: false,
       recommendedAction: "processing ok",
