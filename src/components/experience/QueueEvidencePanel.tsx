@@ -54,6 +54,19 @@ export function QueueEvidencePanel({
 
   return (
     <section
+      // WHERE THE READER IS PUT WHEN THIS OPENS. Below the list on a wide
+      // screen (23 September's decision) the panel sits 895px below the fold on
+      // a 1440x900 laptop, so opening a row has to move the reader or the
+      // control appears to do nothing. See FocusPanelOnOpen.tsx for why that is
+      // focus rather than a URL fragment — the fragment worked and broke
+      // re-opening a row.
+      id="queue-evidence"
+      // FOCUSABLE PROGRAMMATICALLY, NOT IN THE TAB ORDER. `FocusPanelOnOpen`
+      // moves the reader here when the panel opens, which scrolls it into view
+      // and puts a screen-reader user inside the region that just appeared. A
+      // positive tabIndex would put a non-interactive region in everybody's tab
+      // sequence for the sake of that.
+      tabIndex={-1}
       // §1.4: "a labeled region" in every mode.
       aria-label={`Why ${row.personName} is in the queue`}
       data-testid="queue-evidence-panel"

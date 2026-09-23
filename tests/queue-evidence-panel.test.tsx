@@ -120,25 +120,68 @@ test("the focus effect re-runs when the panel closes", () => {
 // The list is not squeezed, and the panel is not below the fold
 // ---------------------------------------------------------------------------
 
-test("the panel is a column beside the queue only where both fit", () => {
-  // Measured: at 1024px with the panel open a row was 262px wide. The panel
-  // takes a fixed 24rem and the list gets the remainder.
+test("the panel never takes a column out of the queue rows", () => {
+  // Measured: at 1024px with the panel BESIDE the list a row was 262px wide,
+  // which is UX 011 — "the evidence drawer compresses queue rows". The panel
+  // moved below the list on 23 September, so it takes no width from anything
+  // and that measurement cannot recur; the guard stays because the fix for it
+  // is a layout choice somebody could undo in one class.
   const view = read("src/components/experience/ClinicianHomeView.tsx");
-  assert.ok(!/\blg:w-\[24rem\]/.test(view),
-    "the panel claims its column from lg, where the remaining row width measured 262px");
-  assert.match(view, /xl:w-\[24rem\]/, "the panel never gets its own column");
+  for (const claim of [/\blg:w-\[24rem\]/, /\bxl:w-\[24rem\]/, /\bxl:shrink-0/]) {
+    assert.ok(!claim.test(view),
+      `the panel claims a fixed column again (${claim}), which is what squeezed rows to 262px`);
+  }
+  assert.ok(!/xl:flex-row/.test(view),
+    "the list and the panel are side by side again, which is the arrangement that squeezed the rows");
 });
 
-test("below that width the panel is the detail view, above the rows", () => {
+test("the panel is above the rows on a phone and below them on a laptop", () => {
+  // DECIDED 23 SEPTEMBER: below the list, matching every other work screen.
+  //
+  // ABOVE ON A PHONE IS A MEASUREMENT, NOT A PREFERENCE, and the decision was
+  // taken with it in hand. Stacking it under the queue there was tried:
+  // measured on a 390x844 screen the panel opened at y=3204 — 2,360px below the
+  // fold — so a clinician tapped "why this is here" and the screen appeared not
+  // to change.
   const view = read("src/components/experience/ClinicianHomeView.tsx");
   assert.match(view, /order-first/,
-    "the panel stacks under the queue again, where it opened 2,360px below the fold");
-  // ORDER IS A FLEX PROPERTY. The first attempt set `order-first` on a
+    "the panel stacks under the queue on a phone again, where it opened 2,360px below the fold");
+  assert.match(view, /xl:order-last/,
+    "the panel does not move below the list on a wide screen, which is what was decided");
+
+  // ORDER IS A FLEX PROPERTY. An earlier attempt set `order-first` on a
   // container that was only `xl:flex`, so below xl it was a block container and
   // the ordering was silently ignored — the class list read correctly and the
   // measurement was unchanged.
-  assert.match(view, /className="flex flex-col xl:flex-row/,
-    "the container is not flex at every width, so order-first does nothing below xl");
+  assert.match(view, /className="flex flex-col"/,
+    "the container is not flex at every width, so the ordering does nothing");
+});
+
+test("opening a row moves the reader to the panel", () => {
+  // BELOW THE LIST COSTS 895px ON A 1440x900 LAPTOP, measured after the move —
+  // the same defect as the phone one at a different width: a control that
+  // appears to do nothing.
+  const view = read("src/components/experience/ClinicianHomeView.tsx");
+  const panel = read("src/components/experience/QueueEvidencePanel.tsx");
+  assert.match(view, /FocusPanelOnOpen/,
+    "opening a row leaves the reader where they were, with the panel off-screen below the list");
+  assert.match(panel, /id="queue-evidence"/, "the panel has no id to move the reader to");
+  assert.match(panel, /tabIndex=\{-1\}/,
+    "the panel cannot take focus, so moving the reader there does nothing");
+});
+
+test("the opening link carries no fragment", () => {
+  // A FRAGMENT WAS THE FIRST ATTEMPT AND IT BROKE RE-OPENING A ROW.
+  // `RestoreFocus` clears the fragment once it has done its job, so the address
+  // becomes `?row=X`; going to `?row=X#queue-evidence` again is a fragment-only
+  // change, which browsers handle WITHOUT RELOADING. The panel kept whatever it
+  // was last showing, so a clinician who recorded a contact and opened the same
+  // row again got the old confirmation instead of the form. The browser suite
+  // caught it and it reproduced twice.
+  const view = read("src/components/experience/ClinicianHomeView.tsx");
+  const opening = view.slice(view.indexOf("panelHref="), view.indexOf("panelHref=") + 300);
+  assert.ok(!/#queue-evidence/.test(opening),
+    "the opening link carries a fragment again, so re-opening a row will not reload it");
 });
 
 // ---------------------------------------------------------------------------

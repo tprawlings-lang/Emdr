@@ -6,6 +6,7 @@ import { summary as filterSummary, type ViewState } from "@/lib/experience/view-
 import { QueueRow } from "./QueueRow";
 import { QueueEvidencePanel } from "./QueueEvidencePanel";
 import { RestoreFocus } from "./RestoreFocus";
+import { FocusPanelOnOpen } from "./FocusPanelOnOpen";
 import { QueueConfirmations } from "./QueueConfirmations";
 import { RowActions } from "./RowActions";
 import { ownershipDebtStatement, OWNERSHIP_DEBT_LIMIT } from "@/lib/clinical/ownership-debt";
@@ -84,7 +85,10 @@ export function ClinicianHomeView({
         the detail view instead, which is the handoff's own small-screen answer:
         "open a dedicated detail view or accessible sheet instead of squeezing
         the list." */}
-    <div className="flex flex-col xl:flex-row xl:gap-8">
+    {/* STACKED AT EVERY WIDTH, and which END the detail sits at is the whole
+        decision (23 September). It was an aside beside the list; the request
+        was for it below, matching every other work screen. */}
+    <div className="flex flex-col">
       <div className="min-w-0 flex-1">
         {/* §3's counts as filters. Never capped — the count is the whole
             bucket, so pressing one opens all of it rather than revealing what
@@ -263,19 +267,29 @@ export function ClinicianHomeView({
         </p>
       </div>
 
-      {/* The panel. An aside on wide screens; the detail view below xl.
-          ORDER-FIRST BELOW xl, and this is the half that was actually broken
-          rather than merely tight. Measured on a 390x844 screen, the panel
-          opened at y=3204 — 2,360px below the fold — so a clinician who tapped
-          "why this is here" saw the screen not change at all. Stacking it under
-          the queue put the answer behind the entire list — the previous comment
-          here called stacking "§5's small-screen answer", and it was not one.
-          The container is flex at EVERY width for this reason: `order-first` is
-          a flex property, and on a block container it is silently ignored. The
-          first attempt at this fix set the order and changed nothing, which the
-          measurement caught and reading the class list would not have. */}
+      {/* The panel. BELOW the list on a wide screen; ABOVE it on a narrow one,
+          and the split is deliberate rather than an oversight.
+          
+          BELOW ON WIDE IS THE DECISION (23 September): it was an aside beside
+          the list, and the request was to match every other work screen. The
+          cost, stated when it was chosen, is that the list and the detail are
+          no longer both visible at once on a laptop.
+
+          ABOVE ON NARROW IS A MEASUREMENT, NOT A PREFERENCE, and it is why this
+          is not simply "below everywhere". Stacking it under the queue on a
+          phone was tried: measured on a 390x844 screen the panel opened at
+          y=3204 — 2,360px below the fold — so a clinician who tapped "why this
+          is here" saw the screen not change at all. The decision sheet offered
+          "below everywhere" and that history was reported before it was taken;
+          below-on-laptop, above-on-phone is what was chosen with it in hand.
+
+          The container is flex at EVERY width for this reason: `order-first`
+          and `order-last` are flex properties, and on a block container they
+          are silently ignored. An earlier attempt set the order and changed
+          nothing, which the measurement caught and reading the class list would
+          not have. */}
       {selected && (
-        <div className="order-first mb-8 xl:order-none xl:mb-0 xl:w-[24rem] xl:shrink-0">
+        <div className="order-first mb-8 xl:order-last xl:mb-0 xl:mt-8">
           <QueueEvidencePanel
             row={selected}
             mode="nonmodal"
@@ -302,6 +316,10 @@ export function ClinicianHomeView({
         client-side navigation re-renders without remounting — so focus was
         still landing on <body> after the fix, exactly as before it. */}
     <RestoreFocus token={selected?.id ?? "closed"} />
+    {/* And the other half: the panel is below the list on a wide screen, so
+        opening a row without moving the reader there is a control that appears
+        to do nothing. */}
+    <FocusPanelOnOpen token={selected?.id ?? null} />
     </QueueConfirmations>
   );
 }

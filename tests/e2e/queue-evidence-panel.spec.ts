@@ -112,3 +112,36 @@ test("the fragment is cleaned up once it has done its job", async ({ page }) => 
   await expect(page.getByTestId("queue-evidence-panel")).toHaveCount(0);
   await expect.poll(() => page.evaluate(() => window.location.hash)).toBe("");
 });
+
+test("the detail sits below the list on a laptop and above it on a phone", async ({ page }) => {
+  // DECIDED 23 SEPTEMBER: below the list, matching every other work screen.
+  // ABOVE ON A PHONE IS A MEASUREMENT, NOT A PREFERENCE. Stacking it under the
+  // queue there was tried and measured at y=3204 on a 390x844 screen — 2,360px
+  // below the fold — so a clinician tapped "why this is here" and the screen
+  // appeared not to change. The decision was taken with that history in hand.
+  await signInAsClinician(page);
+  for (const [w, h, expectBelow] of [[1440, 900, true], [390, 844, false]] as const) {
+    await page.setViewportSize({ width: w, height: h });
+    await page.goto("/clinician/today");
+    await page.getByRole("link", { name: /why this is here/i }).first().click();
+    await page.waitForLoadState("networkidle");
+
+    const panel = page.locator('[data-testid="queue-evidence-panel"]');
+    await expect(panel).toBeVisible();
+    const list = page.locator("ul").filter({ has: page.locator('[id^="row-"]') }).first();
+
+    const pBox = (await panel.boundingBox())!;
+    const lBox = (await list.boundingBox())!;
+    // Playwright's box is viewport-relative, so these compare positions on the
+    // same scrolled page rather than in the document.
+    const panelIsBelow = pBox.y > lBox.y;
+    expect(panelIsBelow, `at ${w}px the panel is ${panelIsBelow ? "below" : "above"} the list`)
+      .toBe(expectBelow);
+
+    // AND IN VIEW WHEN IT OPENS, at both widths. A control that appears to do
+    // nothing is worse than one that is merely far away — which is exactly
+    // what "below the list" costs without the fragment that moves to it.
+    expect(pBox.y, `at ${w}px the panel opened off the bottom of the screen`).toBeLessThan(h);
+    expect(pBox.y + pBox.height, `at ${w}px the panel opened above the screen`).toBeGreaterThan(0);
+  }
+});
