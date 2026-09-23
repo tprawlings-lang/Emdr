@@ -136,15 +136,33 @@ export async function buildCaseload(args: {
             (SELECT MAX(n.signed_at) FROM clinical_notes n
               WHERE n.person_id = u.id AND n.kind = 'contact'
                 AND n.status = 'signed')                               AS last_contact,
-            (SELECT mu2.clinician_id FROM module_unlocks mu2
-              WHERE mu2.user_id = u.id AND mu2.clinician_id IS NOT NULL
-              ORDER BY mu2.decided_at DESC LIMIT 1)                    AS primary_clinician_id
+            -- WHO THIS PERSON'S CLINICIAN IS, from an assignment somebody made.
+            --
+            -- THIS USED TO BE DERIVED FROM MODULE UNLOCKS: whoever last
+            -- approved or refused a request to open a gated module. A clinician
+            -- who answered one unlock for somebody else's patient became that
+            -- patient's primary clinician, and a person who had never requested
+            -- one had nobody -- which was all 250 of them, so every queue row
+            -- read Unassigned and the caseload model's accountability half was
+            -- inert. There was no way to say "this person is Dr Chen's".
+            (SELECT a.clinician_person_id FROM caseload_assignments a
+              WHERE a.person_id = u.id AND a.tenant_id = ? AND a.ended_at IS NULL
+              ORDER BY a.started_at DESC LIMIT 1)                      AS primary_clinician_id
        FROM users u
        LEFT JOIN checkins ci
          ON ci.user_id = u.id
         AND ci.checkin_date = (SELECT MAX(checkin_date) FROM checkins z WHERE z.user_id = u.id)
       WHERE u.role = 'member' AND u.status = 'active' AND u.tenant_id = ?`,
-    [new Date(now.getTime() - 7 * 86400000).toISOString().slice(0, 19).replace("T", " "), args.tenantId]
+    // THREE PLACEHOLDERS, AND THE TENANT IS TWO OF THEM: the assignment
+    // subselect is scoped to the tenant as well as the outer WHERE, because an
+    // assignment read across tenants would say who works with whom. Positional
+    // parameters in text order — the hard-stop date, then the subselect's
+    // tenant, then the outer one.
+    [
+      new Date(now.getTime() - 7 * 86400000).toISOString().slice(0, 19).replace("T", " "),
+      args.tenantId,
+      args.tenantId,
+    ]
   )) as RawRow[];
 
   const rows: CaseloadRow[] = raw.map((r) => {

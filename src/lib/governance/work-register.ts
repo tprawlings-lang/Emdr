@@ -589,6 +589,34 @@ export const WORK_REGISTER: WorkEntry[] = [
       "from a fresh walk.",
   },
   {
+    id: "clinical.caseload-assignment",
+    title: "A person is assigned to a clinician, and it stays that way",
+    state: "reachable",
+    code: "src/lib/clinical/caseload-assignment.ts#assignToCaseload",
+    test: "tests/caseload-assignment.test.ts",
+    note:
+      "THERE WAS NO WAY TO SAY IT. The caseload carried `primaryClinicianId` and derived it from " +
+      "`module_unlocks.clinician_id` — whoever last approved or refused a request to open a gated " +
+      "module. A clinician who answered one unlock for somebody else's patient became that " +
+      "patient's primary clinician, and a person who had never requested one had nobody, which was " +
+      "all 250 members. So every queue row read Unassigned, the `hybrid` model's promise that 'a " +
+      "named owner carries accountability' was inert, and \"Dr Chen's caseload\" was not a thing " +
+      "the system knew. A PERSON ID, NOT A USER ID: eleven of the twelve fabricated clinicians are " +
+      "persons with a role and no login, and keying this to accounts would have made them " +
+      "unassignable — the same constraint that limits who can sign a clinical note. Where a " +
+      "clinician does hold an account the two ids are the same value, so the access comparison " +
+      "still works. HISTORY IS KEPT, because a transfer is a clinical fact and updating one row in " +
+      "place answers 'who looks after them' while losing 'who did, in March' — which is the " +
+      "question asked after something goes wrong. It is accountability, NOT access: the active " +
+      "hybrid model still lets anyone in the tenant act, deliberately, so a member in an Immediate " +
+      "band does not wait for one person to come back from leave; what changes is that covering " +
+      "somebody else's patient is now visible as coverage, which it never could be because nobody " +
+      "had a patient. The demonstration seeds all 240 fabricated people from the manifest's own " +
+      "clinician column, so unclaimed work on the Command Center fell from 34 of 39 to 3 — the " +
+      "three being demo-seed members the population generator does not cover, which leaves the " +
+      "unassigned state visible rather than theoretical.",
+  },
+  {
     id: "clinical.unclaimed-work-is-counted",
     title: "Unclaimed work is counted where somebody will see it",
     state: "reachable",

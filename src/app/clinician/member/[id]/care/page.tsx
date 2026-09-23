@@ -17,6 +17,8 @@ import { readingFrame } from "@/lib/clock";
 import { assignmentsFor } from "@/lib/clinical/assigned-support";
 import { moduleRequestsFor } from "@/lib/clinical/module-requests";
 import { AssignedSupport } from "@/components/clinical/AssignedSupport";
+import { assignmentFor, assignmentHistory } from "@/lib/clinical/caseload-assignment";
+import { assignCaseloadAction } from "@/lib/clinical/assignment-actions";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Care — Steady Clinical" };
@@ -129,6 +131,26 @@ export default async function MemberCarePage({
   // duplicate this is here to stop.
   const assignKey = randomUUID();
   const handoffs = handoffsForPerson({ personId: id, tenantId });
+  const [assignment, history] = await Promise.all([
+    assignmentFor(tenantId, id),
+    assignmentHistory(tenantId, id),
+  ]);
+  // Who work could be assigned to. READ FROM ROLE ASSIGNMENTS, NOT FROM
+  // ACCOUNTS — eleven of the twelve fabricated clinicians are persons with a
+  // role and no login, and being able to sign in was never a condition of
+  // holding a caseload. DISTINCT, because a clinician with two role rows
+  // appeared twice in the list on the queue's own Assign control.
+  const assignees = (await c.all(
+    `SELECT DISTINCT ra.person_id AS id, p.display_name AS name
+       FROM role_assignments ra
+       JOIN persons p ON p.id = ra.person_id
+      WHERE ra.tenant_id = ?
+        AND ra.role IN ('clinician', 'care_manager')
+        AND ra.person_id != ?
+        AND (ra.effective_to IS NULL OR ra.effective_to > CURRENT_TIMESTAMP)
+      ORDER BY p.display_name LIMIT 24`,
+    [tenantId, id]
+  )) as Array<{ id: string; name: string }>;
   const pending = handoffs.filter((h) => isOpen(h.state));
 
   await audit({
@@ -213,6 +235,95 @@ export default async function MemberCarePage({
         <h2 id="handoffs" className="type-display text-xl font-medium text-ground">
           Accountability
         </h2>
+
+        {/* WHO HOLDS THIS PERSON. Until this existed the section could only
+            propose a HANDOFF — a transfer between two people — which is not the
+            same as saying who holds somebody in the first place, and which
+            nobody could do because nobody held anybody: the field behind it was
+            derived from module-unlock decisions, so all 250 members read
+            unassigned. */}
+        <div className="mt-3 rounded-3xl border border-ground/10 bg-app-surface p-5">
+          <p className="text-sm">
+            {assignment ? (
+              <>
+                <span className="text-olive">Clinician: </span>
+                <strong className="text-app-ink">{assignment.clinicianName ?? assignment.clinicianPersonId}</strong>
+                <span className="text-olive"> since {assignment.startedAt.slice(0, 10)}</span>
+              </>
+            ) : (
+              <span className="text-olive">
+                Nobody is assigned to this person. That is a real state rather than a gap in the
+                record, and it is counted on the Command Center.
+              </span>
+            )}
+          </p>
+
+          {assignees.length === 0 ? (
+            <p className="measure mt-2 text-xs text-olive">
+              No clinician in this tenant holds a current role assignment, so there is nobody to
+              assign to.
+            </p>
+          ) : (
+            <form action={assignCaseloadAction} className="mt-4 space-y-3">
+              <input type="hidden" name="personId" value={id} />
+              <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+                <label className="text-sm">
+                  <span className="mb-1 block text-olive">Assign to</span>
+                  <select
+                    name="clinician_person_id"
+                    required
+                    defaultValue={assignment?.clinicianPersonId ?? ""}
+                    className="w-full rounded-xl border border-ground/20 bg-app-surface px-3 py-2"
+                  >
+                    <option value="">Choose…</option>
+                    {assignees.map((a) => (
+                      <option key={a.id} value={a.id}>{a.name}</option>
+                    ))}
+                    {/* A REAL OPTION, NOT AN EMPTY SELECTION. Leaving somebody
+                        unassigned is a decision and needs a reason; an empty
+                        dropdown would record it as a mistake. */}
+                    <option value="__none__">Nobody — leave unassigned</option>
+                  </select>
+                </label>
+                <label className="text-sm">
+                  <span className="mb-1 block text-olive">Reason (required to unassign)</span>
+                  <input
+                    name="reason"
+                    maxLength={500}
+                    className="w-full rounded-xl border border-ground/20 bg-app-surface px-3 py-2"
+                  />
+                </label>
+              </div>
+              <button
+                type="submit"
+                className="rounded-full bg-ground px-4 py-2 text-sm font-medium text-ivory"
+              >
+                Record assignment
+              </button>
+              <p className="measure text-xs text-olive">
+                Nobody is notified — there is no delivery path in this build. This records who is
+                accountable; it does not change who may act, which the caseload model decides.
+              </p>
+            </form>
+          )}
+
+          {history.length > 1 && (
+            <details className="mt-4">
+              <summary className="cursor-pointer text-xs text-olive">
+                Who held this person before ({history.length - 1})
+              </summary>
+              <ul className="mt-2 space-y-1 text-xs text-olive">
+                {history.slice(1).map((h) => (
+                  <li key={h.id}>
+                    {h.clinicianName ?? h.clinicianPersonId} — {h.startedAt.slice(0, 10)} to{" "}
+                    {h.endedAt?.slice(0, 10) ?? "—"}
+                    {h.endedReason ? ` (${h.endedReason})` : ""}
+                  </li>
+                ))}
+              </ul>
+            </details>
+          )}
+        </div>
         {handoffs.length === 0 ? (
           <div className="mt-3">
             <EmptyState

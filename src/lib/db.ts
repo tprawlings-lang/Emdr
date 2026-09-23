@@ -1129,6 +1129,47 @@ export const SCHEMA_SQL = `
   );
   CREATE INDEX IF NOT EXISTS idx_command_results_reserved ON command_results(reserved_at);
 
+  -- Who a person's clinician is, as a standing fact.
+  --
+  -- THERE WAS NO WAY TO SAY IT. The caseload called a field
+  -- primary_clinician_id and derived it from module_unlocks.clinician_id --
+  -- whoever last approved or refused a request to open a gated module. A
+  -- clinician who answered one unlock for somebody else's patient became that
+  -- patient's primary clinician; a person who had never requested an unlock had
+  -- none at all, which was all 250 of them. So every row read Unassigned, the
+  -- caseload model's accountability half was inert, and "Dr Chen's caseload"
+  -- was not a thing the system knew.
+  --
+  -- A PERSON ID, NOT A USER ID. Eleven of the twelve fabricated clinicians are
+  -- persons with a role assignment and no login, deliberately -- unused
+  -- credentials are credentials to rotate. Keying this to users would make
+  -- them unassignable, which is the same constraint that limits who can sign a
+  -- clinical note. Where a clinician does hold an account the two ids are the
+  -- same value, so the access comparison still works.
+  --
+  -- HISTORY IS KEPT, BECAUSE A TRANSFER IS A CLINICAL FACT. ended_at NULL is
+  -- the current assignment; the rows before it say who held this person and
+  -- when that changed. Updating one row in place would answer "who looks after
+  -- them" and lose "who did, in March".
+  CREATE TABLE IF NOT EXISTS caseload_assignments (
+    id TEXT PRIMARY KEY,
+    tenant_id TEXT NOT NULL,
+    person_id TEXT NOT NULL,
+    clinician_person_id TEXT NOT NULL,
+    -- Who decided. Null for the demonstration seed, which is not somebody.
+    assigned_by TEXT,
+    reason TEXT,
+    started_at TEXT NOT NULL,
+    ended_at TEXT,
+    ended_reason TEXT
+  );
+  -- The current assignment is read per person on every caseload build, so the
+  -- open rows are the ones worth indexing.
+  CREATE INDEX IF NOT EXISTS idx_caseload_assignments_open
+    ON caseload_assignments(tenant_id, person_id) WHERE ended_at IS NULL;
+  CREATE INDEX IF NOT EXISTS idx_caseload_assignments_clinician
+    ON caseload_assignments(tenant_id, clinician_person_id) WHERE ended_at IS NULL;
+
   -- What a gate resolved to, the last time anybody asked.
   --
   -- TWO GATES COULD NOT BE PART OF THE PILOT CHECK WITHOUT THIS. Both
@@ -2648,6 +2689,11 @@ export const PLATFORM_TENANT_ID = NIL_ULID;
  *  matches the schema, so a new table cannot silently escape tenant scoping
  *  (ADR 0011 §4). */
 export const TENANT_SCOPED_TABLES = [
+  // Who a person's clinician is. Tenant-scoped in the schema AND in every
+  // reader, because who works with whom is a disclosure about staffing as much
+  // as about care — and because the caseload query writes the scope a second
+  // time, which is a second place it can be dropped.
+  "caseload_assignments",
   "users", "consents", "screenings", "checkins", "therapy_sessions",
   "clinical_notes",
   "post_session_checks", "module_unlocks", "alerts", "user_profiles",

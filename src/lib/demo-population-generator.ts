@@ -719,6 +719,20 @@ function generateInner(db: Database.Database): GeneratedCounts {
         created_at, updated_at)
      VALUES (?, ?, ?, ?, 'contact', ?, 'signed', ?, ?, ?, ?)
      ON CONFLICT(id) DO NOTHING`);
+  // THE CASELOAD, AS A STANDING FACT. The manifest has always named each
+  // person's clinician; nothing wrote it down as an assignment, so the product
+  // derived one from module-unlock decisions and every one of the 240 profiles
+  // came out unassigned. The demonstration now shows twelve real caseloads
+  // rather than one long unowned list.
+  //
+  // `assigned_by` IS NULL, DELIBERATELY. A seed is not somebody, and putting
+  // the demo clinician's name on 240 decisions they did not take would be
+  // fabricating a record of a person acting. The reason says what it is.
+  const insAssignment = db.prepare(
+    `INSERT INTO caseload_assignments
+       (id, tenant_id, person_id, clinician_person_id, assigned_by, reason, started_at)
+     VALUES (?, ?, ?, ?, NULL, 'Fabricated for the demonstration.', ?)
+     ON CONFLICT(id) DO NOTHING`);
   const insCareAction = db.prepare(
     `INSERT INTO between_visit_care_actions
        (id, tenant_id, person_id, clinician_person_id, action_type, note,
@@ -769,6 +783,13 @@ function generateInner(db: Database.Database): GeneratedCounts {
     // person: how quickly a first appointment was arranged, how many measures
     // were delivered, how often they showed up.
     const access = accessProfileFor(row);
+    // Assigned from the day they enrolled, so the history is not a person who
+    // appeared on a caseload weeks after their first check-in.
+    insAssignment.run(
+      popId("assign", row.id), tenant, personId,
+      clinicianPersonId(row.clinician),
+      dayStamp(epoch, enrolmentDayFor(row), 9),
+    );
     // WHEN THIS PERSON JOINED, and how long they have been here. Both come
     // from the calendar module so the seed and the generator cannot disagree
     // about an enrolment date — they did once, and the result was a person

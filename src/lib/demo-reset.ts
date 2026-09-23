@@ -94,6 +94,10 @@ export const PRESERVED_TABLES = [
 ] as const;
 
 export const DEMO_DATA_TABLES = [
+  // Fabricated caseload assignments. Seeded with the population and cleared
+  // with it: an assignment naming a clinician for a person who no longer
+  // exists is an orphan, and the reset guard is what catches those.
+  "caseload_assignments",
   // CLEARED, not preserved. `demo_repair` records the verdict of the last
   // per-boot reconciliation, and a reset rebuilds the dataset through the
   // normal seeding path — so any previous verdict is about a database that no
