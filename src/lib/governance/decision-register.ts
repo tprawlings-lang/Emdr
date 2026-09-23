@@ -154,17 +154,16 @@ export const DECISION_REGISTER: Decision[] = [
           "nobody mistakes the absence of a rule for a rule.",
       },
     ],
-    outstanding:
-      "Three names and email addresses — one for each of: no role can reach data outside its " +
-      "scope, no keyboard or screen-reader path is blocked, the numbers are what the records say. " +
-      "No name has been invented to fill the gap, and a test keeps it that way.",
     state: "answered",
     answer: {
       decided:
-        "A — one named person per check. The mechanism already enforces it: where a name is set, " +
-        "only that person's signature is accepted and everybody else is told who to ask. THE THREE " +
-        "NAMES ARE STILL OUTSTANDING, and no name has been invented to fill the gap; until they " +
-        "are given, any reviewer can sign and the console says so.",
+        "A — one named person per check — and the three names are SHELVED, decided 23 September. " +
+        "The mechanism is built and stays built: where a name is set, only that person's signature " +
+        "is accepted and everybody else is told who to ask. No name has been invented to fill the " +
+        "gap and a test keeps it that way, so until names are given any reviewer may sign and the " +
+        "console says so on screen. THIS DOES NOT HOLD ANYTHING SHUT: an unnamed gate is signable " +
+        "today, so shelving the names delays accountability for who signs, not the signing itself. " +
+        "Revisit when the reviewing individuals are appointed.",
       on: "2026-09-23",
     },
     asked: "2026-09-23",
