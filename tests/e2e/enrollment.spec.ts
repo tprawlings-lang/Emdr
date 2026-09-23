@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { signOffPilotGates } from "./helpers/pilot-gates";
+import { openPilotTier } from "./helpers/pilot-gates";
 
 // Enrolling in the pilot, from the public signup page.
 //
@@ -22,8 +22,21 @@ test.skip(
 // Matches playwright.config.ts's webServer env.
 const CODE = "e2e-placeholder-enrollment-code";
 
-test.beforeEach(async ({ page }) => {
-  await signOffPilotGates(page);
+// ONCE PER FILE. Every record this makes is durable — a signature, a copy
+// decision, a recorded parity result — so repeating it before each test would
+// cost minutes and prove nothing.
+test.beforeAll(async ({ browser }, testInfo) => {
+  // `baseURL` PASSED EXPLICITLY. A page made with `browser.newPage()` does not
+  // inherit the project's `use` block, so every relative path in the helper
+  // resolved against nothing — the setup silently did none of its work, the
+  // tier never opened, and eight enrollment tests failed on a thirty-second
+  // timeout apiece with no hint that the cause was two directories away.
+  const page = await browser.newPage({ baseURL: testInfo.project.use.baseURL });
+  try {
+    await openPilotTier(page);
+  } finally {
+    await page.close();
+  }
 });
 
 /** A fresh address per run, so a re-run is not refused as a duplicate. */

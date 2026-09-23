@@ -135,34 +135,31 @@ export const T1_REQUIRED_GATES: readonly string[] = [
   "safety_regression",
   "authorization",
   "accessibility",
+  // BACK ON THE LIST, because a recorded result made them askable. Both read
+  // `unavailable` wherever the tier is read — one needs a copy-review tally,
+  // the other a ledger rebuild — so they were named as unresolvable rather
+  // than required. `gate-results.ts` records what the release console resolved
+  // and expires it when the inputs move, which is what a cheap reader needs.
+  "clinical_language",
+  "projection_parity",
 ];
 
 /**
  * Gates that belong on the list above and cannot be asked where it is read.
  *
- * FOUND BY WIRING THE ENFORCEMENT A SECOND TIME. `clinical_language` and
- * `projection_parity` both resolve to `unavailable` in every deployment — not
- * because they fail, but because `resolveEvidence` does not compute them
- * unless the caller hands them in: one needs the copy-review tally the review
- * screen holds, and the other needs a ledger rebuild that is deliberately not
- * run on a page load. The tier is read on the signup page, so asking for
- * either there would either be free and wrong or correct and unaffordable.
+ * EMPTY NOW, AND KEPT RATHER THAN DELETED. It held `clinical_language` and
+ * `projection_parity`: both resolve to `unavailable` in every deployment — not
+ * because they fail, but because `resolveEvidence` does not compute either
+ * unless the caller hands it in, and the tier is read on the signup page where
+ * neither is affordable. Requiring them anyway would have been the same
+ * one-way door as before, dressed as diligence.
  *
- * REQUIRING THEM ANYWAY WOULD HAVE BEEN THE SAME ONE-WAY DOOR AS BEFORE,
- * dressed as diligence: a gate that cannot pass is a gate that closes
- * enrollment permanently, and the second time would have been harder to spot
- * because two of the five were passing.
- *
- * What they need is somewhere to record a resolved result with the time it was
- * resolved — the same shape as an attestation and for the same reason. Filed
- * as `governance.resolved-gate-results`. Until then they are named here rather
- * than dropped, because a requirement quietly removed from a list is how a
- * list stops meaning anything.
+ * `gate-results.ts` closed that: the release console records what it resolved,
+ * keyed to something cheap that identifies the inputs, and the record expires
+ * when they move. The constant stays because the next gate with this shape
+ * should be named here rather than quietly left off a list.
  */
-export const T1_GATES_NOT_YET_RESOLVABLE: readonly string[] = [
-  "clinical_language",
-  "projection_parity",
-];
+export const T1_GATES_NOT_YET_RESOLVABLE: readonly string[] = [];
 
 export interface TierFacts {
   /** Whether the deployment has an enrollment code set at all. */

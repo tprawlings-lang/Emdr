@@ -130,6 +130,20 @@ export async function recordGateSignoff(formData: FormData) {
     redirect("/review/release?error=evidence_required");
   }
 
+  // WHO SIGNS IT. p99 gives every gate an owner — "Security", "Product and QA"
+  // — and a team is not a signature: "somebody in Security approved it" is not
+  // a thing anybody can follow up. Where an individual is named, only they may
+  // sign; where nobody is named, any reviewer may, and the console says so out
+  // loud rather than letting the absence of a rule look like a rule.
+  //
+  // CHECKED HERE RATHER THAN ONLY ON THE FORM. A form that hides a control is
+  // a suggestion; this is the door.
+  if (gate.evidenceClass === "attested") {
+    const { signerFor } = await import("../governance/gate-owners");
+    const verdict = signerFor({ email: user.email, role: user.role }, gateId, true);
+    if (!verdict.may) redirect(`/review/release?error=not_the_owner&gate=${encodeURIComponent(gateId)}`);
+  }
+
   // Handoff 09 §7.1: "If evidence changes mid-review, reject the stale
   // submission with a comparison and a review-again route, and explain which
   // prior decisions reopened."

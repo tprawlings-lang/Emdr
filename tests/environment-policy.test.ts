@@ -114,7 +114,10 @@ test("a gate that cannot be resolved where the tier is read is not required", ()
       `${g} is required and cannot be resolved where the tier is read, so no deployment can ever reach the pilot tier`,
     );
   }
-  // NAMED RATHER THAN DROPPED. A requirement quietly removed from a list is
-  // how a list stops meaning anything.
-  assert.ok(T1_GATES_NOT_YET_RESOLVABLE.length > 0);
+  // EMPTY IS THE RIGHT ANSWER NOW and the assertion is the invariant, not the
+  // count. Both gates that lived here are required again, because
+  // `gate-results.ts` records what the release console resolved and expires it
+  // when the inputs move. The list stays as the place to name the next gate
+  // with this shape, rather than leaving it off a list quietly.
+  assert.ok(Array.isArray(T1_GATES_NOT_YET_RESOLVABLE));
 });

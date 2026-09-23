@@ -679,11 +679,30 @@ export const WORK_REGISTER: WorkEntry[] = [
       "what was attested TO and nothing else.",
   },
   {
+    id: "governance.gate-owners",
+    title: "A named individual signs each attested gate",
+    state: "reachable",
+    code: "src/lib/governance/gate-owners.ts#signerFor",
+    test: "tests/gate-owners.test.ts",
+    note:
+      "DECIDED 19 SEPTEMBER: a named individual, not any reviewer. p99 gives every gate an owner — " +
+      "\"Security\", \"Product and QA\" — and a team is not a signature: \"somebody in Security " +
+      "approved it\" is not a thing anybody can follow up, and these gates decide whether a " +
+      "deployment may hold real people. THE UNNAMED CASE IS ITSELF A DECISION (23 September): a " +
+      "gate with nobody named keeps today's behaviour and the console says so, rather than " +
+      "refusing every sign-off until three names exist — which would be the one-way door this " +
+      "codebase has now walked into twice. A rule that was never set must not look identical to a " +
+      "rule that was; that is exactly how the sign-off gap survived. NO NAME IS FILLED IN, and a " +
+      "test asserts it: writing a plausible one would be this codebase deciding who is accountable " +
+      "for whether a keyboard path is blocked. Checked in the action rather than only on the form, " +
+      "because a form that hides a control is a suggestion and the action is the door.",
+  },
+  {
     id: "governance.resolved-gate-results",
     title: "A gate's last resolved result is recorded",
-    state: "proposed",
-    code: null,
-    test: null,
+    state: "reachable",
+    code: "src/lib/governance/gate-results.ts#currentGateResults",
+    test: "tests/gate-results.test.ts",
     note:
       "FOUND BY WIRING THE ENVIRONMENT POLICY'S ENFORCEMENT. `clinical_language` and " +
       "`projection_parity` resolve to `unavailable` in every deployment — not because they fail, " +
@@ -696,7 +715,26 @@ export const WORK_REGISTER: WorkEntry[] = [
       "`T1_GATES_NOT_YET_RESOLVABLE` rather than dropped, because a requirement quietly removed " +
       "from a list is how a list stops meaning anything. What they need is somewhere to record a " +
       "resolved result with the time it was resolved — the same shape as a sign-off, and for the " +
-      "same reason.",
+      "same reason. BUILT 23 SEPTEMBER, and both gates are required again. EXPIRES ON CHANGE, NOT " +
+      "ON A CLOCK: a result carries the BASIS it was resolved against and counts only while that " +
+      "matches. A time cap was offered and declined — a result expiring on a timer closes the " +
+      "pilot tier overnight with nothing having changed, which teaches an operator to re-run a " +
+      "check they have no reason to believe is stale, and a check somebody re-runs without reading " +
+      "is worse than no check. The basis is EXACT for clinical language (the copy version those " +
+      "decisions are recorded against) and WEAKER for projection parity (the deployed commit, " +
+      "because nothing cheap identifies ledger state) — it expires when the code changes, not when " +
+      "the data does, and a build reporting no commit records nothing rather than recording " +
+      "something that would never expire. The console that can resolve them is the one that " +
+      "records them, so the record is a by-product of somebody actually looking. " +
+      "A THIRD ONE-WAY DOOR LIVED IN THE FIRST VERSION, found by the enrollment suite going red on " +
+      "a fresh database. Parity's basis was the deployed commit and nothing else, and " +
+      "`scripts/serve.sh` derives that from git while `npm run start` does not — so in any " +
+      "deployment whose image forgot to bake a commit in, parity could never be recorded, the gate " +
+      "could never pass and enrollment could never open, in exactly the deployments least likely " +
+      "to work out why. It falls back to the ENVIRONMENT GENERATION, which is the better basis " +
+      "anyway: parity asks whether a rebuild reproduces what the screens show, and the generation " +
+      "changes precisely when the data underneath is rebuilt. With neither available it still " +
+      "records nothing, because a constant would make every result look current forever.",
   },
   {
     id: "clinical.assignment-is-read-back",

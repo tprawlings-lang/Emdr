@@ -1129,6 +1129,36 @@ export const SCHEMA_SQL = `
   );
   CREATE INDEX IF NOT EXISTS idx_command_results_reserved ON command_results(reserved_at);
 
+  -- What a gate resolved to, the last time anybody asked.
+  --
+  -- TWO GATES COULD NOT BE PART OF THE PILOT CHECK WITHOUT THIS. Both
+  -- clinical_language and projection_parity read "unavailable" in every
+  -- deployment -- not because they fail, but because resolveEvidence does not
+  -- compute either unless the caller hands it in: one needs the copy-review
+  -- tally the review screen holds, the other a ledger rebuild deliberately not
+  -- run on a page load. The environment tier is read on the signup page, so
+  -- asking for either there would be free and wrong or correct and
+  -- unaffordable, and requiring them anyway would close enrollment
+  -- permanently.
+  --
+  -- EXPIRES ON CHANGE, NOT ON A CLOCK. Each row carries the BASIS it was
+  -- resolved against -- something cheap that identifies the inputs, like the
+  -- clinical copy version or the deployed commit -- and the result counts only
+  -- while that still matches. The same shape as a gate sign-off, for the same
+  -- reason: nobody has to remember to invalidate anything.
+  --
+  -- THE BASIS IS NEVER DERIVED FROM THE RESULT. Computing it from the resolved
+  -- facts is exactly the bug that made a signature invalidate itself by
+  -- existing: recording the answer changed the thing the answer was keyed on.
+  CREATE TABLE IF NOT EXISTS gate_results (
+    gate_id TEXT NOT NULL,
+    basis TEXT NOT NULL,
+    status TEXT NOT NULL,
+    summary TEXT NOT NULL,
+    resolved_at TEXT NOT NULL,
+    PRIMARY KEY (gate_id, basis)
+  );
+
   -- Which rebuild of this environment a page belongs to (17 September handoff,
   -- P6: "introduce or reuse an environment-generation identifier").
   --

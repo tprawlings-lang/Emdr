@@ -573,13 +573,24 @@ export const REGISTER_FINDINGS: EntryFinding[] = [
     "problems": []
   },
   {
-    "id": "governance.resolved-gate-results",
-    "claimed": "proposed",
-    "supported": "proposed",
+    "id": "governance.gate-owners",
+    "claimed": "reachable",
+    "supported": "reachable",
     "facts": {
-      "defined": false,
-      "tested": false,
-      "wired": false
+      "defined": true,
+      "tested": true,
+      "wired": true
+    },
+    "problems": []
+  },
+  {
+    "id": "governance.resolved-gate-results",
+    "claimed": "reachable",
+    "supported": "reachable",
+    "facts": {
+      "defined": true,
+      "tested": true,
+      "wired": true
     },
     "problems": []
   },

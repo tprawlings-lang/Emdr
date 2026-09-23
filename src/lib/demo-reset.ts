@@ -53,6 +53,11 @@ import { isEncrypted } from "./crypto";
  *  listed here, so a new table cannot escape the reset by being forgotten. */
 export const PRESERVED_TABLES = [
   "review_notes",
+  // A measurement somebody took, not fabricated data. A reset that wiped it
+  // would silently reopen the two gates that cannot be recomputed cheaply, and
+  // the reopening would be invisible: the gate would simply read "unavailable"
+  // again, which is its state before anybody ran anything.
+  "gate_results",
   // Policy configuration, not fabricated data. p34 requires a threshold to
   // carry an owner and an approval date and to be safe from quiet edits — and
   // a reset that silently rewrites both is exactly a quiet edit, made by a

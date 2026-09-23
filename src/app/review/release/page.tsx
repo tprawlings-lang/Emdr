@@ -5,6 +5,7 @@ import { requireReviewAccess } from "@/lib/auth";
 import { getDb } from "@/lib/db";
 import { RELEASE_GATES, resolveEvidence, type EvidenceClass, type EvidenceStatus } from "@/lib/review/gates";
 import { allAttestations } from "@/lib/governance/attestation";
+import { recordGateResult, RECORDED_GATES } from "@/lib/governance/gate-results";
 import { decisionsAt } from "@/lib/review/decisions";
 import { reviewableSurfaces, copyVersion } from "@/lib/review/clinical-copy";
 import { recordGateSignoff } from "@/lib/review/actions";
@@ -103,6 +104,16 @@ export default async function ReleaseGatesPage({
   // signed.
   const attestations = await allAttestations();
   const evidence = resolveEvidence(db, { projectionParity, clinicalLanguage: clinicalTally, attestations });
+
+  // THE CONSOLE THAT CAN RESOLVE THEM IS THE ONE THAT RECORDS THEM. The signup
+  // page reads the environment tier and holds neither a copy-review tally nor
+  // an affordable ledger rebuild; this page has both. Writing here means the
+  // record is a by-product of somebody actually looking, rather than a
+  // scheduled job whose result nobody read.
+  for (const gateId of RECORDED_GATES) {
+    const ev = evidence.get(gateId);
+    if (ev) await recordGateResult({ gateId, status: ev.status, summary: ev.summary });
+  }
 
   // A decision is in force only at the CURRENT fingerprint. One recorded
   // against an earlier evidence state is fetched separately and shown as

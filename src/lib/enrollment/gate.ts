@@ -72,13 +72,15 @@ export function enrollmentOpen(): boolean {
 export async function environmentTier(): Promise<TierReading> {
   const gatePassed: Record<string, boolean> = {};
   try {
-    const [{ getDb }, { resolveEvidence }, { allAttestations }] = await Promise.all([
-      import("../db"),
-      import("../review/gates"),
-      import("../governance/attestation"),
-    ]);
-    const attestations = await allAttestations();
-    for (const [id, ev] of resolveEvidence(getDb(), { attestations })) {
+    const [{ getDb }, { resolveEvidence }, { allAttestations }, { currentGateResults }] =
+      await Promise.all([
+        import("../db"),
+        import("../review/gates"),
+        import("../governance/attestation"),
+        import("../governance/gate-results"),
+      ]);
+    const [attestations, recorded] = await Promise.all([allAttestations(), currentGateResults()]);
+    for (const [id, ev] of resolveEvidence(getDb(), { attestations, recorded })) {
       gatePassed[id] = ev.status === "pass";
     }
   } catch {

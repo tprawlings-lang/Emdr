@@ -34,6 +34,7 @@ import { SITE_CLAIMS_VERSION } from "../site/registry";
 import { SAFETY_CONFIG_VERSION } from "../safety/governance";
 import { dependencyFacts } from "./release-readiness";
 import type { AttestationState } from "../governance/attestation";
+import type { RecordedResult } from "../governance/gate-results";
 
 export type EvidenceClass = "measured" | "on_demand" | "attested";
 
@@ -194,6 +195,10 @@ export interface ResolveOptions {
    *  needs the async data layer this synchronous table does not want. Omitted
    *  means unsigned, never signed. */
   attestations?: ReadonlyMap<string, AttestationState>;
+  /** Results a previous resolution recorded, for the two gates this caller
+   *  cannot compute. Only ones still keyed to the current inputs are here —
+   *  the reader selects on the basis, so a stale row never reaches this map. */
+  recorded?: ReadonlyMap<string, RecordedResult>;
 }
 
 /**
@@ -247,12 +252,25 @@ export function resolveEvidence(db: Database.Database, opts: ResolveOptions = {}
   // --- Clinical language: the decisions recorded on /review/clinical.
   const cl = opts.clinicalLanguage;
   if (!cl) {
-    out.set("clinical_language", {
-      status: "unavailable",
-      summary: "Copy review not resolved",
-      facts: { resolved: false },
-      href: "/review/clinical",
-    });
+    // A RESULT SOMEBODY ALREADY RESOLVED, when this caller cannot. The tier is
+    // read on the signup page, which holds no copy-review tally; recomputing it
+    // there would be free and wrong. The recorded result counts only while the
+    // copy version it was resolved against still matches, so it cannot report
+    // an approval of language that has since been rewritten.
+    const rec = opts.recorded?.get("clinical_language");
+    out.set("clinical_language", rec
+      ? {
+          status: rec.status,
+          summary: `${rec.summary} (recorded ${rec.resolvedAt.slice(0, 10)})`,
+          facts: { resolved: true, basis: rec.basis, recordedAt: rec.resolvedAt },
+          href: "/review/clinical",
+        }
+      : {
+          status: "unavailable",
+          summary: "Copy review not resolved",
+          facts: { resolved: false },
+          href: "/review/clinical",
+        });
   } else {
     const outstanding = cl.total - cl.approved;
     out.set("clinical_language", {
@@ -276,7 +294,18 @@ export function resolveEvidence(db: Database.Database, opts: ResolveOptions = {}
 
   // --- Projection parity: expensive, so only when the caller resolved it.
   const pp = opts.projectionParity;
-  out.set("projection_parity", {
+  // As above, and a WEAKER claim, which the basis says out loud: nothing cheap
+  // identifies ledger state, so a recorded parity result is keyed to the
+  // deployed commit. It expires when the code changes, not when the data does.
+  const ppRec = !pp ? opts.recorded?.get("projection_parity") : undefined;
+  out.set("projection_parity", ppRec
+    ? {
+        status: ppRec.status,
+        summary: `${ppRec.summary} (recorded ${ppRec.resolvedAt.slice(0, 10)})`,
+        facts: { resolved: true, basis: ppRec.basis, recordedAt: ppRec.resolvedAt },
+        href: "/review/lineage",
+      }
+    : {
     status: !pp ? "unavailable" : pp.identical ? "pass" : "fail",
     summary: !pp
       ? "Not run. A ledger rebuild is expensive enough that it is not run on page load"
