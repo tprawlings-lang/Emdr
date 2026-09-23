@@ -182,6 +182,24 @@ export const WORK_REGISTER: WorkEntry[] = [
     note: "Applied to Care (PersonSummary), Recovery trajectory (AnalysisReview) and Module requests (WorkList). Command Center still renders its own work-list shape; see experience.command-center-template.",
   },
   {
+    id: "experience.one-duration-per-activity",
+    title: "An activity takes one length, and a clinician can see it",
+    state: "proposed",
+    code: null,
+    test: null,
+    note:
+      "TWO LISTS DISAGREE AND BOTH ARE MEMBER-FACING, which is not what it looked like. " +
+      "`modules.ts` carries `durationLabel` (\"15\u201320 min\") and `member/view.ts` carries a " +
+      "`MINUTES` map (10); six of eleven activities conflict. The framing that these were the " +
+      "clinician's figure and the member's was WRONG: `durationLabel` renders on /app/modules, " +
+      "/app/activities, session prep, the session player and the mobile service, so a member sees " +
+      "\"15\u201320 min\" for Calm place on one screen and \"About 10 minutes\" for the same " +
+      "activity on another. There is no clinician-facing duration at all. DECIDED 19 SEPTEMBER: a " +
+      "clinician-facing one should exist. What each number MEANS, and which is right where they " +
+      "conflict, is `clinical.activity-durations` in the decision register and is not a thing a " +
+      "codebase may settle by picking one.",
+  },
+  {
     id: "experience.command-center-template",
     title: "Command Center renders through the work-list template",
     state: "proposed",
@@ -571,6 +589,28 @@ export const WORK_REGISTER: WorkEntry[] = [
       "demo clinician's own caseload, because eleven of the twelve fabricated clinicians are " +
       "persons rather than accounts, and a note signed by somebody who never held that person is " +
       "worse than an empty column.",
+  },
+  {
+    id: "governance.decision-register",
+    title: "The questions waiting on a person, written down",
+    state: "reachable",
+    code: "src/lib/governance/decision-register.ts#DECISION_REGISTER",
+    test: "tests/decision-register.test.ts",
+    note:
+      "NEITHER REGISTER COULD SAY THIS. The work register has `proposed` and `held`; the failure " +
+      "register has `gap`. All three describe the state of the WORK, and none says \"this is not " +
+      "moving because nobody has answered a question\" — so a decision waiting on somebody looked " +
+      "exactly like work nobody had got to, and that difference is the only thing telling a reader " +
+      "whether building harder would help. Each entry carries the question in words somebody " +
+      "outside the codebase can answer, what it blocks (checked against all three registers), and " +
+      "WHAT HAPPENS MEANWHILE — the field usually missing from a list of open questions, and the " +
+      "one that says whether the wait is costing anything, because an unanswered question always " +
+      "has a current behaviour and leaving it unsaid is how a default becomes a decision nobody " +
+      "took. Answered ones stay, with the answer and its date, so the code is not left carrying a " +
+      "rationale nobody can find. THE STALENESS CHECK CAUGHT ITS OWN AUTHOR on the first run: " +
+      "`gates.who-signs` was filed as blocking `governance.gate-owners`, which had shipped — the " +
+      "mechanism was built and only three names were missing, which is configuration rather than " +
+      "work anybody is waiting to do.",
   },
   {
     id: "governance.work-register-screen",

@@ -144,6 +144,17 @@ export const REGISTER_FINDINGS: EntryFinding[] = [
     "problems": []
   },
   {
+    "id": "experience.one-duration-per-activity",
+    "claimed": "proposed",
+    "supported": "proposed",
+    "facts": {
+      "defined": false,
+      "tested": false,
+      "wired": false
+    },
+    "problems": []
+  },
+  {
     "id": "experience.command-center-template",
     "claimed": "proposed",
     "supported": "proposed",
@@ -508,6 +519,17 @@ export const REGISTER_FINDINGS: EntryFinding[] = [
   },
   {
     "id": "demo.seeded-contact-notes",
+    "claimed": "reachable",
+    "supported": "reachable",
+    "facts": {
+      "defined": true,
+      "tested": true,
+      "wired": true
+    },
+    "problems": []
+  },
+  {
+    "id": "governance.decision-register",
     "claimed": "reachable",
     "supported": "reachable",
     "facts": {

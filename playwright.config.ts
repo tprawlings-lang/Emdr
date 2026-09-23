@@ -7,6 +7,19 @@ import { defineConfig, devices } from "@playwright/test";
 const baseURL = process.env.E2E_BASE_URL ?? "http://127.0.0.1:3000";
 const useExternal = Boolean(process.env.E2E_BASE_URL);
 
+// THE SPECS THAT WRITE, NAMED ONCE.
+//
+// The split described below was written and only HALF-APPLIED: `stateful`
+// matched these three and `chromium` never excluded them, so every one of them
+// also ran in the parallel project, first — precisely the arrangement the
+// comment there says causes the flake it was written to fix. demo-clock.spec.ts
+// moves a one-row global clock and asserts on what other consoles then show.
+//
+// Found by a full suite failing on the clock spec in `chromium` while the
+// identical spec sat unrun in `stateful`. One pattern, read by both projects,
+// so the ignore cannot drift from the match again.
+const STATEFUL = /(queue-concurrency|contact-attempts|demo-clock)\.spec\.ts/;
+
 export default defineConfig({
   testDir: "./tests/e2e",
   fullyParallel: true,
@@ -42,8 +55,22 @@ export default defineConfig({
   // that file were also consuming each other's rows.
   projects: [
     {
+      // BEFORE EVERYTHING, ONCE. Admitting a real participant requires all five
+      // gates the environment policy names — two attestations, a completed
+      // clinical copy review and a run parity check — and there is no flag that
+      // skips that, deliberately: a policy with a test-only door is a policy
+      // with a door. Clearing them WRITES state other specs read, so it belongs
+      // here rather than in a `beforeAll`, where it ran once per enrollment
+      // file inside the parallel project and took three unrelated specs down
+      // with it.
+      name: "pilot-setup",
+      testMatch: /pilot-tier\.setup\.ts/,
+      use: { ...devices["Desktop Chrome"] },
+    },
+    {
       name: "chromium",
-      testIgnore: /queue-concurrency\.spec\.ts/,
+      testIgnore: [STATEFUL, /pilot-tier\.setup\.ts/],
+      dependencies: ["pilot-setup"],
       use: { ...devices["Desktop Chrome"] },
     },
     {
@@ -56,7 +83,7 @@ export default defineConfig({
       // show, so any spec reading a date while it is mid-move sees a different
       // environment. Serial is not a workaround here — it is what the thing
       // under test actually is.
-      testMatch: /(queue-concurrency|contact-attempts|demo-clock)\.spec\.ts/,
+      testMatch: STATEFUL,
       dependencies: ["chromium"],
       fullyParallel: false,
       use: { ...devices["Desktop Chrome"] },

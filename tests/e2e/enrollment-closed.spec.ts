@@ -1,5 +1,4 @@
 import { test, expect } from "@playwright/test";
-import { openPilotTier } from "./helpers/pilot-gates";
 
 // Public enrollment is closed (Redesign handoff §12).
 //
@@ -9,28 +8,6 @@ import { openPilotTier } from "./helpers/pilot-gates";
 // shut — because that is the half of the §1/§3 release gate that stops the
 // review environment from re-accumulating real identifiers.
 test.skip(Boolean(process.env.E2E_BASE_URL), "runs against the hermetic seeded server");
-
-// The pilot gates, signed first. This spec's subject is the FORM's refusals —
-// that a stranger cannot put a real identity into this environment — and the
-// form is only reachable once the environment policy permits a participant at
-// all. The policy's own refusal is proven in tests/enrollment-gate.test.ts,
-// where it does not depend on which browser spec ran first.
-// ONCE PER FILE. Every record this makes is durable — a signature, a copy
-// decision, a recorded parity result — so repeating it before each test would
-// cost minutes and prove nothing.
-test.beforeAll(async ({ browser }, testInfo) => {
-  // `baseURL` PASSED EXPLICITLY. A page made with `browser.newPage()` does not
-  // inherit the project's `use` block, so every relative path in the helper
-  // resolved against nothing — the setup silently did none of its work, the
-  // tier never opened, and eight enrollment tests failed on a thirty-second
-  // timeout apiece with no hint that the cause was two directories away.
-  const page = await browser.newPage({ baseURL: testInfo.project.use.baseURL });
-  try {
-    await openPilotTier(page);
-  } finally {
-    await page.close();
-  }
-});
 
 test("the signup route creates no account without the access code", async ({ page }) => {
   // THIS TEST CHANGED WITH THE BEHAVIOUR, deliberately, and the §12 promise it

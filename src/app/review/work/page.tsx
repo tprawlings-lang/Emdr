@@ -3,6 +3,9 @@ import { Panel, Callout, SummaryCards } from "@/components/app/surfaces";
 import { requireReviewAccess } from "@/lib/auth";
 import type { WorkState } from "@/lib/governance/work-register";
 import {
+  OPEN_DECISIONS, decisionSummary, AUDIENCE_LABEL,
+} from "@/lib/governance/decision-register";
+import {
   registerRows, registerAreas, registerSummary, unfinished,
   STATE_LABEL, STATE_ADVICE, type RegisterRow,
 } from "@/lib/review/work-register-view";
@@ -93,6 +96,8 @@ export default async function WorkRegisterPage() {
   const areas = registerAreas(rows);
   const summary = registerSummary(rows);
   const open = unfinished(rows);
+  const decisions = decisionSummary();
+  const openDecisions = OPEN_DECISIONS;
 
   return (
     <ReviewPage
@@ -120,22 +125,54 @@ export default async function WorkRegisterPage() {
             detail: "a person can get to it from a screen",
           },
           {
-            label: "Claims the source rejects",
-            value: String(summary.drifted),
-            detail: "the only number here that can rise on its own",
+            label: "Waiting on a person",
+            value: String(decisions.open),
+            detail: "questions nobody has answered, each with what happens meanwhile",
           },
         ]}
       />
 
       <Callout tone={summary.drifted === 0 ? "info" : "caution"} label="What this screen is for">
         {summary.drifted === 0
-          ? "Every entry below was checked against the source on the last build, and the source agreed with all of them. " +
+          ? `Every entry below was checked against the source on the last build, and the source agreed with all ${summary.entries} of them. ` +
             "That is the claim worth making: not that the list is long, but that nothing on it is a sentence somebody " +
             "wrote and nobody re-read. A feature built, tested and reachable from nothing would appear here as a problem " +
             "rather than as a green row — that is the check this register was written for."
           : "At least one entry claims more than the source supports. The suite is already failing on it; the rows are " +
             "marked below."}
       </Callout>
+
+      {/* WAITING ON A PERSON, ABOVE THE WORK. Neither register could say this:
+          `proposed`, `held` and `gap` all describe the state of the WORK, and
+          none of them says "this is not moving because nobody has answered a
+          question". A reader who cannot tell those apart cannot tell whether
+          building harder would help. */}
+      {openDecisions.length > 0 && (
+        <Panel
+          title="Waiting on a person"
+          footnote={`${decisions.open} open, ${decisions.answered} answered. Each says what happens while nobody has answered, because an unanswered question always has a current behaviour and leaving it unsaid is how a default becomes a decision nobody took.`}
+        >
+          <ul className="space-y-3">
+            {openDecisions.map((d) => (
+              <li key={d.id} className="rounded-xl border border-state-info/40 bg-state-info-bg/50 p-4">
+                <div className="flex flex-wrap items-baseline justify-between gap-2">
+                  <p className="text-sm font-semibold">{AUDIENCE_LABEL[d.audience]}</p>
+                  <span className="text-xs text-olive">asked {d.asked}</span>
+                </div>
+                <p className="measure mt-1 text-sm">{d.question}</p>
+                <p className="measure mt-2 text-xs text-olive">
+                  <span className="font-medium">Meanwhile:</span> {d.meanwhile}
+                </p>
+                {d.blocks.length > 0 && (
+                  <p className="mt-1 font-mono text-xs text-olive">
+                    Holds up: {d.blocks.join(", ")}
+                  </p>
+                )}
+              </li>
+            ))}
+          </ul>
+        </Panel>
+      )}
 
       {open.length > 0 && (
         <Panel
