@@ -795,10 +795,10 @@ export const REGISTER_FINDINGS: EntryFinding[] = [
   {
     "id": "ops.backups",
     "claimed": "held",
-    "supported": "built",
+    "supported": "reachable",
     "facts": {
       "defined": true,
-      "tested": false,
+      "tested": true,
       "wired": true
     },
     "problems": []

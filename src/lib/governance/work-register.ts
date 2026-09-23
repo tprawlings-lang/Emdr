@@ -965,11 +965,22 @@ export const WORK_REGISTER: WorkEntry[] = [
     title: "Nightly encrypted off-site backups",
     state: "held",
     code: "src/lib/backup.ts#runBackup",
-    test: null,
+    test: "tests/backup.test.ts",
     note:
-      "Built, unconfigured and UNTESTED — no test names `runBackup`, which the register found " +
-      "on its first run. R2_* and BACKUP_AGE_RECIPIENT are unset, so nothing runs. A " +
-      "whole-database snapshot cannot honour per-participant terms (README §15.6c).",
+      "NOW TESTED, STILL UNCONFIGURED, AND THE SECOND HALF IS WHY THIS IS STILL HELD. R2_* and " +
+      "BACKUP_AGE_RECIPIENT are unset, so nothing runs in this deployment, and a whole-database " +
+      "snapshot cannot honour per-participant terms (README §15.6c). " +
+      "The register found on its first run that `runBackup` was named by no test at all — the code " +
+      "standing between a lost disk and everything a pilot participant has told this product, with " +
+      "nothing checking it. WHAT A BACKUP TEST HAS TO PROVE IS THAT IT RESTORES: \"the function " +
+      "returned a key\" passes while the bytes are garbage and nobody finds out until the day " +
+      "somebody needs them. So the test takes a real snapshot, encrypts it to a real age key, " +
+      "decrypts it with the matching identity, opens the result as a database and reads a row " +
+      "back. AND THAT IT NEVER WRITES PLAINTEXT — a snapshot of this database in the clear is " +
+      "worse than no backup, because no backup loses the data and a plaintext one hands it to " +
+      "whoever finds the file, and this database holds answers about suicidal thoughts and harm " +
+      "urges. Five mutations caught, including writing the snapshot unencrypted and writing an " +
+      "empty one.",
   },
   {
     id: "companion.model-backed-replies",
