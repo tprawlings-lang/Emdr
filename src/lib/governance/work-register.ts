@@ -610,7 +610,17 @@ export const WORK_REGISTER: WorkEntry[] = [
       "rationale nobody can find. THE STALENESS CHECK CAUGHT ITS OWN AUTHOR on the first run: " +
       "`gates.who-signs` was filed as blocking `governance.gate-owners`, which had shipped — the " +
       "mechanism was built and only three names were missing, which is configuration rather than " +
-      "work anybody is waiting to do.",
+      "work anybody is waiting to do. " +
+      "ONE SIGNABLE SHEET PER OPEN QUESTION is generated from it into docs/decisions, because a " +
+      "register that lives in TypeScript is exactly the wrong shape for the person who has to " +
+      "answer it: a clinical lead does not open a source file. One sheet each, since seven " +
+      "questions on a page get skimmed and signed as a block. Each carries the choices in ordinary " +
+      "words with what would actually change, tick boxes, and a name, signature and date — a tick " +
+      "with no name is an anonymous decision. The sheets are held to the register by a test, " +
+      "because a hand-edited one drifts the moment either moves and then there are two accounts of " +
+      "what is open; a sheet for a question since answered is deleted rather than left. A jargon " +
+      "check refuses an option naming a file, a symbol or a table, and caught three options that " +
+      "were too terse to weigh.",
   },
   {
     id: "governance.work-register-screen",

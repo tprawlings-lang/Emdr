@@ -13,6 +13,8 @@
 // nowhere near the code it explains. Every check below is one of those.
 
 import { strict as assert } from "node:assert";
+import fs from "node:fs";
+import path from "node:path";
 import test from "node:test";
 
 import {
@@ -114,4 +116,100 @@ test("the summary counts what it says it counts", () => {
     Object.values(s.byAudience).reduce((a, b) => a + b, 0), s.open,
     "an open decision belongs to no audience, so nobody is asked",
   );
+});
+
+// ---------------------------------------------------------------------------
+// The sign-off sheets
+// ---------------------------------------------------------------------------
+
+test("every open question offers at least two ways to answer it", () => {
+  // A question with one option is a notification. An answered one keeps its
+  // options too, so a later reader can see what was on the table rather than
+  // only what was picked.
+  for (const d of DECISION_REGISTER) {
+    assert.ok(d.options.length >= 2, `${d.id} offers ${d.options.length} option(s)`);
+  }
+});
+
+test("at most one option is marked as suggested", () => {
+  // Saying which way the evidence points is more useful than pretending to be
+  // neutral. Two recommendations is not a recommendation.
+  for (const d of DECISION_REGISTER) {
+    const n = d.options.filter((o) => o.recommended).length;
+    assert.ok(n <= 1, `${d.id} suggests ${n} of its options`);
+  }
+});
+
+test("an option is written for the person deciding, not the person building", () => {
+  // THE WHOLE POINT OF THE SHEETS. "Use the MINUTES map everywhere" cannot be
+  // weighed by a clinical lead, and a sheet they cannot weigh comes back
+  // unsigned or — worse — signed without being read. A file name, a symbol in
+  // backticks or a table name is the tell that an option was written by
+  // whoever wrote the code.
+  const jargon = [
+    /\b\w+\.(ts|tsx|sql|json)\b/,      // a file
+    /`[A-Za-z_]+`/,                     // a symbol in backticks
+    /\b[a-z]+_[a-z]+(_[a-z]+)*\b/,      // a snake_case table or column
+    /\b[a-z]+[A-Z]\w*\(/,               // a function call
+  ];
+  for (const d of DECISION_REGISTER) {
+    for (const o of d.options) {
+      const text = `${o.label} ${o.plainly} ${o.then}`;
+      for (const pattern of jargon) {
+        assert.ok(
+          !pattern.test(text),
+          `${d.id} option "${o.label}" is written in code terms (${pattern}): ${text.slice(0, 120)}`,
+        );
+      }
+      assert.ok(o.plainly.length > 40, `${d.id} option "${o.label}" is not explained`);
+      assert.ok(o.then.length > 15, `${d.id} option "${o.label}" does not say what would change`);
+    }
+  }
+});
+
+test("the committed sheets match the register", async () => {
+  // A SHEET SOMEBODY HAND-EDITS DRIFTS FROM THE REGISTER the moment either
+  // moves, and then there are two accounts of what is open — which is the drift
+  // this whole family of registers exists to end, reproduced on paper, where
+  // there is no test.
+  const { sheets } = await import("../scripts/gen-decision-signoffs");
+
+  const dir = path.join(__dirname, "..", "docs", "decisions");
+  const built = sheets();
+  const onDisk = new Set(
+    fs.existsSync(dir) ? fs.readdirSync(dir).filter((f) => f.endsWith(".md")) : []
+  );
+
+  for (const [name, body] of built) {
+    const full = path.join(dir, name);
+    assert.ok(fs.existsSync(full), `${name} is missing — run: npx tsx scripts/gen-decision-signoffs.ts`);
+    assert.equal(
+      fs.readFileSync(full, "utf8"), body,
+      `docs/decisions/${name} is stale — run: npx tsx scripts/gen-decision-signoffs.ts`,
+    );
+    onDisk.delete(name);
+  }
+  // AND A SHEET FOR A QUESTION THAT HAS BEEN ANSWERED IS THE SAME LIE as a
+  // register entry nobody re-read, so it must not survive.
+  assert.deepEqual(
+    [...onDisk], [],
+    "a sheet exists for a question that is no longer open — run: npx tsx scripts/gen-decision-signoffs.ts",
+  );
+});
+
+test("every sheet has somewhere to write a name, a signature and a date", () => {
+  // A tick with no name is an anonymous decision, and one with no date cannot
+  // be checked against what the product did afterwards.
+  for (const d of OPEN_DECISIONS) {
+    const body = fs.readFileSync(
+      path.join(__dirname, "..", "docs", "decisions", `${d.id}.md`), "utf8"
+    );
+    for (const field of ["**Name**", "**Signature**", "**Date**"]) {
+      assert.ok(body.includes(field), `${d.id}'s sheet has no ${field} field`);
+    }
+    // And every option is tickable, not just described.
+    for (const o of d.options) {
+      assert.ok(body.includes(`— ${o.label}`), `${d.id}'s sheet describes "${o.label}" with no box`);
+    }
+  }
 });
