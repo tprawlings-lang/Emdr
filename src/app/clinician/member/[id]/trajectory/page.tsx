@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { requireClinician } from "@/lib/auth";
+import { RecordCareTime } from "@/components/clinical/RecordCareTime";
 import { data } from "@/lib/data";
 import { PLATFORM_TENANT_ID } from "@/lib/db";
 import { audit } from "@/lib/audit";
@@ -280,6 +281,16 @@ export default async function MemberTrajectoryPage({
           </ul>
         </Panel>
       )}
+
+      {/* Care time, recorded deliberately. Writing it when this page renders
+          would log a hovered link as a clinical fact, because the route is
+          prefetched — and a reload or a back button would add another. */}
+      <RecordCareTime
+        personId={id}
+        action="review_trajectory"
+        label="Record that you read this"
+        help="Adds a line to this person's between-visit record saying you read their trajectory. Nobody is notified."
+      />
 
       </AnalysisReview>
     </PersonShell>

@@ -39,6 +39,7 @@ import { newestEvidenceFor } from "@/lib/clinical/person-evidence";
 import { reviewsWithCurrency, type ReviewWithCurrency } from "@/lib/clinical/review-currency";
 import { careHistory, CONTACT_LEDGER_ACTIONS, type CareHistoryEntry } from "@/lib/clinical/care-history";
 import { CareHistoryLedger } from "@/components/clinical/CareHistoryLedger";
+import { RecordCareTime } from "@/components/clinical/RecordCareTime";
 import { ReviewLedger } from "@/components/clinical/ReviewLedger";
 import { readingFrame } from "@/lib/clock";
 import { recentSession } from "@/lib/clinical/recent-session";
@@ -375,6 +376,15 @@ export default async function PersonOverviewPage({
       {sessionPrep && (
         <div className="mt-6">
           <SessionPrepPanel prep={sessionPrep} personId={id} />
+          {/* Care time, recorded by the clinician rather than assumed from the
+              fact that this panel rendered — a hovered link prefetches, and a
+              record of care invented by a mouse moving is worse than none. */}
+          <RecordCareTime
+            personId={id}
+            action="open_session_prep"
+            label="Record that you prepared"
+            help="Adds a line to this person's between-visit record saying you prepared for a session. Nobody is notified."
+          />
         </div>
       )}
 

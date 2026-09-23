@@ -16,12 +16,21 @@
 // currency label on a contact attempt or drop it from the reviews, and the
 // handoff's own line is that these kinds must not be confusable.
 
-import type { CareAction, CareActionRecord } from "./attention-vocabulary";
+import { CARE_ACTIONS, type CareAction, type CareActionRecord } from "./attention-vocabulary";
 
-/** The care actions this ledger is about: everything that is not a review. */
-export const CONTACT_LEDGER_ACTIONS: readonly CareAction[] = [
-  "contact", "add_followup", "resolve", "adjust_plan_link",
-];
+/**
+ * The care actions this ledger is about: everything that is not a review.
+ *
+ * DERIVED, NOT LISTED, AND THAT IS THE FIX RATHER THAN A TIDY-UP. The four
+ * names were written out by hand, and the hand missed three of the eight:
+ * `record_thought`, `open_session_prep` and `review_trajectory` were in the
+ * vocabulary and in neither ledger, so a clinician could record one and find
+ * it nowhere. The docstring said "everything that is not a review" and the
+ * list did not, which is the kind of disagreement a reader has no way to spot.
+ * Now the sentence IS the list, and a ninth action joins it by existing.
+ */
+export const CONTACT_LEDGER_ACTIONS: readonly CareAction[] =
+  CARE_ACTIONS.filter((a) => a !== "review");
 
 /** What each one is, in a clinician's words rather than the column's. */
 export const CARE_ACTION_LABEL: Record<CareAction, string> = {

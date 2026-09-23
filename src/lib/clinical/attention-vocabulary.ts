@@ -195,11 +195,23 @@ export type CareAction = (typeof CARE_ACTIONS)[number];
  */
 export const PRODUCT_WRITTEN_CARE_ACTIONS: readonly CareAction[] = [
   "review", "contact", "add_followup", "resolve",
+  // ADDED 23 SEPTEMBER. Three of the four unwritten actions now have a writer:
+  // a captured thought records one by itself, and a clinician presses a control
+  // to record that they prepared for a session or read a trajectory. The fourth
+  // is below.
+  "record_thought", "open_session_prep", "review_trajectory",
 ];
 
-/** The other four: defined, unwritten, and — for the first two — unreadable.
- *  Filed as `clinical.unreachable-care-actions`; the decision is whether to
- *  delete the words or build what writes and reads them. */
+/**
+ * What is left: one word with no feature behind it.
+ *
+ * `adjust_plan_link` IS NOT AN OVERSIGHT AND NOT A SMALL JOB. There is no plan
+ * link in this product — no model, no screen, no column, nothing called a link
+ * on a plan anywhere — so writing one would mean first inventing what a plan
+ * link IS. That is a product decision rather than an implementation, and a
+ * codebase that answered it by picking something would be doing exactly what
+ * §13's closed list exists to prevent.
+ */
 export const UNWRITTEN_CARE_ACTIONS: readonly CareAction[] =
   CARE_ACTIONS.filter((a) => !PRODUCT_WRITTEN_CARE_ACTIONS.includes(a));
 

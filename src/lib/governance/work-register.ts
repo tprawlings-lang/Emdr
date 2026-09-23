@@ -222,7 +222,14 @@ export const WORK_REGISTER: WorkEntry[] = [
       "in a fixed order — the counts, then coverage, then the rows — with the orienting sentence " +
       "after the scope strip. Adopting the template moves that sentence to the top of the busiest " +
       "clinician screen. Both are defensible and they produce visibly different screens, so this " +
-      "stays proposed: it needs somebody to choose, not somebody to type.",
+      "DECIDED 23 SEPTEMBER: the row's detail moves BELOW the list, which is the handoff's own " +
+      "second answer to UX 011 — \"open a dedicated detail view or accessible sheet instead of " +
+      "squeezing the list\". The orienting sentence stays under the counts: that was a separate " +
+      "option and was not chosen. ABOVE THE LIST ON A PHONE IS KEPT, because stacking it under the " +
+      "queue there was measured at y=3204 on a 390x844 screen — 2,360px below the fold — and that " +
+      "history was put to the author before the decision was confirmed. What remains of this entry " +
+      "is the rest of the template: the scope strip, the rows and the result are still the Command " +
+      "Center's own rather than WorkList's.",
   },
   {
     id: "clinical.display-vocabulary",
@@ -858,12 +865,22 @@ export const WORK_REGISTER: WorkEntry[] = [
       "PURPOSE for the part that remains: whether each word should be DELETED or BUILT is a " +
       "clinical-vocabulary decision, and §13 calls the list closed because an action type nobody " +
       "defined is an action nobody can count or audit — removing four from it is exactly the kind " +
-      "of change that list exists to make deliberate. DECIDED 19 SEPTEMBER: the four are features the " +
-      "product should have, and the decision is to SHELF them until the 17 September handoff is " +
-      "finished, then readdress. So they stay in the vocabulary deliberately rather than by " +
-      "oversight — which is the whole difference this entry exists to record, and the reason the " +
-      "seed is still forbidden from writing them: a word kept for a feature somebody intends to " +
-      "build is not a licence to fabricate records of it in the meantime.",
+      "of change that list exists to make deliberate. DECIDED 19 SEPTEMBER to SHELF them until the " +
+      "handoff was finished; REVERSED 23 SEPTEMBER to build all four, recorded rather than " +
+      "overwritten so the next reader can see the question was asked twice. " +
+      "THREE OF THE FOUR ARE BUILT. A captured thought records one by itself, because capturing a " +
+      "thought is already a deliberate act by a named clinician at a known time; preparing for a " +
+      "session and reading a trajectory are recorded by a CONTROL THE CLINICIAN PRESSES rather " +
+      "than by the page rendering — both are named after opening a screen, which makes writing on " +
+      "render the obvious build and the wrong one, since a prefetched link would record a clinical " +
+      "fact invented by a mouse moving, and a reload or a back button would add another. The " +
+      "ledger's inclusion list is DERIVED from the vocabulary now instead of hand-written: its own " +
+      "docstring said \"everything that is not a review\" and the four names under it were not " +
+      "that, which is how three actions came to be recordable and invisible at once. " +
+      "THE FOURTH, `adjust_plan_link`, IS STILL UNWRITTEN AND THAT IS THE FINDING: there is no " +
+      "PLAN LINK in this product — no model, no screen, no column, nothing called a link on a plan " +
+      "anywhere — so building it means first deciding what one IS, which is a product question " +
+      "rather than an implementation. The seed stays forbidden from writing it.",
   },
   {
     id: "clinical.maintenance-language-held",

@@ -22,8 +22,20 @@ export function CareHistoryLedger({ entries }: { entries: CareHistoryEntry[] }) 
         <>
           {/* THE SENTENCE THE WHOLE SECTION TURNS ON, above the list rather than
               under it. A reader who counts three attempts and concludes somebody
-              was reached has been misled by a list that was accurate. */}
-          <p className="measure mt-2 text-sm text-olive">{CONTACT_MEANING}</p>
+              was reached has been misled by a list that was accurate.
+              
+              ONLY WHEN THERE IS A CONTACT ATTEMPT TO QUALIFY, and this was
+              wrong until the ledger grew. It read "an attempt, recorded by the
+              clinician who made it — not proof that anybody was reached" over
+              EVERY entry, which was fine while every entry was a contact
+              attempt. Three more actions joined on 23 September and the
+              sentence started sitting above "Trajectory read", telling a
+              clinician something false about a row it does not describe. A
+              caveat in the wrong place is worse than none: it teaches people
+              that the caveats on this screen are decoration. */}
+          {entries.some((e) => e.action === "contact") && (
+            <p className="measure mt-2 text-sm text-olive">{CONTACT_MEANING}</p>
+          )}
 
           <ul className="mt-3 space-y-3">
             {entries.map((e) => (

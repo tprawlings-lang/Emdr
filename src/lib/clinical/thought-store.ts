@@ -28,6 +28,7 @@ import { repo, type TenantContext } from "../repository";
 import { ulid } from "../ids";
 import { encryptField, decryptField } from "../crypto";
 import { hashTranscript } from "./transcription";
+import { recordCareAction } from "./attention-signals";
 import {
   nextStatus, isReviewable, recordThoughtCaptured, recordThoughtTranscribed,
   recordThoughtDiscarded, type ThoughtStatus, type ThoughtEvent,
@@ -281,6 +282,30 @@ export async function finalizeCapture(
     sourceSessionId: thought.sourceSessionId,
     recordedAt: thought.recordedAt,
   });
+
+  // AND ON THE PERSON'S RECORD, where a clinician looks for what happened
+  // between visits. `record_thought` has been in the care vocabulary since it
+  // was written and nothing ever wrote one, so a thought recorded about
+  // somebody appeared in the thoughts feature's own ledger and nowhere on their
+  // record. Decided 23 September to build the four unwritten actions; this is
+  // the one that needed no new control, because capturing a thought is already
+  // a deliberate act by a named clinician at a known time.
+  //
+  // FAILING HERE MUST NOT LOSE THE THOUGHT. The capture is finished and the
+  // transition is committed; a care-time row that cannot be written is worth
+  // less than the recording it describes.
+  try {
+    await recordCareAction(ctx, {
+      personId: thought.personId,
+      clinicianId: clinician,
+      action: "record_thought",
+      note: "Recorded a thought about this person.",
+      sourceSurface: "clinician_thoughts",
+      durationSeconds: Math.round(args.durationMs / 1000) || null,
+    });
+  } catch (err) {
+    console.error("care action for a captured thought failed (non-fatal):", err);
+  }
   return thought;
 }
 

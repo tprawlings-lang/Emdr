@@ -141,3 +141,53 @@ export async function assignCaseloadAction(formData: FormData) {
   revalidatePath("/clinician/caseload");
   back(personId);
 }
+
+// ---------------------------------------------------------------------------
+// Care time a clinician records deliberately
+// ---------------------------------------------------------------------------
+
+/** The two the clinician presses. Not every care action — `contact`, `review`
+ *  and `add_followup` have their own commands with their own rules. */
+const RECORDABLE = new Set(["open_session_prep", "review_trajectory"]);
+
+/**
+ * Record that a clinician prepared for a session, or read somebody's
+ * trajectory.
+ *
+ * A BUTTON, NOT A PAGE VIEW, AND THAT IS THE WHOLE DESIGN. Both actions are
+ * named after opening a screen, so the obvious build is to write the row when
+ * the screen renders — and it is wrong twice over. A record of care is a
+ * clinical fact about what somebody did, and Next.js prefetches a route when a
+ * link is hovered, so the obvious version would write "this clinician reviewed
+ * the trajectory" for a link nobody clicked. A page render is also a GET: a
+ * reload, a back button or a crawler would each add a row.
+ *
+ * So the clinician says so. It costs a press and it is the only version that is
+ * true — the same reason `recordContact` is a command rather than a side effect
+ * of opening a conversation.
+ */
+export async function recordCareTimeAction(formData: FormData) {
+  const clinician = await requireClinician();
+  const tenantId = await actingTenant(clinician.id);
+  const personId = String(formData.get("personId") ?? "").trim();
+  const action = String(formData.get("action") ?? "").trim();
+  const note = String(formData.get("note") ?? "").trim().slice(0, 500) || null;
+  if (!personId) back(personId, "No person was named.");
+  if (!RECORDABLE.has(action)) {
+    back(personId, "That is not something this control records.");
+  }
+
+  const { recordCareAction } = await import("./attention-signals");
+  const ctx: TenantContext = { tenantId, personId: clinician.id };
+  await recordCareAction(ctx, {
+    personId,
+    clinicianId: clinician.id,
+    action: action as "open_session_prep" | "review_trajectory",
+    note,
+    sourceSurface: "person_record",
+  });
+
+  revalidatePath(`/clinician/member/${personId}`);
+  revalidatePath(`/clinician/member/${personId}/trajectory`);
+  redirect(`/clinician/member/${personId}#care-history`);
+}
