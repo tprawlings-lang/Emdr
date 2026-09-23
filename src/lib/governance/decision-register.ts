@@ -91,6 +91,17 @@ export interface Decision {
   options: readonly DecisionOption[];
   /** Set when answered: what was decided, and on what date. */
   answer?: { decided: string; on: string };
+  /**
+   * Still needed from a person, even though the question is answered.
+   *
+   * A DECISION AND AN INPUT ARE DIFFERENT THINGS, and collapsing them would
+   * make this register lie in the most comfortable direction: "who signs each
+   * gate" is answered — one named person each — and three names are still
+   * missing, so a count of open questions reading zero would say nothing is
+   * needed when something plainly is. The answer is not in doubt; the
+   * information to act on it has not arrived.
+   */
+  outstanding?: string;
 }
 
 export const DECISION_REGISTER: Decision[] = [
@@ -143,7 +154,19 @@ export const DECISION_REGISTER: Decision[] = [
           "nobody mistakes the absence of a rule for a rule.",
       },
     ],
-    state: "open",
+    outstanding:
+      "Three names and email addresses — one for each of: no role can reach data outside its " +
+      "scope, no keyboard or screen-reader path is blocked, the numbers are what the records say. " +
+      "No name has been invented to fill the gap, and a test keeps it that way.",
+    state: "answered",
+    answer: {
+      decided:
+        "A — one named person per check. The mechanism already enforces it: where a name is set, " +
+        "only that person's signature is accepted and everybody else is told who to ask. THE THREE " +
+        "NAMES ARE STILL OUTSTANDING, and no name has been invented to fill the gap; until they " +
+        "are given, any reviewer can sign and the console says so.",
+      on: "2026-09-23",
+    },
     asked: "2026-09-23",
   },
   {
@@ -199,7 +222,15 @@ export const DECISION_REGISTER: Decision[] = [
         recommended: true,
       },
     ],
-    state: "open",
+    state: "answered",
+    answer: {
+      decided:
+        "Shelved. The set of activities may change — modules added — so settling eleven numbers now " +
+        "would be settling a list that is about to move. The two disagreeing lists stay, and a " +
+        "member can still see two figures for the same activity on different screens; that is a " +
+        "known cost of waiting rather than an oversight. Revisit when the module set is settled.",
+      on: "2026-09-23",
+    },
     asked: "2026-09-19",
   },
   {
@@ -244,7 +275,15 @@ export const DECISION_REGISTER: Decision[] = [
         recommended: true,
       },
     ],
-    state: "open",
+    state: "answered",
+    answer: {
+      decided:
+        "B — build all four. A clinician should be able to record a thought between visits, that " +
+        "they prepared for a session, that they read somebody's trajectory, and that they adjusted " +
+        "a plan link, and each should show on the person's record. This reverses the 19 September " +
+        "decision to shelf them, which is recorded rather than overwritten.",
+      on: "2026-09-23",
+    },
     asked: "2026-09-19",
   },
   {
@@ -296,7 +335,18 @@ export const DECISION_REGISTER: Decision[] = [
           "visible rather than assumed.",
       },
     ],
-    state: "open",
+    outstanding:
+      "Who reviews the unclaimed list each day. The product needs nothing; the rota does.",
+    state: "answered",
+    answer: {
+      decided:
+        "A — a named person reviews the unclaimed list daily and assigns what is there. Nothing " +
+        "escalates automatically, which is now a chosen operating control rather than an absent " +
+        "rule. No code changes: the count, the number of people behind it and the age of the oldest " +
+        "are already on the clinician's home screen. WHO that person is remains an operational " +
+        "appointment.",
+      on: "2026-09-23",
+    },
     asked: "2026-09-19",
   },
   {
@@ -341,7 +391,15 @@ export const DECISION_REGISTER: Decision[] = [
           "what counts as urgent enough.",
       },
     ],
-    state: "open",
+    state: "answered",
+    answer: {
+      decided:
+        "A — anyone on the team may act. Being somebody's clinician records who is accountable and " +
+        "does not gate access, so a member in an Immediate band never waits for one person to come " +
+        "back from leave, and stepping in is recorded as cover. No change: this is what the product " +
+        "already does, now deliberately rather than by default.",
+      on: "2026-09-23",
+    },
     asked: "2026-09-23",
   },
   {
@@ -383,7 +441,14 @@ export const DECISION_REGISTER: Decision[] = [
           "Small change, and it can be taken on its own without the one above.",
       },
     ],
-    state: "open",
+    state: "answered",
+    answer: {
+      decided:
+        "B — the row's detail moves below the list rather than beside it, matching every other work " +
+        "screen. The list and the detail are no longer visible at once, which is the cost. The " +
+        "orienting sentence stays where it is: that was a separate option and was not chosen.",
+      on: "2026-09-23",
+    },
     asked: "2026-09-19",
   },
   {
@@ -436,7 +501,20 @@ export const DECISION_REGISTER: Decision[] = [
           "has done.",
       },
     ],
-    state: "open",
+    outstanding:
+      "A name and a date for each of the four jobs. The screen-reader walkthrough is the one that " +
+      "matters today: it is a gate the environment policy requires, so real enrolment stays shut " +
+      "until somebody has done it and signed it off.",
+    state: "answered",
+    answer: {
+      decided:
+        "A — a name and a date against each of the four. They are jobs rather than decisions. THE " +
+        "NAMES AND DATES ARE STILL OUTSTANDING. The accessibility walkthrough is the urgent one: " +
+        "it is a gate the environment policy requires, so until somebody has operated the product " +
+        "with a keyboard and a screen reader and signed that off, no real participant can be " +
+        "enrolled at all.",
+      on: "2026-09-23",
+    },
     asked: "2026-09-17",
   },
 
@@ -517,6 +595,8 @@ export const OPEN_DECISIONS = DECISION_REGISTER.filter((d) => d.state === "open"
 export interface DecisionSummary {
   open: number;
   answered: number;
+  /** Answered, and still waiting on information before anybody can act. */
+  waitingOnInformation: number;
   /** Open decisions holding up at least one recorded piece of work. */
   blocking: number;
   byAudience: Record<DecisionAudience, number>;
@@ -531,6 +611,7 @@ export function decisionSummary(entries: readonly Decision[] = DECISION_REGISTER
   return {
     open: open.length,
     answered: entries.length - open.length,
+    waitingOnInformation: entries.filter((d) => d.outstanding).length,
     // A DECISION THAT BLOCKS NOTHING IS STILL WORTH ASKING and is counted
     // separately rather than hidden: "should assignment gate access" holds up
     // no filed work, and it is the kind of question that turns out to matter

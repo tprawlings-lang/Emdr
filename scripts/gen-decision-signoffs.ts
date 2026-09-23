@@ -109,13 +109,37 @@ function index(): string {
     "be left open deliberately rather than by accident."
   );
   lines.push("");
-  lines.push("| For | Question | Sheet |");
-  lines.push("|---|---|---|");
-  for (const d of OPEN_DECISIONS) {
-    const short = d.question.split(/(?<=\?)/)[0].trim();
-    lines.push(`| ${AUDIENCE_LABEL[d.audience]} | ${short} | [\`${d.id}\`](./${d.id}.md) |`);
+  if (OPEN_DECISIONS.length === 0) {
+    lines.push("**Nothing is waiting on a decision.** Every question below has been answered.");
+    lines.push("");
+  } else {
+    lines.push("| For | Question | Sheet |");
+    lines.push("|---|---|---|");
+    for (const d of OPEN_DECISIONS) {
+      const short = d.question.split(/(?<=\?)/)[0].trim();
+      lines.push(`| ${AUDIENCE_LABEL[d.audience]} | ${short} | [\`${d.id}\`](./${d.id}.md) |`);
+    }
+    lines.push("");
   }
-  lines.push("");
+
+  // ANSWERED IS NOT THE SAME AS DONE WITH. "Who signs each gate" is answered —
+  // one named person each — and three names are still missing. A page that
+  // said nothing was open would be true and useless.
+  const waiting = DECISION_REGISTER.filter((d) => d.outstanding);
+  if (waiting.length > 0) {
+    lines.push("## Answered, and still waiting on something");
+    lines.push("");
+    lines.push(
+      "The decision is not in doubt. What is missing is the information needed to act on it."
+    );
+    lines.push("");
+    lines.push("| For | Still needed |");
+    lines.push("|---|---|");
+    for (const d of waiting) {
+      lines.push(`| ${AUDIENCE_LABEL[d.audience]} | ${d.outstanding} |`);
+    }
+    lines.push("");
+  }
   const answered = DECISION_REGISTER.filter((d) => d.state === "answered");
   if (answered.length > 0) {
     lines.push("## Already answered");

@@ -197,7 +197,11 @@ export const WORK_REGISTER: WorkEntry[] = [
       "activity on another. There is no clinician-facing duration at all. DECIDED 19 SEPTEMBER: a " +
       "clinician-facing one should exist. What each number MEANS, and which is right where they " +
       "conflict, is `clinical.activity-durations` in the decision register and is not a thing a " +
-      "codebase may settle by picking one.",
+      "codebase may settle by picking one. HELD 23 SEPTEMBER: shelved deliberately, because the " +
+      "set of activities may change — modules added — and settling eleven numbers now would be " +
+      "settling a list that is about to move. A member can still see two figures for the same " +
+      "activity on different screens; that is a known cost of waiting rather than an oversight, " +
+      "which is the difference between held and forgotten.",
   },
   {
     id: "experience.command-center-template",

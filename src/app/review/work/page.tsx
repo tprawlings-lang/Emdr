@@ -3,7 +3,7 @@ import { Panel, Callout, SummaryCards } from "@/components/app/surfaces";
 import { requireReviewAccess } from "@/lib/auth";
 import type { WorkState } from "@/lib/governance/work-register";
 import {
-  OPEN_DECISIONS, decisionSummary, AUDIENCE_LABEL,
+  DECISION_REGISTER, OPEN_DECISIONS, decisionSummary, AUDIENCE_LABEL,
 } from "@/lib/governance/decision-register";
 import {
   registerRows, registerAreas, registerSummary, unfinished,
@@ -98,6 +98,7 @@ export default async function WorkRegisterPage() {
   const open = unfinished(rows);
   const decisions = decisionSummary();
   const openDecisions = OPEN_DECISIONS;
+  const waitingOnInformation = DECISION_REGISTER.filter((d) => d.outstanding);
 
   return (
     <ReviewPage
@@ -126,8 +127,8 @@ export default async function WorkRegisterPage() {
           },
           {
             label: "Waiting on a person",
-            value: String(decisions.open),
-            detail: "questions nobody has answered, each with what happens meanwhile",
+            value: `${decisions.open} + ${decisions.waitingOnInformation}`,
+            detail: "unanswered questions, then answers still missing what they need to act on",
           },
         ]}
       />
@@ -147,6 +148,29 @@ export default async function WorkRegisterPage() {
           none of them says "this is not moving because nobody has answered a
           question". A reader who cannot tell those apart cannot tell whether
           building harder would help. */}
+      {/* ANSWERED IS NOT THE SAME AS DONE WITH. "Who signs each gate" is
+          answered — one named person each — and three names are still missing.
+          A panel that showed only open questions would say nothing is needed
+          while something plainly is. */}
+      {waitingOnInformation.length > 0 && (
+        <Panel
+          title="Answered, and still waiting on something"
+          footnote="The decision is not in doubt. What is missing is the information needed to act on it."
+        >
+          <ul className="space-y-3">
+            {waitingOnInformation.map((d) => (
+              <li key={d.id} className="rounded-xl border border-state-caution/40 bg-state-caution-bg p-4">
+                <p className="text-sm font-semibold">{AUDIENCE_LABEL[d.audience]}</p>
+                <p className="measure mt-1 text-sm">{d.outstanding}</p>
+                <p className="measure mt-2 text-xs text-olive">
+                  <span className="font-medium">Decided {d.answer?.on}:</span> {d.answer?.decided}
+                </p>
+              </li>
+            ))}
+          </ul>
+        </Panel>
+      )}
+
       {openDecisions.length > 0 && (
         <Panel
           title="Waiting on a person"
