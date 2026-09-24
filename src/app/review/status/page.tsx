@@ -25,6 +25,7 @@ import {
 import { MEMBER_SCORE_EXCEPTION } from "@/lib/experience/member-projection";
 import { AWAITING_CLINICAL_REVIEW, mayEnterTaskQueue } from "@/lib/clinical/clinical-review-gate";
 import { SECTION_11_DECISIONS, stillOpen } from "@/lib/experience/open-decisions";
+import { RESOLVED_FINDINGS } from "@/lib/governance/resolved-findings";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Service status — Steady Review" };
@@ -171,6 +172,24 @@ export default async function ReviewStatusPage() {
               <li key={f.feature} className="py-2.5">
                 <p className="text-sm font-medium text-ground">{f.feature}</p>
                 <p className="measure mt-1 text-sm text-olive">{f.review.withholds}</p>
+              </li>
+            ))}
+          </ul>
+        </Panel>
+
+        <Panel
+          title="Safety findings closed"
+          footnote="Each one is listed with the test that fails if it reopens. Where a clinician still has to confirm the new wording, that is said beside it."
+        >
+          <ul className="divide-y divide-ground/5">
+            {RESOLVED_FINDINGS.map((f) => (
+              <li key={f.id} className="py-3">
+                <p className="text-sm font-medium text-ground">{f.finding}</p>
+                <p className="measure mt-1 text-sm text-olive">{f.now}</p>
+                <p className="mt-1 text-xs text-olive">
+                  Closed {f.resolvedOn} · {f.source} · <code>{f.test}</code>
+                  {f.awaitingConfirmation && <> · wording awaiting clinician confirmation</>}
+                </p>
               </li>
             ))}
           </ul>

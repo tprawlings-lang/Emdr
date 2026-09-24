@@ -146,7 +146,7 @@ When the critic shows up, try: *"This is a hard moment. Hard moments are part of
     tags: ["skills", "resourcing"],
     relatedModuleIds: ["calm-place", "resourcing"],
     body: `## A resource you can return to
-A **calm or safe place** is a mental anchor — a real or imagined spot where your body feels settled. Building one, and pairing it with slow bilateral stimulation, is a core resourcing skill.
+A **calm or safe place** is a mental anchor — a real or imagined spot where your body feels settled. Building one is a core resourcing skill, and it is something you can return to on your own, any time.
 
 ## Why it's real
 When you vividly bring a calm place to mind — what you see, hear, the temperature, the light — your nervous system responds *as if* you were partly there. You're teaching your body a dependable off-ramp from activation.

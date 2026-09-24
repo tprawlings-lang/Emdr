@@ -48,6 +48,17 @@ const GLOBAL_RULES: CatalogRule[] = [
     reason:
       "Missing data is a stop signal: unknown activation is treated as high, unknown dissociation restricts to grounding-class entries and blocks imagery, and if the access engine cannot be evaluated the companion gets no KB content at all for that reply.",
   },
+  {
+    // Handoff 10 P0: shipped first, confirmed after — the handoff's order,
+    // because the entry it replaces was live self-administered BLS. Its own
+    // row rather than riding the somatic modality row: sign-offs are keyed by
+    // row id, so an approval of that row given before the rewrite would
+    // otherwise read as approving words nobody reviewed.
+    id: "KB_SELF_HOLD_REPLACES_BUTTERFLY",
+    category: "therapy_kb",
+    reason:
+      "The companion used to be able to offer the Butterfly Hug — arms crossed, slow alternating taps — to members as activated as 8 out of 10. That is self-administered bilateral stimulation, which v1 does not do. It is replaced by a still self-hold: hands on the opposite upper arms, or one on the chest and one on the belly, steady gentle pressure, no tapping, no rhythm; same tier and ceiling. Two movement practices were reworded for the same reason: the neck roll ('roll it slowly side to side') now rests the chin for a few breaths, and the rooting stance's 'sway forward and back, side to side' now settles weight into the heels and then evenly across both feet. The calm-place lesson no longer says to pair the calm place with bilateral stimulation. Confirm the new wording, or mark needs-change.",
+  },
 ];
 
 /** One sign-off row per modality (verdict covers its techniques as a set). */

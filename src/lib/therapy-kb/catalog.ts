@@ -764,16 +764,24 @@ export const TECHNIQUES: TherapyTechnique[] = [
 
   // ── Somatic / body-based ────────────────────────────────────────────────
   {
-    id: "somatic-butterfly-hug",
+    // Replaces `somatic-butterfly-hug` (Handoff 10 P0). That entry told the
+    // companion to offer "slow alternating taps" with arms crossed — the
+    // Butterfly Hug as taught in EMDR practice, which is self-administered
+    // bilateral stimulation, offered at GROUNDING_ONLY up to activation 8.
+    // v1 has no BLS, and its "avoid when" note was advisory only
+    // (KB_AVOIDWHEN_ADVISORY). This is a STATIC hold: no tapping, no
+    // alternation, no rhythm. Tier and ceiling are unchanged. The rewrite
+    // waits on clinician confirmation (KB_SELF_HOLD_REPLACES_BUTTERFLY).
+    id: "somatic-self-hold",
     modality: "somatic",
-    name: "Self-hold (butterfly)",
-    purpose: "Slow self-tapping/holding for soothing — a calming resource, not processing.",
+    name: "Self-hold",
+    purpose: "A steady, still self-hold for soothing — a calming resource, not processing.",
     category: "grounding",
     minTier: AccessTier.GROUNDING_ONLY,
     maxActivation: 8,
     signals: ["need comfort", "want to feel held", "shaky", "self-soothe", "arms crossed"],
     guidance:
-      "Offer the self-hold: arms crossed over the chest, hands on opposite shoulders, and slow alternating taps or gentle squeezes at a calming pace while they breathe. A soothing resource on its own — keep it slow and free of any distressing focus; it is comfort, not a set.",
+      "Offer a still self-hold: hands resting on the opposite upper arms, or one hand on the chest and one on the belly, with steady, gentle pressure while they breathe out slowly. Keep the hands still — no tapping and no rhythm. It is comfort on its own, kept free of any distressing focus.",
     avoidWhen: ["Do not pair with recalling distressing material — that would cross into processing"],
   },
   {
