@@ -65,7 +65,7 @@ export default async function SessionPage({
       memberName={preferredName}
       liveEnabled={liveEnabled}
       preparePractice={breaths[0] ?? null}
-      relatedLessons={lessonsForModule(mod.id).map((l) => ({ id: l.id, title: l.title }))}
+      relatedLessons={(await lessonsForModule(mod.id)).map((l) => ({ id: l.id, title: l.title }))}
     />
   );
 }

@@ -1018,6 +1018,49 @@ export const WORK_REGISTER: WorkEntry[] = [
       "thirty days meanwhile. A rise is only compared against the same wording.",
   },
   {
+    id: "clinical.kb-no-bls-shape",
+    title: "No bilateral-stimulation shape in the companion's knowledge base, practices or lessons",
+    state: "reachable",
+    code: "src/lib/therapy-kb/catalog.ts#TECHNIQUES",
+    test: "tests/kb-no-bls-shape.test.ts",
+    note:
+      "Handoff 10 P0. The knowledge base told the companion to offer the Butterfly Hug \u2014 slow " +
+      "alternating taps \u2014 to members as activated as 8: self-administered BLS in a build with none. " +
+      "Replaced by a still self-hold, same tier and ceiling, confirmation row " +
+      "KB_SELF_HOLD_REPLACES_BUTTERFLY. The handoff's pattern then found two movement practices " +
+      "moving 'side to side' and the calm-place lesson's invitation to pair it with bilateral " +
+      "stimulation; all reworded. The lesson explaining how EMDR works is the one named exception, " +
+      "held to explaining only.",
+  },
+  {
+    id: "clinical.content-signoff-fails-closed",
+    title: "New member content is absent until its sign-off row is agreed",
+    state: "reachable",
+    code: "src/lib/content-signoff.ts#visibleContent",
+    test: "tests/content-signoff.test.ts",
+    note:
+      "Handoff 10 \u00a70.2 and \u00a73.3. Every list, deep link, phone response and the daily plan " +
+      "reads practices and lessons through one filter: no row is live as before, a named row must be " +
+      "agreed, an unknown row is never live, and in the demonstration an unsigned item shows marked " +
+      "'Pending clinical review'. /review/content lists the rows and what each holds back. The " +
+      "sign-off action now refuses a verdict for a row that does not exist, since an agreed row makes " +
+      "content live. Only rows whose subject the handoff states are defined; the rest wait for the " +
+      "worksheet.",
+  },
+  {
+    id: "experience.skills-gated-in-listing",
+    title: "Skills are gated where they are listed, with 'not today' on a deep link",
+    state: "tested",
+    code: "src/lib/practices.ts#practiceAllowed",
+    test: "tests/skills-gating.test.ts",
+    note:
+      "Handoff 10 \u00a73.1 and 1A. Practices gain an optional skill type and gate (tier, activation " +
+      "ceiling, imagery). Unknown activation reads as 10 and an unreadable engine opens nothing " +
+      "gated; the twenty existing practices carry no gate and behave as before. The library and " +
+      "player exist but hold no skills, because every skill is clinical copy from the content pack, " +
+      "which has not arrived.",
+  },
+  {
     id: "clinical.no-continue-at-high-distress",
     title: "Continuing after a distress pause waits for a fresh rating that allows it",
     state: "reachable",

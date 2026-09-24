@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireMember, json } from "@/lib/mobile/http";
-import { LESSONS, readLessonIds } from "@/lib/lessons";
+import { memberLessons, readLessonIds } from "@/lib/lessons";
 
 export const runtime = "nodejs";
 
@@ -8,5 +8,5 @@ export const runtime = "nodejs";
 export async function GET(req: NextRequest) {
   const auth = await requireMember(req);
   if (auth instanceof NextResponse) return auth;
-  return json({ lessons: LESSONS, read: await readLessonIds(auth.id) });
+  return json({ lessons: await memberLessons(), read: await readLessonIds(auth.id) });
 }

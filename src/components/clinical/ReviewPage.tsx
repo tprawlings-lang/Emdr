@@ -21,6 +21,7 @@ export const REVIEW_SCREENS: Array<{ href: string; label: string; layer: RailSlu
   { href: "/review", label: "Review home", layer: "overview" },
   { href: "/review/access", label: "Access requests", layer: "actions" },
   { href: "/review/clinical", label: "Clinical language", layer: "actions" },
+  { href: "/review/content", label: "Content sign-off", layer: "actions" },
   { href: "/review/release", label: "Release gates", layer: "actions" },
   { href: "/review/testing", label: "Testing console", layer: "actions" },
   { href: "/review/safety", label: "Safety rule results", layer: "evidence" },

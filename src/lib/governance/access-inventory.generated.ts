@@ -452,6 +452,60 @@ export const ACCESS_INVENTORY: AccessInventory = {
       "exempt": []
     },
     {
+      "path": "/app/activities/skills",
+      "audience": "member",
+      "file": "app/app/activities/skills/page.tsx",
+      "owed": [
+        1,
+        2,
+        4,
+        5
+      ],
+      "found": {
+        "1": [
+          "requireUser(",
+          "requireMember("
+        ],
+        "2": [
+          "requireMember("
+        ],
+        "4": [
+          "hasConsent(",
+          "revoked_at IS NULL"
+        ],
+        "5": []
+      },
+      "missing": [],
+      "exempt": []
+    },
+    {
+      "path": "/app/activities/skills/[skillId]",
+      "audience": "member",
+      "file": "app/app/activities/skills/[skillId]/page.tsx",
+      "owed": [
+        1,
+        2,
+        4,
+        5
+      ],
+      "found": {
+        "1": [
+          "requireUser(",
+          "requireMember("
+        ],
+        "2": [
+          "requireMember("
+        ],
+        "4": [
+          "hasConsent(",
+          "revoked_at IS NULL"
+        ],
+        "5": []
+      },
+      "missing": [],
+      "exempt": []
+    },
+    {
       "path": "/app/companion",
       "audience": "member",
       "file": "app/app/companion/page.tsx",
@@ -2810,6 +2864,30 @@ export const ACCESS_INVENTORY: AccessInventory = {
       "exempt": []
     },
     {
+      "path": "/review/content",
+      "audience": "reviewer",
+      "file": "app/review/content/page.tsx",
+      "owed": [
+        1,
+        2,
+        5
+      ],
+      "found": {
+        "1": [
+          "requireUser(",
+          "requireClinician(",
+          "requireReviewAccess("
+        ],
+        "2": [
+          "requireClinician(",
+          "requireReviewAccess("
+        ],
+        "5": []
+      },
+      "missing": [],
+      "exempt": []
+    },
+    {
       "path": "/review/status",
       "audience": "reviewer",
       "file": "app/review/status/page.tsx",
@@ -3351,8 +3429,8 @@ export const ACCESS_INVENTORY: AccessInventory = {
       "exempt": []
     }
   ],
-  "protectedCount": 119,
-  "complete": 119,
+  "protectedCount": 122,
+  "complete": 122,
   "gapsByStep": {
     "1": 0,
     "2": 0,

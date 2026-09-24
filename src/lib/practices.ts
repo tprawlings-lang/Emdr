@@ -16,8 +16,18 @@ import { audit } from "./audit";
 import { getTodayCheckin } from "./gating";
 import { writeMemory } from "./companion";
 import { recordInterventionCompleted, nowStamp } from "./spine";
+import type { AccessTier } from "./safety/types";
+import { visibleContent } from "./content-signoff";
 
-export type PracticeType = "breathwork" | "meditation" | "movement" | "sleep" | "soundscape";
+export type PracticeType = "breathwork" | "meditation" | "movement" | "sleep" | "soundscape" | "skill";
+
+/** One step of a skill (Handoff 10 §3.1). */
+export interface SkillStep {
+  /** Member-facing instruction. Plain language, one action. */
+  text: string;
+  /** Seconds to stay on this step before "Continue" enables. */
+  minSeconds?: number;
+}
 
 export interface BreathPhase {
   label: "inhale" | "hold" | "exhale" | "rest";
@@ -49,6 +59,72 @@ export interface Practice {
   hasHold: boolean;
   /** Short usage/safety note shown with the practice. */
   note?: string;
+  // ── Handoff 10 §3.1. All optional: the twenty practices that predate it
+  //    carry none, and undefined means "unchanged behaviour". Backfilling
+  //    gating onto them is a separate clinical review, not this change. ──
+  /** Skill: ordered steps. Absent for other types. */
+  steps?: SkillStep[];
+  /** One line: when this is useful. Member-facing. */
+  whenToUse?: string;
+  /** Member-facing "skip this if" notes. Shown, not enforced. */
+  skipIf?: string[];
+  /** Gating, enforced in the listing, never in the UI. Required for skills. */
+  minTier?: AccessTier;
+  maxActivation?: number;
+  imagery?: boolean;
+  /** The knowledge-base entry the skill renders, for traceability. */
+  sourceTechniqueId?: string;
+  /** The content sign-off row that must be agreed for this to be live. */
+  signoffRowId?: string;
+  /** Produced audio, when recorded. On-device speech stays the fallback. */
+  audioAssetId?: string;
+}
+
+/** What the gate reads for this member now. Null when the access engine
+ *  cannot be evaluated. */
+export interface PracticeGate {
+  tier: AccessTier;
+  /** Today's activation 0–10, or null when there is no check-in. */
+  activation: number | null;
+  imagery: boolean;
+}
+
+/** Pure. Whether a practice may be offered under this gate (Handoff 10 §3.1).
+ *
+ *  UNKNOWN IS THE MOST RESTRICTIVE (KB_UNKNOWN_STATE_CONSERVATIVE): no reading
+ *  of activation is treated as 10, so only an item whose ceiling is 10 passes;
+ *  an engine that cannot be read opens nothing that declares a gate. Practices
+ *  that declare no gate behave exactly as before. */
+export function isGated(p: Practice): boolean {
+  return p.minTier !== undefined || p.maxActivation !== undefined || p.imagery === true;
+}
+
+export function practiceAllowed(p: Practice, gate: PracticeGate | null): boolean {
+  if (!isGated(p)) return true;
+  if (gate === null) return false;
+  if (p.minTier !== undefined && gate.tier < p.minTier) return false;
+  if (p.maxActivation !== undefined && (gate.activation ?? 10) > p.maxActivation) return false;
+  if (p.imagery === true && !gate.imagery) return false;
+  return true;
+}
+
+/** The gate for this member now. Null if the engine cannot be evaluated. */
+export async function practiceGateFor(userId: string): Promise<PracticeGate | null> {
+  try {
+    // Dynamic: the safety core reads widely, and a static import here would
+    // tie every page that lists a breathing exercise to it.
+    const { decideAccess } = await import("./safety/decide");
+    const decision = await decideAccess(userId, Date.now());
+    const checkin = await getTodayCheckin(userId);
+    return {
+      tier: decision.tier,
+      activation: checkin ? checkin.activation : null,
+      imagery: decision.capabilities.imagery === true,
+    };
+  } catch {
+    // A gate that cannot be read is not a gate that said yes.
+    return null;
+  }
 }
 
 // ── Breathwork catalog (deterministic; no media). Ordered gentlest-first. ──
@@ -378,7 +454,12 @@ export const MOVEMENT: Practice[] = [
   },
 ];
 
-const ALL_PRACTICES: Practice[] = [...BREATHWORK, ...MEDITATIONS, ...SLEEP, ...MOVEMENT];
+/** Handoff 10 1A. Empty until the content pack arrives: every skill is
+ *  member-facing clinical copy, carries a sign-off row, and is written from
+ *  the pack, not invented here. */
+export const SKILLS: Practice[] = [];
+
+export const ALL_PRACTICES: Practice[] = [...BREATHWORK, ...MEDITATIONS, ...SLEEP, ...MOVEMENT, ...SKILLS];
 
 /** Whether today's check-in indicates we should surface gentler, no-hold work
  *  first (roadmap §9 titration). Best-effort — defaults to false. */
@@ -396,8 +477,19 @@ async function shouldTitrate(userId: string): Promise<boolean> {
 
 /** List practices of a type, safety-ordered for the member's day. When today's
  *  check-in is elevated, no-hold / gentler (intensity 1) patterns come first. */
-export async function listPractices(userId: string, type?: PracticeType): Promise<Practice[]> {
-  const items = ALL_PRACTICES.filter((p) => !type || p.type === type);
+export async function listPractices(
+  userId: string,
+  type?: PracticeType
+): Promise<Array<Practice & { visibility: "live" | "draft" }>> {
+  // FILTER, THEN SORT (Handoff 10 §3.1). Sign-off first — unsigned content is
+  // absent outside demo — then the gate, then the day's ordering. Gating lives
+  // here, not in the UI, so a phone client and a page get the same list.
+  const signoffs = await loadContentSignoffs();
+  const candidates = visibleContent(ALL_PRACTICES.filter((p) => !type || p.type === type), signoffs);
+  // The engine is asked only when something listed declares a gate; the
+  // practices that predate gating neither need nor wait for it.
+  const gate = candidates.some(isGated) ? await practiceGateFor(userId) : null;
+  const items = candidates.filter((p) => practiceAllowed(p, gate));
   const titrate = await shouldTitrate(userId);
   return [...items].sort((a, b) => {
     if (titrate) {
@@ -408,8 +500,37 @@ export async function listPractices(userId: string, type?: PracticeType): Promis
   });
 }
 
+/** Unfiltered lookup, for records and clinician surfaces. A MEMBER route
+ *  uses practiceForMember, which applies the same sign-off and gate. */
 export function getPractice(id: string): Practice | undefined {
   return ALL_PRACTICES.find((p) => p.id === id);
+}
+
+export type MemberPracticeState =
+  | { state: "open"; practice: Practice & { visibility: "live" | "draft" } }
+  /** Exists and is signed, but today's gate does not open it — Handoff 09's
+   *  "not today", never a 404, because a 404 says the thing does not exist. */
+  | { state: "not_today"; title: string }
+  | { state: "absent" };
+
+export async function practiceForMember(userId: string, id: string): Promise<MemberPracticeState> {
+  const p = getPractice(id);
+  if (!p) return { state: "absent" };
+  const [visible] = visibleContent([p], await loadContentSignoffs());
+  if (!visible) return { state: "absent" };
+  if (isGated(p) && !practiceAllowed(p, await practiceGateFor(userId))) return { state: "not_today", title: p.title };
+  return { state: "open", practice: visible };
+}
+
+async function loadContentSignoffs() {
+  const { getRuleSignoffs } = await import("./safety/signoff");
+  try {
+    return await getRuleSignoffs();
+  } catch {
+    // Unreadable sign-offs: nothing signed is assumed. Content without a row
+    // is unaffected.
+    return new Map();
+  }
 }
 
 /** Record a completed practice: a content-free row + audit, and a light
@@ -421,6 +542,13 @@ export async function recordPracticeCompletion(
 ): Promise<{ ok: boolean }> {
   const practice = getPractice(practiceId);
   if (!practice) return { ok: false };
+  // Content awaiting sign-off cannot be completed where it cannot be seen: a
+  // completion is a record that it was used. Today's gate is NOT re-asked —
+  // it decides what is offered, and a skill finished after the day's reading
+  // moved was still done.
+  if (practice.signoffRowId !== undefined && visibleContent([practice], await loadContentSignoffs()).length === 0) {
+    return { ok: false };
+  }
   const secs = Math.max(0, Math.min(3600, Math.round(durationSec)));
   const c = await data();
   const completionId = newId();

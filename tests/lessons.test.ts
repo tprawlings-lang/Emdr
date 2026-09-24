@@ -29,8 +29,8 @@ test("catalog: at least 6 lessons, each well-formed and module-linked to real mo
   }
 });
 
-test("lessonsForModule returns lessons tagged to that module", () => {
-  const forCalm = lessonsForModule("calm-place");
+test("lessonsForModule returns lessons tagged to that module", async () => {
+  const forCalm = await lessonsForModule("calm-place");
   assert.ok(forCalm.length >= 1);
   assert.ok(forCalm.every((l) => l.relatedModuleIds.includes("calm-place")));
 });

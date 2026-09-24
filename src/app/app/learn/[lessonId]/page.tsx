@@ -2,14 +2,16 @@ import Link from "next/link";
 import { MemberPage } from "@/components/member/MemberPage";
 import { notFound } from "next/navigation";
 import { requireMember } from "@/lib/auth";
-import { getLesson } from "@/lib/lessons";
+import { memberLesson } from "@/lib/lessons";
+import { PENDING_REVIEW_CHIP } from "@/lib/content-signoff";
 import LessonBody from "@/components/LessonBody";
 import MarkLessonRead from "@/components/MarkLessonRead";
 
 export default async function LessonPage({ params }: { params: Promise<{ lessonId: string }> }) {
   await requireMember();
   const { lessonId } = await params;
-  const lesson = getLesson(lessonId);
+  // An unsigned lesson does not exist outside the demonstration.
+  const lesson = await memberLesson(lessonId);
   if (!lesson) notFound();
 
   return (
@@ -19,6 +21,9 @@ export default async function LessonPage({ params }: { params: Promise<{ lessonI
         ← All lessons
       </Link>
       <p className="mt-1 text-sm text-olive">{lesson.readMinutes} min read</p>
+      {lesson.visibility === "draft" && (
+        <p className="mt-2 inline-block rounded-full bg-state-unknown-bg px-3 py-1 text-xs text-state-unknown">{PENDING_REVIEW_CHIP}</p>
+      )}
       <div className="mt-6">
         <LessonBody markdown={lesson.body} />
       </div>

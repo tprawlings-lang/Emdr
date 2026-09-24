@@ -13,7 +13,29 @@
 
 ---
 
-# ▶ RESUME HERE — session handoff, 2026-09-11
+# ▶ RESUME HERE — session handoff, 2026-09-24
+
+> **Newest first.** Two specifications are live on top of Handoff 09:
+>
+> - **Expansion Handoff, Phase 0 — done.** All five audit findings are closed, each with a
+>   test that fails if it reopens: companion tools cannot write session state, sessions end
+>   once and as their ratings say, the program-fit and questionnaire retake bypasses,
+>   "continue" at high distress, and clinical labels on member surfaces. Listed on
+>   `/review/status` under "Safety findings closed". Next is Phase 1 (tool registry, event
+>   store, consent tiers).
+> - **[Handoff 10](docs/handoffs/10-non-bls-modules.md) (non-BLS content) — packages 1–3
+>   of 13 done.** P0 replaced the companion's Butterfly Hug (self-administered BLS) with a
+>   still self-hold; `tests/kb-no-bls-shape.test.ts` guards every knowledge-base entry,
+>   practice and lesson. Content sign-off (`src/lib/content-signoff.ts`, `/review/content`)
+>   means unsigned content is absent outside demo. Practices carry optional gating and a
+>   skill type; `listPractices` filters by sign-off, then gate, then sorts. **Blocked on two
+>   files the handoff names and that have not arrived:** `10-content-pack.md` (all member
+>   copy — skills, programs, lessons) and `10-clinician-signoff.docx` (the row text). No
+>   member content is written without them.
+>
+> Open questions for the clinical lead are in [`docs/decisions`](docs/decisions).
+
+# ▶ Session handoff, 2026-09-11
 
 > **Newest first: §15 is the current state.** The pilot (gated enrollment, its own tenant
 > and clinician, the participant console), the clinical note record, the module-unlock

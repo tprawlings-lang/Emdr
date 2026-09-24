@@ -1462,7 +1462,18 @@ export async function recordRuleSignoff(formData: FormData) {
   const ruleId = String(formData.get("rule_id") ?? "").trim().slice(0, 80);
   const verdict = String(formData.get("verdict") ?? "");
   const note = String(formData.get("note") ?? "").trim().slice(0, 500) || null;
-  if (!ruleId || (verdict !== "agree" && verdict !== "needs_change")) redirect("/review/autonomous");
+  // Back to the screen the verdict came from — only ever one of these two.
+  const back = formData.get("return") === "/review/content" ? "/review/content" : "/review/autonomous";
+  if (!ruleId || (verdict !== "agree" && verdict !== "needs_change")) redirect(back);
+
+  // A verdict only for a row that exists. This accepted any id, which did not
+  // matter while verdicts were a record; since Handoff 10 an agreed row makes
+  // content live, so a verdict on a mistyped id must not land anywhere.
+  const { RULES, SESSION_RULES, EXPERIENCE_RULES } = await import("./safety");
+  const { THERAPY_KB_RULES } = await import("./therapy-kb");
+  const { CONTENT_V10_RULES } = await import("./content-signoff");
+  const known = [...RULES, ...SESSION_RULES, ...EXPERIENCE_RULES, ...THERAPY_KB_RULES, ...CONTENT_V10_RULES];
+  if (!known.some((r) => r.id === ruleId)) redirect(back);
 
   const { SAFETY_CONFIG_VERSION } = await import("./safety/governance");
   await c.run("INSERT INTO autonomous_signoffs (id, rule_id, config_version, verdict, note, clinician_id) VALUES (?, ?, ?, ?, ?, ?)", [newId(), ruleId, SAFETY_CONFIG_VERSION, verdict, note ? encryptField(note) : null, clinician.id]);
@@ -1475,8 +1486,8 @@ export async function recordRuleSignoff(formData: FormData) {
     target: ruleId,
     detail: { verdict, configVersion: SAFETY_CONFIG_VERSION, hasNote: !!note },
   });
-  revalidatePath("/review/autonomous");
-  redirect("/review/autonomous#register");
+  revalidatePath(back);
+  redirect(back === "/review/content" ? back : "/review/autonomous#register");
 }
 
 // ---------- Live spoken sessions: dynamic in-session responder ----------

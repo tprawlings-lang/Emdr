@@ -4,7 +4,7 @@ import { listPractices, type PracticeType } from "@/lib/practices";
 
 export const runtime = "nodejs";
 
-const TYPES: PracticeType[] = ["breathwork", "meditation", "movement", "sleep", "soundscape"];
+const TYPES: PracticeType[] = ["breathwork", "meditation", "movement", "sleep", "soundscape", "skill"];
 
 // GET /api/mobile/v1/app/activities?type=breathwork → { practices }
 // Safety-ordered for the member's day (gentler/no-hold first on elevated days).

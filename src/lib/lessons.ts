@@ -10,6 +10,7 @@
 import { data } from "./data";
 import { audit } from "./audit";
 import { recordLessonRead, upsertRowId, nowStamp } from "./spine";
+import { visibleContent } from "./content-signoff";
 
 export interface Lesson {
   id: string;
@@ -21,6 +22,9 @@ export interface Lesson {
   relatedModuleIds: string[];
   /** Markdown body. */
   body: string;
+  /** Handoff 10 1D: the content sign-off row that must be agreed for a new
+   *  lesson to be live. Lessons that predate it carry none. */
+  signoffRowId?: string;
 }
 
 export const LESSONS: Lesson[] = [
@@ -159,12 +163,34 @@ Sometimes a "safe" place doesn't feel safe to every part of you. That's informat
   },
 ];
 
+/** Unfiltered lookup, for records and review surfaces. Member surfaces use
+ *  memberLessons / memberLesson, which drop an unsigned lesson outside demo
+ *  (Handoff 10 §0.2). */
 export function getLesson(id: string): Lesson | undefined {
   return LESSONS.find((l) => l.id === id);
 }
 
-export function lessonsForModule(moduleId: string): Lesson[] {
-  return LESSONS.filter((l) => l.relatedModuleIds.includes(moduleId));
+async function lessonSignoffs() {
+  try {
+    const { getRuleSignoffs } = await import("./safety/signoff");
+    return await getRuleSignoffs();
+  } catch {
+    return new Map();
+  }
+}
+
+/** The lessons a member may see, in order, each marked live or draft. */
+export async function memberLessons(): Promise<Array<Lesson & { visibility: "live" | "draft" }>> {
+  return visibleContent(LESSONS, await lessonSignoffs());
+}
+
+export async function memberLesson(id: string): Promise<(Lesson & { visibility: "live" | "draft" }) | undefined> {
+  return (await memberLessons()).find((l) => l.id === id);
+}
+
+/** The lessons a member may see that support a module. */
+export async function lessonsForModule(moduleId: string): Promise<Lesson[]> {
+  return (await memberLessons()).filter((l) => l.relatedModuleIds.includes(moduleId));
 }
 
 /** Ids of lessons the member has marked read. */

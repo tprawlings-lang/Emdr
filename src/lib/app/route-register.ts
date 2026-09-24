@@ -228,6 +228,8 @@ export const ROUTE_REGISTER: RouteEntry[] = [
   { path: "/app/activities/meditate", audience: "member", job: "Do a short meditation.", workspace: "member_activity", state: "working" },
   { path: "/app/activities/move", audience: "member", job: "Do a movement practice.", workspace: "member_activity", state: "working" },
   { path: "/app/activities/sleep", audience: "member", job: "Do something to help with sleep.", workspace: "member_activity", state: "working" },
+  { path: "/app/activities/skills", audience: "member", job: "Do a short step-by-step skill.", workspace: "member_activity", state: "unavailable", evidence: "Handoff 10 1A. Built and gated; it says plainly that no skill is ready, because every skill is clinical copy from the content pack and waits on its sign-off row." },
+  { path: "/app/activities/skills/[skillId]", audience: "member", job: "Step through one skill.", workspace: "member_activity", state: "working", evidence: "Handoff 10 1A: opens only a signed skill today's gate allows; otherwise 'not today', never a 404 for something that exists." },
   { path: "/app/companion", audience: "member", job: "Talk to the AI companion, knowing it is AI and what it cannot do.", workspace: "member_activity", state: "working", evidence: "§11 open decision: the companion has no defined position in the Vol 2 session state machine. Entry states that it is AI and names its communication limits; it has no face, name-as-persona or personality arc (§2.2 Finding 2)." },
   { path: "/app/learn", audience: "member", job: "Read something short about what is happening to them.", workspace: "member_activity", state: "working" },
   { path: "/app/learn/[lessonId]", audience: "member", job: "Read one lesson.", workspace: "member_activity", state: "working" },
@@ -321,6 +323,7 @@ export const ROUTE_REGISTER: RouteEntry[] = [
   // ---- Review console -----------------------------------------------------
   { path: "/review", audience: "reviewer", job: "See what this release needs before it can be approved.", workspace: "review_console", state: "working" },
   { path: "/review/release", audience: "reviewer", job: "Find the largest blocker, its owner, and record an allowed decision.", workspace: "review_console", state: "working", evidence: "§7.1: opens on release scope, environment, commit and evidence date, then blockers that need action rather than a percentage complete." },
+  { path: "/review/content", audience: "reviewer", job: "Agree or send back each new content sign-off row, and see what each one is holding back.", workspace: "review_console", state: "working", evidence: "Handoff 10 §3.3: content_v10 rows in the same sign-off storage and flow as the safety rules." },
   { path: "/review/status", audience: "reviewer", job: "Read measured service health, versions and the active policy registry.", workspace: "review_console", state: "working", evidence: "§1.1: this is the secondary product-status location where honest capability notices belong." },
   { path: "/review/clinical", audience: "reviewer", job: "Review the clinical rules and the copy they produce.", workspace: "review_console", state: "working" },
   { path: "/review/safety", audience: "reviewer", job: "Review the safety engine's rules and what each one fires on.", workspace: "review_console", state: "working" },

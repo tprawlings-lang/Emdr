@@ -29,7 +29,7 @@ import { getEntitlements } from "./entitlements";
 import { getTodayCheckin, checkModuleAccess } from "./gating";
 import { getModule, MODULES } from "./modules";
 import { listPractices, practiceCompletionCount, type Practice } from "./practices";
-import { LESSONS, readLessonIds, lessonsForModule } from "./lessons";
+import { memberLessons, readLessonIds } from "./lessons";
 import { getProgramPlan } from "./program-plan";
 
 // ---------- Types ----------
@@ -202,8 +202,10 @@ async function pickPractice(userId: string, type: "breathwork" | "meditation" | 
 
 async function pickLesson(userId: string, moduleId?: string): Promise<{ id: string; title: string; readMinutes: number } | null> {
   const read = new Set(await readLessonIds(userId));
-  const pool = moduleId ? lessonsForModule(moduleId).filter((l) => !read.has(l.id)) : [];
-  const fallback = LESSONS.filter((l) => !read.has(l.id));
+  // Only lessons the member may see — an unsigned one is never proposed.
+  const lessons = await memberLessons();
+  const pool = moduleId ? lessons.filter((l) => l.relatedModuleIds.includes(moduleId) && !read.has(l.id)) : [];
+  const fallback = lessons.filter((l) => !read.has(l.id));
   const lesson = pool[0] ?? fallback[0] ?? null;
   return lesson ? { id: lesson.id, title: lesson.title, readMinutes: lesson.readMinutes } : null;
 }
