@@ -223,6 +223,7 @@ export const DEMO_DATA_TABLES = [
   "ai_messages",
   "ai_conversations",
   "ai_memory_items",
+  "companion_proposals",
   "ai_companion_preferences",
   "lesson_reads",
   "practice_completions",

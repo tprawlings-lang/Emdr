@@ -43,6 +43,13 @@ async function triggerOptions(userId: string, opts: { capIntensity?: boolean } =
   return (await getActiveTriggers(userId))
     .sort((a, b) => (a.intensity_score ?? 11) - (b.intensity_score ?? 11))
     .map((t) => {
+      // UNRATED FAILS CLOSED. This read `intensity_score !== null && >= 7`, so
+      // a trigger nobody had rated was SELECTABLE — the one case where the
+      // module's own promise ("a recent, low-to-medium trigger") cannot be
+      // known to hold. The Expansion Handoff §0.3: a value nobody gave is
+      // declared null and fails closed. The program plan already read null as
+      // too intense (`?? 11`); now the picker agrees with it.
+      const unrated = opts.capIntensity === true && t.intensity_score === null;
       const tooIntense =
         opts.capIntensity === true &&
         t.intensity_score !== null &&
@@ -50,11 +57,15 @@ async function triggerOptions(userId: string, opts: { capIntensity?: boolean } =
       return {
         id: `trigger:${t.id}`,
         label: t.trigger_name,
-        detail: `${t.trigger_category}${t.intensity_score !== null ? ` · intensity ${t.intensity_score}/10` : ""}`,
-        disabled: tooIntense,
+        detail: `${t.trigger_category}${t.intensity_score !== null ? ` · intensity ${t.intensity_score}/10` : " · not rated yet"}`,
+        disabled: tooIntense || unrated,
         disabledReason: tooIntense
           ? "Too intense for self-guided work — bring this one to your specialist"
-          : undefined,
+          : unrated
+            // SAYS WHAT WOULD MAKE IT AVAILABLE, and where. A disabled option
+            // with no way forward reads as a door the product has shut on them.
+            ? "Rate how intense this is first, in Memory controls — then it can be worked on here if it is low to medium"
+            : undefined,
       };
     });
 }

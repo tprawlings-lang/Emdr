@@ -1,13 +1,10 @@
-import { newId } from "./db";
 import { data } from "./data";
-import { decryptField, encryptField } from "./crypto";
+import { decryptField } from "./crypto";
 import {
   CompanionContext,
   CompanionReply,
-  MemoryType,
   getModelExposableMemoryItems,
   memoryEnabled,
-  writeMemory,
 } from "./companion";
 import { TRACK_LABELS, getProfile } from "./profile";
 import { audit } from "./audit";
@@ -40,9 +37,10 @@ async function guardCompanionText(userId: string, text: string): Promise<string>
   }
 }
 import { getProgramPlan } from "./program-plan";
-import { invoke, type GatewayTool, type ModelMessage } from "./ai-gateway";
+import { invoke, type ModelMessage } from "./ai-gateway";
 import { COMPANION_REPLY } from "./ai-gateway/registry";
 import { tenantForUser } from "./db";
+import { companionTools, executeCompanionTool } from "./companion-tools";
 
 // LLM-backed companion. The deterministic safety routing in actions.ts
 // (crisis regex → canned crisis reply + alert) always runs BEFORE this module,
@@ -52,171 +50,6 @@ import { tenantForUser } from "./db";
 
 export function aiCompanionEnabled(): boolean {
   return Boolean(process.env.ANTHROPIC_API_KEY);
-}
-
-// ---------- Tools the companion can use to persist what it learns ----------
-
-const TRIGGER_CATEGORIES = ["relational", "environmental", "body", "memory", "internal", "other"];
-
-function tools(memoryOn: boolean): GatewayTool[] {
-  const list: GatewayTool[] = [
-    {
-      name: "record_trigger",
-      tier: "write-soft",
-      capability: "record_patient_trigger",
-      description:
-        "Save or update one of the member's triggers in their trigger map. Call this whenever the member describes a trigger in any detail — what sets them off, how intense it is, how their body or behavior responds, or context worth keeping. Use the member's own words for notes where possible. If the trigger already exists, the fields you provide update it, so it is always safe to call with new detail.",
-      inputSchema: {
-        type: "object",
-        properties: {
-          trigger_name: {
-            type: "string",
-            description: "Short name for the trigger, e.g. 'Someone raising their voice'",
-          },
-          trigger_category: {
-            type: "string",
-            enum: TRIGGER_CATEGORIES,
-            description: "Which part of life the trigger belongs to",
-          },
-          intensity_score: {
-            type: "integer",
-            description: "How intense the reaction is, 1 (mild) to 10 (overwhelming), if the member indicated it",
-          },
-          common_responses: {
-            type: "array",
-            items: { type: "string" },
-            description: "How the member typically responds, e.g. 'Shutdown', 'Panic', 'Urge to isolate'",
-          },
-          notes: {
-            type: "string",
-            description: "What the member shared about this trigger — context, history, what helps",
-          },
-        },
-        required: ["trigger_name", "trigger_category"],
-      },
-    },
-  ];
-  if (memoryOn) {
-    list.push({
-      name: "remember",
-      tier: "write-soft",
-      capability: "store_patient_memory",
-      description:
-        "Store a durable fact about the member so future conversations can build on it. Call this when the member shares something worth carrying forward: a grounding tool that works or doesn't, a preference about how to be spoken to, a pattern you notice across sessions or check-ins, a topic to avoid, or progress worth celebrating later. Use memory_type 'focus_area' when the member names something they specifically want to work on — those are offered back as focus choices before their therapy sessions. Use 'grounding_tool' with key 'calm place' for their calm-place image. Do not store crisis content or anything the member asked you to forget.",
-      inputSchema: {
-        type: "object",
-        properties: {
-          memory_type: {
-            type: "string",
-            // "safety" is deliberately absent (audit): SafetyAudit-class
-            // memory is never model-writable or model-readable — safety
-            // events flow through the audit log, not companion memory.
-            enum: [
-              "trigger",
-              "grounding_tool",
-              "readiness",
-              "tone_preference",
-              "restricted_topic",
-              "session_pattern",
-              "progress_pattern",
-              "focus_area",
-            ],
-          },
-          key: {
-            type: "string",
-            description: "Short stable label, e.g. 'cold water', 'sunday evenings', 'work deadlines'",
-          },
-          value: {
-            type: "string",
-            description: "The fact to remember, one or two sentences, in plain language",
-          },
-        },
-        required: ["memory_type", "key", "value"],
-      },
-    });
-  }
-  list.push({
-    name: "escalate_risk",
-    // Its own tier. This only ever RAISES protection — it opens an alert to the
-    // care team and can close nothing — so it must not wait for the human
-    // confirmation write-clinical requires. Waiting is the harm here.
-    tier: "safety-escalation",
-    capability: "notify_care_team",
-    description:
-      "Call this if the member expresses suicidal thoughts, intent to harm themselves or others, or says they are not safe — even indirectly. This notifies their care team. After calling it, your reply must direct them to call or text 988, call 911 if in immediate danger, and use the in-app crisis page.",
-    inputSchema: {
-      type: "object",
-      properties: {
-        reason: { type: "string", description: "Brief description of the risk language, for the care team" },
-      },
-      required: ["reason"],
-    },
-  });
-  return list;
-}
-
-async function executeTool(
-  userId: string,
-  convId: string,
-  name: string,
-  input: Record<string, unknown>,
-  state: { riskFlag: boolean }
-): Promise<string> {
-  const c = await data();
-  if (name === "record_trigger") {
-    const triggerName = String(input.trigger_name ?? "").trim().slice(0, 120);
-    if (!triggerName) return "Ignored: trigger_name was empty.";
-    const category = TRIGGER_CATEGORIES.includes(String(input.trigger_category))
-      ? String(input.trigger_category)
-      : "other";
-    const intensity =
-      typeof input.intensity_score === "number"
-        ? Math.max(1, Math.min(10, Math.round(input.intensity_score)))
-        : null;
-    const responses = Array.isArray(input.common_responses)
-      ? (input.common_responses as unknown[]).map(String).slice(0, 12)
-      : null;
-    const notes = input.notes ? String(input.notes).slice(0, 2000) : null;
-    const existing = (await c.get(
-      "SELECT id, common_responses_json, notes FROM user_triggers WHERE user_id = ? AND trigger_name = ?",
-      [userId, triggerName]
-    )) as { id: string; common_responses_json: string; notes: string | null } | undefined;
-    if (existing) {
-      await c.run(
-        `UPDATE user_triggers SET trigger_category = ?, intensity_score = COALESCE(?, intensity_score),
-         common_responses_json = COALESCE(?, common_responses_json), notes = COALESCE(?, notes),
-         active = 1, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
-        [category, intensity, responses ? JSON.stringify(responses) : null, encryptField(notes), existing.id]
-      );
-      return `Updated trigger "${triggerName}".`;
-    }
-    await c.run(
-      `INSERT INTO user_triggers (id, user_id, trigger_name, trigger_category, intensity_score, common_responses_json, notes)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`,
-      [newId(), userId, triggerName, category, intensity, JSON.stringify(responses ?? []), encryptField(notes)]
-    );
-    return `Saved new trigger "${triggerName}".`;
-  }
-  if (name === "remember") {
-    if (!(await memoryEnabled(userId))) return "Memory is turned off for this member; nothing stored.";
-    const key = String(input.key ?? "").trim().slice(0, 120);
-    const value = String(input.value ?? "").trim().slice(0, 1000);
-    if (!key || !value) return "Ignored: key and value are required.";
-    await writeMemory({
-      userId,
-      type: input.memory_type as MemoryType,
-      key,
-      value,
-      source: "user_message",
-      sourceId: convId,
-    });
-    return `Remembered: ${key}.`;
-  }
-  if (name === "escalate_risk") {
-    state.riskFlag = true;
-    return "Care team notified. Now direct the member to 988 / 911 and the crisis page.";
-  }
-  return `Unknown tool: ${name}`;
 }
 
 // ---------- Context → system prompt ----------
@@ -505,9 +338,9 @@ export async function generateAiReply(
     },
     system,
     messages: [...(await loadHistory(convId, ctx.userId)), { role: "user", content: userText }],
-    tools: tools(memoryOn),
+    tools: companionTools(memoryOn),
     executeTool: (use) =>
-      executeTool(ctx.userId, convId, use.name, use.input, state),
+      executeCompanionTool(ctx.userId, convId, use.name, use.input, state),
   });
 
   if (result.outcome === "answered") {

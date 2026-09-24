@@ -846,6 +846,59 @@ export async function setTriggerActive(formData: FormData) {
   redirect("/app/settings/memory");
 }
 
+/**
+ * The person rates one of their own triggers.
+ *
+ * THE ONLY WAY AN INTENSITY IS SET AFTER ONBOARDING, and it is the person's.
+ * An unrated trigger fails closed in the self-guided picker, and its reason
+ * sends them here — so this has to exist, or the picker is a door with no key.
+ */
+export async function rateTrigger(formData: FormData) {
+  const user = await requireMember();
+  const id = String(formData.get("id") ?? "");
+  const intensity = Number(formData.get("intensity"));
+  if (!Number.isInteger(intensity) || intensity < 1 || intensity > 10) {
+    redirect("/app/settings/memory?error=" + encodeURIComponent("Choose a number from 1 to 10."));
+  }
+  const c = await data();
+  await c.run(
+    "UPDATE user_triggers SET intensity_score = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND user_id = ?",
+    [intensity, id, user.id]
+  );
+  await audit({
+    actorId: user.id, actorRole: "member", family: "clinical",
+    type: "trigger_rated", target: id, detail: { intensity },
+  });
+  revalidatePath("/app/settings/memory");
+  redirect("/app/settings/memory#triggers");
+}
+
+/** Add something the companion suggested, on the person's own terms. */
+export async function decideCompanionProposal(formData: FormData) {
+  const user = await requireMember();
+  const id = String(formData.get("proposalId") ?? "");
+  const decision = String(formData.get("decision") ?? "");
+  const {
+    acceptTriggerProposal, acceptFocusProposal, dismissProposal, ProposalRefused,
+  } = await import("./companion-proposals");
+  try {
+    if (decision === "dismiss") await dismissProposal(user.id, id);
+    else if (decision === "accept_focus") await acceptFocusProposal(user.id, id);
+    else if (decision === "accept_trigger") {
+      await acceptTriggerProposal(user.id, id, Number(formData.get("intensity")));
+    } else {
+      throw new ProposalRefused("That is not a choice this form offers.");
+    }
+  } catch (e) {
+    if (e instanceof ProposalRefused) {
+      redirect("/app/settings/memory?error=" + encodeURIComponent(e.message) + "#suggestions");
+    }
+    throw e;
+  }
+  revalidatePath("/app/settings/memory");
+  redirect("/app/settings/memory#suggestions");
+}
+
 // ---------- Daily check-in ----------
 
 export async function submitCheckin(formData: FormData) {

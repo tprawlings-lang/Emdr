@@ -7,7 +7,37 @@ import {
   deleteMemoryItem,
   setMemoryEnabled,
   setTriggerActive,
+  rateTrigger,
+  decideCompanionProposal,
 } from "@/lib/actions";
+import { pendingProposals } from "@/lib/companion-proposals";
+import { SubmitButton } from "@/components/experience/SubmitButton";
+
+/** 1–10, lowest first. NO DEFAULT is selected anywhere this is used: a
+ *  pre-selected intensity is a decision the person did not make. */
+const INTENSITIES = Array.from({ length: 10 }, (_, i) => i + 1);
+
+function IntensityPicker({ id }: { id: string }) {
+  return (
+    <label className="text-sm">
+      <span className="mr-2 text-olive">How intense is it for you?</span>
+      <select
+        id={id}
+        name="intensity"
+        required
+        defaultValue=""
+        className="rounded-xl border border-ground/20 bg-app-surface px-3 py-1.5 text-sm"
+      >
+        <option value="" disabled>Choose 1–10</option>
+        {INTENSITIES.map((n) => (
+          <option key={n} value={n}>
+            {n}{n === 1 ? " — mild" : n === 10 ? " — overwhelming" : ""}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
 
 const TYPE_LABELS: Record<string, string> = {
   trigger: "Triggers",
@@ -29,8 +59,14 @@ const SOURCE_LABELS: Record<string, string> = {
   specialist_note: "from a specialist note",
 };
 
-export default async function MemoryControlsPage() {
+export default async function MemoryControlsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ error?: string }>;
+}) {
   const user = await requireMember();
+  const { error } = await searchParams;
+  const suggestions = await pendingProposals(user.id);
 
   const prefs = await getCompanionPrefs(user.id);
   const memoryEnabled = prefs?.memory_enabled ?? "yes";
@@ -69,7 +105,77 @@ export default async function MemoryControlsPage() {
         </button>
       </form>
 
-      <section className="mt-8">
+      {error && (
+        <p role="alert" className="measure mt-6 rounded-2xl border border-state-caution/40 bg-state-caution-bg px-4 py-3 text-sm text-ground">
+          {error}
+        </p>
+      )}
+
+      {/* WHAT THE COMPANION NOTICED, WAITING FOR THE PERSON. Nothing here is on
+          their trigger map or offered in a session until they add it — and a
+          trigger is added with the intensity THEY give it, because that number
+          decides whether it can be worked on without a specialist. */}
+      {suggestions.length > 0 && (
+        <section id="suggestions" aria-labelledby="suggestions-h" className="mt-8">
+          <h2 id="suggestions-h" className="type-display text-2xl font-medium">
+            Your companion noticed
+          </h2>
+          <p className="measure mt-1 text-sm text-olive">
+            Things that came up in conversation. None of them are part of your map or your
+            sessions unless you add them. Leaving them is fine.
+          </p>
+          <ul className="mt-3 space-y-3">
+            {suggestions.map((p) => (
+              <li key={p.id} className="rounded-3xl border border-ground/10 bg-linen p-5 shadow-soft">
+                <p className="font-medium">{p.title}</p>
+                <p className="text-xs text-olive">
+                  {p.kind === "trigger" ? `A possible trigger${p.category ? ` · ${p.category}` : ""}` : "A possible focus"}
+                </p>
+                {p.detail && <p className="measure mt-2 whitespace-pre-line text-sm text-ground/90">{p.detail}</p>}
+                <div className="mt-3 flex flex-wrap items-center gap-3">
+                  <form action={decideCompanionProposal} className="flex flex-wrap items-center gap-3">
+                    <input type="hidden" name="proposalId" value={p.id} />
+                    {p.kind === "trigger" ? (
+                      <>
+                        <input type="hidden" name="decision" value="accept_trigger" />
+                        <IntensityPicker id={`intensity-${p.id}`} />
+                        <SubmitButton
+                          pendingLabel="Adding…"
+                          className="rounded-full bg-app-ink px-4 py-1.5 text-sm font-medium text-app-surface"
+                        >
+                          Add to my map
+                        </SubmitButton>
+                      </>
+                    ) : (
+                      <>
+                        <input type="hidden" name="decision" value="accept_focus" />
+                        <SubmitButton
+                          pendingLabel="Adding…"
+                          className="rounded-full bg-app-ink px-4 py-1.5 text-sm font-medium text-app-surface"
+                        >
+                          Add as something to work on
+                        </SubmitButton>
+                      </>
+                    )}
+                  </form>
+                  <form action={decideCompanionProposal}>
+                    <input type="hidden" name="proposalId" value={p.id} />
+                    <input type="hidden" name="decision" value="dismiss" />
+                    <SubmitButton
+                      pendingLabel="Clearing…"
+                      className="rounded-full border border-ground/20 px-4 py-1.5 text-sm text-olive"
+                    >
+                      Not now
+                    </SubmitButton>
+                  </form>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      <section id="triggers" className="mt-8">
         <h2 className="type-display text-2xl font-medium">Your triggers</h2>
         <p className="mt-1 text-sm text-olive">
           Removing a trigger here also stops the companion and check-in from referencing it.
@@ -82,8 +188,22 @@ export default async function MemoryControlsPage() {
                 <p className="font-medium">{t.trigger_name}</p>
                 <p className="text-xs text-olive">
                   {t.trigger_category}
-                  {t.intensity_score !== null ? ` · intensity ${t.intensity_score}/10` : ""}
+                  {t.intensity_score !== null ? ` · intensity ${t.intensity_score}/10` : " · not rated yet"}
                 </p>
+                {/* AN UNRATED TRIGGER CANNOT BE WORKED ON ALONE, and this is where
+                    the session picker sends them to change that. */}
+                {t.intensity_score === null && (
+                  <form action={rateTrigger} className="mt-2 flex flex-wrap items-center gap-2">
+                    <input type="hidden" name="id" value={t.id} />
+                    <IntensityPicker id={`rate-${t.id}`} />
+                    <SubmitButton
+                      pendingLabel="Saving…"
+                      className="rounded-full border border-ground/25 px-3.5 py-1.5 text-sm text-ground"
+                    >
+                      Save rating
+                    </SubmitButton>
+                  </form>
+                )}
               </div>
               <form action={setTriggerActive}>
                 <input type="hidden" name="id" value={t.id} />

@@ -941,6 +941,30 @@ export const WORK_REGISTER: WorkEntry[] = [
       + "change and the reason it was recaptured rather than refreshed.",
   },
   {
+    id: "companion.tools-cannot-write-session-state",
+    title: "The companion's tools cannot write session state, and a model cannot lower a protection",
+    state: "reachable",
+    code: "src/lib/companion-proposals.ts#proposeToMember",
+    test: "tests/companion-boundary.test.ts",
+    note:
+      "Expansion Handoff non-negotiable 5 and \u00a75.3; Phase 0. The companion's record_trigger tool " +
+      "wrote user_triggers directly, intensity included, through a COALESCE that took any new value. " +
+      "That intensity is the only thing keeping a trigger out of SELF-GUIDED processing \u2014 " +
+      "recent-trigger disables anything at 7 or above \u2014 so a model could move a trigger a person " +
+      "rated 8 into work they could do alone. Reproduced before the fix: 8 in, 3 out. That is a model " +
+      "LOWERING a protection, which non-negotiable 2 forbids outright. Not live in this deployment, " +
+      "because model-backed replies need ANTHROPIC_API_KEY and it is unset by decision; reachable the " +
+      "moment that changed. The tool runtime now lives in its own module with NO DATABASE HANDLE, " +
+      "and a test pins the exact symbols it may import, because the modules it may import also " +
+      "export writers it must not call. What the companion notices becomes a SUGGESTION the person " +
+      "adds to their map with an intensity they give it themselves, or dismisses. Focus areas take " +
+      "the same route, since four processing modules offer them back as targets. Two adjacent holes " +
+      "closed with it: an unrated trigger was selectable for self-guided work, against \u00a70.3's " +
+      "fail-closed rule, and now is not; and a duplicate check on an encrypted title could never " +
+      "fire, because the IV is random, which the tests now catch. A model may still ADD protection \u2014 " +
+      "a topic to avoid is written as before \u2014 because the asymmetry is the rule.",
+  },
+  {
     id: "clinical.maintenance-language-held",
     title: "Maintenance words are written down, guarded, and held for review",
     state: "held",

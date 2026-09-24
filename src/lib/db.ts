@@ -503,6 +503,30 @@ export const SCHEMA_SQL = `
     updated_at TEXT NOT NULL DEFAULT (datetime('now'))
   );
 
+  -- What the companion suggested, waiting for the person to decide.
+  --
+  -- THE ONLY PLACE A MODEL'S SUGGESTION OF A SESSION TARGET IS WRITTEN. The
+  -- companion used to write user_triggers directly, intensity included, and
+  -- that intensity is what keeps a trigger out of self-guided processing. So a
+  -- suggestion lands here and nowhere else: it becomes part of the person's
+  -- trigger map, or a focus they can work on, only when they accept it and give
+  -- it an intensity themselves (Expansion Handoff, non-negotiables 2 and 5).
+  --
+  -- NO INTENSITY COLUMN, on purpose. A number the model proposed would be read
+  -- as the default on the accept form, and a default is a decision.
+  CREATE TABLE IF NOT EXISTS companion_proposals (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL REFERENCES users(id),
+    kind TEXT NOT NULL CHECK (kind IN ('trigger','focus_area')),
+    title TEXT NOT NULL,
+    detail TEXT,
+    category TEXT,
+    source_conversation_id TEXT,
+    status TEXT NOT NULL DEFAULT 'proposed' CHECK (status IN ('proposed','accepted','dismissed')),
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    decided_at TEXT
+  );
+
   CREATE TABLE IF NOT EXISTS ai_conversations (
     id TEXT PRIMARY KEY,
     user_id TEXT NOT NULL REFERENCES users(id),
@@ -2723,7 +2747,7 @@ export const TENANT_SCOPED_TABLES = [
   "clinical_notes",
   "post_session_checks", "module_unlocks", "alerts", "user_profiles",
   "user_triggers", "early_warning_signs", "readiness_assessments",
-  "safety_plans", "ai_companion_preferences", "ai_memory_items",
+  "safety_plans", "ai_companion_preferences", "ai_memory_items", "companion_proposals",
   "ai_conversations", "ai_messages", "subscriptions", "payments",
   "program_plans", "care_tracks", "care_track_intake", "practice_completions",
   "upsell_events", "autopilot_plans", "autopilot_events", "lesson_reads",
