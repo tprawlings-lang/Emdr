@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { SupportDock } from "./SupportDock";
+import { MemberNav } from "./MemberNav";
 import type { NavigationManifest } from "@/lib/experience/navigation";
 import { MAIN_ID } from "@/lib/experience/quality";
 import { logout } from "@/lib/actions";
@@ -26,21 +27,15 @@ import { logout } from "@/lib/actions";
 
 export function MemberShell({
   navigation,
-  pathname,
   title,
   lede,
   children,
 }: {
   navigation: NavigationManifest;
-  /** The current route, for the selected state. Passed rather than read, so
-   *  this stays a server component. */
-  pathname: string;
   title: string;
   lede?: string;
   children: React.ReactNode;
 }) {
-  const activeHref = activeFor(navigation, pathname);
-
   return (
     <div className="min-h-dvh bg-ivory">
       <header className="border-b border-ground/10 bg-linen">
@@ -83,31 +78,7 @@ export function MemberShell({
           </div>
         </div>
 
-        {/* §1.2's core row. Three destinations for a member with everything on,
-            fewer when a capability is off — never padded to reach a count. */}
-        {/* SCROLLS RATHER THAN WRAPS. At 390px a four-destination row broke
-            "Care team" across two lines mid-phrase, which reads as two items.
-            A destination is a promise (§1.1) and a promise split in half is
-            worse than one off the end of a scroll. */}
-        <nav aria-label="Member navigation" className="mx-auto max-w-3xl overflow-x-auto px-2 pb-2">
-          <ul className="flex min-w-max gap-1">
-            {navigation.core.map((d) => (
-              <li key={d.href} className="flex-1">
-                <Link
-                  href={d.href}
-                  aria-current={d.href === activeHref ? "page" : undefined}
-                  className={`block min-h-11 whitespace-nowrap rounded-xl px-3 py-2.5 text-center text-sm transition-colors ${
-                    d.href === activeHref
-                      ? "bg-app-accent font-semibold text-app-ink"
-                      : "text-olive hover:bg-app-accent/40 hover:text-app-ink"
-                  }`}
-                >
-                  {d.label}
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </nav>
+        <MemberNav core={navigation.core} />
       </header>
 
       <main id={MAIN_ID} className="mx-auto max-w-3xl px-4 py-6 sm:py-8">
@@ -119,16 +90,4 @@ export function MemberShell({
       <SupportDock />
     </div>
   );
-}
-
-/** Longest match wins, so exactly one destination is selected. Two selected
- *  states is the same failure as none (§8.2). */
-function activeFor(navigation: NavigationManifest, pathname: string): string | null {
-  const all = [...navigation.core, ...navigation.utility];
-  let best: string | null = null;
-  for (const d of all) {
-    if (d.href !== pathname && !pathname.startsWith(`${d.href}/`)) continue;
-    if (!best || d.href.length > best.length) best = d.href;
-  }
-  return best;
 }

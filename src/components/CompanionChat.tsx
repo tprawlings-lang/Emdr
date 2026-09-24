@@ -70,7 +70,13 @@ export default function CompanionChat({
   };
 
   return (
-    <div className="flex flex-col">
+    // `min-w-0` IS LOAD-BEARING, TWICE OVER. This sits in a grid cell, and a
+    // grid or flex child defaults to `min-width: auto` — it refuses to shrink
+    // below the intrinsic width of its contents. The composer below holds a
+    // text input, whose intrinsic width is about twenty characters, plus a
+    // Send button; together they would not fit a 320px phone, so the whole
+    // page scrolled sideways by 81px. Measured at 320px, not guessed.
+    <div className="flex min-w-0 flex-col">
       {showRiskBanner && (
         <div className="mb-4 rounded-3xl border border-ground/30 bg-pause-soft p-5">
           <p className="font-semibold text-ground">Support beyond this chat</p>
@@ -130,7 +136,7 @@ export default function CompanionChat({
         <div ref={bottomRef} />
       </div>
 
-      <div className="mt-6 flex gap-2">
+      <div className="mt-6 flex min-w-0 gap-2">
         <input
           value={input}
           onChange={(e) => setInput(e.target.value)}
@@ -142,7 +148,7 @@ export default function CompanionChat({
           }}
           placeholder="Whatever feels true right now…"
           aria-label="Message your companion"
-          className="flex-1 rounded-full border border-ground/15 bg-linen px-5 py-3 focus:border-sage focus:outline-none"
+          className="min-w-0 flex-1 rounded-full border border-ground/15 bg-linen px-5 py-3 focus:border-sage focus:outline-none"
         />
         <button
           onClick={send}

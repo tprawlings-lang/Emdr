@@ -9,7 +9,7 @@
 import type { VisualBaseline } from "./visual-baseline";
 
 export const VISUAL_BASELINE: VisualBaseline = {
-  "capturedAt": "2026-09-24T01:26:21.455Z",
+  "capturedAt": "2026-09-24T09:44:20.417Z",
   "conditions": "1280x900 with motion frozen, signed in per role, against a production build over the hermetic e2e seed (rm -rf .e2e-data && npm run demo -- reset && npm run start) — the same environment tests/e2e/visual-baseline.spec.ts compares against",
   "screens": [
     {
@@ -35,11 +35,12 @@ export const VISUAL_BASELINE: VisualBaseline = {
       ],
       "landmarks": [
         "header:",
-        "nav:Information layers",
+        "nav:Member navigation",
         "main:",
         "section:What it would contain",
         "section:What it would never contain",
         "section:Every consent Steady can ask for",
+        "nav:Support",
         "footer:"
       ],
       "palette": {
@@ -54,9 +55,9 @@ export const VISUAL_BASELINE: VisualBaseline = {
         ]
       },
       "rhythm": [
-        "-4px",
         "2px",
         "4px",
+        "6px",
         "8px",
         "12px",
         "16px",

@@ -60,6 +60,23 @@ import type { MemberDay } from "../src/lib/member/view";
 const SRC = path.join(__dirname, "..", "src");
 const read = (p: string) => fs.readFileSync(path.join(SRC, p), "utf8");
 
+/** The one source file that matches, so a guard follows the code it is about
+ *  rather than the path it was written against. Fails loudly on none or many:
+ *  two files drawing one navigation is itself the finding. */
+function sourceOf(marker: RegExp): string {
+  const found: string[] = [];
+  const walk = (dir: string) => {
+    for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+      const full = path.join(dir, e.name);
+      if (e.isDirectory()) walk(full);
+      else if (/\.tsx$/.test(e.name) && marker.test(fs.readFileSync(full, "utf8"))) found.push(full);
+    }
+  };
+  walk(SRC);
+  assert.equal(found.length, 1, `${found.length} files match ${marker}: ${found.join(", ")}`);
+  return fs.readFileSync(found[0], "utf8");
+}
+
 function gateDay(shape: MemberDay["shape"], practices = 2): MemberDay {
   const all = Array.from({ length: practices }, (_, i) => ({
     id: `practice-${i}`,
@@ -218,10 +235,18 @@ test("a member never reads a raw timestamp", () => {
 test("the member navigation row scrolls rather than breaking a destination in half", () => {
   // At 390px a four-destination row broke "Care team" across two lines
   // mid-phrase, which reads as two items. §1.1: a navigation item is a promise.
-  const src = read("components/experience/MemberShell.tsx");
-  assert.match(src, /overflow-x-auto/);
-  assert.match(src, /whitespace-nowrap/);
-  assert.ok(!/flex flex-wrap[^"]*"[\s\S]{0,200}navigation\.core/.test(src));
+  //
+  // FOUND BY WHICHEVER FILE DRAWS THE ROW, not by a path written down here.
+  // This named MemberShell.tsx, and the row moved into a client component so
+  // that every member screen could carry the same selected state without
+  // thirty-one route files each restating their own path. The rule was
+  // untouched; the test failed because it knew where the rule used to live.
+  // A guard that has to be edited whenever a component is extracted is a guard
+  // people learn to edit rather than read.
+  const src = sourceOf(/aria-label="Member navigation"/);
+  assert.match(src, /overflow-x-auto/, "the member's destinations wrap instead of scrolling");
+  assert.match(src, /whitespace-nowrap/, "a destination can break across lines mid-phrase");
+  assert.ok(!/flex flex-wrap/.test(src), "the row is set to wrap");
 });
 
 test("a crisis day leads with support", () => {

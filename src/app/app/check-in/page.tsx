@@ -1,5 +1,4 @@
-import { AppShell } from "@/components/app/AppShell";
-import { MEMBER_RAIL } from "@/lib/app/rails";
+import { MemberPage } from "@/components/member/MemberPage";
 import Link from "next/link";
 import { requireMember } from "@/lib/auth";
 import { getActiveTriggers } from "@/lib/profile";
@@ -59,16 +58,13 @@ export default async function CheckinPage() {
   const triggers = await getActiveTriggers(user.id);
 
   return (
-    <AppShell
-      role="Patient or member"
+    // THROUGH MemberPage LIKE EVERY OTHER MEMBER SCREEN. This one reached for
+    // AppShell directly, which is how it ended up as the last member route
+    // still carrying the information-layer rail after the rest moved.
+    <MemberPage
       title="Daily check-in"
-      active="overview"
-      railHref={MEMBER_RAIL}
+      lede="Under 90 seconds. Your answers shape today's safest next step — honest answers keep sessions safe. There are no wrong answers."
     >
-      <p className="measure text-olive">
-        Under 90 seconds. Your answers shape today&apos;s safest next step — honest answers keep
-        sessions safe. There are no wrong answers.
-      </p>
 
       <form action={submitCheckin} className="mt-10 space-y-8">
         <fieldset className="space-y-2.5">
@@ -148,6 +144,6 @@ export default async function CheckinPage() {
           </Link>
         </div>
       </form>
-    </AppShell>
+    </MemberPage>
   );
 }

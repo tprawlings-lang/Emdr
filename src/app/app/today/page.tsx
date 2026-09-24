@@ -145,7 +145,6 @@ export default async function DashboardPage({
     return (
       <MemberShell
         navigation={navigationFor(experience)}
-        pathname="/app/today"
         title={`Hello, ${user.name}`}
         lede="You are here today. That is enough."
       >

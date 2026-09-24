@@ -32,7 +32,7 @@ import {
   type Audience, type Workspace,
 } from "../app/route-register";
 import {
-  type ExperienceContext, type Capability, can, whyNot,
+  type ExperienceContext, type Capability, can, whyNot, capabilitiesFor,
 } from "./context";
 import { DEFAULT_RETURN } from "./return-to";
 
@@ -293,6 +293,33 @@ export function isClassified(slug: string): boolean {
  * in `core`, full stop. There is no `includeUnavailable` option, because the
  * option would be used.
  */
+/**
+ * The member's destinations, without needing a member.
+ *
+ * NAVIGATION IS A FUNCTION OF THE AUDIENCE AND NOTHING ELSE, which is worth
+ * stating where somebody can see it: `navigationFor` reads only `ctx.audience`
+ * and `ctx.capabilities`, and `capabilitiesFor` takes the audience alone. Two
+ * members never see different destinations.
+ *
+ * SO THE SHELL DOES NOT NEED A SESSION TO DRAW ITS OWN NAVIGATION. That is the
+ * whole point of this helper: every member screen can carry the same row
+ * without each of them first loading a person in order to be told the same
+ * four words, and without the shell growing a database read that runs on every
+ * page in the product.
+ */
+export function memberNavigation(): NavigationManifest {
+  // NO PERSON AND NO TENANT, and the empty strings say so rather than
+  // borrowing somebody's. Nothing below reads either field; a context carrying
+  // a real id here would invite the next reader to think it mattered.
+  return navigationFor({
+    personId: "",
+    tenantId: "",
+    audience: "member",
+    displayName: "",
+    capabilities: capabilitiesFor("member"),
+  });
+}
+
 export function navigationFor(
   ctx: ExperienceContext,
   args: { personId?: string | null; back?: { href: string; label: string } } = {}
