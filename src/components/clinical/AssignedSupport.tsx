@@ -9,6 +9,7 @@ import type { Goal } from "@/lib/clinical/return-to-life";
 import {
   assignSupportAction, changeAssignmentAction, adjustPlanLinkAction,
 } from "@/lib/clinical/assignment-actions";
+import { SubmitButton } from "@/components/experience/SubmitButton";
 
 // Assign support, inside Care (17 September handoff, P3).
 //
@@ -159,9 +160,12 @@ export function AssignedSupport({
                   <span className="mr-2">Working towards</span>
                   <PlanLinkSelect goals={linkable} current={a.goalId} />
                 </label>
-                <button className="rounded-full border border-ground/25 px-4 py-1.5 text-sm text-ground hover:bg-ground/5">
+                <SubmitButton
+                  pendingLabel="Saving…"
+                  className="rounded-full border border-ground/25 px-4 py-1.5 text-sm text-ground hover:bg-ground/5"
+                >
                   Save link
-                </button>
+                </SubmitButton>
               </form>
 
               <div className="mt-3 flex flex-wrap gap-3">
@@ -169,9 +173,12 @@ export function AssignedSupport({
                   <input type="hidden" name="personId" value={personId} />
                   <input type="hidden" name="assignmentId" value={a.id} />
                   <input type="hidden" name="to" value="completed" />
-                  <button className="rounded-full border border-ground/25 px-4 py-1.5 text-sm text-ground hover:bg-ground/5">
+                  <SubmitButton
+                    pendingLabel="Recording…"
+                    className="rounded-full border border-ground/25 px-4 py-1.5 text-sm text-ground hover:bg-ground/5"
+                  >
                     Mark completed
-                  </button>
+                  </SubmitButton>
                 </form>
                 {/* WITHDRAWING NEEDS A REASON and completing does not.
                     Completing says they did it; withdrawing takes back
@@ -188,9 +195,12 @@ export function AssignedSupport({
                     placeholder="Why this is being withdrawn"
                     className="rounded-xl border border-ground/20 bg-app-surface px-3 py-1.5 text-sm"
                   />
-                  <button className="rounded-full border border-ground/25 px-4 py-1.5 text-sm text-ground hover:bg-ground/5">
+                  <SubmitButton
+                    pendingLabel="Withdrawing…"
+                    className="rounded-full border border-ground/25 px-4 py-1.5 text-sm text-ground hover:bg-ground/5"
+                  >
                     Withdraw
-                  </button>
+                  </SubmitButton>
                 </form>
               </div>
             </li>
@@ -318,9 +328,12 @@ export function AssignedSupport({
             This records what you are asking for. It does not unlock anything, and it does not
             notify anyone — the person sees it when they next open Steady.
           </p>
-          <button className="rounded-full bg-app-ink px-5 py-2 text-sm font-medium text-app-surface hover:opacity-90">
+          <SubmitButton
+            pendingLabel="Assigning…"
+            className="rounded-full bg-app-ink px-5 py-2 text-sm font-medium text-app-surface hover:opacity-90"
+          >
             Assign
-          </button>
+          </SubmitButton>
         </form>
       </details>
 

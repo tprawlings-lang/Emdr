@@ -1,3 +1,4 @@
+import { SubmitButton } from "@/components/experience/SubmitButton";
 import { reviewPlanAction } from "@/lib/clinical/actions";
 import {
   PLAN_REVIEW_MEANS, type PlanReviewStanding,
@@ -59,9 +60,12 @@ export function PlanReviewAction({
           name="note" placeholder="What you make of it (optional)"
           className="min-w-56 rounded border border-ground/20 bg-linen px-2 py-1 text-xs text-app-ink"
         />
-        <button className="rounded-full bg-app-ink px-3.5 py-1.5 text-xs font-medium text-app-surface">
+        <SubmitButton
+          pendingLabel="Recording…"
+          className="rounded-full bg-app-ink px-3.5 py-1.5 text-xs font-medium text-app-surface"
+        >
           {standing.review ? "Read it again — record that" : "I have read this plan"}
-        </button>
+        </SubmitButton>
       </form>
 
       <p className="measure mt-2 text-xs text-olive">{PLAN_REVIEW_MEANS.does}</p>

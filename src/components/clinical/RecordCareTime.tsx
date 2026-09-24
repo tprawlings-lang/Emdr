@@ -1,4 +1,5 @@
 import { recordCareTimeAction } from "@/lib/clinical/assignment-actions";
+import { SubmitButton } from "@/components/experience/SubmitButton";
 
 /**
  * A clinician says they did this, rather than the screen assuming it.
@@ -34,12 +35,12 @@ export function RecordCareTime({
         placeholder="Anything worth recording with it (optional)"
         className="min-w-0 flex-1 rounded-xl border border-ground/20 bg-app-surface px-3 py-2 text-sm"
       />
-      <button
-        type="submit"
+      <SubmitButton
+        pendingLabel="Recording…"
         className="rounded-full border border-ground/20 px-3.5 py-1.5 text-xs text-app-ink hover:bg-app-accent/40"
       >
         {label}
-      </button>
+      </SubmitButton>
       <p className="measure basis-full text-xs text-olive">{help}</p>
     </form>
   );

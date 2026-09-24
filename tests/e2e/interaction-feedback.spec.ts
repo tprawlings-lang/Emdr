@@ -161,3 +161,52 @@ test("display type is not tracked at one value across every size", async ({ page
     ).toBeGreaterThan(STEP);
   }
 });
+
+test("a command says it is running, and a second press inside it writes nothing", async ({ page }) => {
+  // MEASURED BEFORE IT WAS BUILT, and this is why it is not a polish item.
+  // "Record that you prepared" is a server action — a write, a revalidate and a
+  // redirect, 221ms against a local database with a warm build. Through all of
+  // it the button read exactly as before and stayed live. Pressed twice inside
+  // that window the ledger took TWO care-time records for one piece of work:
+  // the record said a clinician prepared for a session twice when they did it
+  // once. A record of care that did not happen is the one thing this ledger
+  // cannot survive.
+  await signInAsClinician(page);
+  await page.goto("/clinician/caseload");
+  const link = await page.locator('a[href^="/clinician/member/"]').first().getAttribute("href");
+  expect(link, "no person on the caseload to open").toBeTruthy();
+  // The caseload links into a sub-route; the care-time control and the ledger
+  // both live on the record's root.
+  const person = link!.split("/").slice(0, 4).join("/");
+  await page.goto(person);
+
+  const entries = () => page.getByTestId("care-history-entry").count();
+  const before = await entries();
+
+  const button = page.locator('form:has(input[name="action"]) button').first();
+  await expect(button, "the record's care-time control is not on this screen").toBeVisible();
+  const idle = (await button.textContent())?.trim();
+
+  await button.click({ noWaitAfter: true });
+
+  // WHILE IT RUNS: the control says so, in the control the person is already on.
+  await expect(button).toHaveAttribute("data-pending", "true");
+  expect(
+    (await button.textContent())?.trim(),
+    "the button says the same thing while the server is working as it did before"
+  ).not.toBe(idle);
+  await expect(button).toHaveAttribute("aria-disabled", "true");
+
+  // AND THE SECOND PRESS IS REFUSED. `force` because the control is deliberately
+  // still focusable and still hit-testable — it is aria-disabled rather than
+  // disabled, so a keyboard user does not lose their place mid-task.
+  await button.click({ noWaitAfter: true, force: true, timeout: 3000 }).catch(() => {});
+
+  await page.waitForLoadState("networkidle");
+  await page.goto(person);
+  const after = await entries();
+  expect(
+    after - before,
+    "two presses inside one round trip wrote more than one care-time record"
+  ).toBe(1);
+});

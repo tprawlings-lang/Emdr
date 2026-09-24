@@ -1,5 +1,6 @@
 import { Instrument } from "@/lib/instruments";
 import { submitScreening } from "@/lib/actions";
+import { SubmitButton } from "@/components/experience/SubmitButton";
 
 // Shared questionnaire form used by baseline screening and weekly measures.
 export default function InstrumentForm({
@@ -45,12 +46,12 @@ export default function InstrumentForm({
           </div>
         );
       })}
-      <button
-        type="submit"
+      <SubmitButton
+        pendingLabel="Saving your answers…"
         className="w-full rounded-full bg-sage px-6 py-3.5 font-medium text-ground transition-colors hover:bg-sage-deep"
       >
         Save and continue
-      </button>
+      </SubmitButton>
     </form>
   );
 }

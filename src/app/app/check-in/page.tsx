@@ -3,6 +3,7 @@ import Link from "next/link";
 import { requireMember } from "@/lib/auth";
 import { getActiveTriggers } from "@/lib/profile";
 import { submitCheckin } from "@/lib/actions";
+import { SubmitButton } from "@/components/experience/SubmitButton";
 
 function ScaleInput({
   name,
@@ -130,12 +131,12 @@ export default async function CheckinPage() {
             stopping a check-in partway is a legitimate outcome, and §26 lists
             "Continue or pause" as this screen's primary action. */}
         <div className="flex flex-wrap gap-3">
-          <button
-            type="submit"
+          <SubmitButton
+            pendingLabel="Saving…"
             className="rounded-full bg-app-ink px-7 py-3.5 font-medium text-app-surface transition-opacity hover:opacity-90"
           >
             Continue
-          </button>
+          </SubmitButton>
           <Link
             href="/app/today"
             className="rounded-full border border-ground/25 px-7 py-3.5 font-medium text-app-ink transition-colors hover:bg-app-accent/50"

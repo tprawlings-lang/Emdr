@@ -1,5 +1,6 @@
 import { fileNoteAction } from "@/lib/clinical/actions";
 import { CATEGORIES, SURFACES, PRIORITY_LABEL, type NotePriority } from "@/lib/clinical/review-notes";
+import { SubmitButton } from "@/components/experience/SubmitButton";
 
 // "Change this" — available on every clinician surface.
 //
@@ -75,9 +76,12 @@ export function NoteForm({
           />
         </label>
 
-        <button className="rounded-full bg-ground px-4 py-1.5 text-xs font-medium text-ivory">
+        <SubmitButton
+          pendingLabel="Filing…"
+          className="rounded-full bg-ground px-4 py-1.5 text-xs font-medium text-ivory"
+        >
           File change request
-        </button>
+        </SubmitButton>
       </form>
     </details>
   );
