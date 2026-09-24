@@ -9,7 +9,7 @@
 import type { VisualBaseline } from "./visual-baseline";
 
 export const VISUAL_BASELINE: VisualBaseline = {
-  "capturedAt": "2026-09-19T04:43:57.096Z",
+  "capturedAt": "2026-09-24T01:26:21.455Z",
   "conditions": "1280x900 with motion frozen, signed in per role, against a production build over the hermetic e2e seed (rm -rf .e2e-data && npm run demo -- reset && npm run start) — the same environment tests/e2e/visual-baseline.spec.ts compares against",
   "screens": [
     {
@@ -276,7 +276,6 @@ export const VISUAL_BASELINE: VisualBaseline = {
         "background": [
           "oklab(0.47 0.084 0.054 / 0.15)",
           "rgb(226, 237, 241)",
-          "rgb(236, 233, 226)",
           "rgb(243, 221, 216)",
           "rgb(251, 248, 242)",
           "rgb(47, 58, 51)"
@@ -297,13 +296,13 @@ export const VISUAL_BASELINE: VisualBaseline = {
         "6px",
         "8px",
         "10px",
-        "12px 16px",
         "12px",
+        "12px 16px",
         "14px",
         "16px",
         "24px",
-        "32px",
-        "normal 8px"
+        "normal 8px",
+        "32px"
       ]
     },
     {

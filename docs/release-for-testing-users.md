@@ -92,6 +92,12 @@ and finds no serious or critical violation. That is real evidence and it is
 not a substitute. A package that implied otherwise would be the most expensive
 sentence in it.
 
+**The script for it is written**, so whoever does it does not have to invent
+the method: [docs/accessibility-walkthrough.md](accessibility-walkthrough.md).
+It lists the tasks, what to listen for, what is already covered by the
+automated scan, and it ends with the sign-off block. It still needs a person
+and about ninety minutes.
+
 Until that is done and signed, **no real participant can be enrolled at all** —
 not "should not", cannot: the signup path reads the tier and refuses.
 
@@ -118,7 +124,8 @@ person and a date rather than an option.
 
 1. **`accessibility.manual-and-human-testing`** — somebody operates the product
    with a keyboard and a screen reader, runs an unassisted task study, and
-   writes down what happened. *This is the one on the critical path above.*
+   writes down what happened. *This is the one on the critical path above*, and
+   the script for it is [here](accessibility-walkthrough.md).
 2. **`defects.reproduction-and-regression`** — does every confirmed
    high-priority defect have a test that reproduces it? There is **no defect
    register in this repository**: defects have been fixed with a test and a

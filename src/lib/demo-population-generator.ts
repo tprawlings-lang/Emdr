@@ -18,8 +18,14 @@ import {
   generatedDaysFor, scaledRange,
 } from "./demo-population-calendar";
 import {
-  MEMBER_NOTES, OPERATIONAL_NOTES, CLINICIAN_COMMENTS, pick,
+  MEMBER_NOTES, OPERATIONAL_NOTES, CLINICIAN_COMMENTS, LIFE_GOALS,
+  ASSIGNED_SUPPORT_WORDS, pick, type LifeGoal,
 } from "./demo-population-dictionaries";
+// ALIASED, because this module already binds `MODULES` to its own five-entry
+// list of seeded module completions. Two different things called MODULES in
+// one file is how the wrong one gets used.
+import { MODULES as MODULE_CATALOG } from "./modules";
+import { activePolicy } from "./clinical-policy";
 
 // The deterministic event generator (handoff 07 §2.4 p14, §2.7 p28).
 //
@@ -1343,6 +1349,7 @@ function generateInner(db: Database.Database): GeneratedCounts {
     }
   }
 
+  writeGoalsAndSupport(db, epoch);
   writeEdgeCases(db, epoch);
   return counts;
 }
@@ -1452,5 +1459,213 @@ function writeEdgeCases(db: Database.Database, epoch: Date): void {
       }),
       person, "patient", dayStamp(epoch, 160, 10), dayStamp(epoch, 160, 10), PROV, null, null,
     );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Life goals, assigned support, and the link between them
+// ---------------------------------------------------------------------------
+
+/**
+ * Goals and assigned support for a slice of the population.
+ *
+ * WHY THIS EXISTS: after a full reset the demonstration held 240 people,
+ * 20,057 events and 770 care actions, and ZERO goals and ZERO assignments.
+ * Both features are built, tested and reachable; nothing wrote either table,
+ * so every goals screen and every assigned-support panel in the demonstration
+ * showed its empty state, and the plan link — which joins the two — was
+ * invisible wherever they were. Somebody reviewing the product by clicking
+ * through it would have concluded none of the three existed.
+ *
+ * A SECOND PASS, AND THAT NEEDS SAYING because this file warns against one.
+ * The warning is about deriving the SAME fact twice: the clinician event and
+ * the care action it describes come from one loop, because two passes over
+ * that history would disagree the first time either moved. Nothing here is
+ * derived from the check-in history. A goal and an assignment are facts about
+ * a person's plan, read from the manifest row and the shared calendar helpers,
+ * so there is no second derivation to drift.
+ *
+ * A SLICE RATHER THAN EVERYBODY, which is p28's "busy version of what the
+ * product does — not a richer one". A caseload where every single person has a
+ * confirmed goal and live homework is as false as one where nobody does: it
+ * would make "nobody has set a goal with this person yet" a state a reviewer
+ * never sees, and that state is most of clinical reality.
+ *
+ * EVERY REFUSAL IN THE PRODUCT HAS SOMEBODY IT APPLIES TO. A few goals are
+ * left as drafts, because a draft cannot be linked to and the screen says so;
+ * some assignments name no goal, because assigning before a goal is agreed is
+ * ordinary; and a handful of links have been moved, so the care ledger has an
+ * adjustment in it that a clinician actually produced.
+ */
+function writeGoalsAndSupport(db: Database.Database, epoch: Date): void {
+  const policy = activePolicy();
+  const assignable = MODULE_CATALOG.filter((m) => m.id !== "sos");
+
+  const insGoal = db.prepare(
+    `INSERT INTO return_to_life_goals
+       (id, tenant_id, person_id, title, patient_statement, why_it_matters, domain,
+        status, created_by_person_id, confirmed_by_person_id, confirmed_at,
+        target_review_date, current_level, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT(id) DO NOTHING`);
+  const insLevel = db.prepare(
+    `INSERT INTO return_to_life_goal_levels
+       (id, tenant_id, person_id, goal_id, level, description, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?) ON CONFLICT(id) DO NOTHING`);
+  const insObservation = db.prepare(
+    `INSERT INTO return_to_life_observations
+       (id, tenant_id, person_id, goal_id, observed_level, evidence_class,
+        source_type, source_id, occurred_at, note, status, decided_by, decided_at, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(id) DO NOTHING`);
+  const insSupport = db.prepare(
+    `INSERT INTO support_assignments
+       (id, tenant_id, person_id, assigned_by, support_id, support_version,
+        purpose_code, goal_id, patient_explanation, share_policy, availability, status,
+        starts_at, expires_at, review_at, policy_version, idempotency_key,
+        created_at, decided_at, decided_note)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT(id) DO NOTHING`);
+  const insCare = db.prepare(
+    `INSERT INTO between_visit_care_actions
+       (id, tenant_id, person_id, clinician_person_id, action_type, note,
+        completed_at, source_surface)
+     VALUES (?, ?, ?, ?, 'adjust_plan_link', ?, ?, 'demo_seed')
+     ON CONFLICT(id) DO NOTHING`);
+
+  const PURPOSES = ["stabilization", "skill_practice", "between_visit", "preparation"] as const;
+
+  for (const row of MANIFEST) {
+    // ITS OWN STREAM, SALTED. Re-using this person's main sequence would make
+    // whether they hold a goal correlate with how their check-ins came out,
+    // which is an inference nobody authored.
+    const rng = new StableRandom(seedFor(row), "goals-and-support-v1");
+    if (!rng.chance(0.34)) continue;
+
+    const personId = popId("person", row.id);
+    const tenant = tenantForRow(row);
+    const clinician = clinicianPersonId(row.clinician);
+    const startDay = enrolmentDayFor(row);
+    const lastDay = startDay + generatedDaysFor(row);
+
+    // A goal is agreed after somebody has been here a little while, never on
+    // the day they enrolled: the first session is not where a person states
+    // what they want their life back for.
+    const agreedDay = Math.min(lastDay - 5, startDay + 14 + rng.int(0, 21));
+    if (agreedDay <= startDay) continue;
+
+    const goals: Array<{ id: string; def: LifeGoal; status: string }> = [];
+    const count = rng.chance(0.3) ? 2 : 1;
+    for (let g = 0; g < count; g++) {
+      const def = pick(LIFE_GOALS, seedFor(row), g * 7 + 3);
+      // Two goals from one dictionary can collide. The second is skipped
+      // rather than swapped for a neighbour, because a person with two goals
+      // is the uncommon case and forcing one would make it the common one.
+      if (goals.some((x) => x.def.title === def.title)) continue;
+
+      // DRAFT IS A REAL STATE AND HAS TO BE IN HERE. A draft is wording nobody
+      // has confirmed with the person; the product refuses to link support to
+      // one and says why, and a demonstration with no drafts never shows that.
+      const status = g > 0 ? "active" : rng.chance(0.12) ? "draft" : rng.chance(0.16) ? "completed" : "active";
+      const id = popId("goal", `${row.id}:${g}`);
+      const day = agreedDay + g * 9;
+      const confirmed = status === "draft" ? null : dayStamp(epoch, day, 11);
+
+      insGoal.run(
+        id, tenant, personId,
+        encryptField(def.title), encryptField(def.statement), encryptField(def.whyItMatters),
+        def.domain, status, clinician,
+        // CONFIRMED BY THE PERSON, not by the clinician who drafted it. §12:
+        // drafted language is not patient-owned until they confirm it, and a
+        // seed that recorded the clinician as the confirmer would fabricate
+        // the one signature that whole rule is about.
+        status === "draft" ? null : personId, confirmed,
+        // A review date on most of them, so "no date is set" stays visible on
+        // the rest rather than becoming a state nobody meets.
+        rng.chance(0.7) ? dayDate(epoch, Math.min(lastDay + 30, day + 60)) : null,
+        null, dayStamp(epoch, day, 11), dayStamp(epoch, day, 11),
+      );
+      def.rungs.forEach((description, i) => {
+        insLevel.run(
+          popId("goallevel", `${row.id}:${g}:${i}`), tenant, personId, id,
+          i - 2, encryptField(description), dayStamp(epoch, day, 11),
+        );
+      });
+      goals.push({ id, def, status });
+
+      // Evidence, for goals somebody has actually started on. THE LEVEL IS
+      // DERIVED FROM ACCEPTED OBSERVATIONS and the column is a cache of that
+      // fold — so the observations are written first and the column is set
+      // from the last one, never the other way round.
+      if (status !== "draft" && rng.chance(0.75)) {
+        const observations = status === "completed" ? 2 : rng.int(1, 2);
+        let level = -2;
+        for (let o = 0; o < observations; o++) {
+          level = status === "completed" ? (o === 0 ? 0 : 2) : rng.int(-2, 1);
+          const at = dayStamp(epoch, Math.min(lastDay, day + 10 + o * 14), 15);
+          insObservation.run(
+            popId("goalobs", `${row.id}:${g}:${o}`), tenant, personId, id,
+            level,
+            // The two classes a person and a clinician actually produce. A
+            // seeded `model_candidate` would put a proposal in the record
+            // that no model made.
+            o % 2 === 0 ? "patient_reported" : "clinician_observed",
+            "care_note", popId("care", `${row.id}:${o}`), at,
+            encryptField(pick(MEMBER_NOTES, seedFor(row), g + o)),
+            "accepted", clinician, at, at,
+          );
+        }
+        db.prepare("UPDATE return_to_life_goals SET current_level = ? WHERE id = ?").run(level, id);
+      }
+    }
+
+    if (goals.length === 0) continue;
+
+    // ── Assigned support ────────────────────────────────────────────────
+    const linkable = goals.filter((g) => g.status !== "draft");
+    const assignments = rng.chance(0.25) ? 2 : 1;
+    for (let a = 0; a < assignments; a++) {
+      const support = assignable[rng.int(0, assignable.length - 1)];
+      const day = Math.min(lastDay - 1, agreedDay + 3 + a * 11);
+      if (day <= startDay) continue;
+
+      // Some name a goal and some do not. Support is often assigned before
+      // anything has been agreed, and an assignment that points at nothing is
+      // the honest version of that rather than a gap.
+      const linked = linkable.length > 0 && rng.chance(0.7) ? linkable[a % linkable.length] : null;
+      // A FEW HAVE BEEN MOVED, and the ledger says so. This is the only way
+      // an `adjust_plan_link` row gets into the demonstration, and it has to
+      // agree with the column: the assignment ends up on the goal the ledger
+      // entry names.
+      const moved = linked !== null && linkable.length > 1 && rng.chance(0.35);
+      const finalGoal = moved ? linkable[(a + 1) % linkable.length] : linked;
+
+      const past = rng.chance(0.25);
+      const id = popId("support", `${row.id}:${a}`);
+      insSupport.run(
+        id, tenant, personId, clinician, support.id, policy.version,
+        PURPOSES[rng.int(0, PURPOSES.length - 1)],
+        finalGoal?.id ?? null,
+        pick(ASSIGNED_SUPPORT_WORDS, seedFor(row), a),
+        policy.version,
+        rng.chance(0.75) ? "assigned" : "optional",
+        past ? "completed" : "active",
+        dayStamp(epoch, day, 10),
+        rng.chance(0.4) ? dayStamp(epoch, Math.min(lastDay + 14, day + 28), 23) : null,
+        rng.chance(0.3) ? dayStamp(epoch, Math.min(lastDay + 7, day + 21), 9) : null,
+        policy.version,
+        `demo:${row.id}:${a}`,
+        dayStamp(epoch, day, 10),
+        past ? dayStamp(epoch, Math.min(lastDay, day + 12), 16) : null,
+        null,
+      );
+
+      if (moved && finalGoal) {
+        insCare.run(
+          popId("care-planlink", `${row.id}:${a}`), tenant, personId, clinician,
+          `${support.name} is now working towards “${finalGoal.def.title}”.`,
+          dayStamp(epoch, Math.min(lastDay, day + 6), 13),
+        );
+      }
+    }
   }
 }

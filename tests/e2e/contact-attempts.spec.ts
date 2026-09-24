@@ -33,16 +33,36 @@ async function signInAsClinician(page: import("@playwright/test").Page) {
   await expect(page).toHaveURL(/\/clinician/);
 }
 
-/** A caseload row: the one that offers Record contact. */
+/**
+ * A caseload row: the one that offers Record contact.
+ *
+ * ACROSS THE BUCKETS, NOT JUST THE DEFAULT VIEW. This looked only at
+ * `/clinician/today` and assumed a caseload row would be on it, which was true
+ * only while the demonstration had nothing more urgent. It stopped being true
+ * the day the fabricated population grew life goals: two goal-review signals
+ * appeared, outranked the caseload rows, and pushed them onto the Watch bucket
+ * — so this helper failed on a queue that was working exactly as designed.
+ *
+ * The buckets are the product's own way of reaching the rest of the queue, so
+ * walking them is what a clinician looking for that person would do. Nothing
+ * the test proves is weakened by it: the two presses and the two records are
+ * still the whole point.
+ */
 async function openAContactableRow(page: import("@playwright/test").Page): Promise<string> {
-  await page.goto("/clinician/today");
-  const hrefs = await page.evaluate(() =>
-    [...document.querySelectorAll('a[href*="row="]')].map((a) => a.getAttribute("href")));
-  const href = hrefs.find((h) => h && /row=person/.test(decodeURIComponent(h)));
-  expect(href, "the queue has no caseload row, so Record contact is not offered anywhere").toBeTruthy();
-  await page.goto(href!);
-  await expect(page.getByTestId("queue-evidence-panel")).toBeVisible();
-  return href!;
+  const views = ["/clinician/today", "/clinician/today?filter=review_today", "/clinician/today?filter=waiting"];
+  for (const view of views) {
+    await page.goto(view);
+    const hrefs = await page.evaluate(() =>
+      [...document.querySelectorAll('a[href*="row="]')].map((a) => a.getAttribute("href")));
+    const href = hrefs.find((h) => h && /row=person/.test(decodeURIComponent(h)));
+    if (!href) continue;
+    await page.goto(href);
+    await expect(page.getByTestId("queue-evidence-panel")).toBeVisible();
+    return href;
+  }
+  throw new Error(
+    "no bucket of the queue holds a caseload row, so Record contact is not offered anywhere"
+  );
 }
 
 async function recordContactInPanel(page: import("@playwright/test").Page, note: string): Promise<string> {

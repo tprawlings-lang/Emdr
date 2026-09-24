@@ -23,6 +23,7 @@ import {
   MANIFEST, MANIFEST_EMAIL_LIKE, checkManifest, seedFor, } from "../src/lib/demo-population-manifest";
 import { orgTenantId, armFor, tenantForRow, REGION_NAMES } from "../src/lib/demo-population-seed";
 import { getDb } from "../src/lib/db";
+import { decryptField } from "../src/lib/crypto";
 import { data } from "../src/lib/data";
 import {
   CARE_ACTIONS, PRODUCT_WRITTEN_CARE_ACTIONS, UNWRITTEN_CARE_ACTIONS, type CareAction,
@@ -402,4 +403,129 @@ test("the written/unwritten split of the care vocabulary matches the source", ()
     CARE_ACTIONS.filter((a) => !written.includes(a)).sort(),
     "UNWRITTEN_CARE_ACTIONS is not the complement of what the source writes",
   );
+});
+
+// ---------------------------------------------------------------------------
+// Goals, assigned support, and the link between them
+// ---------------------------------------------------------------------------
+
+test("the demonstration has goals and assigned support in it at all", async () => {
+  // THE FINDING THIS ANSWERS, and it was found by resetting the demonstration
+  // and looking: 240 people, 20,057 events, 770 care actions, and ZERO rows in
+  // both of these tables. Two built, tested, reachable features rendered their
+  // empty state on every screen in the demo, and the plan link that joins them
+  // was invisible wherever they were.
+  getDb();
+  const c = await data();
+  const one = async (sql: string) => Number(((await c.get(sql, [])) as { n: number }).n);
+
+  assert.ok(await one("SELECT COUNT(*) AS n FROM return_to_life_goals") > 0,
+    "the demonstration seeds no life goals, so every goals screen in it is empty");
+  assert.ok(await one("SELECT COUNT(*) AS n FROM support_assignments") > 0,
+    "the demonstration seeds no assigned support, so every plan in it is empty");
+  assert.ok(await one("SELECT COUNT(*) AS n FROM support_assignments WHERE goal_id IS NOT NULL") > 0,
+    "no assignment names the goal it is working towards, so the plan link renders nowhere");
+});
+
+test("a slice of the population, not all of it", async () => {
+  // "A BUSY VERSION OF WHAT THE PRODUCT DOES — NOT A RICHER ONE." A caseload
+  // where every person holds a confirmed goal and live homework is as false as
+  // one where nobody does, and it would make "nothing has been set with this
+  // person" a state a reviewer never meets. Most of clinical reality is that
+  // state.
+  getDb();
+  const c = await data();
+  const withGoals = Number(((await c.get(
+    "SELECT COUNT(DISTINCT person_id) AS n FROM return_to_life_goals", [],
+  )) as { n: number }).n);
+  assert.ok(withGoals > 20 && withGoals < MANIFEST.length * 0.6,
+    `${withGoals} of ${MANIFEST.length} fabricated people hold a goal, which is not a slice`);
+});
+
+test("every seeded goal and link would survive the product's own refusals", async () => {
+  // THE SEED CANNOT WRITE WHAT A CLINICIAN COULD NOT. Each of these is a rule
+  // `linkAssignmentToGoal` enforces at the moment somebody presses the button,
+  // and a demonstration holding rows the product would refuse is a
+  // demonstration of a different product.
+  getDb();
+  const c = await data();
+  const one = async (sql: string) => Number(((await c.get(sql, [])) as { n: number }).n);
+
+  assert.equal(
+    await one(`SELECT COUNT(*) AS n FROM support_assignments sa
+                 JOIN return_to_life_goals g ON g.id = sa.goal_id
+                WHERE g.person_id <> sa.person_id`),
+    0, "an assignment is linked to somebody else's goal, which the product refuses");
+  assert.equal(
+    await one(`SELECT COUNT(*) AS n FROM support_assignments sa
+                 JOIN return_to_life_goals g ON g.id = sa.goal_id
+                WHERE g.status = 'draft'`),
+    0, "an assignment is linked to a goal nobody confirmed with the person");
+  assert.equal(
+    await one(`SELECT COUNT(*) AS n FROM support_assignments sa
+                WHERE sa.goal_id IS NOT NULL
+                  AND NOT EXISTS (SELECT 1 FROM return_to_life_goals g WHERE g.id = sa.goal_id)`),
+    0, "an assignment points at a goal that does not exist");
+
+  // A GOAL IS FIVE RUNGS OR IT IS NOT A LADDER. `createGoal` refuses anything
+  // else, because a four-rung goal's level is not comparable with anybody
+  // else's — which is the whole point of a fixed scale.
+  assert.equal(
+    await one(`SELECT COUNT(*) AS n FROM (
+                 SELECT goal_id FROM return_to_life_goal_levels
+                  GROUP BY goal_id HAVING COUNT(*) <> 5)`),
+    0, "a seeded goal has something other than a five-rung ladder");
+
+  // AND A DRAFT IS NOT CONFIRMED. §12: drafted language is not patient-owned
+  // until the person confirms it, so a draft carrying a confirmation is the
+  // one signature that rule exists to protect, fabricated.
+  assert.equal(
+    await one(`SELECT COUNT(*) AS n FROM return_to_life_goals
+                WHERE status = 'draft' AND (confirmed_at IS NOT NULL OR confirmed_by_person_id IS NOT NULL)`),
+    0, "a draft goal is recorded as confirmed with the person");
+});
+
+test("the states the screens explain are all present in the demonstration", async () => {
+  // EVERY REFUSAL NEEDS SOMEBODY IT APPLIES TO. A demonstration with no drafts
+  // never shows that a draft cannot be linked to; one where every assignment
+  // names a goal never shows that assigning before a goal is agreed is
+  // ordinary. Those sentences are on the screens either way, describing states
+  // a reviewer cannot reach.
+  getDb();
+  const c = await data();
+  const one = async (sql: string) => Number(((await c.get(sql, [])) as { n: number }).n);
+
+  assert.ok(await one("SELECT COUNT(*) AS n FROM return_to_life_goals WHERE status = 'draft'") > 0,
+    "no goal is a draft, so the screen's reason for refusing to link one is unreachable");
+  assert.ok(await one("SELECT COUNT(*) AS n FROM return_to_life_goals WHERE status = 'completed'") > 0,
+    "no goal is completed, so support that holds gains has no goal to name");
+  assert.ok(await one("SELECT COUNT(*) AS n FROM support_assignments WHERE goal_id IS NULL") > 0,
+    "every assignment names a goal, so \"not linked to a goal\" is a state nobody meets");
+  assert.ok(
+    await one("SELECT COUNT(*) AS n FROM between_visit_care_actions WHERE action_type = 'adjust_plan_link'") > 0,
+    "no plan link was ever moved, so the care action this feature was built for appears nowhere");
+});
+
+test("a moved plan link agrees with where the assignment ended up", async () => {
+  // THE LEDGER AND THE COLUMN HAVE TO AGREE, and a seed is exactly where they
+  // stop agreeing: it writes both directly rather than going through the
+  // command that keeps them together. An entry saying a link moved to a goal
+  // the assignment does not hold is a fabricated record of a decision.
+  getDb();
+  const c = await data();
+  const moved = (await c.all(
+    `SELECT person_id, note FROM between_visit_care_actions WHERE action_type = 'adjust_plan_link'`, [],
+  )) as { person_id: string; note: string }[];
+  assert.ok(moved.length > 0, "there is nothing to check");
+
+  for (const entry of moved) {
+    const titles = (await c.all(
+      `SELECT g.title FROM return_to_life_goals g
+         JOIN support_assignments sa ON sa.goal_id = g.id
+        WHERE sa.person_id = ?`, [entry.person_id],
+    )) as { title: string }[];
+    const named = titles.map((t) => decryptField(t.title)).filter((t) => entry.note.includes(t));
+    assert.ok(named.length > 0,
+      `a ledger entry says a link moved to a goal no assignment on ${entry.person_id} holds`);
+  }
 });

@@ -913,8 +913,8 @@ export const WORK_REGISTER: WorkEntry[] = [
   },
   {
     id: "demo.goals-and-assignments-unseeded",
-    title: "The demonstration seeds no goals and no assigned support",
-    state: "proposed",
+    title: "The demonstration seeds goals, assigned support and the link between them",
+    state: "reachable",
     code: "src/lib/demo-population-generator.ts#generatePopulationHistory",
     test: "tests/demo-population.test.ts",
     note:
@@ -925,13 +925,20 @@ export const WORK_REGISTER: WorkEntry[] = [
       + "and every assigned-support panel in the demonstration shows its empty state. A reviewer "
       + "driving the demo would conclude neither feature exists, and the plan link now inherits "
       + "that: it joins the two, so it is invisible wherever they are. "
-      + "NOT BUILT RATHER THAN OVERLOOKED. Seeding them is not a small addition — a goal needs a "
-      + "five-rung ladder and a confirmation the person gave, an assignment needs the words that "
-      + "person was told and the policy version in force, and the fabricated baseline hash and the "
-      + "visual baselines move when the population does. How many people should hold goals, at "
-      + "what stage, and how many of their assignments should name one are demonstration-design "
-      + "questions rather than implementation. The empty states are honest in the meantime: each "
-      + "says nothing has been set rather than rendering blank.",
+      + "BUILT 24 SEPTEMBER. 84 of the 240 hold a goal — a slice, because a caseload where "
+      + "everybody has one is as false as one where nobody does, and it would make \"nothing has "
+      + "been set with this person\" a state a reviewer never meets. Every refusal the product "
+      + "makes has somebody it applies to: goals are left as drafts, which cannot be linked to; "
+      + "assignments are left naming no goal, which is ordinary; and a few links have been moved, "
+      + "so the care ledger carries an adjustment a clinician actually produces. Tests hold the "
+      + "seeded rows to the rules the command enforces — no link to another person's goal, none "
+      + "to a draft, no goal without its five rungs, no draft recorded as confirmed — because a "
+      + "seed writes rows directly rather than through the command that keeps them honest. "
+      + "AND IT WOKE A THIRD FEATURE NOBODY HAD SEEN. The attention queue has a provider that "
+      + "raises a signal when a goal has had no accepted evidence for a long time; it had never "
+      + "fired in the demonstration, because there were no goals for it to be quiet about. Two of "
+      + "its signals now appear on the clinician's home, which is the visual baseline's only "
+      + "change and the reason it was recaptured rather than refreshed.",
   },
   {
     id: "clinical.maintenance-language-held",

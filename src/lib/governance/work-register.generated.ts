@@ -662,7 +662,7 @@ export const REGISTER_FINDINGS: EntryFinding[] = [
   },
   {
     "id": "demo.goals-and-assignments-unseeded",
-    "claimed": "proposed",
+    "claimed": "reachable",
     "supported": "reachable",
     "facts": {
       "defined": true,
