@@ -683,6 +683,61 @@ export const REGISTER_FINDINGS: EntryFinding[] = [
     "problems": []
   },
   {
+    "id": "clinical.sessions-terminate-cleanly",
+    "claimed": "reachable",
+    "supported": "reachable",
+    "facts": {
+      "defined": true,
+      "tested": true,
+      "wired": true
+    },
+    "problems": []
+  },
+  {
+    "id": "clinical.program-fit-retake-bypass",
+    "claimed": "reachable",
+    "supported": "reachable",
+    "facts": {
+      "defined": true,
+      "tested": true,
+      "wired": true
+    },
+    "problems": []
+  },
+  {
+    "id": "clinical.recall-window-cadence",
+    "claimed": "reachable",
+    "supported": "reachable",
+    "facts": {
+      "defined": true,
+      "tested": true,
+      "wired": true
+    },
+    "problems": []
+  },
+  {
+    "id": "clinical.no-continue-at-high-distress",
+    "claimed": "reachable",
+    "supported": "reachable",
+    "facts": {
+      "defined": true,
+      "tested": true,
+      "wired": true
+    },
+    "problems": []
+  },
+  {
+    "id": "experience.no-clinical-labels-for-members",
+    "claimed": "reachable",
+    "supported": "reachable",
+    "facts": {
+      "defined": true,
+      "tested": true,
+      "wired": true
+    },
+    "problems": []
+  },
+  {
     "id": "clinical.maintenance-language-held",
     "claimed": "held",
     "supported": "reachable",

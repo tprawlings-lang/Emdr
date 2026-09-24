@@ -208,6 +208,7 @@ export interface WorkQueue {
  *  A missing mapping falls back to the type, so a new alert type degrades to
  *  something readable rather than to an empty cell. */
 const REASON_FOR_TYPE: Record<string, string> = {
+  autopilot_risk_watch: "Early warning: recent measures have risen",
   checkin_safety_positive: "Safety item positive on today's check-in",
   companion_risk_language: "Risk language detected in companion conversation",
   fitness_screening_stop: "Program-fit screening returned a stop",

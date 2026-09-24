@@ -43,6 +43,7 @@ import { getModule } from "../modules";
 import { memberDayView, type MemberDayView } from "../experience/member-day";
 import { resumeDecision, type ResumeOffer } from "../experience/activity-shell";
 import { readingNow } from "../clock";
+import { openSessionCutoff } from "../session-close";
 
 export interface MemberDayRead {
   view: MemberDayView;
@@ -129,13 +130,16 @@ interface Unfinished {
  *  the choice load §3.4 named. */
 async function unfinishedSession(userId: string): Promise<Unfinished | null> {
   const c = await data();
+  // A session past its cap cannot still be running, so it is not something to
+  // come back to (session-close.ts). Measured on real time, like `started_at`
+  // itself — the reading frame may be moved, the row's clock never is.
   const row = (await c.get(
     `SELECT id, module_id, detail_json, started_at
        FROM therapy_sessions
-      WHERE user_id = ? AND status = 'in_progress'
+      WHERE user_id = ? AND status = 'in_progress' AND started_at > ?
       ORDER BY started_at DESC
       LIMIT 1`,
-    [userId]
+    [userId, openSessionCutoff(Date.now())]
   )) as { id: string; module_id: string; detail_json: string; started_at: string } | undefined;
   if (!row) return null;
 

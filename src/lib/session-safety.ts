@@ -40,6 +40,44 @@ export function sudsDecision(trail: number[]): SudsDecision {
   return "continue";
 }
 
+/**
+ * What a member may choose after stepping out to ground — the one rule for
+ * every such choice point (Expansion Handoff Phase 0, "member choice offered
+ * at high distress": "fix the rule once, centrally").
+ *
+ * THE GAP. A distress pause (a rating of 8, or a rise of 3 since the start)
+ * showed grounding steps and then "I'm steadier — continue gently", which went
+ * straight back into the exercise. Nothing asked how steady. So the choice to
+ * continue was offered at exactly the distress that had just paused the
+ * session — the member's word that they felt better stood in for the rating
+ * the rule is built on. "Ground me" returned the same way.
+ *
+ * THE RULE. Continuing is offered only on a FRESH rating, taken after
+ * grounding, that the session's own rule (`sudsDecision`) would let through
+ * with the whole trail behind it — below the pause line, and not risen by the
+ * pause amount since the start. Until there is one, the member can rate,
+ * stop, or get help. A rating still in the pause band offers more grounding,
+ * never "continue". One in the hard-stop band ends the session, as it would
+ * anywhere else. Stopping and getting help are always offered: those are the
+ * choices that must never be taken away.
+ *
+ * No new numbers: every threshold is the existing one, reached through
+ * `sudsDecision`, so the in-exercise rule and the return rule cannot drift.
+ */
+export type ReturnChoice = "rate_now" | "continue" | "ground_more" | "stop" | "get_help";
+
+export function choicesAfterGrounding(
+  trail: number[],
+  recheck: number | null
+): { choices: ReturnChoice[]; endSession: boolean } {
+  const always: ReturnChoice[] = ["stop", "get_help"];
+  if (recheck === null) return { choices: ["rate_now", ...always], endSession: false };
+  const decision = sudsDecision([...trail, recheck]);
+  if (decision === "hard_stop") return { choices: always, endSession: true };
+  if (decision === "pause") return { choices: ["ground_more", ...always], endSession: false };
+  return { choices: ["continue", ...always], endSession: false };
+}
+
 /** Kill switch (packet 4D): disables NEW session starts globally via env. */
 export function sessionsKilled(): boolean {
   return process.env.EMDR_DISABLE_NEW_SESSIONS === "1";

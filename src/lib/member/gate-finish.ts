@@ -11,14 +11,12 @@
 
 import { redirect } from "next/navigation";
 import { requireMember } from "../auth";
-import { data } from "../data";
-import { newId } from "../db";
 import { audit } from "../audit";
-import { encryptField } from "../crypto";
 import { getInstrument, scoreInstrument } from "../instruments";
 import { recordAssessment } from "../spine";
 import { completedAnswers, clearProgress, GateError } from "./gate";
 import { raiseRiskItemAlert } from "../clinical/alert-create";
+import { MeasureNotOpen, saveMeasureResponse } from "../measures/cadence";
 
 export async function finishGateAction(formData: FormData) {
   const user = await requireMember();
@@ -38,14 +36,18 @@ export async function finishGateAction(formData: FormData) {
   }
 
   const { total, riskFlags } = scoreInstrument(instrument!, answers);
-  const c = await data();
 
-  await c.run(
-    `INSERT INTO screenings (id, user_id, instrument, instrument_version, total_score, answers_json, risk_flags_json)
-     VALUES (?, ?, ?, ?, ?, ?, ?)`,
-    [newId(), user.id, instrument!.id, instrument!.version, total,
-     encryptField(JSON.stringify(answers)), JSON.stringify(riskFlags)]
-  );
+  try {
+    await saveMeasureResponse({ userId: user.id, form: instrument!, answers, total, riskFlags, nowMs: Date.now() });
+  } catch (e) {
+    // Already answered inside its window — a second pass through the paced
+    // gate saves nothing, and the screening page moves on.
+    if (e instanceof MeasureNotOpen) {
+      await clearProgress(user.id, instrumentId);
+      redirect("/app/screening");
+    }
+    throw e;
+  }
   await recordAssessment({
     userId: user.id, instrument: instrument!.id, instrumentVersion: instrument!.version,
     totalScore: total, riskFlags, context: "baseline", via: "web",

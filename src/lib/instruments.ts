@@ -23,6 +23,20 @@ export interface Instrument {
   riskItems?: { index: number; threshold: number; flag: string }[];
   cutoff: number;
   cutoffNote: string;
+  /** What a member reads instead of `title`. Instrument names, and the
+   *  conditions they are named after, stay on clinician surfaces (Expansion
+   *  Handoff non-negotiable 6). */
+  memberTitle: string;
+  /** The stretch of time the questions ask about, in days. Not a chosen
+   *  number: it is read off the instrument's own instructions, and
+   *  `recallPhrase` is the words that set it — tests/measure-cadence.test.ts
+   *  fails if the phrase is not in the instructions a member reads. A
+   *  questionnaire is never given again before this has passed, because an
+   *  answer about "the past month" given a week after the last one mostly
+   *  re-reports weeks already reported (Expansion Handoff §4, "Scheduled
+   *  measurement"). */
+  recallDays: number;
+  recallPhrase: string;
 }
 
 const YES_NO: ScaleOption[] = [
@@ -62,6 +76,9 @@ export const INSTRUMENTS: Instrument[] = [
     ],
     cutoff: 3,
     cutoffNote: "A score of 3 or more suggests probable PTSD and supports a fuller assessment.",
+    memberTitle: "Difficult experiences",
+    recallDays: 30,
+    recallPhrase: "in the past month",
   },
   {
     id: "pcl-5",
@@ -95,6 +112,9 @@ export const INSTRUMENTS: Instrument[] = [
     riskItems: [{ index: 15, threshold: 3, flag: "elevated_risk_taking_or_self_harm_behavior" }],
     cutoff: 33,
     cutoffNote: "Scores of 31–33 or higher suggest probable PTSD; this is a screen, not a diagnosis.",
+    memberTitle: "Trauma symptoms",
+    recallDays: 30,
+    recallPhrase: "In the past month",
   },
   {
     id: "itq",
@@ -142,6 +162,9 @@ export const INSTRUMENTS: Instrument[] = [
     cutoff: 999, // Criteria-based, not sum-based; see scoreItq.
     cutoffNote:
       "Scored against ICD-11 criteria: PTSD requires one symptom rated Moderately or above in each symptom pair plus functional impairment; complex PTSD additionally requires the self-organization (DSO) criteria.",
+    memberTitle: "Feelings, reactions and relationships",
+    recallDays: 30,
+    recallPhrase: "in the past month",
   },
   {
     id: "phq-9",
@@ -163,6 +186,9 @@ export const INSTRUMENTS: Instrument[] = [
     riskItems: [{ index: 8, threshold: 1, flag: "suicidal_ideation_screen_positive" }],
     cutoff: 10,
     cutoffNote: "10+ suggests moderate depression; item 9 above zero always routes to specialist review.",
+    memberTitle: "Low mood",
+    recallDays: 14,
+    recallPhrase: "Over the last 2 weeks",
   },
   {
     id: "gad-7",
@@ -181,6 +207,9 @@ export const INSTRUMENTS: Instrument[] = [
     ],
     cutoff: 10,
     cutoffNote: "10+ suggests moderate anxiety.",
+    memberTitle: "Worry and tension",
+    recallDays: 14,
+    recallPhrase: "Over the last 2 weeks",
   },
 ];
 

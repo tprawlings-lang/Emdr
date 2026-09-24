@@ -90,8 +90,12 @@ test("consent leads to the program-fit questions, and those lead to a baseline m
 
   // Past the fit questions, a baseline instrument is what comes next.
   await expect(page).toHaveURL(/\/app\/screening/);
+  // Named the way a member reads it. The instrument's clinical name used to be
+  // the page title, and this line asserted it — the label Phase 0 takes off
+  // member surfaces (Expansion Handoff non-negotiable 6).
   await expect(main, "the fit questions did not lead to a baseline measure")
-    .toContainText(/PC-PTSD-5|PHQ-9|GAD-7/);
+    .toContainText(/Difficult experiences|Trauma symptoms|Low mood|Worry and tension|Feelings, reactions and relationships/);
+  await expect(main).not.toContainText(/PC-PTSD-5|PCL-5|PHQ-9|GAD-7|\bITQ\b/);
 });
 
 test("the clinician sees the person the walkthrough created", async ({ page }) => {

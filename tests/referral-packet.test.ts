@@ -28,9 +28,11 @@ import path from "node:path";
 
 import {
   NEVER_INCLUDED, EXISTING_SCOPES, DISCLOSURE_SCOPE, PacketRefused,
-  assertShape, shapeAllowed, mayDisclose, refusalText, compile,
+  assertShape, shapeAllowed, mayDisclose, refusalText, compile, memberReferralView,
   type PacketSection,
 } from "../src/lib/clinical/referral-packet";
+import { getInstrument } from "../src/lib/instruments";
+import { CLINICAL_LABEL } from "../src/lib/governance/clinical-labels";
 
 const ROOT = path.join(__dirname, "..");
 const SRC = path.join(ROOT, "src");
@@ -205,7 +207,10 @@ test("the store compiles only from records that already exist", () => {
 
 test("the member can read the whole packet, which is the condition the decision attached", () => {
   const page = code("app/app/settings/referral/page.tsx");
-  assert.match(page, /packet\.sections\.map\(/, "the member is not shown the contents");
+  // Every section, through the member's reading of it (plain names, no scores).
+  assert.match(page, /memberReferralView\(packet,/, "the member is not shown the contents");
+  assert.match(page, /\bsections\.map\(/, "the member is not shown the contents");
+  assert.doesNotMatch(page, /packet\.sections\.map\(/, "the member is shown the raw packet, scores and all");
   assert.match(page, /packet\.excluded\.map\(/, "the member is not shown the exclusions");
   assert.match(page, /\{packet\.refusal\}/, "the member is not told it cannot be sent");
   assert.match(page, /requireMember\(/);
@@ -229,5 +234,35 @@ test("no surface offers a send control", () => {
     const src = code(rel);
     assert.ok(!/<button/i.test(src), `${rel} renders a control on a capability that does not exist`);
     assert.ok(!/<form/i.test(src), `${rel} renders a form on a capability that does not exist`);
+  }
+});
+
+test("the member's reading lists everything that would go, with no score, code or track name", () => {
+  // Product owner's decision, 24 September: plain words, no numbers.
+  const packet = compile({
+    personId: "p", compiledAt: "2026-09-24T00:00:00Z", scopes: ["care_program_full"],
+    sections: [
+      section({ kind: "consent", fields: [{ label: "care_program_full", shape: "date", value: "2026-09-01", source: "The consent you granted." }] }),
+      section({ kind: "measures", fields: [
+        { label: "itq (Cloitre et al. (ICD-11))", shape: "score", value: "33", source: "Your most recent itq, completed 2026-09-20.", ref: "itq" },
+        { label: "phq-9 (standard)", shape: "score", value: "14", source: "Your most recent phq-9, completed 2026-09-18.", ref: "phq-9" },
+      ] }),
+      section({ kind: "safety", fields: [{ label: "Most recent routing", shape: "code", value: "grounding_only", source: "The check-in you completed on 2026-09-24." }] }),
+      section({ kind: "program", fields: [{ label: "Recommended track", shape: "code", value: "stabilization", source: "Your most recent readiness assessment." }] }),
+    ],
+  });
+  const view = memberReferralView(packet, (id) => getInstrument(id)?.memberTitle);
+  assert.equal(view.length, packet.sections.length, "a section was dropped from the member's view");
+  for (const [i, s] of view.entries()) {
+    assert.equal(s.items.length, packet.sections[i].fields.length, `${s.kind}: an item was dropped`);
+  }
+  const text = JSON.stringify(view);
+  assert.doesNotMatch(text, CLINICAL_LABEL, "an instrument name reached the member");
+  assert.doesNotMatch(text, /\b(itq|phq-9|care_program_full|grounding_only|stabilization)\b/, "a code reached the member");
+  const measures = view.find((s) => s.kind === "measures")!;
+  assert.deepEqual(measures.items.map((m) => m.label), ["Feelings, reactions and relationships", "Low mood"]);
+  for (const m of measures.items) {
+    assert.doesNotMatch(m.value, /\d/, "a score reached the member");
+    assert.match(m.value, /score included/, "the member is not told the score goes too");
   }
 });

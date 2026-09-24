@@ -8,7 +8,7 @@ import {
   getTrackIntake,
   isReferralOnly,
 } from "./tracks";
-import { getFitnessState } from "./fitness-screener";
+import { fitnessOpen, getFitnessState, type FitnessState } from "./fitness-screener";
 import { getTodayCheckin, screeningComplete } from "./gating";
 import { getActiveTriggers, getLatestReadiness } from "./profile";
 
@@ -59,8 +59,9 @@ function evidenceTiebreak(g: EvidenceGrade): number {
 // ---- unit-tested deterministically (mirrors the @safety suite's style). ----
 
 export interface SafetySignals {
-  /** From getFitnessState().status. */
-  fitnessStatus: string;
+  /** From getFitnessState().status. Typed, not a string: a test passing
+   *  "passed" (not a status) went unnoticed while the gate blocked by name. */
+  fitnessStatus: FitnessState["status"];
   screeningComplete: boolean;
   /** Today's check-in recommended_action, or null if not done yet. */
   checkinAction: string | null;
@@ -85,7 +86,9 @@ export function trackSafetyGate(s: SafetySignals): SafetyGate {
       memberMessage: "Before we suggest a path, let's finish the quick program-fit questions.",
     };
   }
-  if (s.fitnessStatus === "cooldown") {
+  // Any status that is not open — a pause, a hold for review — blocks here.
+  // A string compared against "cooldown" alone let a newer status through.
+  if (!fitnessOpen(s.fitnessStatus)) {
     return {
       proceed: false,
       safety: {

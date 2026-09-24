@@ -64,7 +64,7 @@ export default async function GateStepPage({
   const section = pos.instrument.sections?.find((s) => s.startIndex === pos.index);
 
   return (
-    <MemberPage layer="progress" title={pos.instrument.title}>
+    <MemberPage layer="progress" title={pos.instrument.memberTitle}>
         {/* §5: position, not percentage. "Question 3 of 20" is a place in a
             sequence; "15%" invites the arithmetic of how much is left, which is
             abandonment maths. */}

@@ -494,3 +494,52 @@ test("the companion is reachable from the screen a member lands on", () => {
   assert.doesNotMatch(surface, gated,
     "the companion is conditional on the day's shape");
 });
+
+// ---------------------------------------------------------------------------
+// Expansion Handoff non-negotiable 6 — no clinical labels on member surfaces
+// ---------------------------------------------------------------------------
+//
+// Phase 0 found them in three places: every questionnaire page was titled with
+// the instrument's name ("PCL-5 — PTSD Checklist for DSM-5"), a member path was
+// called "PTSD & Trauma", and a module's description ended "common in complex
+// PTSD". The rendered half of this guard is tests/e2e/member-clinical-labels.
+
+test("every member-facing name and description is free of clinical labels", async () => {
+  const { CLINICAL_LABEL } = await import("../src/lib/governance/clinical-labels");
+  const { INSTRUMENTS } = await import("../src/lib/instruments");
+  const { TRACKED_MEASURES } = await import("../src/lib/measures/cadence");
+  const { TRACKS } = await import("../src/lib/tracks");
+  const { MODULES } = await import("../src/lib/modules");
+  const found: string[] = [];
+  const check = (where: string, text: string | undefined) => {
+    if (text && CLINICAL_LABEL.test(text)) found.push(`${where}: ${text.match(CLINICAL_LABEL)![0]}`);
+  };
+  for (const i of [...INSTRUMENTS, ...TRACKED_MEASURES.flatMap((t) => (t.pastWeek ? [t.pastWeek] : []))]) {
+    check(`${i.id} memberTitle`, i.memberTitle);
+    check(`${i.id} intro`, i.intro);
+    for (const sec of i.sections ?? []) check(`${i.id} section`, sec.heading);
+    i.items.forEach((it, n) => check(`${i.id} item ${n + 1}`, it));
+  }
+  for (const t of TRACKS) {
+    check(`track ${t.id} name`, t.name);
+    check(`track ${t.id} blurb`, t.blurb);
+    check(`track ${t.id} scope`, t.scope);
+    check(`track ${t.id} evidenceNote`, t.evidenceNote);
+  }
+  for (const m of MODULES) {
+    check(`module ${m.id} name`, m.name);
+    check(`module ${m.id} objective`, m.objective);
+  }
+  assert.deepEqual(found, [], "clinical labels in member-facing copy:\n  " + found.join("\n  "));
+});
+
+test("no member route renders an instrument's clinical title", () => {
+  // `title` is the clinician's name for the instrument; `memberTitle` is the
+  // member's. Reading the first on a member route is the leak, whatever the
+  // variable is called.
+  const leaks = memberFiles
+    .filter((f) => /\b(instruments|measures\/cadence|member\/gate)\b/.test(f.src))
+    .filter((f) => /\b(?:instrument|next|form|pos\.instrument|w\.form)\.title\b/.test(prose(f.src)))
+    .map((f) => f.file);
+  assert.deepEqual(leaks, [], "these member routes render an instrument's clinical title — use memberTitle");
+});

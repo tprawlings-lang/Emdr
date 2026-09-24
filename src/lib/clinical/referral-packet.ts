@@ -38,6 +38,9 @@ export interface PacketField {
   value: string;
   /** Where this came from, in words the member can check. */
   source: string;
+  /** What the value refers to, for the member's reading of it — the
+   *  instrument id on a measure. Never shown as-is. */
+  ref?: string;
 }
 
 export interface PacketSection {
@@ -195,4 +198,100 @@ export function refusalText(): string {
     "and running a session, none of which is a disclosure. There is also no destination to " +
     "send it to. Both are absences, and neither is worked around here."
   );
+}
+
+// ---------------------------------------------------------------------------
+// The member's reading of the packet
+// ---------------------------------------------------------------------------
+//
+// The member sees what would go with them before anything goes (§11's
+// condition). They used to see it raw: "itq (Cloitre et al. (ICD-11))  33",
+// the check-in routing as a code, and their readiness track by its hidden name
+// — scores, instrument names and a track name on a member surface, which
+// Volume 2 and the Expansion Handoff's non-negotiable 6 both forbid. The
+// product owner's decision (24 September): plain words, no numbers. Every
+// item that would be sent is still listed, and says that its score goes too;
+// the values themselves stay in the version a clinician would receive.
+
+export interface MemberPacketItem {
+  label: string;
+  value: string;
+  source: string;
+}
+
+export interface MemberPacketSection {
+  kind: SectionKind;
+  title: string;
+  why: string;
+  items: MemberPacketItem[];
+  absent: string | null;
+}
+
+const SCOPE_PLAIN: Record<string, string> = {
+  care_program_full: "Taking part in the care program",
+  measurement: "Recording your questionnaires",
+  processing_session: "Self-guided processing sessions",
+  voice_biometric: "Using your voice",
+  wellness_acknowledgment: "The wellness acknowledgement at sign-up",
+  terms_acceptance: "The terms of use",
+};
+
+const ROUTING_PLAIN: Record<string, string> = {
+  crisis: "Paused while your care team checks in",
+  grounding_only: "Grounding only that day",
+  stabilization: "Gentler work that day",
+  processing_ok: "Everything open that day",
+  clinician_contact: "Your care team to be in touch",
+};
+
+const MEMBER_WHY: Partial<Record<SectionKind, string>> = {
+  measures:
+    "Your most recent answers to each questionnaire, and the score each one gives, so a new " +
+    "clinician does not have to ask you the same questions again.",
+  program: "The pace your readiness answers set, so a new clinician starts from the same place.",
+};
+
+const MEMBER_TITLE: Partial<Record<SectionKind, string>> = {
+  measures: "Your questionnaires",
+  program: "Your pace",
+};
+
+/** Pure. `memberTitleFor` is passed in so this module stays free of the
+ *  instrument catalogue; the page hands it the instrument's member name. */
+export function memberReferralView(
+  packet: ReferralPacket,
+  memberTitleFor: (instrumentId: string) => string | undefined
+): MemberPacketSection[] {
+  return packet.sections.map((s) => ({
+    kind: s.kind,
+    title: MEMBER_TITLE[s.kind] ?? s.title,
+    why: MEMBER_WHY[s.kind] ?? s.why,
+    absent: s.absent,
+    items: s.fields.map((f): MemberPacketItem => {
+      switch (s.kind) {
+        case "consent":
+          return { label: SCOPE_PLAIN[f.label] ?? f.label.replace(/_/g, " "), value: f.value, source: f.source };
+        case "measures":
+          return {
+            label: (f.ref && memberTitleFor(f.ref)) || "A questionnaire",
+            value: "Answers and score included",
+            source: f.source.replace(/Your most recent \S+, completed/, "Your most recent answers, from"),
+          };
+        case "safety":
+          return {
+            label: "Your most recent check-in result",
+            value: ROUTING_PLAIN[f.value] ?? "Included",
+            source: f.source,
+          };
+        case "program":
+          return {
+            label: "The pace set for you",
+            value: "Included",
+            source: "From your most recent readiness answers.",
+          };
+        default:
+          return { label: f.label, value: f.value, source: f.source };
+      }
+    }),
+  }));
 }

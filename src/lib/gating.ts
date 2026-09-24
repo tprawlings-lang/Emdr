@@ -2,7 +2,7 @@ import { data } from "./data";
 import { MODULES, TherapyModule } from "./modules";
 import { getLatestReadiness, getSafetyPlan, profileComplete } from "./profile";
 import { subscriptionActive } from "./billing";
-import { getFitnessState } from "./fitness-screener";
+import { fitnessOpen, getFitnessState } from "./fitness-screener";
 import { MAX_PROCESSING_PER_24H, SUDS_COOLDOWN_AT, sessionsKilled } from "./session-safety";
 import { GROUNDING_MODULE_IDS as GROUNDING_MODULES, engineModuleVerdict } from "./safety/module-verdict";
 
@@ -246,7 +246,9 @@ export async function checkModuleAccess(userId: string, mod: TherapyModule): Pro
   const fitness = await getFitnessState(userId);
   if (fitness.status === "none")
     return { allowed: false, reason: "Please complete the program-fit questions first.", action: "screening" };
-  if (fitness.status === "cooldown")
+  // Allow-list, not block-list: anything that is not an outright open status
+  // (a pause, a hold for review, a status added later) keeps sessions closed.
+  if (!fitnessOpen(fitness.status))
     return {
       allowed: false,
       reason: "Based on your fit questions, this program isn't the right fit right now. The crisis page has support that can help today.",
@@ -397,10 +399,12 @@ export async function checkModuleAccess(userId: string, mod: TherapyModule): Pro
       };
 
     // High distress at the end of a recent session puts processing on a 24h
-    // cooldown (compliance 4B.2); stabilization modules remain available.
+    // cooldown (compliance 4B.2); stabilization modules remain available. A
+    // hard stop counts by its status as well as its rating: the rest must not
+    // depend on a closing rating that a hard stop may not have.
     const hot = (await c.get(
       `SELECT COUNT(*) AS n FROM therapy_sessions
-         WHERE user_id = ? AND ended_at > ? AND post_suds >= ?`,
+         WHERE user_id = ? AND ended_at > ? AND (post_suds >= ? OR status = 'hard_stop')`,
       [userId, dayAgo, SUDS_COOLDOWN_AT]
     )) as { n: number };
     if (hot.n > 0)

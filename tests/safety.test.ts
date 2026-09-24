@@ -96,18 +96,24 @@ test("track recommender: never recommends through an incomplete or flagged safet
   assert.equal(cooldown.proceed, false);
   if (!cooldown.proceed) assert.equal(cooldown.safety.action, "crisis");
 
+  // A hold for review blocks too. It was added after this gate was written as
+  // "block none, block cooldown", which would have waved it through.
+  const held = trackSafetyGate({ fitnessStatus: "held", screeningComplete: true, checkinAction: null });
+  assert.equal(held.proceed, false);
+  if (!held.proceed) assert.equal(held.safety.action, "crisis");
+
   // Incomplete baseline measures block recommendation.
-  const noBaseline = trackSafetyGate({ fitnessStatus: "passed", screeningComplete: false, checkinAction: null });
+  const noBaseline = trackSafetyGate({ fitnessStatus: "pass", screeningComplete: false, checkinAction: null });
   assert.equal(noBaseline.proceed, false);
 
   // A check-in that flagged crisis blocks recommendation.
-  const crisis = trackSafetyGate({ fitnessStatus: "passed", screeningComplete: true, checkinAction: "crisis" });
+  const crisis = trackSafetyGate({ fitnessStatus: "pass", screeningComplete: true, checkinAction: "crisis" });
   assert.equal(crisis.proceed, false);
   if (!crisis.proceed) assert.equal(crisis.safety.level, "blocked");
 
   // All clear proceeds.
   assert.equal(
-    trackSafetyGate({ fitnessStatus: "passed", screeningComplete: true, checkinAction: "processing_ok" }).proceed,
+    trackSafetyGate({ fitnessStatus: "pass", screeningComplete: true, checkinAction: "processing_ok" }).proceed,
     true
   );
 });

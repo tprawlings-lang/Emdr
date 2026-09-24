@@ -55,8 +55,11 @@ function submitPaths(): string[] {
         const src = code(path.relative(SRC, p));
         // Scores an instrument AND writes a screening row: that is a submit
         // path. A module that only scores (a preview, a demo generator) does
-        // not route anybody anywhere.
-        if (/scoreInstrument\(/.test(src) && /INSERT INTO screenings/.test(src)) {
+        // not route anybody anywhere. The row is written either directly or
+        // through `saveMeasureResponse`, the one writer that enforces the
+        // recall window (measures/cadence.ts) — which every member-facing
+        // path now uses, so matching only the raw INSERT would find none.
+        if (/scoreInstrument\(/.test(src) && /INSERT INTO screenings|saveMeasureResponse\(/.test(src)) {
           out.push(path.relative(SRC, p));
         }
       }

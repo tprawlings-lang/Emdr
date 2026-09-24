@@ -97,6 +97,8 @@ function reachable(): Set<string> {
  * somebody has to defend.
  */
 const OFF_SURFACE: Record<string, string> = {
+  "src/lib/governance/clinical-labels.ts":
+    "The list of clinical labels that stay off member surfaces. Read by the guards that enforce it (tests/member-boundary.test.ts and the rendered member walk), not by any screen — a screen that imported it would be one using the list to decide what to show, which is the opposite of its job.",
   "src/lib/analysis/power.ts":
     "A statistical power harness run from scripts/testing and its own test. It answers 'is this dataset big enough to detect that', which is a question asked before a study, not during a session.",
   "src/lib/presentation/action.ts":

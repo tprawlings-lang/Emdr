@@ -31,6 +31,7 @@
 // experience. That is why every value below carries its comparison window and
 // its missingness, and why `assertPatternOnly` refuses verdict language.
 
+import { getInstrument } from "../instruments";
 import { data } from "../data";
 import { activePolicy } from "../clinical-policy";
 import {
@@ -110,10 +111,13 @@ export function assertPatternOnly(p: MemberProgress): MemberProgress {
   return p;
 }
 
+// Labels come from the instrument's own `memberTitle`, so the name a member
+// reads here is the name the questionnaire page gave it.
+const memberTitle = (id: string) => getInstrument(id)!.memberTitle;
 const INSTRUMENTS: Record<string, { label: string; min: number; max: number; lowerIsBetter: boolean }> = {
-  "phq-9": { label: "Low mood", min: 0, max: 27, lowerIsBetter: true },
-  "gad-7": { label: "Worry and tension", min: 0, max: 21, lowerIsBetter: true },
-  "pcl-5": { label: "Trauma symptoms", min: 0, max: 80, lowerIsBetter: true },
+  "phq-9": { label: memberTitle("phq-9"), min: 0, max: 27, lowerIsBetter: true },
+  "gad-7": { label: memberTitle("gad-7"), min: 0, max: 21, lowerIsBetter: true },
+  "pcl-5": { label: memberTitle("pcl-5"), min: 0, max: 80, lowerIsBetter: true },
 };
 
 function iso(d: Date): string { return d.toISOString().slice(0, 10); }

@@ -177,9 +177,14 @@ test("the reason is human language, not a raw event key", () => {
   // clinician at a glance why they are looking at this person. Every alert type
   // createAlert() can raise needs a sentence.
   const src = fs.readFileSync("src/lib/clinical/work-queue.ts", "utf8");
-  const actions = fs.readFileSync("src/lib/actions.ts", "utf8");
+  // Every module under src/lib, not just actions.ts: alerts are raised from
+  // wherever the event happens (a session closing, a fit-questions stop), and
+  // a type raised elsewhere renders its raw key just the same.
+  const walk = (d: string): string[] => fs.readdirSync(d, { withFileTypes: true }).flatMap((e) =>
+    e.isDirectory() ? walk(`${d}/${e.name}`) : /\.tsx?$/.test(e.name) ? [`${d}/${e.name}`] : []);
+  const lib = walk("src/lib").map((f) => fs.readFileSync(f, "utf8")).join("\n");
 
-  const raised = [...actions.matchAll(/createAlert\(\{[\s\S]{0,200}?type:\s*"([a-z_]+)"/g)]
+  const raised = [...lib.matchAll(/createAlert\(\{[\s\S]{0,200}?type:\s*"([a-z_]+)"/g)]
     .map((m) => m[1]);
   assert.ok(raised.length >= 8, `expected to find the alert types actions.ts raises, found ${raised.length}`);
 

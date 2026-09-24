@@ -6,9 +6,12 @@ import { revalidatePath } from "next/cache";
 import { hashPassword, newId, verifyPassword, tenantForUser } from "./db";
 import { data } from "./data";
 import { checkAgeEligibility } from "./age-gate";
-import { safetyRefundAndCancel, setCancelAtPeriodEnd, startDemoSubscription, subscriptionActive } from "./billing";
-import { provisionPerson, recordCheckin, recordAssessment, recordSessionStarted, recordSessionFinished, grantConsent as spineGrantConsent, withdrawConsent as spineWithdrawConsent, recordUnlockRequested, recordUnlockDecision, upsertRowId, nowStamp } from "./spine";
-import { recordFitnessScreening } from "./fitness-screener";
+import { setCancelAtPeriodEnd, startDemoSubscription, subscriptionActive } from "./billing";
+import { provisionPerson, recordCheckin, recordAssessment, recordSessionStarted, grantConsent as spineGrantConsent, withdrawConsent as spineWithdrawConsent, recordUnlockRequested, recordUnlockDecision, upsertRowId, nowStamp } from "./spine";
+import { recordFitnessScreening, FitnessRetakeRefused } from "./fitness-screener";
+import { MeasureNotOpen, saveMeasureResponse, trackedForm } from "./measures/cadence";
+import { respondToFitnessStop } from "./fitness-stop";
+import { closeLeftOpen, closeSession, recordPostSessionCheck } from "./session-close";
 import { decryptField, encryptField } from "./crypto";
 import { audit } from "./audit";
 import { unlockDecisionRefusal } from "./clinical/unlock-rules";
@@ -211,7 +214,16 @@ export async function submitFitnessScreening(answersJson: string) {
   } catch {
     answers = {};
   }
-  const { outcome, flags } = await recordFitnessScreening(user.id, answers);
+  let recorded: Awaited<ReturnType<typeof recordFitnessScreening>>;
+  try {
+    recorded = await recordFitnessScreening(user.id, answers);
+  } catch (e) {
+    // An answer already in force (a pause, a hold, or a pass) is not replaced.
+    // The screening page routes by the current status.
+    if (e instanceof FitnessRetakeRefused) redirect("/app/screening");
+    throw e;
+  }
+  const { outcome, flags } = recorded;
   await audit({
     actorId: user.id,
     actorRole: "member",
@@ -220,15 +232,9 @@ export async function submitFitnessScreening(answersJson: string) {
     detail: { outcome, flagCount: flags.length },
   });
   if (outcome === "hard_stop") {
-    // Warm exit: no payment kept, resources shown, care team notified,
-    // 24h retake cooldown enforced by getFitnessState.
-    safetyRefundAndCancel(user.id);
-    await createAlert({
-      userId: user.id,
-      type: "fitness_screening_stop",
-      severity: "high",
-      detail: "Fitness screening indicated this program is not a safe fit right now. Membership refunded and paused automatically.",
-    });
+    // Warm exit: no payment kept, resources shown, care team notified. The
+    // pause or hold is enforced by getFitnessState.
+    await respondToFitnessStop(user.id, flags);
     redirect("/app/screening/fit");
   }
   redirect("/app/screening");
@@ -373,7 +379,9 @@ export async function submitScreening(formData: FormData) {
   const instrumentId = String(formData.get("instrument") ?? "");
   const context = formData.get("context") === "weekly" ? "weekly" : "baseline";
   const returnPath = context === "weekly" ? "/app/measures" : "/app/screening";
-  const instrument = getInstrument(instrumentId);
+  // The weekly path gives the form the schedule says is current (past-week
+  // wording once signed); only the repeated measures are weekly at all.
+  const instrument = context === "weekly" ? trackedForm(instrumentId) : getInstrument(instrumentId);
   if (!instrument) redirect(returnPath);
 
   const answers: number[] = instrument.items.map((_, i) =>
@@ -382,12 +390,16 @@ export async function submitScreening(formData: FormData) {
   if (answers.some((a) => a < 0)) redirect(`${returnPath}?incomplete=${instrumentId}`);
 
   const { total, riskFlags } = scoreInstrument(instrument, answers);
-  const c = await data();
 
-  const previous = await c.get("SELECT total_score FROM screenings WHERE user_id = ? AND instrument = ? ORDER BY created_at DESC LIMIT 1", [user.id, instrument.id]) as { total_score: number } | undefined;
-
-  await c.run(`INSERT INTO screenings (id, user_id, instrument, instrument_version, total_score, answers_json, risk_flags_json)
-     VALUES (?, ?, ?, ?, ?, ?, ?)`, [newId(), user.id, instrument.id, instrument.version, total, encryptField(JSON.stringify(answers)), JSON.stringify(riskFlags)]);
+  let saved: { previousTotal: number | null };
+  try {
+    saved = await saveMeasureResponse({ userId: user.id, form: instrument, answers, total, riskFlags, nowMs: Date.now() });
+  } catch (e) {
+    // Inside the window: nothing is saved, and the page says when it opens.
+    if (e instanceof MeasureNotOpen) redirect(returnPath);
+    throw e;
+  }
+  const previous = saved.previousTotal === null ? undefined : { total_score: saved.previousTotal };
   await recordAssessment({
     userId: user.id, instrument: instrument.id, instrumentVersion: instrument.version,
     totalScore: total, riskFlags, context, via: "web",
@@ -1081,6 +1093,8 @@ export async function startSession(moduleId: string, focus?: string) {
   void shadowDecide(user.id, "session_start", Date.now());
 
   const chosenFocus = focus?.trim().slice(0, 200) || null;
+  // One session at a time: anything left open is over (session-close.ts).
+  await closeLeftOpen(user.id, Date.now(), "web");
   const c = await data();
   const id = newId();
   const startedAt = nowStamp();
@@ -1135,68 +1149,19 @@ export async function finishSession(args: {
   sudsTrail: number[];
 }) {
   const user = await requireMember();
-  const c = await data();
-  const session = await c.get("SELECT id, module_id, detail_json FROM therapy_sessions WHERE id = ? AND user_id = ?", [args.sessionId, user.id]) as
-    | { id: string; module_id: string; detail_json: string }
-    | undefined;
-  if (!session) return;
-
-  // Merge into detail_json so the focus chosen at start survives completion.
-  let detail: Record<string, unknown> = {};
-  try {
-    detail = JSON.parse(session.detail_json) as Record<string, unknown>;
-  } catch {
-    detail = {};
-  }
-  detail.sudsTrail = args.sudsTrail;
-
-  const endedAt = nowStamp();
-  await c.run(`UPDATE therapy_sessions SET status = ?, pre_suds = ?, post_suds = ?, peak_suds = ?,
-       hard_stop_reason = ?, detail_json = ?, ended_at = ?
-     WHERE id = ?`, [args.outcome,
-    args.preSuds,
-    args.postSuds,
-    args.peakSuds,
-    args.hardStopReason ?? null,
-    JSON.stringify(detail),
-    endedAt,
-    args.sessionId]);
-  await recordSessionFinished({
-    userId: user.id, sessionId: args.sessionId, moduleId: session.module_id,
-    status: args.outcome, preSuds: args.preSuds, postSuds: args.postSuds,
-    peakSuds: args.peakSuds, hardStopReason: args.hardStopReason ?? null,
-    detail, occurredAt: endedAt, via: "web",
-  });
-
-  await audit({
-    actorId: user.id,
-    actorRole: "member",
-    family: "module_runtime",
-    type: `session_${args.outcome}`,
-    target: session.module_id,
-    detail: {
-      sessionId: args.sessionId,
-      preSuds: args.preSuds,
-      postSuds: args.postSuds,
-      peakSuds: args.peakSuds,
-      hardStopReason: args.hardStopReason,
-    },
-  });
-
-  if (args.outcome === "hard_stop") {
-    await createAlert({
-      userId: user.id,
-      type: "session_hard_stop",
-      severity: "high",
-      detail: `Hard stop in module ${session.module_id}: ${args.hardStopReason ?? "unspecified"}`,
-    });
-  }
+  // The before/after/peak the client sends are ignored: the server reads them
+  // off the trail, and decides from it whether this was a hard stop
+  // (session-close.ts). An already-ended session is not ended again.
+  const closed = await closeSession(user.id, args.sessionId, {
+    outcome: args.outcome, hardStopReason: args.hardStopReason ?? null, sudsTrail: args.sudsTrail,
+  }, "web");
+  if (!closed.ok) return;
 
   // Completing the trigger-map module refreshes the program plan so what was
   // just mapped immediately shapes the companion, the focus picker, and the
   // specialist's view. Fire-and-forget: plan generation must never block or
   // fail the session-completion path.
-  if (args.outcome === "completed" && session.module_id === "trigger-map") {
+  if (closed.status === "completed" && closed.moduleId === "trigger-map") {
     void generateProgramPlan(user.id, "trigger_map").catch((err) =>
       console.error("Program plan generation failed after trigger map:", err)
     );
@@ -1206,53 +1171,24 @@ export async function finishSession(args: {
 export async function submitPostSessionCheck(formData: FormData) {
   const user = await requireMember();
   const sessionId = String(formData.get("sessionId") ?? "");
-  const distress = Number(formData.get("distress") ?? 0);
-  const oriented = formData.get("oriented") === "yes";
-  const safeTonight = formData.get("safe_tonight") === "yes";
-  const delayedRisk = Number(formData.get("delayed_risk") ?? 0);
-  const recoveryConfirmed = formData.get("recovery_confirmed") === "on";
-
-  const needsEscalation = !oriented || !safeTonight || distress >= 8 || delayedRisk >= 8;
-
-  const c = await data();
-  await c.run(`INSERT INTO post_session_checks
-       (id, session_id, user_id, distress, oriented, safe_tonight, delayed_risk, recovery_confirmed, escalated)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`, [newId(),
-    sessionId,
-    user.id,
-    distress,
-    oriented ? 1 : 0,
-    safeTonight ? 1 : 0,
-    delayedRisk,
-    recoveryConfirmed ? 1 : 0,
-    needsEscalation ? 1 : 0]);
-
-  await audit({
-    actorId: user.id,
-    actorRole: "member",
-    family: "clinical",
-    type: "post_session_check",
-    target: sessionId,
-    detail: { distress, oriented, safeTonight, delayedRisk, recoveryConfirmed, needsEscalation },
+  const moduleId = String(formData.get("moduleId") ?? "");
+  // Validation, ownership, one-per-session and the alerts live in
+  // session-close.ts, where they can be tested without a request.
+  const result = await recordPostSessionCheck(user.id, sessionId, {
+    distress: formData.get("distress"),
+    oriented: formData.get("oriented"),
+    safeTonight: formData.get("safe_tonight"),
+    delayedRisk: formData.get("delayed_risk"),
+    recoveryConfirmed: formData.get("recovery_confirmed") === "on",
   });
-
-  if (!safeTonight) {
-    await createAlert({
-      userId: user.id,
-      type: "post_session_unsafe",
-      severity: "urgent",
-      detail: "Member reported they cannot stay safe until tomorrow after a session.",
-    });
-    redirect("/crisis?from=post-session");
+  if (!result.ok) {
+    // A missing answer goes back to the form rather than being saved as zero.
+    if (result.reason === "incomplete" && getModule(moduleId)) {
+      redirect(`/app/session/${moduleId}/complete?sid=${encodeURIComponent(sessionId)}&incomplete=1`);
+    }
+    redirect("/app/today");
   }
-  if (needsEscalation) {
-    await createAlert({
-      userId: user.id,
-      type: "post_session_review",
-      severity: "high",
-      detail: `Post-session thresholds exceeded (distress ${distress}, oriented ${oriented}, delayed risk ${delayedRisk}).`,
-    });
-  }
+  if (result.unsafe) redirect("/crisis?from=post-session");
   redirect("/app/today?postSession=done");
 }
 

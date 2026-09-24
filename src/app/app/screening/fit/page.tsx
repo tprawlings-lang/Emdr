@@ -10,11 +10,14 @@ import {
 } from "@/lib/crisis-resources";
 
 // Warm hard-stop screen (compliance 4A.1): non-judgmental, resources first,
-// payment already refunded automatically, 24h retake cooldown.
+// payment already refunded automatically. Two shapes: a timed pause (the
+// questions can be answered again when it ends) and a hold, where a person has
+// to go over the answers first and no timer is shown because none applies.
 export default async function FitPausePage() {
   const user = await requireMember();
   const fitness = await getFitnessState(user.id);
-  if (fitness.status !== "cooldown") redirect("/app/screening");
+  if (fitness.status !== "cooldown" && fitness.status !== "held") redirect("/app/screening");
+  const held = fitness.status === "held";
 
   const us = CRISIS_REGIONS.find((r) => r.code === "US")!;
 
@@ -58,10 +61,20 @@ export default async function FitPausePage() {
         </p>
         <p className="mt-3">
           Your membership has been paused and any recent charge refunded automatically — no
-          action needed. You can revisit the fit questions in{" "}
-          {fitness.retakeInHours ?? 24} hour{(fitness.retakeInHours ?? 24) === 1 ? "" : "s"}.
-          They only work if they&apos;re answered honestly; they exist to keep you safe, not
-          to keep you out.
+          action needed.{" "}
+          {held ? (
+            <>
+              Your care team has been told. Some of what you shared is something a person
+              needs to go over with you before sessions open again, so answering the
+              questions again won&apos;t change this &mdash; it isn&apos;t a test to pass.
+            </>
+          ) : (
+            <>
+              You can revisit the fit questions in {fitness.retakeInHours ?? 24} hour
+              {(fitness.retakeInHours ?? 24) === 1 ? "" : "s"}. They only work if they&apos;re
+              answered honestly; they exist to keep you safe, not to keep you out.
+            </>
+          )}
         </p>
       </div>
 

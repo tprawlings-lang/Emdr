@@ -18,8 +18,12 @@ import {
   screenerCaveat,
   getFitnessState,
   recordFitnessScreening,
+  FitnessRetakeRefused,
+  fitnessOpen,
   type FitnessState,
 } from "../fitness-screener";
+import { respondToFitnessStop } from "../fitness-stop";
+import { MeasureNotOpen, saveMeasureResponse } from "../measures/cadence";
 import { INSTRUMENTS, getInstrument, scoreInstrument } from "../instruments";
 import { computeReadiness, getProfile, type ReadinessAnswers } from "../profile";
 import { writeMemory, getMemoryItemsByType } from "../companion";
@@ -156,8 +160,20 @@ export function screenerInfo() {
 
 export async function submitScreenerMobile(
   userId: string, answers: Record<string, boolean>
-): Promise<{ outcome: string; flags: string[]; state: FitnessState }> {
-  const { outcome, flags } = await recordFitnessScreening(userId, answers);
+): Promise<{ outcome: string; flags: string[]; state: FitnessState } | { error: string; state: FitnessState }> {
+  let recorded: Awaited<ReturnType<typeof recordFitnessScreening>>;
+  try {
+    recorded = await recordFitnessScreening(userId, answers);
+  } catch (e) {
+    // The same refusal the web action gets: an answer already in force is not
+    // replaced. The client is told why and handed the state to route on.
+    if (e instanceof FitnessRetakeRefused) {
+      return { error: "These questions are already answered and can't be changed right now.", state: await getFitnessState(userId) };
+    }
+    throw e;
+  }
+  const { outcome, flags } = recorded;
+  if (outcome === "hard_stop") await respondToFitnessStop(userId, flags);
   const state = await getFitnessState(userId);
   await audit({
     actorId: userId, actorRole: "member", family: "clinical",
@@ -172,7 +188,17 @@ export async function measuresInfo(userId: string) {
   const c = await data();
   const rows = (await c.all("SELECT DISTINCT instrument FROM screenings WHERE user_id = ?", [userId])) as { instrument: string }[];
   const completed = rows.map((r) => r.instrument);
-  return { instruments: INSTRUMENTS, completed };
+  // A member surface, so a member-safe shape. This returned the instrument
+  // objects whole: the clinical title ("PCL-5 — PTSD Checklist for DSM-5"),
+  // the cutoff and its note ("10+ suggests moderate depression"), and which
+  // item raises a risk alert — the last of which tells someone how to answer
+  // to avoid a consequence. `title` keeps its key for existing clients and
+  // now carries the plain name.
+  const instruments = INSTRUMENTS.map((i) => ({
+    id: i.id, version: i.version, title: i.memberTitle, intro: i.intro,
+    options: i.options, items: i.items, sections: i.sections, recallDays: i.recallDays,
+  }));
+  return { instruments, completed };
 }
 
 const WORSENING_THRESHOLDS: Record<string, number> = { "pcl-5": 10, itq: 8 };
@@ -186,18 +212,18 @@ export async function submitMeasureMobile(
     return { error: "Please answer every item." };
   }
   const { total, positive, riskFlags } = scoreInstrument(instrument, answers);
-  const c = await data();
-  const previous = (await c.get(
-    "SELECT total_score FROM screenings WHERE user_id = ? AND instrument = ? ORDER BY created_at DESC LIMIT 1",
-    [userId, instrument.id]
-  )) as { total_score: number } | undefined;
-
-  await c.run(
-    `INSERT INTO screenings (id, user_id, instrument, instrument_version, total_score, answers_json, risk_flags_json)
-     VALUES (?, ?, ?, ?, ?, ?, ?)`,
-    [newId(), userId, instrument.id, instrument.version, total,
-     encryptField(JSON.stringify(answers)), JSON.stringify(riskFlags)]
-  );
+  let saved: { previousTotal: number | null };
+  try {
+    saved = await saveMeasureResponse({ userId, form: instrument, answers, total, riskFlags, nowMs: Date.now() });
+  } catch (e) {
+    // This route saved any instrument at any time. It now answers inside the
+    // window with when the questionnaire opens, and saves nothing.
+    if (e instanceof MeasureNotOpen) {
+      return { error: `This questionnaire opens again in ${e.window.daysUntilOpen} day${e.window.daysUntilOpen === 1 ? "" : "s"}.` };
+    }
+    throw e;
+  }
+  const previous = saved.previousTotal === null ? undefined : { total_score: saved.previousTotal };
   await recordAssessment({
     userId, instrument: instrument.id, instrumentVersion: instrument.version,
     totalScore: total, riskFlags, context: "baseline", via: "mobile",
@@ -460,8 +486,10 @@ export async function nextStep(userId: string): Promise<{ step: NextStep; detail
   if (!(await subscriptionActive(userId))) return { step: "subscribe" };
   if (!(await hasConsent(userId))) return { step: "consent" };
   const fit = await getFitnessState(userId);
-  if (fit.status === "cooldown") return { step: "screener_cooldown", detail: { retakeInHours: fit.retakeInHours } };
   if (fit.status === "none") return { step: "screener" };
+  // Anything that is not an open status holds here — a pause or a hold for
+  // review alike. `retakeInHours` is absent for a hold: there is no timer.
+  if (!fitnessOpen(fit.status)) return { step: "screener_cooldown", detail: { retakeInHours: fit.retakeInHours ?? null, heldForReview: fit.status === "held" } };
   if (!(await screeningComplete(userId))) return { step: "measures" };
   if (!(await profileComplete(userId))) return { step: "profile" };
   return { step: "ready" };

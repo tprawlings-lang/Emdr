@@ -34,13 +34,14 @@ import {
 import { MODULES, getModule, type TherapyModule } from "../modules";
 import { audit } from "../audit";
 import { isLockedOut } from "../auth-lockout";
-import { recordCheckin, recordSessionStarted, recordSessionFinished, upsertRowId, nowStamp } from "../spine";
+import { recordCheckin, recordSessionStarted, upsertRowId, nowStamp } from "../spine";
+import { closeLeftOpen, closeSession } from "../session-close";
 import { writeMemory } from "../companion";
 import { getSavedCalmPlace } from "../session-focus";
 import { shadowDecide } from "../safety/decide";
 import { generateProgramPlan } from "../program-plan";
 import { encryptField } from "../crypto";
-import { createAlert, raiseCheckinSafetyAlert } from "../clinical/alert-create";
+import { raiseCheckinSafetyAlert } from "../clinical/alert-create";
 
 // ---------- shared shapes (the mobile API contract) ----------
 
@@ -76,7 +77,7 @@ export interface GatingSnapshot {
   hasConsent: boolean;
   screeningComplete: boolean;
   profileComplete: boolean;
-  fitnessStatus: string;               // none | pass | soft_flag | cooldown
+  fitnessStatus: string;               // none | pass | soft_flag | cooldown | held
   retakeInHours: number | null;
   seizureFlag: boolean;                // audio-only default
   liveVoiceAvailable: boolean;         // in-session spoken responder enabled
@@ -289,6 +290,8 @@ export async function startSessionMobile(
   void shadowDecide(userId, "session_start", Date.now());
 
   const chosenFocus = focus?.trim().slice(0, 200) || null;
+  // One session at a time: anything left open is over (session-close.ts).
+  await closeLeftOpen(userId, Date.now(), "mobile");
   const c = await data();
   const id = newId();
   const startedAt = nowStamp();
@@ -335,47 +338,18 @@ export async function finishSessionMobile(
     hardStopReason?: string | null;
     sudsTrail: number[];
   }
-): Promise<{ ok: boolean }> {
-  const c = await data();
-  const session = (await c.get(
-    "SELECT id, module_id, detail_json FROM therapy_sessions WHERE id = ? AND user_id = ?",
-    [args.sessionId, userId]
-  )) as { id: string; module_id: string; detail_json: string } | undefined;
-  if (!session) return { ok: false };
-
-  let detail: Record<string, unknown> = {};
-  try { detail = JSON.parse(session.detail_json) as Record<string, unknown>; } catch { detail = {}; }
-  detail.sudsTrail = args.sudsTrail;
-
-  const endedAt = nowStamp();
-  await c.run(
-    `UPDATE therapy_sessions SET status = ?, pre_suds = ?, post_suds = ?, peak_suds = ?,
-       hard_stop_reason = ?, detail_json = ?, ended_at = ?
-     WHERE id = ?`,
-    [args.outcome, args.preSuds, args.postSuds, args.peakSuds, args.hardStopReason ?? null,
-     JSON.stringify(detail), endedAt, args.sessionId]
-  );
-  await recordSessionFinished({
-    userId, sessionId: args.sessionId, moduleId: session.module_id,
-    status: args.outcome, preSuds: args.preSuds, postSuds: args.postSuds,
-    peakSuds: args.peakSuds, hardStopReason: args.hardStopReason ?? null,
-    detail, occurredAt: endedAt, via: "mobile",
-  });
-  await audit({
-    actorId: userId, actorRole: "member", family: "module_runtime",
-    type: `session_${args.outcome}`, target: session.module_id,
-    detail: { sessionId: args.sessionId, preSuds: args.preSuds, postSuds: args.postSuds, peakSuds: args.peakSuds, hardStopReason: args.hardStopReason, via: "mobile" },
-  });
-  if (args.outcome === "hard_stop") {
-    await createAlert({
-      userId, type: "session_hard_stop", severity: "high",
-      detail: `Hard stop in module ${session.module_id} (mobile): ${args.hardStopReason ?? "unspecified"}`,
-    });
-  }
+): Promise<{ ok: boolean; reason?: "not_found" | "already_closed" }> {
+  // The same close as the web (session-close.ts): the first close wins, the
+  // server reads the outcome and the figures off the trail, and a hard stop
+  // raises the alert. Before/after/peak from the request are not used.
+  const closed = await closeSession(userId, args.sessionId, {
+    outcome: args.outcome, hardStopReason: args.hardStopReason ?? null, sudsTrail: args.sudsTrail,
+  }, "mobile");
+  if (!closed.ok) return { ok: false, reason: closed.reason };
 
   // Completing the trigger-map refreshes the program plan (companion / focus
   // picker / specialist view) — parity with web finishSession. Fire-and-forget.
-  if (args.outcome === "completed" && session.module_id === "trigger-map") {
+  if (closed.status === "completed" && closed.moduleId === "trigger-map") {
     void generateProgramPlan(userId, "trigger_map").catch((err) =>
       console.error("Program plan generation failed after trigger map (mobile):", err)
     );

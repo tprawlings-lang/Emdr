@@ -181,6 +181,8 @@ async function getPool(): Promise<PgPool> {
 // Public handle.
 // ---------------------------------------------------------------------------
 let cached: Data | null = null;
+/** The tail of the SQLite transaction queue (see `tx` below). */
+let sqliteTxQueue: Promise<unknown> = Promise.resolve();
 
 export async function data(): Promise<Data> {
   if (cached) return cached;
@@ -230,15 +232,30 @@ export async function data(): Promise<Data> {
       // better-sqlite3 transactions are synchronous; emulate with explicit
       // statements so the async callback can run inside them. One connection,
       // so the frame's client is the same handle everything else uses.
-      db.prepare("BEGIN").run();
-      try {
-        const out = await txStore.run({ client: base, depth: 1 }, () => fn(base));
-        db.prepare("COMMIT").run();
-        return out;
-      } catch (e) {
-        db.prepare("ROLLBACK").run();
-        throw e;
-      }
+      //
+      // QUEUED, because one connection holds one transaction. Two top-level
+      // `tx()` calls from unrelated async flows used to interleave: the second
+      // BEGIN landed inside the first and threw "cannot start a transaction
+      // within a transaction". The fire-and-forget shadow decision at session
+      // start audits inside a transaction, so any audit that raced it could
+      // fail — found when a session close gained one more await and started
+      // losing that race. Postgres never had this: each transaction takes its
+      // own pooled connection. Nested calls never queue (they take the
+      // savepoint path above), so a transaction cannot wait on itself.
+      const run = async () => {
+        db.prepare("BEGIN").run();
+        try {
+          const out = await txStore.run({ client: base, depth: 1 }, () => fn(base));
+          db.prepare("COMMIT").run();
+          return out;
+        } catch (e) {
+          db.prepare("ROLLBACK").run();
+          throw e;
+        }
+      };
+      const turn = sqliteTxQueue.then(run, run);
+      sqliteTxQueue = turn.catch(() => undefined);
+      return turn;
     },
   };
   return cached;

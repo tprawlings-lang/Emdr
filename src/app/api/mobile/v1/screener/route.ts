@@ -12,6 +12,7 @@ export async function GET(req: NextRequest) {
 }
 
 // POST { answers: { itemId: boolean } } → { outcome, flags, state }
+//   409 { error, state } when an answer is already in force
 export async function POST(req: NextRequest) {
   const auth = await requireMember(req);
   if (auth instanceof NextResponse) return auth;
@@ -19,5 +20,8 @@ export async function POST(req: NextRequest) {
   try { b = await req.json(); } catch { return error("Invalid JSON body.", 400); }
   const answers: Record<string, boolean> = {};
   for (const [k, v] of Object.entries(b.answers ?? {})) answers[k] = Boolean(v);
-  return json(await submitScreenerMobile(auth.id, answers));
+  const result = await submitScreenerMobile(auth.id, answers);
+  // 409: the answers already in force stand. The body still carries the state
+  // so the client can route to the pause or hold screen.
+  return json(result, "error" in result ? 409 : 200);
 }

@@ -18,7 +18,9 @@ import LiveVoice from "@/components/LiveVoice";
 import {
   SESSION_CAP_MIN,
   SESSION_WINDDOWN_MIN,
+  choicesAfterGrounding,
   sudsDecision,
+  type ReturnChoice,
 } from "@/lib/session-safety";
 import { escalationNotice } from "@/lib/notify/delivery";
 
@@ -410,6 +412,10 @@ export default function SessionPlayer({ module: mod, focus, calmPlace, audioOnly
   const [stepIndex, setStepIndex] = useState(0);
   const [sudsTrail, setSudsTrail] = useState<number[]>([]);
   const [currentSuds, setCurrentSuds] = useState(5);
+  // The rating taken after grounding, and what it allows. Null until they
+  // rate: "continue" is not on offer before then (choicesAfterGrounding).
+  const [recheckSuds, setRecheckSuds] = useState(5);
+  const [returnChoices, setReturnChoices] = useState<ReturnChoice[] | null>(null);
   const [hardStopReason, setHardStopReason] = useState<string>("");
   const [speedMs, setSpeedMs] = useState(2400);
   // Bilateral tones on by default — the narration promises "a slow, steady rhythm
@@ -533,8 +539,11 @@ export default function SessionPlayer({ module: mod, focus, calmPlace, audioOnly
     }
     if (decision === "pause") {
       // Compliance 4B.2: pause processing, ground, then an explicit choice
-      // to continue or stop — never push through high distress.
+      // to continue or stop — never push through high distress. The choice
+      // waits for a fresh rating (choicesAfterGrounding).
       setBlsStarted(false);
+      setReturnChoices(null);
+      setRecheckSuds(currentSuds);
       setPhase("sudpause");
       void logSafetyEvent("suds_pause", sessionId ?? undefined);
       return;
@@ -857,7 +866,7 @@ export default function SessionPlayer({ module: mod, focus, calmPlace, audioOnly
           {phase === "sudpause" && (
             <p className="mt-2 text-olive">
               Your distress is high enough that pushing on isn&apos;t the right move. Ground
-              first — then you choose.
+              first, then check in with yourself — you can stop at any point.
             </p>
           )}
           <ol className="mt-5 list-decimal space-y-3 pl-5 text-lg leading-relaxed text-ground/90">
@@ -866,17 +875,75 @@ export default function SessionPlayer({ module: mod, focus, calmPlace, audioOnly
             ))}
             {calmPlace && <li>Say your calm-place word to yourself: “{calmPlace}”.</li>}
           </ol>
-          <div className="mt-7 flex flex-col gap-3">
-            <button
-              onClick={() => {
-                const wasPause = phase === "sudpause";
-                setPhase("running");
-                if (wasPause) advance();
+          <div className="mt-7 rounded-3xl border border-ground/10 bg-ivory p-5">
+            <label htmlFor="recheck-suds" className="font-medium text-ground">
+              Where is your distress now? (0–10)
+            </label>
+            <input
+              id="recheck-suds"
+              type="range"
+              min={0}
+              max={10}
+              value={recheckSuds}
+              onChange={(e) => {
+                setRecheckSuds(Number(e.target.value));
+                setReturnChoices(null);
               }}
-              className="rounded-full bg-sage px-6 py-3.5 font-medium text-ground transition-colors hover:bg-sage-deep"
-            >
-              {phase === "sudpause" ? "I'm steadier — continue gently" : "I'm steadier — back to the session"}
-            </button>
+              className="mt-3 w-full"
+              aria-describedby="recheck-suds-scale"
+            />
+            <div id="recheck-suds-scale" className="mt-1 flex justify-between text-sm text-olive">
+              <span>0 — no distress</span>
+              <span className="text-2xl font-bold text-ground">{recheckSuds}</span>
+              <span>10 — worst possible</span>
+            </div>
+            {returnChoices === null && (
+              <button
+                onClick={() => {
+                  // A real rating: it joins the trail the session is closed on.
+                  const next = choicesAfterGrounding(sudsTrail, recheckSuds);
+                  const trail = [...sudsTrail, recheckSuds];
+                  setSudsTrail(trail);
+                  if (next.endSession) {
+                    triggerHardStop(`Distress rated ${recheckSuds}/10`, trail);
+                    return;
+                  }
+                  setReturnChoices(next.choices);
+                }}
+                className="mt-4 w-full rounded-full bg-sage px-6 py-3 font-medium text-ground transition-colors hover:bg-sage-deep"
+              >
+                Record {recheckSuds}
+              </button>
+            )}
+            {returnChoices?.includes("ground_more") && (
+              <div role="status" className="mt-4">
+                <p className="text-ground/90">
+                  That&apos;s still high, so this isn&apos;t the moment to go back in. Stay with
+                  the grounding steps a little longer, then check again.
+                </p>
+                <button
+                  onClick={() => setReturnChoices(null)}
+                  className="mt-3 w-full rounded-full border border-ground/20 px-6 py-3 text-ground transition-colors hover:bg-moss"
+                >
+                  Check again
+                </button>
+              </div>
+            )}
+          </div>
+          <div className="mt-5 flex flex-col gap-3">
+            {returnChoices?.includes("continue") && (
+              <button
+                onClick={() => {
+                  const wasPause = phase === "sudpause";
+                  setReturnChoices(null);
+                  setPhase("running");
+                  if (wasPause) advance();
+                }}
+                className="rounded-full bg-sage px-6 py-3.5 font-medium text-ground transition-colors hover:bg-sage-deep"
+              >
+                {phase === "sudpause" ? "I'm steadier — continue gently" : "I'm steadier — back to the session"}
+              </button>
+            )}
             <button
               onClick={() => void endSession("abandoned")}
               className="rounded-full border border-ground/20 px-6 py-3.5 text-ground/80 transition-colors hover:bg-moss"
@@ -941,6 +1008,8 @@ export default function SessionPlayer({ module: mod, focus, calmPlace, audioOnly
       <button
         onClick={() => {
           setBlsStarted(false);
+          setReturnChoices(null);
+          setRecheckSuds(sudsTrail.length > 0 ? sudsTrail[sudsTrail.length - 1] : 5);
           setPhase("ground");
           void logSafetyEvent("ground_me_pressed", sessionId ?? undefined);
         }}

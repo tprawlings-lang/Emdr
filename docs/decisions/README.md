@@ -2,7 +2,10 @@
 
 One sheet per question. Each says what the product does in the meantime, so a question can be left open deliberately rather than by accident.
 
-**Nothing is waiting on a decision.** Every question below has been answered.
+| For | Question | Sheet |
+|---|---|---|
+| Clinical lead | The second trauma questionnaire (the International Trauma Questionnaire) has no published past-week version that we know of. How often should members take it between visits? | [`clinical.itq-between-visits`](./clinical.itq-between-visits.md) |
+| Clinical lead | After the first eight questions stop someone because of thoughts of self-harm in the past month, or an unsafe situation now, how long before they may answer again? | [`clinical.program-fit-pause-length`](./clinical.program-fit-pause-length.md) |
 
 ## Answered, and still waiting on something
 
@@ -12,6 +15,7 @@ The decision is not in doubt. What is missing is the information needed to act o
 |---|---|
 | Service operations | Who reviews the unclaimed list each day. The product needs nothing; the rota does. |
 | Product owner | A name and a date for each of the four jobs. The screen-reader walkthrough is the one that matters today: it is a gate the environment policy requires, so real enrolment stays shut until somebody has done it and signed it off. |
+| Clinical lead | The psychologists' signature on the past-week wording of the PTSD checklist, and on reading the ten-point rise that raises a review against week-to-week scores. |
 
 ## Already answered
 
@@ -31,6 +35,8 @@ Kept, with the answer and its date, so the code is not left carrying a rationale
 | When should a recorded gate result stop counting — on a clock, or when the thing it was measured against changes? | On change, with no time cap. A result expiring on a timer closes the pilot tier overnight with nothing having changed, which teaches an operator to re-run a check they have no reason to believe is stale. | 2026-09-23 |
 | When the record says a clinician adjusted a plan link, what has actually been adjusted? | A — a plan link is the goal a piece of assigned support is meant to move. Decided under the 24 September instruction to go with the best use rather than the shortcut, and it is the option that closes a gap somebody could see on the screen rather than one that adds a field. Built the same day: a clinician sets it when they assign the work or afterwards, both sides of the shared plan show it from the same sources, and the person reads it in their own words. It refuses another person's goal, refuses a goal nobody has confirmed with the person, and refuses a link that has not moved — recording care time for an adjustment nobody made is worse than recording nothing. | 2026-09-24 |
 | The Expansion Handoff proposes a new colour palette and one typeface, Atkinson Hyperlegible Next, in place of the palette and the two typefaces the product already had. Adopt it? | Adopt — approved by the product owner on 24 September, against the recommendation to keep the existing palette. Recorded rather than smoothed over, so the next reader can see the question was weighed. Adopted BY ROLE: the handoff calls its page background ground, and ground already meant the primary text colour in over a thousand places, so a name-for-name swap would have made body text pale on a pale page. Every text pairing is verified in the contrast checks; the automated accessibility scan passed on every route afterwards; the typeface loads at exactly the two weights the handoff allows. Dark mode followed the same day as its own change, checked the same way in both modes and scanned on every route with the system set to dark. | 2026-09-24 |
+| The two trauma questionnaires were given every week, but each asks about the past month, so every answer mostly repeated weeks the last one had already covered. Keep them weekly and ask about the past week instead, or give them monthly as written? | Weekly, asking about the past week — the product owner's decision on 24 September. The past-week wording is built and switched off until the psychologists sign it. | 2026-09-24 |
+| Members have a page showing what would go with them if they were referred to another clinician. It listed each questionnaire by its clinical name with the member's score, and the name of their internal care path. Show exactly what is sent, or describe it in plain words without the numbers? | Plain words, no numbers — the product owner's decision on 24 September. | 2026-09-24 |
 
 ---
 

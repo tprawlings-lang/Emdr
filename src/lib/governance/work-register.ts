@@ -965,6 +965,96 @@ export const WORK_REGISTER: WorkEntry[] = [
       "a topic to avoid is written as before \u2014 because the asymmetry is the rule.",
   },
   {
+    id: "clinical.sessions-terminate-cleanly",
+    title: "A session ends once, as its own ratings say it ended, and nothing stays open",
+    state: "reachable",
+    code: "src/lib/session-close.ts#closeSession",
+    test: "tests/session-termination.test.ts",
+    note:
+      "Expansion Handoff Phase 0, session termination. The web and mobile finish paths were copies " +
+      "that overwrote any status, so a hard-stopped session could be finished again as completed " +
+      "and its processing rest disappeared; the first close now wins and later ones change nothing. " +
+      "The server re-runs the in-session distress rule over the trail, so a rating of 9 closes as a " +
+      "hard stop whatever the request claimed, and before/after/peak come from the trail. Sessions " +
+      "nobody closed stayed in_progress forever, and 'pick up where you left off' started a new " +
+      "session beside them; starting a session now closes any left open (abandoned, at the cap, no " +
+      "invented ratings) and one past the cap is never offered back. A hard stop rests processing " +
+      "by its status as well as its rating. The after-session check now requires the member's own " +
+      "ended session, refuses a missing rating instead of saving it as zero, and takes one check " +
+      "per session. Closing that exposed a queueing gap in SQLite transactions, fixed and tested.",
+  },
+  {
+    id: "clinical.program-fit-retake-bypass",
+    title: "The program-fit questions cannot be answered again to lift a stop",
+    state: "reachable",
+    code: "src/lib/fitness-screener.ts#recordFitnessScreening",
+    test: "tests/fitness-retake.test.ts",
+    note:
+      "Expansion Handoff Phase 0, screener retake bypass. During the 24-hour pause only the page was " +
+      "hidden: the action and the mobile route saved a fresh set of answers and the pause ended at " +
+      "once. And after the pause, re-answering lifted stops the safety core says only a person may " +
+      "lift (a diagnosis, a hospital stay in the past year, relying on substances, being under 18). " +
+      "The one writer now refuses while any answer is in force; those stops are held until a " +
+      "clinician closes the stop's alert with a documented action. The mobile route skipped the " +
+      "refund and the care-team alert entirely \u2014 both paths now share one response. Every reader " +
+      "of the status opens on an allow-list, because the gate blocked by naming 'cooldown' and a " +
+      "new status would have walked through it. How long the timed pause should be is open with " +
+      "the clinical lead (clinical.program-fit-pause-length).",
+  },
+  {
+    id: "clinical.recall-window-cadence",
+    title: "No questionnaire is given again before the time it asks about has passed",
+    state: "reachable",
+    code: "src/lib/measures/cadence.ts#saveMeasureResponse",
+    test: "tests/measure-cadence.test.ts",
+    note:
+      "Expansion Handoff Phase 0 and \u00a74. The weekly wait lived only in whether the Begin link " +
+      "rendered; the page, the web action and the mobile route saved any questionnaire at any time. " +
+      "All three now go through one writer that refuses inside the instrument's recall window, read " +
+      "off its own instructions and checked against them. The weekly trauma measures asked about " +
+      "the past month every seven days; the product owner chose weekly with past-week wording " +
+      "(clinical.weekly-trauma-questionnaire-wording), built from the published past-week PCL-5 and " +
+      "switched off until the psychologists sign it, so the approved past-month wording runs every " +
+      "thirty days meanwhile. A rise is only compared against the same wording.",
+  },
+  {
+    id: "clinical.no-continue-at-high-distress",
+    title: "Continuing after a distress pause waits for a fresh rating that allows it",
+    state: "reachable",
+    code: "src/lib/session-safety.ts#choicesAfterGrounding",
+    test: "tests/distress-choice.test.ts",
+    note:
+      "Expansion Handoff Phase 0, member choice offered at high distress. After a pause (a rating " +
+      "of 8, or a rise of 3) the grounding steps ended in 'I'm steadier \u2014 continue gently', with " +
+      "no rating asked, so continuing was offered at the distress that had just paused the session; " +
+      "'Ground me' returned the same way. One rule now decides every return: continue only on a " +
+      "fresh rating the in-session rule would let through with the whole trail behind it; still in " +
+      "the pause band offers more grounding; the hard-stop band ends the session. Stopping and " +
+      "getting help are always offered. No new thresholds \u2014 the rule reaches the existing ones, " +
+      "and a test proves the two agree for every rating. The resourcing exercise is bilateral " +
+      "stimulation and is untouched under the v1 no-BLS rule; its between-set choice stops on " +
+      "'less pleasant'.",
+  },
+  {
+    id: "experience.no-clinical-labels-for-members",
+    title: "Members read plain names, not instrument names or diagnostic terms",
+    state: "reachable",
+    code: "src/lib/instruments.ts#INSTRUMENTS",
+    test: "tests/member-boundary.test.ts",
+    note:
+      "Expansion Handoff non-negotiable 6; Phase 0. Every questionnaire page was titled with the " +
+      "instrument's clinical name ('PCL-5 \u2014 PTSD Checklist for DSM-5'), a member path was called " +
+      "'PTSD & Trauma', a module description ended 'common in complex PTSD', and the phone app's " +
+      "questionnaire list carried cutoffs and which item raises a risk alert. Each instrument now " +
+      "has a member name, the path and module read plainly, and the phone list is a member-safe " +
+      "shape. The walk then found the referral page listing instrument names, scores and the " +
+      "hidden track name; the member now reads it in plain words with every item still listed " +
+      "(product.referral-page-plain-words). " +
+      "One term list feeds a source guard and a walk of every rendered member screen. The " +
+      "program-fit questions still ask about diagnoses \u2014 that is a question, not a label, and its " +
+      "wording awaits clinical sign-off.",
+  },
+  {
     id: "clinical.maintenance-language-held",
     title: "Maintenance words are written down, guarded, and held for review",
     state: "held",

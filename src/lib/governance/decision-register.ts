@@ -698,6 +698,146 @@ export const DECISION_REGISTER: Decision[] = [
     },
     asked: "2026-09-24",
   },
+  {
+    id: "clinical.weekly-trauma-questionnaire-wording",
+    question:
+      "The two trauma questionnaires were given every week, but each asks about the past month, so " +
+      "every answer mostly repeated weeks the last one had already covered. Keep them weekly and ask " +
+      "about the past week instead, or give them monthly as written?",
+    audience: "clinical",
+    blocks: [],
+    meanwhile:
+      "Until the new wording is signed, members answer the unchanged past-month wording once every " +
+      "thirty days, so measurement carries on with wording that is approved. The app no longer lets " +
+      "a questionnaire be taken again before the time it asks about has passed, on any screen or " +
+      "the phone app.",
+    options: [
+      {
+        label: "Weekly, asking about the past week",
+        plainly:
+          "The PTSD checklist is published by its authors in a past-week form for exactly this kind " +
+          "of repeated check. The questions stay the same; only the time they ask about changes. " +
+          "Weekly readings then cover separate weeks.",
+        then:
+          "Once signed, the checklist opens every seven days with the past-week wording. Scores in " +
+          "the two wordings are kept apart, so a rise is only ever measured against the same wording.",
+      },
+      {
+        label: "Monthly, as written",
+        plainly:
+          "Keep the standard wording and give it once a month, which is what the questionnaire " +
+          "itself asks about. Care teams see one reading a month instead of four.",
+        then: "Nothing further changes: this is what the app does while the wording is unsigned.",
+      },
+    ],
+    state: "answered",
+    answer: {
+      decided:
+        "Weekly, asking about the past week — the product owner's decision on 24 September. The " +
+        "past-week wording is built and switched off until the psychologists sign it.",
+      on: "2026-09-24",
+    },
+    outstanding:
+      "The psychologists' signature on the past-week wording of the PTSD checklist, and on reading " +
+      "the ten-point rise that raises a review against week-to-week scores.",
+    asked: "2026-09-24",
+  },
+  {
+    id: "product.referral-page-plain-words",
+    question:
+      "Members have a page showing what would go with them if they were referred to another " +
+      "clinician. It listed each questionnaire by its clinical name with the member's score, and " +
+      "the name of their internal care path. Show exactly what is sent, or describe it in plain " +
+      "words without the numbers?",
+    audience: "product",
+    blocks: [],
+    meanwhile: "The page showed the clinical names, the scores and the path name.",
+    options: [
+      {
+        label: "Plain words, no numbers",
+        plainly:
+          "Say what kind of thing would be shared — the low-mood questionnaire's answers and score, " +
+          "the date — without the numbers or the clinical names.",
+        then: "Every item is still listed. The version a clinician would receive does not change.",
+        recommended: true,
+      },
+      {
+        label: "Show exactly what is sent",
+        plainly: "Keep the names and scores on this one page, as a written-down exception.",
+        then: "Nothing changes on the page; the rule holds everywhere else.",
+      },
+    ],
+    state: "answered",
+    answer: { decided: "Plain words, no numbers — the product owner's decision on 24 September.", on: "2026-09-24" },
+    asked: "2026-09-24",
+  },
+  {
+    id: "clinical.itq-between-visits",
+    question:
+      "The second trauma questionnaire (the International Trauma Questionnaire) has no published " +
+      "past-week version that we know of. How often should members take it between visits?",
+    audience: "clinical",
+    blocks: [],
+    meanwhile: "It is given once every thirty days, with its standard past-month wording.",
+    options: [
+      {
+        label: "Monthly, as written",
+        plainly:
+          "Keep the published wording and give it once a month, next to the weekly checklist.",
+        then: "Nothing changes.",
+        recommended: true,
+      },
+      {
+        label: "Weekly, with an adapted past-week wording",
+        plainly:
+          "Change its wording to ask about the past week. It would no longer be the published " +
+          "questionnaire, and its scores could not be compared with published ones.",
+        then: "The psychologists write and sign the adapted wording, then it opens every seven days.",
+      },
+      {
+        label: "Only at the start",
+        plainly: "Ask it once when someone joins and leave between-visit tracking to the checklist.",
+        then: "It leaves the between-visit questionnaire list.",
+      },
+    ],
+    state: "open",
+    asked: "2026-09-24",
+  },
+  {
+    id: "clinical.program-fit-pause-length",
+    question:
+      "After the first eight questions stop someone because of thoughts of self-harm in the past " +
+      "month, or an unsafe situation now, how long before they may answer again?",
+    audience: "clinical",
+    blocks: [],
+    meanwhile:
+      "Twenty-four hours, as before. Answers a person cannot truthfully change — a diagnosis, a " +
+      "hospital stay in the past year, relying on substances, being under eighteen — now stay in " +
+      "place until someone from the care team has reviewed them and written down what they did; " +
+      "answering again no longer lifts them.",
+    options: [
+      {
+        label: "Until the question's own period has passed",
+        plainly:
+          "The self-harm question asks about the past thirty days, so an honest answer cannot change " +
+          "for thirty days. A person from the care team can reopen it sooner after talking with them.",
+        then: "The pause becomes thirty days for that question, and stays twenty-four hours for an unsafe situation now.",
+        recommended: true,
+      },
+      {
+        label: "Fourteen days",
+        plainly: "The figure in the clinical rules document the safety rules were built from.",
+        then: "The pause becomes fourteen days for both questions.",
+      },
+      {
+        label: "Keep twenty-four hours",
+        plainly: "A short pause, relying on honest answers the second time.",
+        then: "Nothing changes.",
+      },
+    ],
+    state: "open",
+    asked: "2026-09-24",
+  },
 ];
 
 export const OPEN_DECISIONS = DECISION_REGISTER.filter((d) => d.state === "open");

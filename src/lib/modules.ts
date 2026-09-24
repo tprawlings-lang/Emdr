@@ -357,7 +357,7 @@ export const MODULES: TherapyModule[] = [
     order: 11,
     name: "Relationship repair and self-concept",
     tier: "gated",
-    objective: "Address negative self-concept and relational themes common in complex PTSD.",
+    objective: "Work on harsh beliefs about yourself and the patterns that make relationships hard after long-running trauma.",
     durationLabel: "~20 min",
     prerequisiteIds: ["resourcing"],
     steps: [

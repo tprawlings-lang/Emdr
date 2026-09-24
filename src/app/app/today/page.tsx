@@ -278,13 +278,15 @@ export default async function DashboardPage({
           </Link>
         </div>
       )}
-      {fitness.status === "cooldown" && (
+      {(fitness.status === "cooldown" || fitness.status === "held") && (
         <div className="mb-6 rounded-3xl border border-state-caution/40 bg-ground/10 p-5">
           <p className="font-semibold text-ground">Sessions are paused right now</p>
           <p className="mt-1 text-sm text-ground/90">
             Based on your fit answers, the safest step today is support from a person. The
-            crisis page has options that can help right now, and you can revisit the
-            questions in {fitness.retakeInHours ?? 24}h.
+            crisis page has options that can help right now
+            {fitness.status === "held"
+              ? ", and your care team has been told."
+              : `, and you can revisit the questions in ${fitness.retakeInHours ?? 24}h.`}
           </p>
           <Link href="/crisis" className="mt-3 inline-block rounded-full bg-ground px-6 py-2.5 text-sm font-semibold text-ivory transition-colors hover:bg-ground">
             Open support options

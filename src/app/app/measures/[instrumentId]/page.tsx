@@ -2,26 +2,28 @@ import Link from "next/link";
 import { MemberPage } from "@/components/member/MemberPage";
 import { redirect } from "next/navigation";
 import { requireMember } from "@/lib/auth";
-import { getInstrument } from "@/lib/instruments";
 import InstrumentForm from "@/components/InstrumentForm";
-
-const TRACKED = new Set(["pcl-5", "itq"]);
+import { measureWindow, trackedForm } from "@/lib/measures/cadence";
+import { requestNow } from "@/lib/request-clock";
 
 export default async function TakeMeasurePage({
   params,
 }: {
   params: Promise<{ instrumentId: string }>;
 }) {
-  await requireMember();
+  const user = await requireMember();
 
   const { instrumentId } = await params;
-  const instrument = getInstrument(instrumentId);
-  if (!instrument || !TRACKED.has(instrument.id)) redirect("/app/measures");
+  const instrument = trackedForm(instrumentId);
+  if (!instrument) redirect("/app/measures");
+  // The page checked nothing before: the Begin link was hidden until a measure
+  // was due, and typing the address opened it anyway.
+  if (!(await measureWindow(user.id, instrument, requestNow())).open) redirect("/app/measures");
 
   return (
-    <MemberPage layer="progress" title={instrument.title}>
+    <MemberPage layer="progress" title={instrument.memberTitle}>
       <div className="sticky top-0 z-10 -mx-6 mb-6 border-b border-ground/10 bg-ivory/95 px-6 py-3 text-sm font-medium text-ground/80">
-        Weekly measure ·{" "}
+        Check-in questionnaire ·{" "}
         <Link href="/crisis" className="font-semibold text-ground underline">
           Need help now?
         </Link>

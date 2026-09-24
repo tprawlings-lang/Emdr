@@ -32,7 +32,13 @@ export async function POST(req: NextRequest) {
     hardStopReason: b.hardStopReason ?? null,
     sudsTrail: trail,
   });
-  if (!result.ok) return error("Session not found.", 404);
+  if (!result.ok) {
+    // An ended session is not ended again — 409, so a retried request learns
+    // the first one landed rather than that the session vanished.
+    return result.reason === "already_closed"
+      ? error("This session has already ended.", 409)
+      : error("Session not found.", 404);
+  }
   return json({ ok: true });
 }
 

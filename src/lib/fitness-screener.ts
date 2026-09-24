@@ -1,6 +1,7 @@
 import { newId } from "./db";
 import { data } from "./data";
 import { encryptField } from "./crypto";
+import { TRAIT_HARD_STOP_ITEMS } from "./safety/program-fit";
 
 // Onboarding fitness screener (compliance packet 4A): gatekeeping for a
 // self-guided program with no humans on call. Mandatory before baseline
@@ -153,10 +154,62 @@ export function classifyFitness(answers: Record<string, boolean>): {
 }
 
 export interface FitnessState {
-  status: "none" | "pass" | "soft_flag" | "cooldown";
+  /** `held`: a stop that re-answering cannot lift — only a person's review can
+   *  (see STANDING_STOP_ITEMS). Every consumer must treat any status other than
+   *  `pass` and `soft_flag` as closed, so a status added later fails closed. */
+  status: "none" | "pass" | "soft_flag" | "cooldown" | "held";
   /** Hours remaining before a retake is allowed (cooldown only). */
   retakeInHours?: number;
   flags: string[];
+}
+
+/** The two statuses that open anything session-shaped. An allow-list rather
+ *  than a list of blocking statuses: `held` was added after five call sites
+ *  had been written as `if (status === "cooldown") block`, and every one of
+ *  them would have let it straight through. */
+export function fitnessOpen(status: FitnessState["status"]): boolean {
+  return status === "pass" || status === "soft_flag";
+}
+
+/**
+ * Answers that re-answering cannot lift (Expansion Handoff Phase 0, "screener
+ * retake bypass").
+ *
+ * THE BYPASS. A stop used to become a 24-hour pause for every item alike, after
+ * which the member was "treated as not yet screened" and could answer again. So
+ * a person who said yes to a psychiatric hospitalization in the past twelve
+ * months could answer no a day later and every session opened. The safety core
+ * already said this must not happen: the trait items are "a standing exclusion,
+ * reversible ONLY by support contact (never by re-answering)"
+ * (safety/program-fit.ts), and its rules route each to human review. The live
+ * gate never read that. Under-18 is here for the same reason — it is the one
+ * permanent exclusion (FIT_UNDER_18, standingExclusion), and a day's wait does
+ * not change a date of birth.
+ *
+ * The state items (self-harm in the past 30 days, an unsafe situation now) keep
+ * the timed pause. How long it should be is an open clinical question — 24 hours
+ * here, 14 days in the Volume II config, and the self-harm question itself asks
+ * about 30 days — and it is recorded in the decision register rather than
+ * settled in code.
+ */
+export const STANDING_STOP_ITEMS: readonly string[] = [...TRAIT_HARD_STOP_ITEMS, "under_18"];
+
+/** What lifts a standing stop: a clinician closing the stop's alert with a
+ *  documented action. The high band will not close on an acknowledgement
+ *  (clinical/alerts.ts, NEVER_AUTO_RESOLVE), so "reviewed" means somebody wrote
+ *  down what they did. */
+export const FITNESS_STOP_ALERT = "fitness_screening_stop";
+
+/** Refused rather than silently ignored: a second submission is not a no-op,
+ *  it is an attempt to replace an answer that is still in force. */
+export class FitnessRetakeRefused extends Error {
+  constructor(public readonly status: FitnessState["status"]) {
+    super(`Program-fit answers cannot be replaced while the status is "${status}".`);
+  }
+}
+
+function stampMs(s: string): number {
+  return new Date(s.replace(" ", "T") + "Z").getTime();
 }
 
 // Latest screener result for gating. Responses are stored as coded values
@@ -176,8 +229,22 @@ export async function getFitnessState(userId: string): Promise<FitnessState> {
     flags = [];
   }
   const hardStopped = flags.some((f) => f.startsWith("hard_stop:"));
+  const standing = flags.some((f) => STANDING_STOP_ITEMS.some((id) => f === `hard_stop:${id}`));
+  if (standing) {
+    // Lifted only by a documented review of THIS stop — an alert raised at or
+    // after the answers, then closed. An older closed alert is a review of a
+    // different answer.
+    const taken = stampMs(row.created_at);
+    const reviews = (await c.all(
+      `SELECT created_at FROM alerts
+        WHERE user_id = ? AND alert_type = ? AND status = 'reviewed'`,
+      [userId, FITNESS_STOP_ALERT]
+    )) as { created_at: string }[];
+    const reviewed = reviews.some((r) => stampMs(r.created_at) >= taken);
+    return reviewed ? { status: "none", flags } : { status: "held", flags };
+  }
   if (hardStopped) {
-    const taken = new Date(row.created_at.replace(" ", "T") + "Z").getTime();
+    const taken = stampMs(row.created_at);
     const hoursSince = (Date.now() - taken) / 3600000;
     if (hoursSince < RETAKE_COOLDOWN_HOURS) {
       return {
@@ -197,6 +264,12 @@ export async function hasSeizureFlag(userId: string): Promise<boolean> {
 }
 
 export async function recordFitnessScreening(userId: string, answers: Record<string, boolean>) {
+  // The only writer, so the refusal lives here rather than in each caller: the
+  // web action and the mobile route both reach this, and before this check
+  // neither asked whether an answer was already in force. During a pause the
+  // form was hidden, but the action behind it still took a fresh set of "no"s.
+  const current = await getFitnessState(userId);
+  if (current.status !== "none") throw new FitnessRetakeRefused(current.status);
   const { outcome, flags } = classifyFitness(answers);
   // Coded values only — item id to 0/1.
   const coded: Record<string, number> = {};

@@ -98,6 +98,7 @@ export async function buildReferralPacket(args: {
         shape: "score" as const,
         value: String(r.total_score),
         source: `Your most recent ${r.instrument}, completed ${day(r.created_at)}.`,
+        ref: r.instrument,
       })),
       absent: measures.length === 0 ? "No validated measure has been completed yet." : null,
     },

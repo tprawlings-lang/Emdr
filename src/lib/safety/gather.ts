@@ -124,7 +124,7 @@ export async function gatherSafetyInputs(userId: string, nowMs: number): Promise
   // ── Cooldowns derived from recent high-distress sessions ──────────────────
   inputs.activeCooldowns = await safe(async () => {
     const hot = (await c.get(
-      "SELECT ended_at FROM therapy_sessions WHERE user_id = ? AND ended_at IS NOT NULL AND post_suds >= ? ORDER BY ended_at DESC LIMIT 1",
+      "SELECT ended_at FROM therapy_sessions WHERE user_id = ? AND ended_at IS NOT NULL AND (post_suds >= ? OR status = 'hard_stop') ORDER BY ended_at DESC LIMIT 1",
       [userId, SUDS_COOLDOWN_AT]
     )) as { ended_at: string } | undefined;
     if (!hot) return [];

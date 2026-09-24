@@ -2,7 +2,8 @@ import { MemberPage } from "@/components/member/MemberPage";
 import { requireMember } from "@/lib/auth";
 import { data } from "@/lib/data";
 import { buildReferralPacket } from "@/lib/clinical/referral-packet-store";
-import { EXISTING_SCOPES, DISCLOSURE_SCOPE } from "@/lib/clinical/referral-packet";
+import { EXISTING_SCOPES, DISCLOSURE_SCOPE, memberReferralView } from "@/lib/clinical/referral-packet";
+import { getInstrument } from "@/lib/instruments";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "What a referral would contain — Steady" };
@@ -37,6 +38,10 @@ export default async function ReferralContentsPage() {
     tenantId: row?.tenant_id ?? "",
   });
 
+  // The member's reading: plain names, no scores, no track name. Everything
+  // that would be sent is still listed (referral-packet.ts).
+  const sections = memberReferralView(packet, (id) => getInstrument(id)?.memberTitle);
+
   return (
     <MemberPage
       layer="evidence"
@@ -58,7 +63,7 @@ export default async function ReferralContentsPage() {
           their own history — so instead you get the whole of it, here, first.
         </p>
         <ul className="mt-4 space-y-4">
-          {packet.sections.map((s) => (
+          {sections.map((s) => (
             <li key={s.kind} className="rounded-3xl border border-ground/10 bg-linen p-5">
               <p className="font-medium text-ground">{s.title}</p>
               <p className="measure mt-1 text-sm text-olive">{s.why}</p>
@@ -66,13 +71,13 @@ export default async function ReferralContentsPage() {
                 <p className="measure mt-3 text-sm text-olive">{s.absent}</p>
               ) : (
                 <dl className="mt-3 space-y-2">
-                  {s.fields.map((f) => (
+                  {s.items.map((f) => (
                     <div key={f.label} className="grid gap-1 sm:grid-cols-[minmax(0,1fr)_auto] sm:gap-4">
                       <dt className="min-w-0 text-sm text-ground">
                         {f.label}
                         <span className="measure mt-0.5 block text-xs text-olive">{f.source}</span>
                       </dt>
-                      <dd className="text-sm tabular-nums text-ground">{f.value}</dd>
+                      <dd className="text-sm text-ground">{f.value}</dd>
                     </div>
                   ))}
                 </dl>

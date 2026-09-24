@@ -40,11 +40,14 @@ function Scale({ name }: { name: string }) {
 // are they safe now, is delayed worsening likely, and does a clinician need
 // to review this session (executive plan).
 export default async function PostSessionPage({
+  params,
   searchParams,
 }: {
-  searchParams: Promise<{ sid?: string }>;
+  params: Promise<{ moduleId: string }>;
+  searchParams: Promise<{ sid?: string; incomplete?: string }>;
 }) {
-  const { sid } = await searchParams;
+  const { sid, incomplete } = await searchParams;
+  const { moduleId } = await params;
   const user = await requireMember();
   if (!sid) redirect("/app/today");
 
@@ -64,6 +67,13 @@ export default async function PostSessionPage({
 
       <form action={submitPostSessionCheck} className="mt-10 space-y-8">
         <input type="hidden" name="sessionId" value={sid} />
+        <input type="hidden" name="moduleId" value={moduleId} />
+        {incomplete && (
+          <p role="alert" className="rounded-2xl border border-state-caution/40 bg-state-caution-bg px-4 py-3 text-sm text-ground">
+            One of the answers didn&apos;t come through, so nothing was saved. Please answer each
+            question once more.
+          </p>
+        )}
 
         <fieldset className="space-y-2.5">
           <legend className="font-medium">What is your distress right now? (0–10)</legend>

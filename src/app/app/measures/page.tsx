@@ -2,13 +2,7 @@ import { MemberPage } from "@/components/member/MemberPage";
 import { requestNow } from "@/lib/request-clock";
 import Link from "next/link";
 import { requireMember } from "@/lib/auth";
-import { data } from "@/lib/data";
-import { getInstrument } from "@/lib/instruments";
-
-const TRACKED: { id: "pcl-5" | "itq"; cadenceDays: number }[] = [
-  { id: "pcl-5", cadenceDays: 7 },
-  { id: "itq", cadenceDays: 7 },
-];
+import { TRACKED_MEASURES, measureWindow, trackedForm } from "@/lib/measures/cadence";
 
 export default async function MeasuresPage({
   searchParams,
@@ -22,37 +16,23 @@ export default async function MeasuresPage({
   const now = requestNow();
   const { submitted } = await searchParams;
 
-  const c = await data();
-
   const rows = await Promise.all(
-    TRACKED.map(async (t) => {
-      // Only WHEN it was taken, never what it said. The score and the raw
-      // answers are deliberately not selected: a member surface that holds a
-      // score is one edit away from rendering it, and the boundary only holds
-      // if the value never arrives (handoff §3).
-      const last = (await c.get(
-        `SELECT created_at
-         FROM screenings WHERE user_id = ? AND instrument = ?
-         ORDER BY created_at DESC LIMIT 1`,
-        [user.id, t.id]
-      )) as { created_at: string } | undefined;
-      const instrument = getInstrument(t.id)!;
-      // Age in days computed in JS (was SQLite julianday) — dialect-neutral.
-      // ONE clock reading for the whole page, taken above: read per row, two
-      // measures could land either side of midnight and disagree about what
-      // "today" is, which is how a due date flickers between renders.
-      const age = last
-        ? Math.floor((now - new Date(last.created_at.replace(" ", "T") + "Z").getTime()) / 86400000)
-        : Infinity;
-      return { ...t, instrument, last, age, due: age >= t.cadenceDays };
+    TRACKED_MEASURES.map(async (t) => {
+      // The same window the save enforces (measures/cadence.ts), so the page
+      // cannot offer what the server would refuse. Only WHEN it was taken is
+      // read, never what it said: a member surface that holds a score is one
+      // edit away from rendering it (handoff §3).
+      const w = await measureWindow(user.id, trackedForm(t.id)!, now);
+      const age = w.lastAt === null ? null : Math.floor((now - w.lastAt) / 86400000);
+      return { id: t.id, title: w.form.memberTitle, age, due: w.open, daysUntilOpen: w.daysUntilOpen };
     })
   );
 
   return (
     <MemberPage
         layer="progress"
-        title="Weekly measures"
-        lede="These short questionnaires are how you and your care team see whether the program is actually helping. Once a week is enough — more often does not make the signal better."
+        title="Check-in questionnaires"
+        lede="These short questionnaires are how you and your care team see whether the program is actually helping. Each one asks about a set stretch of time, so it opens again once that stretch has passed — sooner would only repeat the last answer."
       >
 
       {submitted && (
@@ -72,9 +52,9 @@ export default async function MeasuresPage({
             <div key={r.id} className="rounded-3xl border border-ground/10 bg-linen p-5 shadow-soft">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
-                  <h2 className="font-semibold">{r.instrument.title}</h2>
+                  <h2 className="font-semibold">{r.title}</h2>
                   <p className="mt-1 text-sm text-olive">
-                    {r.last
+                    {r.age !== null
                       ? `Last taken ${r.age === 0 ? "today" : `${r.age} day${r.age === 1 ? "" : "s"} ago`}`
                       : "Not taken yet"}
                   </p>
@@ -88,7 +68,7 @@ export default async function MeasuresPage({
                   </Link>
                 ) : (
                   <span className="rounded-full border border-ground/10 bg-state-unknown-bg px-5 py-2.5 text-sm text-state-unknown">
-                    Due in {r.cadenceDays - r.age} day{r.cadenceDays - r.age === 1 ? "" : "s"}
+                    Opens in {r.daysUntilOpen} day{r.daysUntilOpen === 1 ? "" : "s"}
                   </span>
                 )}
               </div>

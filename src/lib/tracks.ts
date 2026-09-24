@@ -62,13 +62,16 @@ export const EVIDENCE_LABELS: Record<EvidenceGrade, string> = {
 export const TRACKS: CareTrack[] = [
   {
     id: "ptsd_trauma",
-    name: "PTSD & Trauma",
+    // Members choose paths by this name, so it is the plain one (Expansion
+    // Handoff non-negotiable 6: no clinical labels on member surfaces). The id
+    // keeps the clinical meaning for everything that is not read by a member.
+    name: "Trauma & Hard Memories",
     blurb: "For trauma-linked distress — intrusive memories, nightmares, avoidance, hypervigilance.",
     scope:
       "An approach used for trauma-linked patterns: intrusive memories, nightmares, avoidance, feeling constantly on guard, and the beliefs that travel with them.",
     evidenceGrade: "high",
     evidenceNote:
-      "The EMDR method has strong guideline support for PTSD (VA/DoD, NICE, WHO). This is our most established pathway.",
+      "The EMDR method is recommended in the main clinical guidelines for trauma-related conditions (VA/DoD, NICE, WHO). This is our most established pathway.",
     clinicianReview: "recommended",
     moduleIds: [
       "calm-place",
@@ -92,7 +95,7 @@ export const TRACKS: CareTrack[] = [
       "An approach used for panic, body alarm, social fears, and non-specific worry — including anxiety linked to past experiences.",
     evidenceGrade: "moderate",
     evidenceNote:
-      "Meta-analyses suggest the method can reduce anxiety symptoms; the evidence base is smaller than for PTSD.",
+      "Meta-analyses suggest the method can reduce anxiety symptoms; the evidence base is smaller than for trauma.",
     clinicianReview: "recommended",
     moduleIds: [
       "calm-place",
