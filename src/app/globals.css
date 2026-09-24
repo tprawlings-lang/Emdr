@@ -206,10 +206,146 @@ html:has([data-support-dock]) {
   letter-spacing: -0.011em;
 }
 
+/* TRACKING IS SIZE-SPECIFIC, AND IT WAS NOT.
+   Measured in a browser rather than reasoned about: `.type-display` computed
+   to exactly -0.021em at 20px and at 30px, and it is written on everything
+   from text-sm (14px) to text-5xl (48px) — a 3.4x range wearing one number.
+   An `em` value scales PROPORTIONALLY with size, which is not the same thing
+   as scaling CORRECTLY: letters read progressively looser as they grow, so
+   display type wants MORE negative tracking as it gets bigger, and small dense
+   text wants slightly POSITIVE tracking to stay legible. One fixed value is
+   therefore wrong at both ends and right only in the middle. At 14px, -0.021em
+   was tightening exactly the text a tired reader can least afford to have
+   tightened.
+
+   Buckets rather than a formula, because CSS cannot make letter-spacing a
+   non-linear function of an element's own font-size, and because a bucket is
+   something a person can read off the file and check against a screen. Each
+   selector is a class pair the markup already writes, so nothing had to be
+   touched to adopt it.
+
+   THE ROLES DIVERGE ON PURPOSE. Literata sets with a larger x-height than
+   Inter and already tracks tighter optically, so the serif role takes less
+   correction at every step than the sans. */
+.type-display.text-sm { letter-spacing: 0.004em; }
+.type-display.text-base { letter-spacing: 0; }
+.type-display.text-lg { letter-spacing: -0.006em; }
+.type-display.text-xl { letter-spacing: -0.009em; }
+.type-display.text-2xl { letter-spacing: -0.013em; }
+.type-display.text-3xl { letter-spacing: -0.018em; }
+.type-display.text-4xl { letter-spacing: -0.022em; }
+.type-display.text-5xl { letter-spacing: -0.026em; }
+.type-display.text-6xl { letter-spacing: -0.03em; }
+
+.type-identity.text-xl { letter-spacing: -0.004em; }
+.type-identity.text-2xl { letter-spacing: -0.008em; }
+.type-identity.text-3xl { letter-spacing: -0.012em; }
+.type-identity.text-4xl { letter-spacing: -0.016em; }
+.type-identity.text-5xl { letter-spacing: -0.02em; }
+
 /* §7: line length capped at ~60 characters. Long measure is a specific
    failure under cognitive load — the eye loses the line return. */
 .measure {
   max-width: 60ch;
+}
+
+/* THE PRESS IS ANSWERED IMMEDIATELY, BY THE THING THAT WAS PRESSED.
+   There were 207 buttons in this product and not one `:active` rule — counted
+   in the browser, over the loaded stylesheets, not grepped for. Every clinical
+   command here is a server action: pressing "Complete review" or "Record it"
+   starts a round trip and a redirect, and until it returns the screen was
+   completely silent. That silence is the worst case for directness, because
+   the one moment the interface is guaranteed to be unresponsive is the one
+   moment it said nothing at all.
+
+   ON `:active`, WHICH FIRES ON POINTER-DOWN. Feedback that waits for the click
+   to complete is feedback that arrives after the thing it was confirming.
+
+   BUTTONS AND DISCLOSURES, NOT LINKS, and that is the right target rather than
+   a compromise: a link navigates, so the browser eventually answers for it,
+   and a rule broad enough to catch links-styled-as-buttons would also scale
+   ordinary links inside a sentence. A button running a server action is where
+   the gap actually is.
+
+   SMALL ENOUGH TO FEEL AND NOT TO NOTICE. Two percent on a clinical screen is
+   confirmation, not animation. This product removes visual bilateral
+   stimulation globally for photosensitivity; a bouncing button would be
+   incoherent with that.
+
+   AND IT IS INSTANT, WITH NO TRANSITION. One was written first — 90ms ease-out
+   — and removed for two reasons. A transition on the way IN delays the very
+   feedback this exists to deliver, which is the opposite of the point. And the
+   `transition` shorthand resets `transition-property`, so on every button that
+   already carries Tailwind's `transition-colors` the utility won on specificity
+   and the rule silently did nothing anyway. */
+:where(button, summary, [role="button"]):not(:disabled):active {
+  transform: scale(0.98);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* NOT "NO FEEDBACK" — a gentler equivalent. The press still has to be
+     answered; it is answered without movement. */
+  :where(button, summary, [role="button"]):not(:disabled):active {
+    transform: none;
+    filter: brightness(0.94);
+  }
+}
+
+/* A FOCUS INDICATOR THIS PRODUCT CHOSE.
+   Every interactive element but two was relying on the browser default, which
+   computed to `auto 1px currentColor` — so on the queue's bucket chips the
+   ring was drawn in olive on linen, at one pixel. WCAG 2.2 asks for an
+   indicator at least 2px thick with 3:1 contrast against what surrounds it,
+   and this is the one accessibility detail the whole pilot currently waits on:
+   the walkthrough in docs/accessibility-walkthrough.md has a person tab
+   through every clinical task, and a 1px ring is what they would be following.
+
+   `:where()` KEEPS SPECIFICITY AT ZERO, so any component that needs its own
+   treatment still wins without an `!important` fight, and the two that already
+   had one keep it unchanged.
+
+   OFFSET RATHER THAN INSET, so the ring sits on the page behind the control
+   and stays visible on the dark primary buttons as well as the pale ones. */
+:where(a, button, summary, input, select, textarea, [tabindex]):focus-visible {
+  outline: 2px solid var(--color-app-ink);
+  outline-offset: 2px;
+  /* THE RING IS INSTANT, and it was not until this line existed. Tailwind's
+     `transition-colors` includes `outline-color`, and most interactive elements
+     here carry it — so the indicator FADED IN from the element's own text
+     colour over 150ms. Measured at the keyboard: at 0ms the ring on a nav item
+     was olive (its text colour, 1.9:1 against the rail) and only reached
+     #173a32 by 400ms. Somebody tabbing at any speed never saw it at full
+     contrast, which is the defect a focus indicator exists to not have.
+     The list is Tailwind's own `transition-colors` set with `outline-color`
+     taken out, so hover tints still animate and the ring does not. */
+  transition-property: color, background-color, border-color, text-decoration-color, fill, stroke;
+}
+
+/* TRANSLUCENCY IS A PREFERENCE, AND ONE SURFACE HONOURS IT.
+   The support dock is the only element in the product built on backdrop-blur.
+   It is also the one that must never become hard to read: it carries the
+   crisis routes. Somebody who has asked their system for less transparency has
+   asked for exactly this. */
+@media (prefers-reduced-transparency: reduce) {
+  [data-support-dock] {
+    background-color: var(--color-linen) !important;
+    backdrop-filter: none !important;
+  }
+}
+
+/* MORE CONTRAST MEANS DEFINED EDGES, not darker text.
+   The palette above is already verified at 4.5:1 or better, so the thing to
+   strengthen is the boundaries between surfaces — which is what disappears
+   first for a reader who asked for this. */
+@media (prefers-contrast: more) {
+  :where(a, button, summary, input, select, textarea, [tabindex]):focus-visible {
+    outline-width: 3px;
+  }
+  [data-support-dock] {
+    background-color: var(--color-linen) !important;
+    backdrop-filter: none !important;
+    border-top-color: var(--color-app-ink) !important;
+  }
 }
 
 /* §7: "Respect prefers-reduced-motion as a hard requirement, not a nicety."
