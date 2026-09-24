@@ -9,7 +9,7 @@
 import type { VisualBaseline } from "./visual-baseline";
 
 export const VISUAL_BASELINE: VisualBaseline = {
-  "capturedAt": "2026-09-24T09:44:20.417Z",
+  "capturedAt": "2026-09-24T18:37:58.354Z",
   "conditions": "1280x900 with motion frozen, signed in per role, against a production build over the hermetic e2e seed (rm -rf .e2e-data && npm run demo -- reset && npm run start) — the same environment tests/e2e/visual-baseline.spec.ts compares against",
   "screens": [
     {
@@ -46,12 +46,12 @@ export const VISUAL_BASELINE: VisualBaseline = {
       "palette": {
         "background": [
           "rgb(243, 228, 200)",
-          "rgb(251, 248, 242)"
+          "rgb(247, 249, 248)"
         ],
         "text": [
-          "rgb(23, 58, 50)",
-          "rgb(47, 58, 51)",
-          "rgb(84, 94, 83)"
+          "rgb(28, 42, 47)",
+          "rgb(47, 100, 104)",
+          "rgb(85, 103, 108)"
         ]
       },
       "rhythm": [
@@ -100,16 +100,16 @@ export const VISUAL_BASELINE: VisualBaseline = {
       ],
       "palette": {
         "background": [
-          "rgb(168, 184, 161)",
-          "rgb(251, 248, 242)",
-          "rgb(47, 58, 51)"
+          "rgb(199, 213, 213)",
+          "rgb(247, 249, 248)",
+          "rgb(28, 42, 47)"
         ],
         "text": [
-          "oklab(0.96 0.003 0.013 / 0.85)",
-          "oklab(0.96 0.003 0.013 / 0.9)",
-          "rgb(247, 241, 232)",
-          "rgb(47, 58, 51)",
-          "rgb(84, 94, 83)"
+          "oklab(0.945 -0.006 0.001 / 0.85)",
+          "oklab(0.945 -0.006 0.001 / 0.9)",
+          "rgb(233, 238, 236)",
+          "rgb(28, 42, 47)",
+          "rgb(85, 103, 108)"
         ]
       },
       "rhythm": [
@@ -227,18 +227,18 @@ export const VISUAL_BASELINE: VisualBaseline = {
       ],
       "palette": {
         "background": [
-          "oklab(0.98 0.001 0.009 / 0.4)",
-          "rgb(223, 233, 226)",
+          "oklab(0.98 -0.002 0.001 / 0.4)",
+          "rgb(219, 228, 228)",
+          "rgb(233, 238, 236)",
           "rgb(243, 228, 200)",
-          "rgb(247, 241, 232)",
-          "rgb(251, 248, 242)",
-          "rgb(47, 58, 51)"
+          "rgb(247, 249, 248)",
+          "rgb(28, 42, 47)"
         ],
         "text": [
-          "rgb(23, 58, 50)",
-          "rgb(247, 241, 232)",
-          "rgb(47, 58, 51)",
-          "rgb(84, 94, 83)"
+          "rgb(233, 238, 236)",
+          "rgb(28, 42, 47)",
+          "rgb(47, 100, 104)",
+          "rgb(85, 103, 108)"
         ]
       },
       "rhythm": [
@@ -277,17 +277,18 @@ export const VISUAL_BASELINE: VisualBaseline = {
         "background": [
           "oklab(0.47 0.084 0.054 / 0.15)",
           "rgb(226, 237, 241)",
+          "rgb(229, 236, 235)",
           "rgb(243, 221, 216)",
-          "rgb(251, 248, 242)",
-          "rgb(47, 58, 51)"
+          "rgb(247, 249, 248)",
+          "rgb(28, 42, 47)"
         ],
         "text": [
           "rgb(138, 67, 53)",
-          "rgb(23, 58, 50)",
-          "rgb(247, 241, 232)",
-          "rgb(47, 58, 51)",
+          "rgb(233, 238, 236)",
+          "rgb(28, 42, 47)",
+          "rgb(47, 100, 104)",
           "rgb(55, 93, 112)",
-          "rgb(84, 94, 83)"
+          "rgb(85, 103, 108)"
         ]
       },
       "rhythm": [
@@ -345,21 +346,21 @@ export const VISUAL_BASELINE: VisualBaseline = {
       ],
       "palette": {
         "background": [
-          "oklab(0.908 -0.014 0.018 / 0.6)",
+          "oklab(0.937 -0.007 -0.001 / 0.6)",
+          "rgb(103, 142, 144)",
           "rgb(122, 81, 16)",
-          "rgb(147, 165, 139)",
-          "rgb(223, 233, 226)",
+          "rgb(219, 228, 228)",
           "rgb(243, 221, 216)",
-          "rgb(255, 253, 248)"
+          "rgb(247, 249, 248)"
         ],
         "text": [
-          "oklab(0.336 -0.018 0.007 / 0.8)",
-          "oklab(0.336 -0.018 0.007 / 0.9)",
+          "oklab(0.275 -0.016 -0.014 / 0.8)",
+          "oklab(0.275 -0.016 -0.014 / 0.9)",
           "rgb(122, 81, 16)",
           "rgb(138, 67, 53)",
-          "rgb(23, 58, 50)",
-          "rgb(47, 58, 51)",
-          "rgb(84, 94, 83)"
+          "rgb(28, 42, 47)",
+          "rgb(47, 100, 104)",
+          "rgb(85, 103, 108)"
         ]
       },
       "rhythm": [
@@ -411,16 +412,15 @@ export const VISUAL_BASELINE: VisualBaseline = {
           "lab(97.846 -6.95 1.855)",
           "lab(98.625 -0.636 8.423)",
           "rgb(226, 237, 241)",
-          "rgb(251, 248, 242)",
-          "rgb(255, 253, 248)"
+          "rgb(247, 249, 248)"
         ],
         "text": [
           "lab(28.864 -26.925 5.46)",
           "lab(31.229 30.263 40.038)",
-          "rgb(23, 58, 50)",
-          "rgb(47, 58, 51)",
+          "rgb(28, 42, 47)",
+          "rgb(47, 100, 104)",
           "rgb(55, 93, 112)",
-          "rgb(84, 94, 83)"
+          "rgb(85, 103, 108)"
         ]
       },
       "rhythm": [
@@ -469,17 +469,17 @@ export const VISUAL_BASELINE: VisualBaseline = {
       ],
       "palette": {
         "background": [
-          "oklab(0.908 -0.014 0.018 / 0.4)",
+          "oklab(0.937 -0.007 -0.001 / 0.4)",
           "rgb(226, 237, 241)",
           "rgb(243, 228, 200)",
-          "rgb(255, 253, 248)"
+          "rgb(247, 249, 248)"
         ],
         "text": [
           "rgb(122, 81, 16)",
-          "rgb(23, 58, 50)",
-          "rgb(47, 58, 51)",
+          "rgb(28, 42, 47)",
+          "rgb(47, 100, 104)",
           "rgb(55, 93, 112)",
-          "rgb(84, 94, 83)"
+          "rgb(85, 103, 108)"
         ]
       },
       "rhythm": [
@@ -527,15 +527,15 @@ export const VISUAL_BASELINE: VisualBaseline = {
       ],
       "palette": {
         "background": [
-          "oklab(0.908 -0.014 0.018 / 0.4)",
+          "oklab(0.937 -0.007 -0.001 / 0.4)",
           "rgb(226, 237, 241)",
-          "rgb(255, 253, 248)"
+          "rgb(247, 249, 248)"
         ],
         "text": [
-          "rgb(23, 58, 50)",
-          "rgb(47, 58, 51)",
+          "rgb(28, 42, 47)",
+          "rgb(47, 100, 104)",
           "rgb(55, 93, 112)",
-          "rgb(84, 94, 83)"
+          "rgb(85, 103, 108)"
         ]
       },
       "rhythm": [

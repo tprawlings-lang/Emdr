@@ -155,7 +155,7 @@ export function Funnel({ stages }: { stages: Stage[] }) {
                   className="absolute inset-y-0 left-0 min-w-1 rounded-full"
                   style={{
                     width: `${w}%`,
-                    backgroundColor: s.attention ? "var(--color-state-caution)" : "var(--color-sage-deep)",
+                    backgroundColor: s.attention ? "var(--color-state-caution)" : "var(--color-chart-neutral)",
                   }}
                 />
               </span>
@@ -195,7 +195,7 @@ export function BarList({ bars, unit }: { bars: Bar[]; unit?: string }) {
                 className="absolute inset-y-0 left-0 min-w-1 rounded-full"
                 style={{
                   width: `${Math.max(1, Math.round((b.value / top) * 100))}%`,
-                  backgroundColor: b.attention ? "var(--color-state-caution)" : "var(--color-sage-deep)",
+                  backgroundColor: b.attention ? "var(--color-state-caution)" : "var(--color-chart-neutral)",
                 }}
               />
             </span>
@@ -255,7 +255,7 @@ export function RateBars({ rates }: { rates: Rate[] }) {
                   width: `${Math.max(1, Math.round(share(r.count) * 100))}%`,
                   backgroundColor: r.attention
                     ? "var(--color-state-caution)"
-                    : "var(--color-sage-deep)",
+                    : "var(--color-chart-neutral)",
                 }}
               />
             </span>
@@ -305,7 +305,7 @@ export function GroupedBars({ groups }: { groups: Group[] }) {
                       style={{
                         width: `${Math.max(1, Math.round((series.value / top) * 100))}%`,
                         backgroundColor: series.observed
-                          ? "var(--color-sage-deep)"
+                          ? "var(--color-chart-neutral)"
                           : "var(--color-mist-deep)",
                         backgroundImage: series.observed
                           ? undefined
@@ -642,7 +642,7 @@ export function Line({ series, unit }: { series: Series[]; unit: string }) {
               cur.push(`${cur.length ? "L" : "M"}${px(i).toFixed(1)},${py(p.y).toFixed(1)}`);
             });
             if (cur.length) runs.push(cur.join(" "));
-            const color = si === 0 ? "var(--color-sage-deep)" : "var(--color-state-caution)";
+            const color = si === 0 ? "var(--color-chart-neutral)" : "var(--color-state-caution)";
             return (
               <g key={s.name}>
                 {runs.map((d, i) => (
@@ -746,7 +746,7 @@ export function Line({ series, unit }: { series: Series[]; unit: string }) {
             <span
               aria-hidden
               className="h-0.5 w-5"
-              style={{ backgroundColor: si === 0 ? "var(--color-sage-deep)" : "var(--color-state-caution)" }}
+              style={{ backgroundColor: si === 0 ? "var(--color-chart-neutral)" : "var(--color-state-caution)" }}
             />
             {s.name}
             {!s.observed && <span className="font-medium text-state-info">modelled</span>}

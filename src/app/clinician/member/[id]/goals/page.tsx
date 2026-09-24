@@ -229,7 +229,7 @@ export default async function MemberGoalsPage({
                           </span>
                           {/* The source label, always. §14: patient report and
                               clinician observation must display differently. */}
-                          <span className="rounded-full bg-linen px-2 py-0.5 text-xs text-olive">
+                          <span className="rounded-full bg-moss px-2 py-0.5 text-xs text-olive">
                             {EVIDENCE_LABEL[o.evidenceClass]}
                           </span>
                           {o.status !== "accepted" && (

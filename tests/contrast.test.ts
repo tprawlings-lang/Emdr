@@ -80,12 +80,15 @@ test("the tokens §3.9 measured as failing are not used as text", () => {
   // They keep their legitimate jobs — fills, borders, selected backgrounds —
   // but `text-*` is where they break, so that is what is forbidden. Named
   // individually with their measured ratio so the failure explains itself.
-  const BANNED: Record<string, string> = {
-    "sage-deep": "2.34:1 on ivory",
-    "clay": "1.96:1 on ivory",
-    "safe-deep": "3.20:1 on ivory",
-    "mist-deep": "4.18:1 on ivory",
-  };
+  // The ratios are RECOMPUTED from the current tokens rather than quoted, so
+  // the list stays true when a palette changes under it — which it did on 24
+  // September. `sand` joined because §8.2 says "fills only, never text", and
+  // `clay` stayed because it now takes sand's value.
+  const BANNED: Record<string, string> = Object.fromEntries(
+    ["sage-deep", "clay", "sand", "safe-deep", "mist-deep"].map((t) => [
+      t, `${ratio(token(t), token("ivory")).toFixed(2)}:1 on the page`,
+    ])
+  );
   const walk = (d: string): string[] => {
     if (!fs.existsSync(d)) return [];
     const out: string[] = [];
@@ -116,4 +119,73 @@ test("the semantic palette is defined once, as tokens, not inline hexes", () => 
   // A one-off hex on a component is how a verified palette stops being one.
   assert.ok(STATES.every((s) => CSS.includes(`--color-state-${s}:`)),
     "a semantic state token is missing from globals.css");
+});
+
+// ---------------------------------------------------------------------------
+// The Expansion Handoff §8.2 palette (approved 24 September)
+// ---------------------------------------------------------------------------
+//
+// §8.2: "designer to confirm; verify WCAG 2.2 AA contrast in CI". This is the
+// CI half. Read by §8.2's own names, which globals.css defines as aliases, so
+// the test reads the way the handoff does.
+
+test("§8.2's text colours pass AA on both the page and a card", () => {
+  const fails: string[] = [];
+  for (const fg of ["ink", "ink-muted", "steady", "help"]) {
+    for (const bg of ["canvas", "surface"]) {
+      const r = ratio(token(fg), token(bg));
+      if (r < 4.5) fails.push(`${fg} on ${bg}: ${r.toFixed(2)}:1`);
+    }
+  }
+  assert.deepEqual(fails, [], "a §8.2 text colour is below 4.5:1:\n  " + fails.join("\n  "));
+});
+
+test("sand is below AA as text, which is why it is a fill", () => {
+  // THE REASON FOR THE RULE, CHECKED. If a later palette change made sand
+  // legible as text, the ban above would be protecting nothing and should be
+  // reconsidered rather than left standing on a stale measurement.
+  assert.ok(ratio(token("sand"), token("canvas")) < 4.5,
+    "sand now passes as text — the fills-only rule may no longer be needed");
+  // And what DOES sit on a sand fill has to read.
+  assert.ok(ratio(token("ink"), token("sand")) >= 4.5,
+    "ink on a sand fill is below AA, so the resource-tool cards cannot carry text");
+});
+
+test("text on a primary action reads", () => {
+  // Every primary button is `bg-app-ink text-app-surface`: steady with the
+  // card colour on it.
+  const r = ratio(token("app-surface"), token("app-ink"));
+  assert.ok(r >= 4.5, `text on a primary button is ${r.toFixed(2)}:1`);
+});
+
+test("the focus ring is visible against everything it sits on", () => {
+  // WCAG 2.2 SC 2.4.13 asks for 3:1 between a focus indicator and what is next
+  // to it. The ring is steady, offset onto the page or a card.
+  for (const bg of ["canvas", "surface", "app-rail", "app-accent"]) {
+    const r = ratio(token("app-ink"), token(bg));
+    assert.ok(r >= 3, `the focus ring on ${bg} is ${r.toFixed(2)}:1, below 3:1`);
+  }
+});
+
+test("the derived fills carry ink, and the selected fill carries steady", () => {
+  // §8.2 stops at seven colours; the product needs a few tints. Each is the
+  // card mixed toward steady, and each has to hold the text that sits on it.
+  for (const fill of ["sage", "sage-deep", "moss", "app-accent", "app-rail"]) {
+    const r = ratio(token("ground"), token(fill));
+    assert.ok(r >= 4.5, `ink on ${fill} is ${r.toFixed(2)}:1`);
+  }
+  // The selected navigation item is `bg-app-accent text-app-ink`.
+  const sel = ratio(token("app-ink"), token("app-accent"));
+  assert.ok(sel >= 4.5, `the selected navigation item's text is ${sel.toFixed(2)}:1`);
+});
+
+test("the ordinary data mark is visible as a graphical object", () => {
+  // WCAG 1.4.11: 3:1 for a graphical object against what it is drawn on.
+  // Separation from the colours it sits beside is checked with the dataviz
+  // validator and recorded beside the token; this holds the half a palette
+  // change is most likely to break without anybody noticing.
+  for (const bg of ["surface", "canvas"]) {
+    const r = ratio(token("chart-neutral"), token(bg));
+    assert.ok(r >= 3, `a data mark on ${bg} is ${r.toFixed(2)}:1`);
+  }
 });

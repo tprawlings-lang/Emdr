@@ -25,7 +25,7 @@ import { test, expect } from "@playwright/test";
 
 test.skip(Boolean(process.env.E2E_BASE_URL), "runs only against the hermetic seeded server");
 
-const INK = "rgb(23, 58, 50)"; // --color-app-ink
+const INK = "rgb(47, 100, 104)"; // --color-app-ink, §8.2 steady #2f6468
 
 async function signInAsClinician(page: import("@playwright/test").Page) {
   await page.goto("/login");

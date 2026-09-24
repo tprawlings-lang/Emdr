@@ -1,15 +1,24 @@
 import { Suspense } from "react";
 import { getCurrentUser } from "@/lib/auth";
 import type { Metadata } from "next";
-import { Inter, Literata } from "next/font/google";
+import { Atkinson_Hyperlegible_Next } from "next/font/google";
 import "./globals.css";
 import SosMount from "@/components/SosMount";
 import { ReviewGuide } from "@/components/ReviewGuide";
 import { SkipLink } from "@/components/experience/SkipLink";
 
-const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
-// §12.3's identity serif. Text-grade by design — see the note in globals.css.
-const literata = Literata({ subsets: ["latin"], variable: "--font-literata" });
+// ONE FAMILY, TWO WEIGHTS (Expansion Handoff §8.3, approved 24 September).
+// Atkinson Hyperlegible Next was drawn by the Braille Institute so that the
+// letters most often confused — I l 1, O 0, rn m — stay distinct, which is the
+// property that matters for somebody reading while dysregulated. 400 and 700
+// only: emphasis is carried by weight, and a third weight is a hierarchy nobody
+// can see at a glance. `latin-ext` because the Spanish market is in scope.
+const atkinson = Atkinson_Hyperlegible_Next({
+  subsets: ["latin", "latin-ext"],
+  weight: ["400", "700"],
+  variable: "--font-atkinson",
+  display: "swap",
+});
 
 export const metadata: Metadata = {
   title: "steady — a steadier way through trauma",
@@ -66,7 +75,7 @@ export default function RootLayout({
   // open", which the variable answers without a database read.
   const enrolling = Boolean(process.env.EMDR_ENROLLMENT_CODE);
   return (
-    <html lang="en" className={`h-full antialiased ${inter.variable} ${literata.variable}`}>
+    <html lang="en" className={`h-full antialiased ${atkinson.variable}`}>
       <body className="min-h-full flex flex-col bg-ivory font-sans text-ground">
         {/* First in the DOM on purpose: a skip link that comes after the demo
             banner and the review strip skips neither. */}

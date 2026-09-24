@@ -1,40 +1,38 @@
 // The type system (Presentation Layer Handoff §7, revised by GUI and
-// Decision-Surface Handoff §12.3).
+// Decision-Surface Handoff §12.3, and revised again by the Expansion Handoff
+// §8.3 on 24 September).
 //
-// THIS FILE RECORDS A REVERSAL. Read both halves before relaxing either.
+// THIS FILE RECORDS TWO REVERSALS. Read all three positions before relaxing
+// anything.
 //
-// Handoff 04 §7 collapsed Steady to one family and retired Cormorant Garamond,
-// for a reason that still holds:
+//   1. Handoff 04 §7 collapsed Steady to one family and retired Cormorant
+//      Garamond: Vol 1 requires legibility under fatigue and cognitive load, and
+//      Cormorant's small x-height and high stroke contrast fail a tired reader.
 //
-//   Vol 1 requires legibility under fatigue and cognitive load. Cormorant is a
-//   Garamond revival — small x-height, high stroke contrast, drawn for display.
-//   Those are exactly the properties that fail a tired reader, and the tired
-//   reader is this product's design centre rather than an edge case.
+//   2. Handoff 05 §12.3 asked for a serif back for page identity. Resolved in
+//      its favour with a text-grade serif (Literata) confined to .type-identity,
+//      on the ground that the objection was to Cormorant's drawing rather than
+//      to serifs as such. Two families, Inter and Literata.
 //
-// Handoff 05 §12.3 asks for a serif back: "serif display type for page
-// identity, human explanation, and member-facing completion moments…
-// sans-serif for controls, tables, labels, measures, and dense clinical work."
+//   3. The Expansion Handoff §8.3, approved by the product owner on 24
+//      September: "Atkinson Hyperlegible Next for everything... One family,
+//      weights 400 and 700." Drawn by the Braille Institute so confusable
+//      letters stay distinct, for "a population that may be reading while
+//      dysregulated". This is position 1's goal pursued with a face designed for
+//      it, and it retires position 2's serif.
 //
-// Worth knowing when weighing the two: handoff 05 reviewed this repository at
-// commit c39447a, which is the commit BEFORE the one-family change landed. It
-// was describing the serif it saw, not overturning a decision it had read.
+// So the bounds are now:
 //
-// Resolved by the product owner in favour of §12.3, on the ground that the
-// original objection was to Cormorant's DRAWING rather than to serifs as such.
-// So the reversal is bounded, and this file holds the bounds:
+//   - EXACTLY ONE FAMILY. A second is the two-voice problem again, whichever
+//     handoff asks for it.
+//   - EXACTLY TWO WEIGHTS. Emphasis is carried by weight; a third weight is a
+//     hierarchy nobody can see at a glance.
+//   - THE DISPLAY-REVIVAL BAN STAYS, because it is the part of position 1 that
+//     every later position agreed with.
 //
-//   1. Exactly two families. A third is still the old failure.
-//   2. The serif must be text-grade, not a display revival. Literata was drawn
-//      for long-form screen reading — large x-height, low stroke contrast, the
-//      inverse of what got Cormorant retired. The named-revival ban below is
-//      what stops the reversal being read as "serifs are fine now".
-//   3. The serif is confined to .type-identity. Dense clinical work keeps
-//      .type-display, which stays one family differentiated by scale and
-//      tracking, so the serif cannot spread into tables by habit.
-//
-// TO REVERT: point --font-serif back at var(--font-sans), drop .type-identity
-// and the Literata import from layout.tsx, and restore the "exactly one family"
-// assertion below. Nothing else depends on the split.
+// .type-identity is kept as a class so its call sites still read as what they
+// are, and --font-serif as an alias so a missed reference cannot fall back to
+// Georgia. Both now resolve to the one family.
 
 import { strict as assert } from "node:assert";
 import test from "node:test";
@@ -57,17 +55,33 @@ function srcFiles(): string[] {
   return out;
 }
 
-test("exactly two type families are loaded — the sans and the identity serif", () => {
+test("exactly one type family is loaded — Atkinson Hyperlegible Next", () => {
   // next/font imports are the only way a family enters the app.
   const families = [...LAYOUT.matchAll(/import\s*\{([^}]+)\}\s*from\s*"next\/font\/google"/g)]
     .flatMap((m) => m[1].split(",").map((s) => s.trim()))
     .filter(Boolean)
     .sort();
   assert.deepEqual(
-    families, ["Inter", "Literata"],
-    `expected the sans and the identity serif, found: ${families.join(", ")}. §12.3 asks ` +
-    "for two optical roles, not an open set — a third family is the two-voice problem again."
+    families, ["Atkinson_Hyperlegible_Next"],
+    `expected one family, found: ${families.join(", ")}. §8.3: "One family, weights 400 and ` +
+    '700." A second family is the two-voice problem again.'
   );
+});
+
+test("exactly two weights are loaded, and every emphasis maps onto them", () => {
+  const weights = /weight:\s*\[([^\]]+)\]/.exec(LAYOUT);
+  assert.ok(weights, "the font is loaded without naming its weights, so every weight ships");
+  const loaded = weights![1].split(",").map((w) => w.replace(/["'\s]/g, "")).sort();
+  assert.deepEqual(loaded, ["400", "700"], `§8.3 allows two weights; loaded ${loaded.join(", ")}`);
+
+  // 1,300 existing `font-medium` and `font-semibold` classes ask for 500 and
+  // 600. Unmapped, the browser would synthesise them from 400 — a smeared
+  // middle weight that §8.3 exists to prevent.
+  for (const w of ["medium", "semibold"]) {
+    const m = new RegExp(`--font-weight-${w}:\\s*(\\d+)`).exec(CSS);
+    assert.ok(m, `--font-weight-${w} is not mapped, so it resolves to a weight that is not loaded`);
+    assert.equal(m![1], "700", `font-${w} maps to ${m![1]}, which is not one of the two weights`);
+  }
 });
 
 test("the identity serif is text-grade, not a display revival", () => {
@@ -83,29 +97,26 @@ test("the identity serif is text-grade, not a display revival", () => {
   );
 });
 
-test("the serif token resolves to the loaded family, with a real fallback", () => {
+test("the serif token is an alias of the one family, not a second face", () => {
+  // Kept rather than deleted: `.type-identity` names it, and a missing variable
+  // would fall back to Georgia on the member completion screens.
   const m = /--font-serif:\s*([^;]+);/.exec(CSS);
-  assert.ok(m, "--font-serif is not defined");
-  assert.match(m![1], /var\(--font-literata\)/,
-    "--font-serif does not point at the loaded identity family");
-  assert.match(m![1], /serif\s*;?\s*$/,
-    "the serif stack has no generic fallback — a failed webfont would land on the sans");
+  assert.ok(m, "--font-serif is not defined, so anything still naming it falls back to Georgia");
+  assert.match(m![1].trim(), /^var\(--font-sans\)$/,
+    "--font-serif points somewhere other than the one family");
+  const sans = /--font-sans:\s*([^;]+);/.exec(CSS);
+  assert.ok(sans && /var\(--font-atkinson\)/.test(sans[1]),
+    "--font-sans does not resolve to the loaded family");
+  assert.match(sans![1], /sans-serif/, "the stack has no generic fallback for a failed webfont");
 });
 
-test("the serif is confined to the identity role", () => {
-  // The bound that keeps the reversal from spreading. .type-display carries 200+
-  // usages across member, clinical and public surfaces; if it took the serif,
-  // §12.3's "sans-serif for controls, tables, labels, measures, and dense
-  // clinical work" would be broken everywhere at once.
-  const disp = /\.type-display\s*\{([^}]+)\}/.exec(CSS);
-  assert.ok(disp, "no .type-display role is defined");
-  assert.match(disp![1], /font-family:\s*var\(--font-sans\)/,
-    ".type-display took the serif — that puts it on clinical tables, which §12.3 excludes");
-
-  const ident = /\.type-identity\s*\{([^}]+)\}/.exec(CSS);
-  assert.ok(ident, "no .type-identity role is defined — §12.3's serif role has no home");
-  assert.match(ident![1], /font-family:\s*var\(--font-serif\)/,
-    ".type-identity does not use the serif");
+test("every type role uses the one family", () => {
+  for (const role of ["type-display", "type-identity"]) {
+    const block = new RegExp(`\\.${role}\\s*\\{([^}]+)\\}`).exec(CSS);
+    assert.ok(block, `no .${role} role is defined`);
+    assert.match(block![1], /font-family:\s*var\(--font-sans\)/,
+      `.${role} uses a different family — §8.3 is one face for everything`);
+  }
 });
 
 test("body copy meets the 17px floor and the 1.6 line-height minimum", () => {
@@ -129,15 +140,18 @@ test("a measure cap exists for the ~60 character rule", () => {
     "no .measure utility — §7's ~60 character cap has nothing to enforce it");
 });
 
-test("the display role is carried by scale and tracking, not by a second family", () => {
+test("the display role is carried by weight and scale, not by a second family", () => {
+  // Under Inter this also asserted negative tracking at the base, because Inter
+  // reads loose at display sizes. Atkinson is spaced for legibility on purpose,
+  // so the base is neutral and tracking is set per size — and that per-size
+  // scale is measured in a browser by tests/e2e/interaction-feedback.spec.ts,
+  // which is where a rendered value can be checked.
   const block = /\.type-display\s*\{([^}]+)\}/.exec(CSS);
   assert.ok(block, "no .type-display role is defined");
-  const body = block![1];
-  assert.match(body, /font-family:\s*var\(--font-sans\)/,
-    "the display role uses a different family, which is the thing §7 removes");
-  assert.match(body, /letter-spacing:\s*-/,
-    "the display role has no negative tracking — Inter reads loose and accidental at " +
-    "display sizes, and tracking is what makes one family read as two deliberate voices");
+  assert.match(block![1], /font-family:\s*var\(--font-sans\)/,
+    "the display role uses a different family");
+  assert.match(block![1], /font-weight:\s*700/,
+    "the display role is not bold — with two weights, a heading at 400 is a large paragraph");
 });
 
 test("prefers-reduced-motion is honoured globally, not per component", () => {

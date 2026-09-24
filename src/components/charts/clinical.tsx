@@ -199,14 +199,14 @@ export function SmallMultiples({
                   {pts.length > 1 && (
                     <polyline
                       fill="none"
-                      stroke="var(--color-sage-deep)"
+                      stroke="var(--color-chart-neutral)"
                       strokeWidth="1.5"
                       points={pts.map((p) => `${x(p.date)},${y(p.value, s.max)}`).join(" ")}
                     />
                   )}
                   {pts.map((p) => (
                     <circle key={p.date} cx={x(p.date)} cy={y(p.value, s.max)} r="3"
-                      fill="var(--color-sage-deep)" />
+                      fill="var(--color-chart-neutral)" />
                   ))}
                 </svg>
 
@@ -551,7 +551,7 @@ export function PresenceStrip({ days }: { days: PresenceDay[] }) {
                   !d.enrolled
                     ? "bg-ground/[0.04]"
                     : d.checkedIn
-                      ? "bg-sage-deep"
+                      ? "bg-chart-neutral"
                       : "border border-dashed border-ground/25 bg-transparent"
                 }`}
               />
@@ -570,7 +570,7 @@ export function PresenceStrip({ days }: { days: PresenceDay[] }) {
 
       <p className="mt-4 flex flex-wrap gap-x-5 gap-y-1 text-xs text-olive">
         <span className="flex items-center gap-1.5">
-          <span aria-hidden className="h-3 w-3 rounded bg-sage-deep" /> checked in
+          <span aria-hidden className="h-3 w-3 rounded bg-chart-neutral" /> checked in
         </span>
         <span className="flex items-center gap-1.5">
           <span aria-hidden className="h-3 w-3 rounded border border-dashed border-ground/25" /> no check-in

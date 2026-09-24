@@ -1,28 +1,60 @@
 @import "tailwindcss";
 
-/* Steady brand kit tokens. Palette names follow the brand guide:
-   sage / ivory / sand / ground / mist / clay / moss / linen / olive,
-   plus the three muted alert colors (support, pause, safe). */
+/* THE EXPANSION HANDOFF §8.2 PALETTE, approved 24 September.
+   
+   MAPPED BY ROLE, NOT BY NAME, and the difference is not cosmetic. §8.2 calls
+   its app background `ground` (#E9EEEC, a pale mist). This codebase already
+   uses `ground` for its PRIMARY INK — `text-ground` appears 1,080 times.
+   Redefining the name would have turned a thousand runs of body text pale on
+   a pale background. So every existing token keeps its name and its job, and
+   takes the §8.2 value for that job:
+   
+     ground (primary ink)          <- §8.2 ink        #1C2A2F
+     olive  (secondary text)       <- §8.2 ink-muted  #55676C
+     ivory  (page background)      <- §8.2 ground     #E9EEEC
+     linen, app-surface (cards)    <- §8.2 surface    #F7F9F8
+     app-ink (primary action,
+              wordmark, focus)     <- §8.2 steady     #2F6468
+     support (crisis and help)     <- §8.2 help       #7D3F52
+     sand, clay (resource fills)   <- §8.2 sand       #C9B48E
+   
+   §8.2's own names are defined further down as aliases, so new code can say
+   what it means. The one that cannot be aliased is §8.2's `ground`; it is
+   `canvas` here, for the reason above.
+   
+   VERIFIED, NOT ASSERTED. §8.2 says "designer to confirm; verify WCAG 2.2 AA
+   contrast in CI". tests/contrast.test.ts recomputes every pairing below from
+   this file: ink 12.6:1 on the page, muted 5.05:1, steady 5.70:1, help 6.62:1.
+   Sand is 1.72:1 as text, which is why §8.2 says fills only, never text, and
+   the test enforces that rather than trusting it.
+   
+   THE TINTS ARE DERIVED, BECAUSE §8.2 STOPS AT SEVEN. The product also needs a
+   selected fill, a soft fill and a support-button fill. Each is the surface
+   mixed toward steady by a stated amount, so they stay one hue family rather
+   than seven colours chosen separately, and each carries ink at 8.6:1 or
+   better. */
 @theme {
-  --color-sage: #a8b8a1;
-  --color-sage-deep: #93a58b;
-  --color-ivory: #f7f1e8;
-  --color-sand: #ded1be;
-  --color-ground: #2f3a33;
+  /* Fills for support and soft emphasis: surface mixed toward steady. */
+  --color-sage: #c7d5d5;       /* 24% steady — the "Ground now" button */
+  --color-sage-deep: #b7c9ca;  /* 32% steady — its hover */
+  --color-moss: #e5eceb;       /*  9% steady — soft fills and hovers */
+  --color-ivory: #e9eeec;      /* §8.2 ground: the page */
+  --color-sand: #c9b48e;       /* §8.2 sand: resource fills, never text */
+  --color-ground: #1c2a2f;     /* §8.2 ink: primary text */
   --color-mist: #a9bdc5;
   --color-mist-deep: #5c7884;
-  --color-clay: #c9a98f;
-  --color-moss: #dce4d4;
-  --color-linen: #fbf8f2;
-  /* Deepened from #697568 to meet WCAG AA (4.5:1) as body/secondary text on
-     the ivory/linen/sand/moss surfaces — the previous value failed on all but
-     linen. Still the same grey-green brand family. */
-  --color-olive: #545e53;
+  /* Clay was the warm accent on selected chips. §8.2 gives resource tools the
+     sand fill, so clay takes it rather than keeping a second warm hue. */
+  --color-clay: #c9b48e;
+  --color-linen: #f7f9f8;      /* §8.2 surface: cards */
+  /* §8.2 ink-muted. 5.05:1 on the page and 5.61:1 on a card — AA, with less
+     margin than the ink, which is why it is for secondary text only. */
+  --color-olive: #55676c;
   --color-amber-soft: #e8c98a;
-  /* Deepened from #b66a5d so the "Need help now?" crisis links meet WCAG AA as
-     text (the old value was 3.8:1); white-on-support buttons improve too. */
-  --color-support: #9a4f42;
-  --color-support-deep: #8a4335;
+  /* §8.2 help: "distinct without alarm red". The crisis links and the
+     support surfaces take it. */
+  --color-support: #7d3f52;
+  --color-support-deep: #6c3b4c;
   --color-pause: #d7a85f;
   --color-pause-soft: #f3e4c8;
   --color-safe: #7fa37b;
@@ -55,62 +87,60 @@
   --color-state-unknown: #545e53;
   --color-state-unknown-bg: #ece9e2;
 
-  /* APP SHELL (Web GUI handoff, the 20 page examples).
-     
-     Sampled from the mockups rather than guessed. Every one of the 20 page
-     examples uses the same frame: an ivory page, a near-white app surface
-     inside a rounded border, a pale rail on the left, and one deep green for
-     the wordmark, the avatar and the primary action.
-     
-     Note the bar is LIGHT. It reads as dark at a glance because the wordmark
-     and the avatar are dark on it, which is worth writing down because it is
-     the thing that gets rebuilt wrong from memory. */
-  --color-app-surface: #fffdf8;  /* the app's own ground, inside the frame */
-  --color-app-rail: #edf2ec;     /* the left navigation panel */
-  --color-app-accent: #dfe9e2;   /* selected scale step, soft fill */
-  --color-app-ink: #173a32;      /* wordmark, avatar, primary action */
-  --color-app-flag: #f3e3d0;     /* the FABRICATED pill */
+  /* APP SHELL. The frame keeps its roles; the values are §8.2's. */
+  --color-app-surface: #f7f9f8;  /* §8.2 surface */
+  --color-app-rail: #e0e7e5;     /* the page, 5% toward steady */
+  --color-app-accent: #dbe4e4;   /* selected fill: surface, 14% toward steady */
+  --color-app-ink: #2f6468;      /* §8.2 steady: primary action, wordmark, focus */
+  --color-app-flag: #f3e3d0;     /* the FABRICATED pill stays warm on purpose:
+                                    it must not blend into the product it labels */
 
-  /* ONE FAMILY, TWO OPTICAL ROLES (Presentation Layer Handoff §7).
+  /* §8.2's OWN NAMES, for new code to use by meaning. `canvas` is §8.2's
+     `ground`, renamed only because `ground` already means ink here. */
+  --color-canvas: #e9eeec;
+  --color-surface: #f7f9f8;
+  --color-ink: #1c2a2f;
+  --color-ink-muted: #55676c;
+  --color-steady: #2f6468;
+  --color-help: #7d3f52;
+
+  /* THE ORDINARY DATA MARK, and a role of its own rather than a borrowed fill.
+     Ten chart marks used `sage-deep` — a button hover — as the colour of an
+     unremarkable data point. Under §8.2 sage-deep became a pale teal at 1.63:1
+     against a card, which is a line you have to look for.
      
-     Steady previously ran Inter for body and Cormorant Garamond for headings —
-     the conventional display-serif/body-sans pairing. It was retired because
-     Vol 1 requires legibility under fatigue and cognitive load, and Cormorant
-     is a Garamond revival: small x-height, high stroke contrast, drawn for
-     display. Those are precisely the properties that fail a tired reader, and
-     "tired reader" is the design centre of this product, not an edge case.
+     CHOSEN WITH THE DATAVIZ VALIDATOR, NOT BY EYE, and it took two passes.
+     The card mixed 70% toward steady cleared every partner and 3:1 on the card
+     — and the contrast test then measured it at 2.94:1 on the PAGE, because the
+     validator had only been given the card. At 72%: 3.06:1 on the page and
+     3.40:1 on a card (WCAG 1.4.11's 3:1 for a graphical object), and apart from
+     everything drawn beside it — caution ΔE 17.7 colour-blind / 19.4 normal,
+     support 15.9 / 20.6, info 16.2 / 16.3. Deeper buys contrast and loses the
+     info blue: at 76% that pair falls to 14.2, under the normal-vision floor.
+     Steady itself failed beside caution (13.6 normal). */
+  --color-chart-neutral: #678e90;
+
+  /* §8.3: TWO WEIGHTS. Everything that was emphasised is bold and everything
+     that was not is regular, which is what "one family, weights 400 and 700"
+     means once it meets 1,300 existing `font-medium` and `font-semibold`
+     classes. Remapped here, once, rather than edited across every file. */
+  --font-weight-medium: 700;
+  --font-weight-semibold: 700;
+
+  /* ONE FAMILY FOR EVERYTHING (Expansion Handoff §8.3).
      
-     §7's alternative is a single humanist sans differentiated by SCALE AND
-     TRACKING rather than by contrast. Inter has the high x-height and open
-     counters that requirement names, so the display role is the same family
-     set larger and tighter — see .type-display below.
+     Atkinson Hyperlegible Next, drawn by the Braille Institute so the letters
+     most often confused stay distinct. The previous system had the same goal
+     — legibility under fatigue — and pursued it with Inter plus a Literata
+     serif for page identity. §8.3 replaces both with one face designed for
+     that goal directly.
      
-     --font-serif is kept as an alias rather than deleted so no surface silently
-     falls back to Georgia if one is missed. */
-  --font-sans: var(--font-inter), ui-sans-serif, system-ui, -apple-system,
+     `--font-serif` IS KEPT AS AN ALIAS rather than deleted. `.type-identity`
+     still names it, and a missing variable would fall back to Georgia on
+     exactly the member completion screens it was built for. */
+  --font-sans: var(--font-atkinson), ui-sans-serif, system-ui, -apple-system,
     "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-  /* THE SERIF, RESTORED FOR ONE ROLE (GUI handoff §12.3).
-     
-     Handoff 04 §7 retired Cormorant Garamond and collapsed the system to one
-     family. That rationale still stands and is worth restating, because it is
-     the thing a second family can quietly undo: Vol 1 requires legibility under
-     fatigue and cognitive load, and Cormorant is a Garamond revival — small
-     x-height, high stroke contrast, drawn for display. Those properties fail a
-     tired reader, and the tired reader is this product's design centre.
-     
-     §12.3 asks for the serif back: "serif display type for page identity,
-     human explanation, and member-facing completion moments… sans-serif for
-     controls, tables, labels, measures, and dense clinical work."
-     
-     Both can hold, because the original objection was to Cormorant's DRAWING,
-     not to serifs. Literata answers it directly: it was designed for long-form
-     reading on screens, with a large x-height and low stroke contrast — the
-     inverse of the properties that got Cormorant retired.
-     
-     It is confined to .type-identity. Dense clinical work keeps .type-display,
-     which stays one family differentiated by scale and tracking, so the serif
-     cannot spread into tables by habit. */
-  --font-serif: var(--font-literata), ui-serif, Georgia, Cambria, serif;
+  --font-serif: var(--font-sans);
 
   /* §7: minimum body size 17px, line height 1.6 minimum on body copy.
      Redefining the base step rather than patching per-page means the floor
@@ -118,7 +148,7 @@
   --text-base: 1.0625rem;
   --text-base--line-height: 1.6;
 
-  --shadow-soft: 0px 12px 40px rgba(47, 58, 51, 0.08);
+  --shadow-soft: 0px 12px 40px rgba(28, 42, 47, 0.08);
 }
 
 body {
@@ -186,24 +216,22 @@ html:has([data-support-dock]) {
   scroll-padding-bottom: calc(128px + 1rem);
 }
 
-/* The display optical role. Same family; scale, weight, and tracking carry the
-   difference. Inter needs negative tracking at large sizes or it reads loose
-   and accidental — that tightening is what makes one family read as two
-   deliberate voices rather than one undifferentiated one. */
+/* The display role: the same family, set bold, with tracking by size below.
+   Weight 700 because §8.3 allows two, and a heading at 400 is only a large
+   paragraph. */
 .type-display {
   font-family: var(--font-sans);
-  font-weight: 500;
-  letter-spacing: -0.021em;
+  font-weight: 700;
+  letter-spacing: 0;
 }
 
-/* §12.3's serif role: page identity, human explanation, and member completion
-   moments. Not for controls, tables, labels, measures, or dense clinical work
-   — those keep .type-display. Literata's x-height runs large, so it sets a
-   touch tighter than the sans to sit at the same optical weight. */
+/* The identity role, kept as a class so its call sites keep reading as what
+   they are — page identity and member completion moments — but no longer a
+   second family. §8.3: one face for everything. */
 .type-identity {
-  font-family: var(--font-serif);
-  font-weight: 500;
-  letter-spacing: -0.011em;
+  font-family: var(--font-sans);
+  font-weight: 700;
+  letter-spacing: 0;
 }
 
 /* TRACKING IS SIZE-SPECIFIC, AND IT WAS NOT.
@@ -227,21 +255,24 @@ html:has([data-support-dock]) {
    THE ROLES DIVERGE ON PURPOSE. Literata sets with a larger x-height than
    Inter and already tracks tighter optically, so the serif role takes less
    correction at every step than the sans. */
-.type-display.text-sm { letter-spacing: 0.004em; }
-.type-display.text-base { letter-spacing: 0; }
-.type-display.text-lg { letter-spacing: -0.006em; }
-.type-display.text-xl { letter-spacing: -0.009em; }
-.type-display.text-2xl { letter-spacing: -0.013em; }
-.type-display.text-3xl { letter-spacing: -0.018em; }
-.type-display.text-4xl { letter-spacing: -0.022em; }
-.type-display.text-5xl { letter-spacing: -0.026em; }
-.type-display.text-6xl { letter-spacing: -0.03em; }
-
-.type-identity.text-xl { letter-spacing: -0.004em; }
-.type-identity.text-2xl { letter-spacing: -0.008em; }
-.type-identity.text-3xl { letter-spacing: -0.012em; }
-.type-identity.text-4xl { letter-spacing: -0.016em; }
-.type-identity.text-5xl { letter-spacing: -0.02em; }
+/* RETUNED FOR ATKINSON, 24 September, and much gentler than it was. The
+   scale above was built for Inter, which reads loose at display sizes and
+   takes -0.02em or more. Atkinson Hyperlegible is SPACED FOR LEGIBILITY on
+   purpose — its open fitting is part of how it keeps confusable letters
+   apart — so tightening it hard would undo the reason it was chosen. The
+   direction still holds (bigger type, a little tighter; small dense type a
+   little looser) and the magnitudes are a third of what they were.
+   
+   ONE SCALE FOR BOTH ROLES, since they are one family now. */
+:is(.type-display, .type-identity).text-sm { letter-spacing: 0.01em; }
+:is(.type-display, .type-identity).text-base { letter-spacing: 0.005em; }
+:is(.type-display, .type-identity).text-lg { letter-spacing: 0; }
+:is(.type-display, .type-identity).text-xl { letter-spacing: -0.003em; }
+:is(.type-display, .type-identity).text-2xl { letter-spacing: -0.006em; }
+:is(.type-display, .type-identity).text-3xl { letter-spacing: -0.009em; }
+:is(.type-display, .type-identity).text-4xl { letter-spacing: -0.012em; }
+:is(.type-display, .type-identity).text-5xl { letter-spacing: -0.015em; }
+:is(.type-display, .type-identity).text-6xl { letter-spacing: -0.018em; }
 
 /* §7: line length capped at ~60 characters. Long measure is a specific
    failure under cognitive load — the eye loses the line return. */

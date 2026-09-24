@@ -465,7 +465,7 @@ export default async function AutonomousReview({ searchParams }: { searchParams:
       <section id="voice" className="mt-8 rounded-2xl border border-ground/15 bg-white p-5">
         <div className="flex items-center justify-between gap-3">
           <h2 className="type-display text-xl">Voice responses — hear the member</h2>
-          <span className={`rounded-full px-3 py-1 text-xs ${voiceInputEnabled() ? "bg-state-safe-bg/60 text-ground" : "bg-linen text-olive"}`}>
+          <span className={`rounded-full px-3 py-1 text-xs ${voiceInputEnabled() ? "bg-state-safe-bg/60 text-ground" : "bg-moss text-olive"}`}>
             {voiceInputEnabled() ? "on in this demo" : "off"}
           </span>
         </div>

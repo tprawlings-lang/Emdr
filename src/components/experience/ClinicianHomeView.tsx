@@ -102,7 +102,7 @@ export function ClinicianHomeView({
                 href={on ? basePath : `${basePath}?filter=${g}`}
                 aria-current={on ? "true" : undefined}
                 className={`rounded-full px-3.5 py-1.5 text-sm transition-colors ${
-                  on ? "bg-app-accent font-medium text-app-ink" : "bg-linen text-olive hover:bg-app-accent/40"
+                  on ? "bg-app-accent font-medium text-app-ink" : "bg-moss text-olive hover:bg-app-accent"
                 }`}
               >
                 {UI_GROUP_LABEL[g]}{" "}
@@ -113,7 +113,7 @@ export function ClinicianHomeView({
           {home.stableCount > 0 && (
             <Link
               href="/clinician/caseload?filter=stable"
-              className="rounded-full bg-linen px-3.5 py-1.5 text-sm text-olive hover:bg-app-accent/40"
+              className="rounded-full bg-moss px-3.5 py-1.5 text-sm text-olive hover:bg-app-accent"
             >
               {/* §23: "Stable means no current suggested action under policy,
                   not healthy or low risk." The label says which. */}

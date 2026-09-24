@@ -130,7 +130,7 @@ export function ClinicalMemoryPanel({
                 <span className="text-xs text-olive">· corrected</span>
               )}
               {item.threadLabels.map((l) => (
-                <span key={l} className="rounded-full bg-linen px-2 py-0.5 text-xs text-olive">
+                <span key={l} className="rounded-full bg-moss px-2 py-0.5 text-xs text-olive">
                   {l}
                 </span>
               ))}

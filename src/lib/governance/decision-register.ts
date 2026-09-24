@@ -651,6 +651,52 @@ export const DECISION_REGISTER: Decision[] = [
     },
     asked: "2026-09-23",
   },
+  {
+    id: "design.expansion-palette-and-type",
+    question:
+      "The Expansion Handoff proposes a new colour palette and one typeface, Atkinson Hyperlegible " +
+      "Next, in place of the palette and the two typefaces the product already had. Adopt it?",
+    audience: "design",
+    blocks: ["accessibility.manual-and-human-testing"],
+    meanwhile:
+      "The product ran on its previous palette, whose colours had already been corrected once to " +
+      "pass contrast, and on Inter with a Literata serif for page titles.",
+    options: [
+      {
+        label: "Keep what the product has",
+        plainly:
+          "The existing colours were already adjusted so text is readable against every background " +
+          "it sits on, and the existing type was chosen for tired readers. Take only the new " +
+          "handoff's check-in design, which is what it actually asks to invest in.",
+        then: "Nothing visible changes. The new palette stays a proposal.",
+        recommended: true,
+      },
+      {
+        label: "Adopt the new palette and typeface",
+        plainly:
+          "Every screen moves to the new cooler colours and one typeface drawn for readability. Each " +
+          "colour is placed by the job it does rather than by its name, because two of the names " +
+          "mean opposite things in the two systems, and every pairing is checked for contrast.",
+        then:
+          "A visible change on every screen. The reference screenshots are retaken, and the contrast " +
+          "checks are rewritten for the new colours.",
+      },
+    ],
+    state: "answered",
+    answer: {
+      decided:
+        "Adopt — approved by the product owner on 24 September, against the recommendation to keep " +
+        "the existing palette. Recorded rather than smoothed over, so the next reader can see the " +
+        "question was weighed. Adopted BY ROLE: the handoff calls its page background ground, and " +
+        "ground already meant the primary text colour in over a thousand places, so a name-for-name " +
+        "swap would have made body text pale on a pale page. Every text pairing is verified in the " +
+        "contrast checks; the automated accessibility scan passed on every route afterwards; the " +
+        "typeface loads at exactly the two weights the handoff allows. Dark mode, which the handoff " +
+        "also specifies, is the next piece and was not part of this change.",
+      on: "2026-09-24",
+    },
+    asked: "2026-09-24",
+  },
 ];
 
 export const OPEN_DECISIONS = DECISION_REGISTER.filter((d) => d.state === "open");

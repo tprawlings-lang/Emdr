@@ -17,8 +17,13 @@ import { direction, READING_LABEL } from "@/lib/clinical/trajectory";
 //
 //   Olive lines with red safety markers — the obvious choice — collapse to
 //   ΔE 2.6 under protanopia: a protanope would not see the safety marks at all.
-//   Lines are therefore ground ink (#2f3a33), which separates from support
-//   (#9a4f42) at ΔE 13.2 simulated and 21.4 normal, both above the gates.
+//   Lines are therefore ground ink, which separates from support at ΔE 13.2
+//   under protanopia and 20.6 in normal vision, both above the gates.
+//
+//   RE-MEASURED 24 SEPTEMBER for the §8.2 palette rather than carried over:
+//   ink #1c2a2f against help #7d3f52 on surface #f7f9f8, through the dataviz
+//   validator. The previous pair (#2f3a33, #9a4f42) measured 13.2 and 21.4, so
+//   the chart lost nothing a protanope depends on.
 //
 // Identity on the rails comes from SHAPE and LABEL. Colour carries severity
 // only, two states, because most rail events are types rather than judgements —
@@ -28,10 +33,13 @@ import { direction, READING_LABEL } from "@/lib/clinical/trajectory";
 // No JavaScript: hover is native <title>, and the table view below carries
 // every value, which is also the mandated relief for marks under 3:1.
 
-const INK = "#2f3a33";        // ground — lines, ordinary marks
-const SEVERE = "#9a4f42";     // support — safety only
-const GRID = "#a8b8a1";       // sage — hairline, recessive
-const SURFACE = "#fbf8f2";    // linen — the ring/gap colour
+// The four values are the ground, support, sage and linen tokens — the
+// Expansion Handoff §8.2 ink, help, a steady tint and surface — written out as
+// literals, so a palette change has to be made here as well as in globals.css.
+const INK = "#1c2a2f";        // ground — lines, ordinary marks
+const SEVERE = "#7d3f52";     // support — safety only
+const GRID = "#c7d5d5";       // sage — hairline, recessive
+const SURFACE = "#f7f9f8";    // linen — the ring/gap colour
 
 const LANE_H = 56;
 const RAIL_H = 34;
