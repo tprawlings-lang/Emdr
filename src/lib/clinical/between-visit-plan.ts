@@ -82,9 +82,19 @@ export interface BetweenVisitPlan {
     { focus: string | null; provenance: string }
   >;
   assignedSupport: PlanField<
-    Array<{ what: string; purpose: string; timing: string; expected: string }>,
     Array<{
-      what: string; rationale: string; authority: string;
+      what: string; purpose: string;
+      /** The goal this is working towards, in the person's own words. */
+      towards: string | null;
+      timing: string; expected: string;
+    }>,
+    Array<{
+      what: string; rationale: string;
+      /** The goal this is working towards, with its state. */
+      towards: string | null;
+      /** Said only when the link points at a goal that cannot be read. */
+      linkNote: string | null;
+      authority: string;
       expires: string | null; review: string | null; status: AssignmentStatus;
     }>
   >;
@@ -141,7 +151,13 @@ export async function buildBetweenVisitPlan(
   const c = await data();
   const [planRow, goals, assignments] = await Promise.all([
     getProgramPlan(personId),
-    listGoals(ctx, personId, ["active", "draft"]),
+    // EVERY STATUS, not just the two the focus needs. A plan link may point at
+    // a paused or completed goal — "holding gains after the main work" is a
+    // purpose the product offers — and a reader that loaded only active and
+    // draft goals would show a linked assignment as linked to nothing, which
+    // is the one thing worse than showing no link at all. `focusFrom` still
+    // picks the first ACTIVE goal, so the focus is unchanged by this.
+    listGoals(ctx, personId, ["active", "draft", "paused", "completed", "archived"]),
     assignmentsFor(ctx, personId),
   ]);
   const live = assignments.filter((a) => isLive(a, now));
@@ -188,23 +204,63 @@ export async function buildBetweenVisitPlan(
     kind: "assignment", id: a.id, version: a.policyVersion, at: a.startsAt,
   });
 
+  // THE PLAN LINK, AND WHY IT IS RESOLVED HERE. Before this, the plan showed a
+  // person what they said they wanted and, underneath, a list of what they had
+  // been asked to do, with nothing joining the two. A clinician held the join
+  // in their head; the plan did not have it, so the next person to open the
+  // record had to infer it and the person themselves was never told.
+  const goalById = new Map(goals.map((g) => [g.id, g]));
+  const linkOf = (a: SupportAssignment): Goal | null =>
+    (a.goalId ? goalById.get(a.goalId) : undefined) ?? null;
+
   const assignedSupport: BetweenVisitPlan["assignedSupport"] = {
-    sources: live.map(assignmentSources),
-    patient: live.map((a) => ({
-      what: nameOf(a.supportId),
-      // The words a clinician wrote FOR THEM, stored with the assignment.
-      purpose: a.patientExplanation,
-      timing: a.expiresAt ? `Until ${a.expiresAt.slice(0, 10)}` : "No end date",
-      expected: a.availability === "assigned" ? "Asked to do" : "Entirely optional",
-    })),
-    clinician: live.map((a) => ({
-      what: nameOf(a.supportId),
-      rationale: PURPOSES[a.purposeCode as keyof typeof PURPOSES] ?? a.purposeCode,
-      authority: `Assigned by ${a.assignedBy.slice(0, 8)} under ${a.policyVersion}. Assigning does not open it.`,
-      expires: a.expiresAt,
-      review: a.reviewAt,
-      status: effectiveStatus(a, now),
-    })),
+    // THE LINKED GOALS ARE SOURCES OF THIS FIELD, not of the focus field only.
+    // The rule this module is built on is that both renderings cite the same
+    // sources, and a clinician column that named a goal the patient column
+    // could not trace would be the first crack in it.
+    sources: [
+      ...live.map(assignmentSources),
+      ...live
+        .map(linkOf)
+        .filter((g): g is Goal => g !== null)
+        .map((g) => ({ kind: "goal" as const, id: g.id, version: g.status, at: g.updatedAt })),
+    ],
+    patient: live.map((a) => {
+      const g = linkOf(a);
+      return {
+        what: nameOf(a.supportId),
+        // The words a clinician wrote FOR THEM, stored with the assignment.
+        purpose: a.patientExplanation,
+        // THEIR OWN WORDS AGAIN, for the same reason the focus uses them: a
+        // goal paraphrased into the clinical title stops being the thing they
+        // said they wanted, and this line's whole value is that it is theirs.
+        towards: g ? g.patientStatement : null,
+        timing: a.expiresAt ? `Until ${a.expiresAt.slice(0, 10)}` : "No end date",
+        expected: a.availability === "assigned" ? "Asked to do" : "Entirely optional",
+      };
+    }),
+    clinician: live.map((a) => {
+      const g = linkOf(a);
+      return {
+        what: nameOf(a.supportId),
+        rationale: PURPOSES[a.purposeCode as keyof typeof PURPOSES] ?? a.purposeCode,
+        // THE GOAL'S STATE TRAVELS WITH IT. Support can be linked to a paused or
+        // completed goal on purpose, and a clinician reading "working towards X"
+        // with no state would read a finished goal as a live one.
+        towards: g ? `${g.title} (${g.status})` : null,
+        // A LINK THAT POINTS AT NOTHING IS NOT THE SAME AS NO LINK, and this is
+        // the only place that can tell the difference: a goal id on the
+        // assignment that no goal answers means the goal was deleted under it.
+        linkNote:
+          a.goalId && !g
+            ? "This is linked to a goal that can no longer be read. The link is on the record; the goal is not."
+            : null,
+        authority: `Assigned by ${a.assignedBy.slice(0, 8)} under ${a.policyVersion}. Assigning does not open it.`,
+        expires: a.expiresAt,
+        review: a.reviewAt,
+        status: effectiveStatus(a, now),
+      };
+    }),
   };
 
   // COMPLETION, READ FROM SESSIONS. `support.activity.completed` is not written

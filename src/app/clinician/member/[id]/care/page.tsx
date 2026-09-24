@@ -194,6 +194,7 @@ export default async function MemberCarePage({
       <AssignedSupport
         personId={id}
         assignments={assignments}
+        goals={goals}
         now={frame.now}
         idempotencyKey={assignKey}
         requests={requests}

@@ -180,6 +180,15 @@ export interface AssignedPresentation {
   estimatedTime: string;
   /** What doing it shares, in plain words. */
   sharingRule: string;
+  /**
+   * The goal this is working towards, in the person's own words.
+   *
+   * THEIR WORDS, NOT THE CLINICAL TITLE, for the same reason the plan's focus
+   * uses them: a goal paraphrased into the title on somebody's record stops
+   * being the thing they said they wanted, and the only value this line has is
+   * that it is theirs.
+   */
+  towards: string;
   /** When it stops being asked for, or that it does not. */
   expiration: string;
 }
@@ -231,10 +240,17 @@ export function assignedPresentation(a: {
    *  surface reads. An assignment that quoted a different catalogue put two
    *  durations for one activity on one screen. */
   minutes: number | null;
+  /** The linked goal's own statement, or null when nothing is linked. */
+  goalStatement?: string | null;
 }): AssignedPresentation {
   return {
     source: a.assignedByName ?? "Somebody on your care team",
     purpose: a.patientExplanation,
+    // NAMED WHEN ABSENT, like the end date below it. Every fact on this panel
+    // is stated whether or not it has a value, because a row that disappears
+    // reads as a rendering fault and a person cannot tell the difference
+    // between "nothing was linked" and "the screen did not load it".
+    towards: a.goalStatement?.trim() || "No goal was linked to this.",
     estimatedTime: a.minutes === null ? "No estimate recorded" : `About ${a.minutes} minutes`,
     sharingRule: shareRuleInWords(a.sharePolicy),
     expiration:

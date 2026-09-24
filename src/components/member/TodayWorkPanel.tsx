@@ -51,6 +51,13 @@ export function TodayWorkPanel({
           <dt className="text-xs text-olive">Why</dt>
           <dd className="measure text-sm text-ground" data-fact="purpose">{p.purpose}</dd>
 
+          {/* WHAT IT IS FOR, IN THEIR OWN WORDS, directly under the
+              clinician's reason. The two are different answers: "why" is what
+              their care team wrote for them, and this is the thing they
+              themselves said they wanted back. */}
+          <dt className="text-xs text-olive">What it is towards</dt>
+          <dd className="measure text-sm text-ground" data-fact="towards">{p.towards}</dd>
+
           <dt className="text-xs text-olive">How long</dt>
           <dd className="measure text-sm text-ground" data-fact="estimated_time">{p.estimatedTime}</dd>
 

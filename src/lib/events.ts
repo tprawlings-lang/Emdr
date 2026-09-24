@@ -54,6 +54,10 @@ export const EVENT_TYPES = {
   // would give one domain fact two names depending on which screen wrote it.
   "intervention.assigned": 1,
   "intervention.assignment_changed": 1,
+  // The plan link: which goal a piece of assigned support is meant to move.
+  // Same family and the same reason — adjusting the link is a fact about an
+  // intervention, not about the screen the clinician was on when they did it.
+  "intervention.plan_link_adjusted": 1,
   "intervention.completed": 2,
   "intervention.response_recorded": 1,
   "session.started": 2,

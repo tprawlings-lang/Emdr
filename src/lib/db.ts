@@ -346,6 +346,28 @@ export const SCHEMA_SQL = `
     support_id TEXT NOT NULL,
     support_version TEXT NOT NULL,
     purpose_code TEXT NOT NULL,
+    -- THE PLAN LINK: the goal this piece of support is meant to move.
+    --
+    -- NULLABLE, AND THE NULL IS A REAL STATE. Support can be assigned before a
+    -- goal is confirmed, and an assignment that points at nothing is honest
+    -- about it rather than pointing at the nearest goal.
+    --
+    -- A COLUMN RATHER THAN A LINK TABLE, because the relationship is 0-or-1 and
+    -- a second table would be a second place to look for one answer. The
+    -- HISTORY of the link is not lost by that choice: every change appends a
+    -- adjust_plan_link row to the care ledger and an event, which is where
+    -- the history of clinical decisions lives for everything else here.
+    --
+    -- NO REFERENCES CLAUSE, deliberately. ensureColumn adds this column to
+    -- databases that predate it, and the shape it can add is a plain TEXT
+    -- column — so declaring a foreign key here would make a fresh database and
+    -- a migrated one differ in a way that only ever shows up in the one that
+    -- was not tested. The check that matters is in linkAssignmentToGoal,
+    -- which refuses a goal belonging to anybody else.
+    --
+    -- (No backticks in this comment: the whole schema is a template literal,
+    -- and a backtick here ends it.)
+    goal_id TEXT,
     patient_explanation TEXT NOT NULL,
     share_policy TEXT NOT NULL,
     availability TEXT NOT NULL CHECK (availability IN ('assigned','optional')),
@@ -2503,6 +2525,9 @@ function migrate(db: Database.Database) {
   //
   // Both nullable, which is the correction flow's own semantics: an entry with
   // no supersedes_id is an original, and every row already in the table is one.
+  // The plan link, for databases created before it existed. Plain TEXT, for the
+  // reason stated beside the column in SCHEMA_SQL.
+  ensureColumn(db, "support_assignments", "goal_id", "TEXT");
   ensureColumn(db, "between_visit_care_actions", "supersedes_id", "TEXT");
   ensureColumn(db, "between_visit_care_actions", "correction_reason", "TEXT");
   // The index lives HERE rather than in SCHEMA_SQL, and that is the bug this

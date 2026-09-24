@@ -10,6 +10,7 @@ import {
   todayWorkState, assignedPresentation, PENDING_WRITE_TRACKED,
 } from "@/lib/member/today-work";
 import { assignmentsFor, isLive } from "@/lib/clinical/assigned-support";
+import { getGoal } from "@/lib/clinical/return-to-life";
 import { getModule } from "@/lib/modules";
 import { memberMinutes } from "@/lib/member/view";
 import { readingNow } from "@/lib/clock";
@@ -116,6 +117,16 @@ export default async function DashboardPage({
       ? ((await (await data()).get("SELECT name FROM users WHERE id = ?", [first.assignedBy])) as
           { name: string } | undefined)?.name ?? null
       : null;
+    // The plan link, read for the person rather than about them: the goal their
+    // assigned work is meant to move, in the words they gave it. Tolerant of a
+    // read failure, because a goal that cannot be loaded must not cost somebody
+    // the rest of their day — the panel says no goal was linked, which is the
+    // same thing it says when none was.
+    const assignedGoal =
+      first?.goalId && tenant?.tenant_id
+        ? await getGoal({ tenantId: tenant.tenant_id, personId: user.id }, first.goalId)
+            .catch(() => null)
+        : null;
 
     // §31.7: the screen was reached, and in which LOAD state.
     //
@@ -160,6 +171,7 @@ export default async function DashboardPage({
                       sharePolicy: first.sharePolicy,
                       expiresAt: first.expiresAt,
                       minutes: memberMinutes(first.supportId),
+                      goalStatement: assignedGoal?.patientStatement ?? null,
                     }),
                   }
                 : null

@@ -15,7 +15,7 @@ import { data } from "../data";
 import { PLATFORM_TENANT_ID } from "../db";
 import type { TenantContext } from "../repository";
 import {
-  assignSupport, changeAssignment, AssignmentRefused,
+  assignSupport, changeAssignment, linkAssignmentToGoal, AssignmentRefused,
   type Availability, type AssignmentChange,
 } from "./assigned-support";
 
@@ -48,6 +48,11 @@ export async function assignSupportAction(formData: FormData) {
       purposeCode: String(formData.get("purposeCode") ?? ""),
       patientExplanation: String(formData.get("patientExplanation") ?? "").slice(0, 2000),
       availability: String(formData.get("availability") ?? "assigned") as Availability,
+      // The plan link, chosen at the moment the support is assigned. Optional
+      // in the form as well as in the domain: a clinician who has not agreed a
+      // goal with somebody yet should not have to invent one to assign them a
+      // grounding exercise.
+      goalId: String(formData.get("goalId") ?? "").trim() || null,
       // A date, kept as a day boundary. An expiry recorded to the second on a
       // control that offers a date would be a precision the clinician did not
       // choose.
@@ -86,6 +91,41 @@ export async function changeAssignmentAction(formData: FormData) {
   }
 
   revalidatePath(`/clinician/member/${personId}/care`);
+  back(personId);
+}
+
+/**
+ * Adjust the plan link: which goal a piece of assigned support is working
+ * towards.
+ *
+ * ITS OWN ACTION RATHER THAN A FIELD ON `changeAssignmentAction`, because it is
+ * a different decision with a different record. Changing an assignment's STATE
+ * says the person finished it or it was taken back; changing its LINK says what
+ * it was for was wrong or has moved. Folding them together would put both in
+ * one audit type and lose which of the two a clinician did.
+ */
+export async function adjustPlanLinkAction(formData: FormData) {
+  const clinician = await requireClinician();
+  const tenantId = await actingTenant(clinician.id);
+  const personId = String(formData.get("personId") ?? "");
+  const ctx: TenantContext = { tenantId, personId: clinician.id };
+
+  try {
+    await linkAssignmentToGoal(ctx, {
+      assignmentId: String(formData.get("assignmentId") ?? ""),
+      // The empty option in the select means "not working towards a goal",
+      // which is a choice and is recorded as one.
+      goalId: String(formData.get("goalId") ?? "").trim() || null,
+      note: String(formData.get("note") ?? "").slice(0, 500),
+    });
+  } catch (e) {
+    if (e instanceof AssignmentRefused) back(personId, e.message);
+    throw e;
+  }
+
+  revalidatePath(`/clinician/member/${personId}/care`);
+  revalidatePath(`/clinician/member/${personId}/plan`);
+  revalidatePath(`/clinician/member/${personId}`);
   back(personId);
 }
 

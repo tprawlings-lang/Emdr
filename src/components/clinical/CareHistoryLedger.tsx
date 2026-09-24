@@ -20,23 +20,6 @@ export function CareHistoryLedger({ entries }: { entries: CareHistoryEntry[] }) 
         <p className="measure mt-2 text-sm text-olive">{NO_CARE_HISTORY}</p>
       ) : (
         <>
-          {/* THE SENTENCE THE WHOLE SECTION TURNS ON, above the list rather than
-              under it. A reader who counts three attempts and concludes somebody
-              was reached has been misled by a list that was accurate.
-              
-              ONLY WHEN THERE IS A CONTACT ATTEMPT TO QUALIFY, and this was
-              wrong until the ledger grew. It read "an attempt, recorded by the
-              clinician who made it — not proof that anybody was reached" over
-              EVERY entry, which was fine while every entry was a contact
-              attempt. Three more actions joined on 23 September and the
-              sentence started sitting above "Trajectory read", telling a
-              clinician something false about a row it does not describe. A
-              caveat in the wrong place is worse than none: it teaches people
-              that the caveats on this screen are decoration. */}
-          {entries.some((e) => e.action === "contact") && (
-            <p className="measure mt-2 text-sm text-olive">{CONTACT_MEANING}</p>
-          )}
-
           <ul className="mt-3 space-y-3">
             {entries.map((e) => (
               <li
@@ -49,6 +32,26 @@ export function CareHistoryLedger({ entries }: { entries: CareHistoryEntry[] }) 
                   <p className="text-sm text-olive">{e.at.slice(0, 16)}</p>
                 </div>
                 {e.note && <p className="measure mt-1 text-sm text-ground">{e.note}</p>}
+                {/* ON THE ROW IT DESCRIBES, and it took two goes to get here.
+                    A reader who counts three attempts and concludes somebody
+                    was reached has been misled by a list that was accurate, so
+                    the sentence has to be somewhere — but it sat ABOVE THE
+                    WHOLE LIST, which was fine only while every entry was a
+                    contact attempt. Three actions joined on 23 September and it
+                    was made conditional on there being a contact, which fixed
+                    the empty case and not the mixed one: a ledger holding one
+                    call and one plan-link adjustment still captioned both with
+                    a sentence about calls. Found by driving the product, not by
+                    the test — which asserted the shape of the condition rather
+                    than what a reader sees.
+
+                    REPEATED PER CONTACT ROW, DELIBERATELY. It is the pattern the
+                    plan's completion lines already use, and a caveat that
+                    travels with its fact cannot drift onto something else the
+                    next time this list grows. */}
+                {e.action === "contact" && (
+                  <p className="measure mt-1 text-xs text-olive">{CONTACT_MEANING}</p>
+                )}
                 {e.owner && (
                   <p className="mt-1 text-xs text-olive">
                     Owner recorded. Nobody was notified — there is no delivery path in this build.

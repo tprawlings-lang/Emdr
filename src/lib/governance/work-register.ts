@@ -848,10 +848,10 @@ export const WORK_REGISTER: WorkEntry[] = [
   },
   {
     id: "clinical.unreachable-care-actions",
-    title: "Four of the eight care actions have no writer",
-    state: "held",
+    title: "All eight care actions have a writer and a screen",
+    state: "reachable",
     code: "src/lib/clinical/attention-vocabulary.ts#UNWRITTEN_CARE_ACTIONS",
-    test: "tests/demo-population.test.ts",
+    test: "tests/care-time.test.ts",
     note:
       "FOUND BY DRIVING THE SEED, not by reading the vocabulary. §13's care-action vocabulary is " +
       "closed — eight names — and the product writes four: `review`, `contact`, `add_followup` and " +
@@ -877,10 +877,61 @@ export const WORK_REGISTER: WorkEntry[] = [
       "ledger's inclusion list is DERIVED from the vocabulary now instead of hand-written: its own " +
       "docstring said \"everything that is not a review\" and the four names under it were not " +
       "that, which is how three actions came to be recordable and invisible at once. " +
-      "THE FOURTH, `adjust_plan_link`, IS STILL UNWRITTEN AND THAT IS THE FINDING: there is no " +
-      "PLAN LINK in this product — no model, no screen, no column, nothing called a link on a plan " +
-      "anywhere — so building it means first deciding what one IS, which is a product question " +
-      "rather than an implementation. The seed stays forbidden from writing it.",
+      "THE FOURTH, `adjust_plan_link`, NEEDED A FEATURE RATHER THAN A WRITER, and that was the " +
+      "finding: there was no PLAN LINK in this product — no model, no screen, no column, nothing " +
+      "called a link on a plan anywhere — so nothing could write the word until somebody decided " +
+      "what one IS. BUILT 24 SEPTEMBER as the connection between a piece of assigned support and " +
+      "the goal it is meant to move. The gap it closes was visible in the between-visit plan " +
+      "itself, which showed a person their focus in their own words and, underneath, a list of the " +
+      "support they had been asked to do, with nothing saying which served which: a clinician held " +
+      "the join in their head, so the next reader had to infer it and the person was never told. " +
+      "A COLUMN ON THE ASSIGNMENT rather than a second plan table, because the handoff forbids a " +
+      "second authoritative plan and the relationship is 0-or-1; the link's HISTORY is not lost by " +
+      "that, because every change appends to the care ledger, which is where the history of " +
+      "clinical decisions already lives. The link refuses another person's goal and refuses a " +
+      "DRAFT goal — §12's rule, since a draft is wording nobody has confirmed with the person — " +
+      "and a re-submitted link is refused rather than ignored, because a care-time record of an " +
+      "adjustment that did not happen is the one thing this ledger cannot survive. Both views of " +
+      "the plan render it from one set of sources, and the person sees it in their own words on " +
+      "their own Today screen. UNWRITTEN_CARE_ACTIONS is empty now and is kept as the question " +
+      "rather than the answer: the next action added to the closed list arrives without a writer " +
+      "exactly as these four did.",
+  },
+  {
+    id: "clinical.plan-link",
+    title: "A plan link joins assigned support to the goal it is meant to move",
+    state: "reachable",
+    code: "src/lib/clinical/assigned-support.ts#linkAssignmentToGoal",
+    test: "tests/plan-link.test.ts",
+    note:
+      "The feature `adjust_plan_link` was waiting on. A clinician says which of the person's own " +
+      "goals a piece of assigned support is working towards, at the moment they assign it or " +
+      "afterwards, and both sides of the between-visit plan render it from the same sources — the " +
+      "clinical title with its state on one side, the person's own words on the other. Refuses a " +
+      "goal belonging to somebody else, refuses a draft nobody has confirmed with them, refuses a " +
+      "link that did not move, and refuses to rewrite what a finished assignment was for.",
+  },
+  {
+    id: "demo.goals-and-assignments-unseeded",
+    title: "The demonstration seeds no goals and no assigned support",
+    state: "proposed",
+    code: "src/lib/demo-population-generator.ts#generatePopulationHistory",
+    test: "tests/demo-population.test.ts",
+    note:
+      "FOUND BY DRIVING THE DEMONSTRATION, and only by driving it. After a full reset the "
+      + "fabricated population holds 240 people, 20,057 events and 770 care actions — and ZERO "
+      + "rows in return_to_life_goals and ZERO in support_assignments. Both features are built, "
+      + "tested and reachable; nothing in the generator writes either table, so every goals screen "
+      + "and every assigned-support panel in the demonstration shows its empty state. A reviewer "
+      + "driving the demo would conclude neither feature exists, and the plan link now inherits "
+      + "that: it joins the two, so it is invisible wherever they are. "
+      + "NOT BUILT RATHER THAN OVERLOOKED. Seeding them is not a small addition — a goal needs a "
+      + "five-rung ladder and a confirmation the person gave, an assignment needs the words that "
+      + "person was told and the policy version in force, and the fabricated baseline hash and the "
+      + "visual baselines move when the population does. How many people should hold goals, at "
+      + "what stage, and how many of their assignments should name one are demonstration-design "
+      + "questions rather than implementation. The empty states are honest in the meantime: each "
+      + "says nothing has been set rather than rendering blank.",
   },
   {
     id: "clinical.maintenance-language-held",

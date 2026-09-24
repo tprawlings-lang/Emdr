@@ -177,16 +177,22 @@ export const CARE_ACTIONS = [
 export type CareAction = (typeof CARE_ACTIONS)[number];
 
 /**
- * The four the product actually writes.
+ * The ones the product actually writes.
  *
  * CLOSED IS NOT THE SAME AS BUILT, which is what this constant is for. §13's
- * vocabulary names eight actions; four of them have no writer anywhere —
+ * vocabulary names eight actions; four of them once had no writer anywhere —
  * `record_thought`, `open_session_prep`, `review_trajectory` and
- * `adjust_plan_link` — and two of those four would render on no screen even if
- * something wrote them. A word in a closed vocabulary reads exactly like a
- * built feature, and the demo seed proved it: reaching for `record_thought` as
- * the obvious home for a clinician's note put 249 rows of a shape no clinician
- * can produce into the demonstration, invisible everywhere.
+ * `adjust_plan_link` — and two of those four would have rendered on no screen
+ * even if something wrote them. A word in a closed vocabulary reads exactly
+ * like a built feature, and the demo seed proved it: reaching for
+ * `record_thought` as the obvious home for a clinician's note put 249 rows of a
+ * shape no clinician can produce into the demonstration, invisible everywhere.
+ *
+ * ALL EIGHT ARE WRITTEN NOW, and the constant stays rather than being deleted
+ * with the gap it described. It is the thing that made the gap countable, and
+ * the next action added to §13's list arrives unwritten like the last four did;
+ * a list that existed only while it was non-empty would have to be reinvented
+ * at exactly the moment nobody remembers why it mattered.
  *
  * NAMED HERE RATHER THAN IN THE TEST that checks it, so that somebody choosing
  * an action type meets the distinction at the vocabulary instead of finding it
@@ -195,22 +201,27 @@ export type CareAction = (typeof CARE_ACTIONS)[number];
  */
 export const PRODUCT_WRITTEN_CARE_ACTIONS: readonly CareAction[] = [
   "review", "contact", "add_followup", "resolve",
-  // ADDED 23 SEPTEMBER. Three of the four unwritten actions now have a writer:
-  // a captured thought records one by itself, and a clinician presses a control
-  // to record that they prepared for a session or read a trajectory. The fourth
-  // is below.
+  // ADDED 23 SEPTEMBER. Three of the four unwritten actions got a writer: a
+  // captured thought records one by itself, and a clinician presses a control
+  // to record that they prepared for a session or read a trajectory.
   "record_thought", "open_session_prep", "review_trajectory",
+  // ADDED 24 SEPTEMBER, and it needed a feature rather than a writer. There was
+  // no plan link in this product — no model, no screen, no column, nothing
+  // called a link on a plan anywhere — so the word could not be written until
+  // somebody decided what one IS. It is the connection between a piece of
+  // assigned support and the goal it is meant to move, it lives on the
+  // assignment, and `linkAssignmentToGoal` is the only thing that writes this.
+  "adjust_plan_link",
 ];
 
 /**
- * What is left: one word with no feature behind it.
+ * What is left: nothing, and that is worth being able to ask.
  *
- * `adjust_plan_link` IS NOT AN OVERSIGHT AND NOT A SMALL JOB. There is no plan
- * link in this product — no model, no screen, no column, nothing called a link
- * on a plan anywhere — so writing one would mean first inventing what a plan
- * link IS. That is a product decision rather than an implementation, and a
- * codebase that answered it by picking something would be doing exactly what
- * §13's closed list exists to prevent.
+ * EMPTY AND KEPT. Every word in §13's closed vocabulary now has something in
+ * the product that produces it and a screen that shows it. This stays as the
+ * question rather than the answer, because the failure it guards against is a
+ * word added to the list above and quietly left without a writer, which reads
+ * as a built feature to everybody downstream.
  */
 export const UNWRITTEN_CARE_ACTIONS: readonly CareAction[] =
   CARE_ACTIONS.filter((a) => !PRODUCT_WRITTEN_CARE_ACTIONS.includes(a));

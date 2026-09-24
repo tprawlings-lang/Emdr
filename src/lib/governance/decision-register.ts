@@ -280,7 +280,9 @@ export const DECISION_REGISTER: Decision[] = [
         "B — build all four. A clinician should be able to record a thought between visits, that " +
         "they prepared for a session, that they read somebody's trajectory, and that they adjusted " +
         "a plan link, and each should show on the person's record. This reverses the 19 September " +
-        "decision to shelf them, which is recorded rather than overwritten.",
+        "decision to shelf them, which is recorded rather than overwritten. ALL FOUR ARE BUILT as " +
+        "of 24 September; the fourth needed a feature rather than a writer, and what a plan link " +
+        "is was settled separately below.",
       on: "2026-09-23",
     },
     asked: "2026-09-19",
@@ -586,6 +588,68 @@ export const DECISION_REGISTER: Decision[] = [
         "reason to believe is stale.",
       on: "2026-09-23",
     },
+  },
+  {
+    id: "clinical.what-a-plan-link-is",
+    question:
+      "When the record says a clinician adjusted a plan link, what has actually been adjusted? The " +
+      "words have been in the product's vocabulary since it was written and nothing in it had a " +
+      "link on a plan, so the sentence described something that did not exist.",
+    audience: "clinical",
+    blocks: ["clinical.plan-link"],
+    meanwhile:
+      "Nothing wrote the words, so the record could never say it. The gap showed on the shared " +
+      "plan: a person saw what they had said they wanted, and underneath it a list of what they " +
+      "had been asked to do, with nothing joining the two.",
+    options: [
+      {
+        label: "The goal a piece of work is meant to move",
+        plainly:
+          "Each thing a person is asked to do between visits names which of their own goals it is " +
+          "for. Adjusting the link means saying that this exercise is now working towards a " +
+          "different goal, or towards none.",
+        then:
+          "The person sees what their homework is for, in their own words, on the same screen that " +
+          "asks them to do it. The clinician sees the goal and what state it is in. Nothing else " +
+          "in the product moves, because the connection is one more fact about the thing that was " +
+          "already being assigned.",
+        recommended: true,
+      },
+      {
+        label: "A web address to a plan kept somewhere else",
+        plainly:
+          "The link is literally a link: somebody pastes in the address of a care plan that lives " +
+          "in another system, and adjusting it means pasting a different one.",
+        then:
+          "Quick to build and it answers nothing. The plan would still be somewhere this product " +
+          "cannot read, so no screen could show what it says and no check could tell whether the " +
+          "address still worked.",
+      },
+      {
+        label: "Which version of the plan somebody is on",
+        plainly:
+          "Every plan is written under a set of rules, and those rules change. The link would say " +
+          "which version this person's plan follows, and adjusting it would move them to a newer " +
+          "one.",
+        then:
+          "This is already recorded on every assignment and every goal, and has been from the " +
+          "start. Building it again under a second name would give one fact two homes that drift.",
+      },
+    ],
+    state: "answered",
+    answer: {
+      decided:
+        "A — a plan link is the goal a piece of assigned support is meant to move. Decided under " +
+        "the 24 September instruction to go with the best use rather than the shortcut, and it is " +
+        "the option that closes a gap somebody could see on the screen rather than one that adds " +
+        "a field. Built the same day: a clinician sets it when they assign the work or afterwards, " +
+        "both sides of the shared plan show it from the same sources, and the person reads it in " +
+        "their own words. It refuses another person's goal, refuses a goal nobody has confirmed " +
+        "with the person, and refuses a link that has not moved — recording care time for an " +
+        "adjustment nobody made is worse than recording nothing.",
+      on: "2026-09-24",
+    },
+    asked: "2026-09-23",
   },
 ];
 

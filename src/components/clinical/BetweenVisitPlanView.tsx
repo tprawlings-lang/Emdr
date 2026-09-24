@@ -62,6 +62,18 @@ export function BetweenVisitPlanView({ plan }: { plan: BetweenVisitPlan }) {
                 {v.assignedSupport.value.map((a) => (
                   <li key={`${a.what}-${a.expires ?? "none"}`}>
                     <span className="font-medium">{a.what}</span> — {a.rationale}
+                    {/* THE PLAN LINK. Its absence is stated rather than left
+                        blank: support that is not working towards a stated goal
+                        is an ordinary thing, and a silent gap here would read as
+                        a rendering fault instead of a fact. */}
+                    <span className="block text-xs text-ground/80">
+                      {a.towards
+                        ? `Working towards ${a.towards}.`
+                        : "Not linked to a goal."}
+                    </span>
+                    {a.linkNote && (
+                      <span className="block text-xs text-state-caution">{a.linkNote}</span>
+                    )}
                     <span className="block text-xs text-olive">
                       {a.authority}
                       {a.expires ? ` Runs out ${a.expires.slice(0, 10)}.` : " No end date."}

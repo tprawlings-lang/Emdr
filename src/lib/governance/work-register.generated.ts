@@ -640,7 +640,29 @@ export const REGISTER_FINDINGS: EntryFinding[] = [
   },
   {
     "id": "clinical.unreachable-care-actions",
-    "claimed": "held",
+    "claimed": "reachable",
+    "supported": "reachable",
+    "facts": {
+      "defined": true,
+      "tested": true,
+      "wired": true
+    },
+    "problems": []
+  },
+  {
+    "id": "clinical.plan-link",
+    "claimed": "reachable",
+    "supported": "reachable",
+    "facts": {
+      "defined": true,
+      "tested": true,
+      "wired": true
+    },
+    "problems": []
+  },
+  {
+    "id": "demo.goals-and-assignments-unseeded",
+    "claimed": "proposed",
     "supported": "reachable",
     "facts": {
       "defined": true,
