@@ -169,7 +169,7 @@ export default function ResourcingSession({ borderline = false }: { borderline?:
                 value={place}
                 onChange={(e) => setPlace(e.target.value.slice(0, 40))}
                 placeholder="name your place — e.g. the beach"
-                className="w-full rounded-full border border-ground/15 bg-white px-5 py-3 text-center"
+                className="w-full rounded-full border border-ground/15 bg-app-surface px-5 py-3 text-center"
               />
               <p className="text-center text-sm text-olive">
                 We&apos;ll use your own words to guide you.
@@ -181,7 +181,7 @@ export default function ResourcingSession({ borderline = false }: { borderline?:
               value={cueWord}
               onChange={(e) => setCueWord(e.target.value.slice(0, 40))}
               placeholder="your word"
-              className="w-full rounded-full border border-ground/15 bg-white px-5 py-3 text-center"
+              className="w-full rounded-full border border-ground/15 bg-app-surface px-5 py-3 text-center"
             />
           )}
           <button

@@ -691,8 +691,9 @@ export const DECISION_REGISTER: Decision[] = [
         "ground already meant the primary text colour in over a thousand places, so a name-for-name " +
         "swap would have made body text pale on a pale page. Every text pairing is verified in the " +
         "contrast checks; the automated accessibility scan passed on every route afterwards; the " +
-        "typeface loads at exactly the two weights the handoff allows. Dark mode, which the handoff " +
-        "also specifies, is the next piece and was not part of this change.",
+        "typeface loads at exactly the two weights the handoff allows. Dark mode followed the same " +
+        "day as its own change, checked the same way in both modes and scanned on every route with " +
+        "the system set to dark.",
       on: "2026-09-24",
     },
     asked: "2026-09-24",

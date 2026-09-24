@@ -33,13 +33,19 @@ import { direction, READING_LABEL } from "@/lib/clinical/trajectory";
 // No JavaScript: hover is native <title>, and the table view below carries
 // every value, which is also the mandated relief for marks under 3:1.
 
-// The four values are the ground, support, sage and linen tokens — the
-// Expansion Handoff §8.2 ink, help, a steady tint and surface — written out as
-// literals, so a palette change has to be made here as well as in globals.css.
-const INK = "#1c2a2f";        // ground — lines, ordinary marks
-const SEVERE = "#7d3f52";     // support — safety only
-const GRID = "#c7d5d5";       // sage — hairline, recessive
-const SURFACE = "#f7f9f8";    // linen — the ring/gap colour
+// The four colours are tokens, read through CSS variables, so the chart
+// follows light and dark with everything else. They were hex literals, and in
+// dark mode that drew near-black lines on a near-black card.
+//
+// DARK MODE WAS VALIDATED FOR THE SAME REASON THE LIGHT PAIR WAS: in dark both
+// the ink line and the safety marker are light colours, which is where a pair
+// can collapse for a colour-blind reader. Measured with the dataviz validator,
+// ink #e4ecea against help #d99aae on the dark card: ΔE 18.1 under
+// deuteranopia and 20.4 in normal vision.
+const INK = "var(--color-ground)";      // lines, ordinary marks
+const SEVERE = "var(--color-support)";  // safety only
+const GRID = "var(--color-sage)";       // hairline, recessive
+const SURFACE = "var(--color-linen)";   // the ring/gap colour
 
 const LANE_H = 56;
 const RAIL_H = 34;
@@ -184,7 +190,7 @@ function SeriesLane({
 
       {/* Lane title and scale — a single series needs no legend box, the title
           names it. Text wears ink, never the mark colour. */}
-      <text x={PAD_L - 10} y={y + 12} textAnchor="end" fontSize={12} fill={INK} fontWeight={500}>
+      <text x={PAD_L - 10} y={y + 12} textAnchor="end" fontSize={12} fill={INK} fontWeight={700}>
         {s.label}
       </text>
       <text x={PAD_L - 10} y={y + 27} textAnchor="end" fontSize={10} fill={INK} opacity={0.6}>
@@ -252,7 +258,7 @@ function ValueLabel({
   const tx = anchor === "end" ? (flip ? x - 8 : x + 8) : x;
   const ta = anchor === "end" ? (flip ? "end" : "start") : anchor;
   return (
-    <text x={tx} y={y - 9} textAnchor={ta} fontSize={11} fill={INK} fontWeight={500}>
+    <text x={tx} y={y - 9} textAnchor={ta} fontSize={11} fill={INK} fontWeight={700}>
       {fmtVal(v)}
     </text>
   );
@@ -265,7 +271,7 @@ function EventRail({
   return (
     <g>
       <line x1={PAD_L} x2={W - PAD_R} y1={cy} y2={cy} stroke={GRID} strokeWidth={1} opacity={0.7} />
-      <text x={PAD_L - 10} y={cy + 4} textAnchor="end" fontSize={12} fill={INK} fontWeight={500}>
+      <text x={PAD_L - 10} y={cy + 4} textAnchor="end" fontSize={12} fill={INK} fontWeight={700}>
         {r.label}
       </text>
       {r.events.map((e) => (

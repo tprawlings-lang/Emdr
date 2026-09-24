@@ -166,14 +166,14 @@ export default async function PathsPage() {
             {myTracks.map((track) => {
               const next = nextModuleId(track, completed);
               return (
-                <div key={track.id} className="rounded-3xl border border-ground/10 bg-ground p-6 text-ivory shadow-soft">
+                <div key={track.id} className="rounded-3xl border border-ground/10 bg-emphasis p-6 text-on-emphasis shadow-soft">
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <h3 className="font-semibold">{track.name}</h3>
                     <EvidenceBadge grade={track.evidenceGrade} />
                   </div>
-                  <p className="mt-2 text-sm text-ivory/80">{track.blurb}</p>
+                  <p className="mt-2 text-sm text-on-emphasis/80">{track.blurb}</p>
                   {isReferralOnly(track) && track.referralNote && (
-                    <p className="mt-2 rounded-2xl bg-ivory/10 px-4 py-2 text-sm text-ivory/85">
+                    <p className="mt-2 rounded-2xl bg-on-emphasis/10 px-4 py-2 text-sm text-on-emphasis/85">
                       {track.referralNote}
                     </p>
                   )}
@@ -181,12 +181,12 @@ export default async function PathsPage() {
                     {next ? (
                       <Link
                         href={`/app/session/${next}`}
-                        className="rounded-full bg-sage px-5 py-2 text-sm font-medium text-ground transition-colors hover:bg-sage-deep"
+                        className="rounded-full bg-emphasis-action px-5 py-2 text-sm font-medium text-on-emphasis-action transition-opacity hover:opacity-90"
                       >
                         Next: {moduleName(next)}
                       </Link>
                     ) : (
-                      <span className="text-sm text-ivory/90">You&apos;ve worked through this path&apos;s steps.</span>
+                      <span className="text-sm text-on-emphasis/90">You&apos;ve worked through this path&apos;s steps.</span>
                     )}
                     <form action={removeCareTrack}>
                       <input type="hidden" name="trackId" value={track.id} />

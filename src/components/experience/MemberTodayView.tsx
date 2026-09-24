@@ -64,19 +64,19 @@ export function MemberTodayView({ day }: { day: MemberDayView }) {
       {day.recommended ? (
         <section
           className={`rounded-3xl p-6 shadow-soft sm:p-7 ${
-            failing ? "border border-ground/15 bg-linen" : "bg-ground text-ivory"
+            failing ? "border border-ground/15 bg-linen" : "bg-emphasis text-on-emphasis"
           }`}
         >
           <h2 className="type-display text-2xl font-medium">{day.recommended.title}</h2>
-          <p className={`mt-2 ${failing ? "text-ground/80" : "text-ivory/85"}`}>
+          <p className={`mt-2 ${failing ? "text-ground/80" : "text-on-emphasis/85"}`}>
             {day.recommended.description}
           </p>
-          <p className={`mt-3 text-sm ${failing ? "text-olive" : "text-ivory/90"}`}>
+          <p className={`mt-3 text-sm ${failing ? "text-olive" : "text-on-emphasis/90"}`}>
             About {day.recommended.approximateMinutes} minutes. {day.recommended.pausePromise}
           </p>
           <Link
             href={day.recommended.startHref}
-            className="mt-5 inline-block min-h-11 rounded-full bg-sage px-7 py-3 font-medium text-ground transition-colors hover:bg-sage-deep"
+            className="mt-5 inline-block min-h-11 rounded-full bg-emphasis-action px-7 py-3 font-medium text-on-emphasis-action transition-opacity hover:opacity-90"
           >
             Begin
           </Link>

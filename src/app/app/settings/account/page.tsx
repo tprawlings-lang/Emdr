@@ -58,7 +58,7 @@ export default async function AccountSettingsPage({
           </label>
           <button
             type="submit"
-            className="mt-4 w-full rounded-full border-2 border-ground px-6 py-3 font-semibold text-ground transition-colors hover:bg-ground hover:text-white"
+            className="mt-4 w-full rounded-full border-2 border-ground px-6 py-3 font-semibold text-ground transition-colors hover:bg-ground hover:text-ivory"
           >
             Delete my account permanently
           </button>

@@ -87,7 +87,7 @@ export default async function MeasuresPage({
                     Begin
                   </Link>
                 ) : (
-                  <span className="rounded-full border border-ground/10 bg-sand/40 px-5 py-2.5 text-sm text-olive">
+                  <span className="rounded-full border border-ground/10 bg-state-unknown-bg px-5 py-2.5 text-sm text-state-unknown">
                     Due in {r.cadenceDays - r.age} day{r.cadenceDays - r.age === 1 ? "" : "s"}
                   </span>
                 )}

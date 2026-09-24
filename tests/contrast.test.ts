@@ -189,3 +189,134 @@ test("the ordinary data mark is visible as a graphical object", () => {
     assert.ok(r >= 3, `a data mark on ${bg} is ${r.toFixed(2)}:1`);
   }
 });
+
+test("muted text never sits on a sand fill, at any opacity", () => {
+  // FOUND BY COMPUTING, NOT BY THE SCAN. Three status pills — "Due in 5
+  // days", "Canceled", "Closed" — set muted text on sand at 40–60% opacity.
+  // Blended, that is 3.69 to 4.39:1 in light mode: below AA since the §8.2
+  // palette landed, and missed by the automated scan because none of the three
+  // states is on a route it visits. They were neutral states wearing a
+  // resource-tool fill, and now use the neutral state pair verified above.
+  const offenders: string[] = [];
+  const walk = (d: string) => {
+    for (const e of fs.readdirSync(d, { withFileTypes: true })) {
+      const p2 = path.join(d, e.name);
+      if (e.isDirectory()) walk(p2);
+      else if (p2.endsWith(".tsx")) {
+        for (const cls of fs.readFileSync(p2, "utf8").match(/"[^"]*"|`[^`]*`/g) ?? []) {
+          if (/\bbg-(sand|clay)(\/\d+)?\b/.test(cls) && /\btext-olive\b/.test(cls)) {
+            offenders.push(`${path.relative(process.cwd(), p2)}: ${cls.slice(0, 80)}`);
+          }
+        }
+      }
+    }
+  };
+  walk(path.join(process.cwd(), "src"));
+  assert.deepEqual(offenders, [], "muted text on a sand fill is below AA:\n  " + offenders.join("\n  "));
+});
+
+// ---------------------------------------------------------------------------
+// Dark mode (§8.2's dark column)
+// ---------------------------------------------------------------------------
+//
+// The dark block redefines tokens inside a media query, so `token()` above —
+// which reads the first definition — returns the light value. This reads the
+// dark block on its own, and every check below runs against it.
+
+const DARK = (() => {
+  const start = CSS.indexOf("@media (prefers-color-scheme: dark)");
+  assert.ok(start >= 0, "there is no dark-mode block, so §8.2's dark column is not implemented");
+  const body = CSS.slice(start, CSS.indexOf("\n}\n", start));
+  return Object.fromEntries(
+    [...body.matchAll(/--color-([a-z0-9-]+):\s*(#[0-9a-fA-F]{6})/g)].map((m) => [m[1], m[2]])
+  ) as Record<string, string>;
+})();
+
+function dark(name: string): string {
+  const v = DARK[name];
+  assert.ok(v, `--color-${name} has no dark value, so it keeps its light colour on a dark page`);
+  return v;
+}
+
+test("every colour token the light theme defines has a dark value", () => {
+  // A token left out keeps its light value — a light fill on a dark page, or
+  // dark text on a dark card. The failure dark mode exists not to have.
+  const light = [...new Set([...CSS.matchAll(/--color-([a-z0-9-]+):\s*#[0-9a-fA-F]{6}/g)].map((m) => m[1]))];
+  const missing = light.filter((t) => !(t in DARK));
+  assert.deepEqual(missing, [], `these tokens have no dark value: ${missing.join(", ")}`);
+});
+
+test("in dark mode, every pairing the product draws passes AA", () => {
+  // The pairs are the ones actually used — text class on fill class — found
+  // by searching the components, not a theoretical grid.
+  const PAIRS: Array<[string, string]> = [
+    ["ground", "ivory"], ["ground", "linen"], ["olive", "ivory"], ["olive", "linen"],
+    ["app-ink", "ivory"], ["app-ink", "linen"], ["support", "ivory"], ["support", "linen"],
+    ["app-surface", "app-ink"], ["ivory", "ground"],
+    ["ground", "sage"], ["ground", "sage-deep"], ["ground", "moss"], ["olive", "moss"],
+    ["ground", "app-accent"], ["app-ink", "app-accent"], ["ground", "app-rail"],
+    ["ground", "pause"], ["ground", "pause-soft"], ["ground", "safe"], ["ground", "clay"],
+    ["app-ink", "app-flag"], ["ivory", "state-support"],
+    ...(["support", "caution", "safe", "info", "review", "unknown"] as const).flatMap((h) => [
+      [`state-${h}`, `state-${h}-bg`], [`state-${h}`, "ivory"], [`state-${h}`, "linen"], ["ground", `state-${h}-bg`],
+    ] as Array<[string, string]>),
+  ];
+  const fails = PAIRS.map(([f, b]) => [f, b, ratio(dark(f), dark(b))] as const)
+    .filter(([, , r]) => r < 4.5)
+    .map(([f, b, r]) => `${f} on ${b}: ${r.toFixed(2)}:1`);
+  assert.deepEqual(fails, [], "dark-mode pairings below AA:\n  " + fails.join("\n  "));
+});
+
+test("in dark mode, the focus ring and the data mark are visible", () => {
+  for (const bg of ["canvas", "surface", "app-rail", "app-accent"]) {
+    const r = ratio(dark("app-ink"), dark(bg));
+    assert.ok(r >= 3, `the dark focus ring on ${bg} is ${r.toFixed(2)}:1`);
+  }
+  for (const bg of ["canvas", "surface"]) {
+    const r = ratio(dark("chart-neutral"), dark(bg));
+    assert.ok(r >= 3, `a dark data mark on ${bg} is ${r.toFixed(2)}:1`);
+  }
+});
+
+test("nothing that inverts with the theme is paired with a colour that does not", () => {
+  // THE CRISIS BUTTONS. `bg-ground text-white` is dark-on-light in light mode
+  // and white-on-near-white in dark, because ground inverts and white does
+  // not. It was the pattern on SOS, the crisis page and Today's crisis link.
+  const offenders: string[] = [];
+  const walk = (d: string) => {
+    for (const e of fs.readdirSync(d, { withFileTypes: true })) {
+      const p2 = path.join(d, e.name);
+      if (e.isDirectory()) walk(p2);
+      else if (p2.endsWith(".tsx")) {
+        const src = fs.readFileSync(p2, "utf8");
+        if (/\b(bg|text|border)-(white|black)\b/.test(src)) {
+          offenders.push(path.relative(process.cwd(), p2));
+        }
+      }
+    }
+  };
+  walk(path.join(process.cwd(), "src"));
+  assert.deepEqual(offenders, [],
+    "these files use white or black, which do not change with the theme:\n  " + offenders.join("\n  "));
+});
+
+test("the emphasis card reads in both modes, and does not glare in dark", () => {
+  for (const [mode, get] of [["light", token], ["dark", dark]] as const) {
+    const text = ratio(get("on-emphasis"), get("emphasis"));
+    assert.ok(text >= 4.5, `${mode}: text on the emphasis card is ${text.toFixed(2)}:1`);
+    const btn = ratio(get("on-emphasis-action"), get("emphasis-action"));
+    assert.ok(btn >= 4.5, `${mode}: the Begin button's text is ${btn.toFixed(2)}:1`);
+    // WCAG 1.4.11: a control's boundary at 3:1 against what it sits on.
+    const edge = ratio(get("emphasis-action"), get("emphasis"));
+    assert.ok(edge >= 3, `${mode}: the Begin button stands off its card at ${edge.toFixed(2)}:1`);
+  }
+  // THE GLARE CHECK, which is the reason the role exists. In dark mode the
+  // card must be darker than the text on it — a light slab on a dark page is
+  // exactly what the inversion produced.
+  const lum = (h: string) => {
+    const v = h.replace("#", "");
+    return [0, 2, 4].map((i) => parseInt(v.slice(i, i + 2), 16)).reduce((a, b) => a + b, 0);
+  };
+  assert.ok(lum(dark("emphasis")) < lum(dark("on-emphasis")),
+    "in dark mode the emphasis card is lighter than its own text — a bright slab at night");
+});

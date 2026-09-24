@@ -33,7 +33,7 @@ export default async function CrisisPage({
           <a
             key={r.href}
             href={r.href}
-            className="block rounded-3xl bg-ground px-6 py-5 text-center text-xl font-bold text-white transition-colors hover:bg-ground"
+            className="block rounded-3xl bg-ground px-6 py-5 text-center text-xl font-bold text-ivory transition-colors hover:bg-ground"
           >
             {r.label} (US)
           </a>

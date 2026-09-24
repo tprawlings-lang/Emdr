@@ -88,7 +88,7 @@ export default function SosButton({ panel }: { panel: SosPanel }) {
         // keyed off this attribute and applied only on screens that mount a
         // dock — so this button is unchanged everywhere else.
         data-sos-button=""
-        className="fixed bottom-5 right-5 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-ground text-sm font-bold text-white shadow-lg transition-transform hover:scale-105 focus:outline-none focus:ring-4 focus:ring-ground/30"
+        className="fixed bottom-5 right-5 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-ground text-sm font-bold text-ivory shadow-lg transition-transform hover:scale-105 focus:outline-none focus:ring-4 focus:ring-ground/30"
       >
         SOS
       </button>
@@ -162,7 +162,7 @@ export default function SosButton({ panel }: { panel: SosPanel }) {
               )}
               <a
                 href={panel.crisisHref}
-                className="block rounded-3xl bg-ground px-6 py-4 text-center text-lg font-bold text-white transition-colors hover:bg-ground"
+                className="block rounded-3xl bg-ground px-6 py-4 text-center text-lg font-bold text-ivory transition-colors hover:bg-ground"
               >
                 {panel.crisisLabel} (US)
               </a>

@@ -20,7 +20,7 @@ export default async function SessionConsentPage() {
         present, it is a separate, explicit choice. Consent version {PROCESSING_CONSENT_VERSION}.
       </p>
 
-      <div className="mt-6 rounded-2xl border border-ground/15 bg-white p-5">
+      <div className="mt-6 rounded-2xl border border-ground/15 bg-app-surface p-5">
         <div className="flex items-center justify-between gap-3">
           <span className="font-medium">Status</span>
           <span

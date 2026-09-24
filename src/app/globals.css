@@ -120,6 +120,19 @@
      Steady itself failed beside caution (13.6 normal). */
   --color-chart-neutral: #678e90;
 
+  /* THE EMPHASIS SURFACE: the one large "this is the thing to do" card. A dark
+     slab in light mode, as it always was. It is its own role because in dark
+     mode the obvious inversion — `bg-ground text-ivory` — turned Today's card
+     into a bright light slab on a dark page, which is glare for somebody
+     reading on a phone at night, the person handoff 09 §3 designs the member
+     shell for. Buttons may invert; a surface that fills the screen should not.
+     Seen in a screenshot; no contrast check fails on glare. */
+  --color-emphasis: #1c2a2f;
+  --color-on-emphasis: #e9eeec;
+  /* The action on it: stands off the card and carries its own text. */
+  --color-emphasis-action: #c7d5d5;
+  --color-on-emphasis-action: #1c2a2f;
+
   /* §8.3: TWO WEIGHTS. Everything that was emphasised is bold and everything
      that was not is regular, which is what "one family, weights 400 and 700"
      means once it meets 1,300 existing `font-medium` and `font-semibold`
@@ -149,6 +162,106 @@
   --text-base--line-height: 1.6;
 
   --shadow-soft: 0px 12px 40px rgba(28, 42, 47, 0.08);
+}
+
+/* NATIVE CONTROLS FOLLOW THE SCHEME. Without this, a select, a date input
+   or a scrollbar stays light on a dark page — the intensity picker a person
+   rates their own triggers with would be a white box in a dark room. */
+:root {
+  color-scheme: light dark;
+}
+
+/* DARK MODE: THE §8.2 DARK COLUMN, by role, like the light one.
+   
+   EVERY TOKEN THE PRODUCT USES IS REDEFINED HERE, not just §8.2's seven. A
+   token left out keeps its light value, and a light value on a dark page is
+   the failure dark mode exists to not have. §8.2 gives seven colours; the
+   rest are derived the same way the light tints are — the card mixed toward
+   steady — and the six state pairs §8.2 does not give are the same hues, lit
+   for a dark ground.
+   
+   THE ONE THAT MATTERED MOST: the crisis routes. They were `bg-ground
+   text-white`, and in this block `ground` becomes the light ink while `white`
+   stays white — so SOS, the crisis page and Today's crisis link would have
+   rendered white on near-white. They now use `text-ivory`, which inverts with
+   the ground it sits on. A browser test holds that.
+   
+   VERIFIED IN BOTH MODES. tests/contrast.test.ts reads this block and checks
+   every pairing the product actually draws: ink 13.8:1 on the page, muted
+   7.3:1, steady 7.4:1, help 7.3:1, every state colour on its own tint, on the
+   page and on a card. Three were adjusted from their first derivation because
+   the check said so: the selected-chip clay (ink on §8.2's dark sand is 3.47),
+   the FABRICATED pill (its text was 3.56), and the data mark, whose separation
+   from the dark state colours was measured with the dataviz validator. */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-ivory: #162023;        /* §8.2 ground (dark): the page */
+    --color-linen: #1e2a2e;        /* §8.2 surface (dark): cards */
+    --color-app-surface: #1e2a2e;
+    --color-ground: #e4ecea;       /* §8.2 ink (dark) */
+    --color-olive: #9db0b2;        /* §8.2 ink-muted (dark) */
+    --color-app-ink: #7fb7b5;      /* §8.2 steady (dark) */
+    --color-sand: #8c7a58;         /* §8.2 sand (dark): fills only */
+    --color-support: #d99aae;      /* §8.2 help (dark) */
+    --color-support-deep: #dcafbd;
+
+    --color-canvas: #162023;
+    --color-surface: #1e2a2e;
+    --color-ink: #e4ecea;
+    --color-ink-muted: #9db0b2;
+    --color-steady: #7fb7b5;
+    --color-help: #d99aae;
+
+    /* Tints: the dark card mixed toward dark steady. */
+    --color-app-accent: #2f4346;   /* 18% */
+    --color-moss: #28383c;         /* 10% */
+    --color-sage: #395154;         /* 28% */
+    --color-sage-deep: #415d5f;    /* 36% */
+    --color-app-rail: #1a2629;     /* the page, 4% toward steady */
+    /* The selected-chip fill. NOT §8.2's dark sand: ink on #8c7a58 is 3.47:1,
+       so the chip takes the card mixed 55% toward it instead. */
+    --color-clay: #5b5645;
+    /* 72% was right on a light card; on a dark one the same idea is 60%,
+       3.34:1 on the card and 3.76:1 on the page, and apart from caution, support
+       and info by ΔE 17.7 or more colour-blind. */
+    --color-chart-neutral: #587f7f;
+    /* The card mixed 24% toward steady: text 7.62:1 (6.04 at the 85% the
+       card's secondary lines use), the Begin button's edge 4.07:1 against it,
+       and 1.81:1 off the page — present without glaring. */
+    --color-emphasis: #354c4e;
+    --color-on-emphasis: #e4ecea;
+    --color-emphasis-action: #7fb7b5;
+    --color-on-emphasis-action: #1e2a2e;
+    /* The FABRICATED pill stays warm and stays legible: 4.68:1. */
+    --color-app-flag: #3d403c;
+
+    --color-pause: #5d553f;
+    --color-pause-soft: #3e4139;
+    --color-safe: #3f5348;
+    --color-safe-deep: #577861;
+    --color-amber-soft: #5b5a4a;
+    --color-mist: #48565b;
+    --color-mist-deep: #8aa4ae;
+
+    /* The six state pairs, lit for a dark ground. Same hues as the light set;
+       the text colour is the light end and the tint is the card mixed 16%
+       toward it. */
+    --color-state-safe: #a3cfa3;
+    --color-state-safe-bg: #334441;
+    --color-state-info: #a2c8da;
+    --color-state-info-bg: #33434a;
+    --color-state-caution: #e3bc72;
+    --color-state-caution-bg: #3e4139;
+    --color-state-support: #eaa898;
+    --color-state-support-bg: #3f3e3f;
+    --color-state-review: #c4b6de;
+    --color-state-review-bg: #39404a;
+    --color-state-unknown: #b3bdb9;
+    --color-state-unknown-bg: #364244;
+
+    /* A shadow in the ink colour is a glow on a dark page. */
+    --shadow-soft: 0px 12px 40px rgba(0, 0, 0, 0.35);
+  }
 }
 
 body {

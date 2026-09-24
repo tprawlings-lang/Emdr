@@ -638,18 +638,18 @@ export default async function ProfileOnboardingPage({
               State, not a score." So it ends the way every other day begins —
               with what is available now. The care-plan-as-output pattern,
               minus the score. */}
-          <div className="mt-6 rounded-3xl bg-ground p-7 text-ivory shadow-soft">
-            <p className="text-sm text-ivory/90">Where you start</p>
+          <div className="mt-6 rounded-3xl bg-emphasis p-7 text-on-emphasis shadow-soft">
+            <p className="text-sm text-on-emphasis/90">Where you start</p>
             <p className="mt-1 type-display text-3xl font-medium">
               {DAY_MESSAGE[day.messageKey]}
             </p>
             {day.primary && (
-              <p className="mt-3 text-ivory/80">
+              <p className="mt-3 text-on-emphasis/80">
                 A good place to begin is <strong>{day.primary.name}</strong> — about{" "}
                 {day.primary.minutes} minutes.
               </p>
             )}
-            <p className="mt-3 text-sm text-ivory/90">
+            <p className="mt-3 text-sm text-on-emphasis/90">
               What is available changes with how each day is going. Nothing here is a grade,
               and there is nothing to keep up.
             </p>

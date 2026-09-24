@@ -86,7 +86,7 @@ export default function CompanionChat({
           </p>
           <a
             href="/crisis?from=companion"
-            className="mt-3 inline-block rounded-full bg-ground px-6 py-2.5 font-semibold text-white transition-colors hover:bg-ground"
+            className="mt-3 inline-block rounded-full bg-ground px-6 py-2.5 font-semibold text-ivory transition-colors hover:bg-ground"
           >
             Open crisis support
           </a>

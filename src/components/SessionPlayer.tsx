@@ -917,7 +917,7 @@ export default function SessionPlayer({ module: mod, focus, calmPlace, audioOnly
           <div className="mt-5 flex flex-col gap-3">
             <a
               href="/crisis"
-              className="rounded-full bg-ground px-5 py-3 text-center font-semibold text-white transition-colors hover:bg-ground"
+              className="rounded-full bg-ground px-5 py-3 text-center font-semibold text-ivory transition-colors hover:bg-ground"
             >
               I need help now
             </a>
@@ -944,7 +944,7 @@ export default function SessionPlayer({ module: mod, focus, calmPlace, audioOnly
           setPhase("ground");
           void logSafetyEvent("ground_me_pressed", sessionId ?? undefined);
         }}
-        className="fixed right-5 bottom-5 z-50 rounded-full bg-ground px-7 py-4 text-lg font-bold text-white shadow-soft transition-colors hover:bg-ground"
+        className="fixed right-5 bottom-5 z-50 rounded-full bg-ground px-7 py-4 text-lg font-bold text-ivory shadow-soft transition-colors hover:bg-ground"
       >
         Ground me
       </button>

@@ -286,7 +286,7 @@ export default async function DashboardPage({
             crisis page has options that can help right now, and you can revisit the
             questions in {fitness.retakeInHours ?? 24}h.
           </p>
-          <Link href="/crisis" className="mt-3 inline-block rounded-full bg-ground px-6 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-ground">
+          <Link href="/crisis" className="mt-3 inline-block rounded-full bg-ground px-6 py-2.5 text-sm font-semibold text-ivory transition-colors hover:bg-ground">
             Open support options
           </Link>
         </div>
@@ -372,14 +372,14 @@ export default async function DashboardPage({
       )}
 
       {!checkin ? (
-        <div className="mt-6 rounded-3xl bg-ground p-7 text-ivory shadow-soft">
+        <div className="mt-6 rounded-3xl bg-emphasis p-7 text-on-emphasis shadow-soft">
           <h2 className="type-display text-2xl font-medium">Today&apos;s gentle next step</h2>
-          <p className="mt-2 text-ivory/80">
+          <p className="mt-2 text-on-emphasis/80">
             A short check-in — under 90 seconds. Every session moves through it first.
           </p>
           <Link
             href="/app/check-in"
-            className="mt-5 inline-block rounded-full bg-sage px-7 py-3 font-medium text-ground transition-colors hover:bg-sage-deep"
+            className="mt-5 inline-block rounded-full bg-emphasis-action px-7 py-3 font-medium text-on-emphasis-action transition-opacity hover:opacity-90"
           >
             Begin check-in
           </Link>

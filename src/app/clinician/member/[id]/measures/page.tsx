@@ -431,7 +431,7 @@ export default async function MemberDetailPage({
                   </div>
                   <span
                     className={`rounded-full px-3 py-1 text-xs font-medium ${
-                      open ? "bg-state-safe-bg/60 text-state-safe" : "bg-sand/50 text-olive"
+                      open ? "bg-state-safe-bg/60 text-state-safe" : "bg-state-unknown-bg text-state-unknown"
                     }`}
                   >
                     {open ? "Open" : "Closed"}
@@ -448,7 +448,7 @@ export default async function MemberDetailPage({
                       placeholder="Reason for closing (recorded)"
                       className="min-w-64 flex-1 rounded-2xl border border-ground/15 bg-ivory px-4 py-2 text-sm focus:border-sage focus:outline-none"
                     />
-                    <button className="rounded-full border border-state-support/40 px-5 py-2 text-sm font-medium text-state-support transition-colors hover:bg-state-support hover:text-white">
+                    <button className="rounded-full border border-state-support/40 px-5 py-2 text-sm font-medium text-state-support transition-colors hover:bg-state-support hover:text-ivory">
                       Close module
                     </button>
                   </form>

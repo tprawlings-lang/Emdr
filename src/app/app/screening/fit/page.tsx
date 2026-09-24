@@ -31,7 +31,7 @@ export default async function FitPausePage() {
           <a
             key={r.href}
             href={r.href}
-            className="block rounded-3xl bg-ground px-6 py-4 text-center text-lg font-semibold text-white transition-colors hover:bg-ground"
+            className="block rounded-3xl bg-ground px-6 py-4 text-center text-lg font-semibold text-ivory transition-colors hover:bg-ground"
           >
             {r.label}
           </a>

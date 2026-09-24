@@ -225,7 +225,7 @@ export default async function AutonomousReview({ searchParams }: { searchParams:
 
       {/* ── Decision simulator ─────────────────────────────────────────── */}
       <section className="mt-8 grid gap-6 md:grid-cols-2">
-        <form method="get" className="rounded-2xl border border-ground/15 bg-white p-5">
+        <form method="get" className="rounded-2xl border border-ground/15 bg-app-surface p-5">
           <h2 className="type-display text-xl">Simulate a decision</h2>
           <p className="mt-1 text-xs text-olive">Set any scenario and see what would be gated or passed.</p>
 
@@ -284,7 +284,7 @@ export default async function AutonomousReview({ searchParams }: { searchParams:
         </form>
 
         {/* ── Decision result ──────────────────────────────────────────── */}
-        <div className="rounded-2xl border border-ground/15 bg-white p-5">
+        <div className="rounded-2xl border border-ground/15 bg-app-surface p-5">
           <h2 className="type-display text-xl">What the engine decides</h2>
           <div className={`mt-3 inline-flex rounded-full border px-4 py-1.5 text-sm font-medium ${TIER_STYLE[decision.tier]}`}>
             access ceiling: {decision.tierLabel}
@@ -352,7 +352,7 @@ export default async function AutonomousReview({ searchParams }: { searchParams:
       </section>
 
       {/* ── Companion output tester ────────────────────────────────────── */}
-      <section className="mt-8 rounded-2xl border border-ground/15 bg-white p-5">
+      <section className="mt-8 rounded-2xl border border-ground/15 bg-app-surface p-5">
         <h2 className="type-display text-xl">Test a companion message</h2>
         <p className="mt-1 text-xs text-olive">Paste a candidate reply to see whether the output guard would allow it.</p>
         <form method="get" className="mt-3">
@@ -376,7 +376,7 @@ export default async function AutonomousReview({ searchParams }: { searchParams:
       </section>
 
       {/* ── Shadow-mode activity ───────────────────────────────────────── */}
-      <section className="mt-8 rounded-2xl border border-ground/15 bg-white p-5">
+      <section className="mt-8 rounded-2xl border border-ground/15 bg-app-surface p-5">
         <h2 className="type-display text-xl">Recent shadow decisions ({shadow.length})</h2>
         <p className="mt-1 text-xs text-olive">Real autonomous decisions logged during beta (coded, no free text).</p>
         {shadow.length === 0 ? (
@@ -403,7 +403,7 @@ export default async function AutonomousReview({ searchParams }: { searchParams:
 
       {/* ── Session-runtime simulator ──────────────────────────────────── */}
       <section className="mt-8 grid gap-6 md:grid-cols-2">
-        <form method="get" className="rounded-2xl border border-ground/15 bg-white p-5">
+        <form method="get" className="rounded-2xl border border-ground/15 bg-app-surface p-5">
           <h2 className="type-display text-xl">Simulate a session step</h2>
           <p className="mt-1 text-xs text-olive">Validate the in-session SUDS / containment rules.</p>
           {Object.entries(sp).filter(([k]) => !k.startsWith("s_") && k !== "_ssim").map(([k, v]) => (
@@ -433,7 +433,7 @@ export default async function AutonomousReview({ searchParams }: { searchParams:
           </button>
         </form>
 
-        <div className="rounded-2xl border border-ground/15 bg-white p-5">
+        <div className="rounded-2xl border border-ground/15 bg-app-surface p-5">
           <h2 className="type-display text-xl">What the session engine decides</h2>
           {!sessionResult ? (
             <p className="mt-3 text-sm text-olive">Enter a starting SUDS (and optionally a post-set reading) to evaluate.</p>
@@ -462,7 +462,7 @@ export default async function AutonomousReview({ searchParams }: { searchParams:
       </section>
 
       {/* ── Voice responses (hear the member) ──────────────────────────── */}
-      <section id="voice" className="mt-8 rounded-2xl border border-ground/15 bg-white p-5">
+      <section id="voice" className="mt-8 rounded-2xl border border-ground/15 bg-app-surface p-5">
         <div className="flex items-center justify-between gap-3">
           <h2 className="type-display text-xl">Voice responses — hear the member</h2>
           <span className={`rounded-full px-3 py-1 text-xs ${voiceInputEnabled() ? "bg-state-safe-bg/60 text-ground" : "bg-moss text-olive"}`}>
@@ -494,7 +494,7 @@ export default async function AutonomousReview({ searchParams }: { searchParams:
       </section>
 
       {/* ── Rule sign-off register ─────────────────────────────────────── */}
-      <section id="register" className="mt-8 rounded-2xl border border-ground/15 bg-white p-5">
+      <section id="register" className="mt-8 rounded-2xl border border-ground/15 bg-app-surface p-5">
         <div className="flex items-center justify-between gap-3">
           <h2 className="type-display text-xl">Rule sign-off register</h2>
           <a href="/review/autonomous/export" className="rounded-full border border-ground/20 bg-linen px-3 py-1 text-xs font-medium text-ground hover:bg-state-info-bg/60">
@@ -509,7 +509,7 @@ export default async function AutonomousReview({ searchParams }: { searchParams:
       </section>
 
       {/* ── Session-rule sign-off register ─────────────────────────────── */}
-      <section id="session-register" className="mt-8 rounded-2xl border border-ground/15 bg-white p-5">
+      <section id="session-register" className="mt-8 rounded-2xl border border-ground/15 bg-app-surface p-5">
         <h2 className="type-display text-xl">Session-rule sign-off register</h2>
         <p className="mt-1 text-xs text-olive">
           The in-session SUDS / containment / closure / BLS thresholds (§ session engine). Same
@@ -519,7 +519,7 @@ export default async function AutonomousReview({ searchParams }: { searchParams:
       </section>
 
       {/* ── Experience & input feature sign-off register ───────────────── */}
-      <section id="experience-register" className="mt-8 rounded-2xl border border-ground/15 bg-white p-5">
+      <section id="experience-register" className="mt-8 rounded-2xl border border-ground/15 bg-app-surface p-5">
         <h2 className="type-display text-xl">Experience &amp; input feature sign-off</h2>
         <p className="mt-1 text-xs text-olive">
           Member-facing interaction features that carry safety, privacy, or accessibility weight
@@ -529,7 +529,7 @@ export default async function AutonomousReview({ searchParams }: { searchParams:
       </section>
 
       {/* ── Therapy knowledge base ─────────────────────────────────────── */}
-      <section id="therapy-kb" className="mt-8 rounded-2xl border border-ground/15 bg-white p-5">
+      <section id="therapy-kb" className="mt-8 rounded-2xl border border-ground/15 bg-app-surface p-5">
         <h2 className="type-display text-xl">Therapy knowledge base</h2>
         <p className="mt-1 text-sm text-ground">
           The companion&apos;s technique library — {TECHNIQUES.length} techniques across{" "}
