@@ -996,6 +996,33 @@ export const DECISION_REGISTER: Decision[] = [
     state: "open",
     asked: "2026-09-25",
   },
+  {
+    id: "clinical.thought-record-privacy",
+    question:
+      "Members' thought records are signed as \"private to the member\". The strength of the feeling, " +
+      "before and after, is a number the care team could use to see whether the skill helps. Should those " +
+      "two numbers reach the care team, without the words?",
+    audience: "clinical",
+    blocks: [],
+    meanwhile:
+      "Nothing about a thought record reaches the care team: not the words, not the numbers, not that one " +
+      "was written. The program activities are different: their ratings do reach the care team's analytics.",
+    options: [
+      {
+        label: "Keep them fully private",
+        plainly: "The signed row read strictly: a thought record is the member's alone, numbers included.",
+        then: "Nothing changes.",
+        recommended: true,
+      },
+      {
+        label: "Share the two numbers only",
+        plainly: "The care team sees that a record was made and how strong the feeling was before and after, never the words.",
+        then: "The two numbers join the care team's analytics, the way program ratings do.",
+      },
+    ],
+    state: "open",
+    asked: "2026-09-25",
+  },
   // ---- Phase 3, the clinician-assigned lane: for the partner's clinical lead.
   // Built ahead of its gate for review and testing (25 September); none of
   // these holds up anything a member can reach, because the lane is absent

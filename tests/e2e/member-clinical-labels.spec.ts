@@ -25,6 +25,11 @@ test("every working member screen reads without an instrument name or diagnostic
   // The questionnaire pages are dynamic routes; the ones a member can open are
   // walked by name.
   routes.push("/app/measures/pcl-5", "/app/measures/itq");
+  // One walk over every member screen, so its time grows with the product:
+  // the default 30 seconds ran out on the last screen once there were 38. A
+  // budget per screen rather than a total, so adding a screen cannot make
+  // this fail for being thorough.
+  test.setTimeout(15_000 + routes.length * 3_000);
 
   const found: string[] = [];
   for (const path of routes) {
