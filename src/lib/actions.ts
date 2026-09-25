@@ -809,6 +809,7 @@ export async function deleteAccount(formData: FormData) {
     // work register (member.account-deletion-coverage), not fixed in passing.
     await byUser("companion_proposals");
     await byUser("activity_entries");
+    await byUser("program_entry_screens");
     await byUser("program_unit_completions");
     await byUser("program_enrollments");
     await t.run(`UPDATE users SET email = ?, name = 'Deleted member', password_hash = '!', dob = NULL,

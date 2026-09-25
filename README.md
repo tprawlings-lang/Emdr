@@ -24,14 +24,16 @@
 >   `/review/status` under "Safety findings closed". Next is Phase 1 (tool registry, event
 >   store, consent tiers).
 > - **[Handoff 10](docs/handoffs/10-non-bls-modules.md) (non-BLS content) — signed
->   2026-09-24; packages 1–8 done.** The clinical review (Lanes A–D, two psychologists)
+>   2026-09-24; packages 1–9 done.** The clinical review (Lanes A–D, two psychologists)
 >   is recorded in `src/lib/content-approval.ts`, bound to the pack and the signed PDF by hash;
 >   the eighteen skills, eight lessons and two night practices are generated from
 >   [`10-content-pack.md`](docs/handoffs/10-content-pack.md). Packages 5–7 are done too:
 >   programs (`src/lib/programs.ts`), the free-text crisis pre-filter
 >   (`src/lib/program-activities.ts`), the companion's read-only `suggest_practice`, and
->   Moving Toward at `/app/programs`. Next: Steadier Sleep (package 9), then the CI
->   vocabulary checks (package 10). P0 replaced the companion's Butterfly Hug (self-administered BLS) with a
+>   Moving Toward at `/app/programs`. Package 9, Steadier Sleep, asks its three safety
+>   questions on joining (again after leaving); any yes leaves out the get-up-at-night part
+>   and only it. It stores a getting-up time and never a time-in-bed limit
+>   (`tests/sleep-entry.test.ts`). Next: the CI vocabulary checks (package 10). P0 replaced the companion's Butterfly Hug (self-administered BLS) with a
 >   still self-hold; `tests/kb-no-bls-shape.test.ts` guards every knowledge-base entry,
 >   practice and lesson. Content sign-off (`src/lib/content-signoff.ts`, `/review/content`)
 >   means unsigned content is absent outside demo. Practices carry optional gating and a

@@ -867,6 +867,21 @@ export const SCHEMA_SQL = `
   );
   CREATE INDEX IF NOT EXISTS idx_activity_entries_user ON activity_entries(user_id, program_id, unit_id);
 
+  -- Handoff 10 1C: a program's entry screen, as a code. Whether it withheld
+  -- anything and which extra lines to say; cleared on leaving, so joining
+  -- again asks again.
+  CREATE TABLE IF NOT EXISTS program_entry_screens (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL REFERENCES users(id),
+    program_id TEXT NOT NULL,
+    screen_id TEXT NOT NULL,
+    withheld INTEGER NOT NULL CHECK (withheld IN (0,1)),
+    note_keys TEXT NOT NULL DEFAULT '',
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    cleared_at TEXT
+  );
+  CREATE INDEX IF NOT EXISTS idx_program_entry_screens_user ON program_entry_screens(user_id, program_id);
+
   CREATE TABLE IF NOT EXISTS lesson_reads (
     id TEXT PRIMARY KEY,
     user_id TEXT NOT NULL REFERENCES users(id),
@@ -2784,7 +2799,7 @@ export const TENANT_SCOPED_TABLES = [
   "post_session_checks", "module_unlocks", "alerts", "user_profiles",
   "user_triggers", "early_warning_signs", "readiness_assessments",
   "safety_plans", "ai_companion_preferences", "ai_memory_items", "companion_proposals",
-  "program_enrollments", "program_unit_completions", "activity_entries",
+  "program_enrollments", "program_unit_completions", "activity_entries", "program_entry_screens",
   "ai_conversations", "ai_messages", "subscriptions", "payments",
   "program_plans", "care_tracks", "care_track_intake", "practice_completions",
   "upsell_events", "autopilot_plans", "autopilot_events", "lesson_reads",

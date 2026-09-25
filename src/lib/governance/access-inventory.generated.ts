@@ -506,6 +506,33 @@ export const ACCESS_INVENTORY: AccessInventory = {
       "exempt": []
     },
     {
+      "path": "/app/programs/[programId]/entry",
+      "audience": "member",
+      "file": "app/app/programs/[programId]/entry/page.tsx",
+      "owed": [
+        1,
+        2,
+        4,
+        5
+      ],
+      "found": {
+        "1": [
+          "requireUser(",
+          "requireMember("
+        ],
+        "2": [
+          "requireMember("
+        ],
+        "4": [
+          "hasConsent(",
+          "revoked_at IS NULL"
+        ],
+        "5": []
+      },
+      "missing": [],
+      "exempt": []
+    },
+    {
       "path": "/app/programs/[programId]/[unitId]",
       "audience": "member",
       "file": "app/app/programs/[programId]/[unitId]/page.tsx",
@@ -3537,8 +3564,8 @@ export const ACCESS_INVENTORY: AccessInventory = {
       "exempt": []
     }
   ],
-  "protectedCount": 126,
-  "complete": 126,
+  "protectedCount": 127,
+  "complete": 127,
   "gapsByStep": {
     "1": 0,
     "2": 0,

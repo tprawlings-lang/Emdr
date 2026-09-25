@@ -32,6 +32,8 @@ export interface MenuCategory {
 /** The words an activity screen shows. Only the fields its kind uses are set. */
 export interface ActivityCopy {
   prompt: string;
+  /** How many picks are allowed (values-pick, wind-down-plan). */
+  minPicks?: number;
   /** values-pick: the areas. A trailing ": ____" marks the write-your-own one. */
   options?: readonly string[];
   maxPicks?: number;
@@ -48,22 +50,50 @@ export interface ActivityCopy {
   notThisTimeChoices?: readonly string[];
   /** Free text shown after the plan (unit 4). */
   remember?: string;
+  /** sleep-window: said under the time picker. */
+  note?: string;
+  /** sleep-reflect: the optional free-text question. */
+  keepDoing?: string;
   completion?: string;
 }
 
 export interface ProgramUnit {
   id: string;
   title: string;
-  /** Member-facing: what this unit is for, one sentence. */
-  purpose: string;
+  /** Member-facing: what this unit is for, one sentence. Optional because the
+   *  pack gives none for Steadier Sleep's units, and one is not invented. */
+  purpose?: string;
   lessonId?: string;
   practiceIds: readonly string[];
   activity: ActivityKind;
   copy?: ActivityCopy;
   /** Guidance text shown in the unit, paragraph by paragraph. */
   text?: readonly string[];
+  /** A list shown after `text` (Steadier Sleep unit 2's habits). */
+  list?: readonly string[];
+  /** Paragraphs shown after `list`. */
+  textAfter?: readonly string[];
+  /** Withheld from anyone who answered yes on the program's entry screen. */
+  withheldByEntryScreen?: boolean;
   minTier: AccessTier;
   maxActivation: number;
+  signoffRowIds: readonly string[];
+}
+
+/** Questions asked on joining, before any unit opens (Steadier Sleep's
+ *  sleep-entry-v1, CV10_C04). Any yes withholds the units marked
+ *  `withheldByEntryScreen`, and only those. */
+export interface EntryScreen {
+  id: string;
+  intro: string;
+  questions: readonly string[];
+  yes: string;
+  no: string;
+  /** Shown when any answer is yes. */
+  anyYes: string;
+  /** Extra lines keyed by ZERO-BASED question index, shown after `anyYes`
+   *  when that question is yes (the pack's "If question 2 is Yes" is key 1). */
+  ifYes: Readonly<Record<number, string>>;
   signoffRowIds: readonly string[];
 }
 
@@ -73,7 +103,7 @@ export interface Program {
   blurb: string;
   phase: 1 | 2;
   units: readonly ProgramUnit[];
-  entryScreenId?: string;
+  entryScreen?: EntryScreen;
   /** Never shown to a member inside a program (§3.6). */
   outcomeMeasureIds: readonly string[];
   signoffRowIds: readonly string[];
@@ -189,4 +219,101 @@ export const MOVING_TOWARD: Program = {
   ],
 };
 
-export const H10_PROGRAMS: readonly Program[] = [MOVING_TOWARD];
+/** 1C. Rows: C01 program and copy, C02 stimulus control (unit 2), C03 the
+ *  exclusion of sleep restriction (nothing here computes or suggests a
+ *  time-in-bed limit), C04 the entry screen, F02 the name.
+ *
+ *  GATES ARE THE PRODUCT OWNER'S READING, 25 September, because the pack and
+ *  the worksheet give none for these units: the levels the psychologists
+ *  already signed for night content (A14). Units 1, 3 and 4 as "After a bad
+ *  dream" (grounding tier, any activation); unit 2, which asks a member to get
+ *  up at night, as "Back to rest" (stabilization, 7 or below). Recorded in the
+ *  decision register for them to confirm. */
+export const STEADIER_SLEEP: Program = {
+  id: "steadier-sleep",
+  title: "Steadier Sleep",
+  blurb: "Habits and wind-downs that make rest a bit easier after hard days.",
+  phase: 1,
+  outcomeMeasureIds: ["phq-9", "gad-7"],
+  signoffRowIds: ["CV10_C01", "CV10_C03", "CV10_F02"],
+  entryScreen: {
+    id: "sleep-entry-v1",
+    intro: "A few quick questions help us show the right parts of this program.",
+    questions: [
+      "Have you ever had several days of very little sleep but lots of energy, where others noticed a change in you?",
+      "Has anyone told you that you stop breathing, gasp, or snore loudly in your sleep, or do you nod off while driving?",
+      "Do you have a seizure condition, or a health reason to avoid getting up at night?",
+    ],
+    yes: "Yes",
+    no: "No",
+    anyYes: "Thanks. Some of this program is worth talking over with a doctor first, so we'll leave that part out for now. Everything else is here for you.",
+    ifYes: { 1: "If you ever feel drowsy while driving, please pull over when it's safe." },
+    signoffRowIds: ["CV10_C04"],
+  },
+  units: [
+    {
+      id: "stress-and-sleep",
+      title: "Stress and sleep",
+      lessonId: "stress-and-sleep",
+      practiceIds: ["wind-down-breath", "put-the-day-down"],
+      activity: "wind-down-plan",
+      copy: {
+        prompt: "Pick two or three things for the last 30 to 60 minutes before bed.",
+        options: [
+          "Dim the lights", "Put the phone across the room", "A warm shower", "Write tomorrow's to-do list",
+          "A wind-down practice from Steady", "Something to read that isn't stressful", "Your own: ____",
+        ],
+        minPicks: 2,
+        maxPicks: 3,
+      },
+      minTier: AccessTier.GROUNDING_ONLY, maxActivation: 10,
+      signoffRowIds: ["CV10_C01"],
+    },
+    {
+      id: "the-bed-is-for-sleep",
+      title: "The bed is for sleep",
+      practiceIds: [],
+      activity: "sleep-window",
+      text: ["These habits help your body link bed with sleep again."],
+      list: [
+        "Go to bed when you feel sleepy, not just tired or bored.",
+        "Keep the bed for sleep and intimacy. Screens, work, and worrying go elsewhere.",
+        "If you've been lying awake for what feels like about 20 minutes and you're getting frustrated, get up. Go somewhere dim and quiet and do something calm until you feel sleepy, then go back. Don't watch the clock to time it.",
+        "Get up at about the same time every day, including after a bad night.",
+        "If you nap, keep it short and before mid-afternoon.",
+      ],
+      textAfter: ["Go gently. If getting up at night doesn't feel safe, for any reason, skip that one."],
+      copy: {
+        prompt: "What time would you like to get up most days?",
+        note: "This is your anchor. Bedtime can move around; getting-up time is the one to keep steady.",
+      },
+      withheldByEntryScreen: true,
+      minTier: AccessTier.STABILIZATION, maxActivation: 7,
+      signoffRowIds: ["CV10_C01", "CV10_C02"],
+    },
+    {
+      id: "when-nights-are-rough",
+      title: "When nights are rough",
+      practiceIds: ["after-a-bad-dream", "back-to-rest", "skill-orient-room"],
+      activity: "none",
+      text: ["Waking from a bad dream, or at 3am with a racing mind, is common after stressful times. The goal isn't to figure anything out in the night. It's to help your body know it's safe now, and let rest come back when it can."],
+      minTier: AccessTier.GROUNDING_ONLY, maxActivation: 10,
+      signoffRowIds: ["CV10_C01"],
+    },
+    {
+      id: "keeping-what-works",
+      title: "Keeping what works",
+      practiceIds: [],
+      activity: "sleep-reflect",
+      text: ["Sleep has good and bad stretches. When it slips, come back to your getting-up time and your wind-down. Those two do the most."],
+      copy: {
+        prompt: "Which parts helped most?",
+        keepDoing: "Anything you want to keep doing?",
+      },
+      minTier: AccessTier.GROUNDING_ONLY, maxActivation: 10,
+      signoffRowIds: ["CV10_C01"],
+    },
+  ],
+};
+
+export const H10_PROGRAMS: readonly Program[] = [MOVING_TOWARD, STEADIER_SLEEP];

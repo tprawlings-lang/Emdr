@@ -341,6 +341,18 @@ export async function recordProgramUnitCompleted(args: {
   });
 }
 
+/** An entry screen was answered. Coded: which screen, and whether anything
+ *  was withheld. Never which question, and never the answers (§1C). */
+export async function recordProgramEntryScreened(args: {
+  userId: string; programId: string; screenId: string; withheld: boolean; occurredAt?: string;
+}): Promise<void> {
+  await appendEventSafe({
+    personId: args.userId, type: "program.entry_screened", occurredAt: args.occurredAt,
+    payload: { programId: args.programId, screenId: args.screenId, withheld: args.withheld },
+    actorType: "patient",
+  });
+}
+
 /** Coded facts only: the activity kind and any 0–10 ratings. Never text —
  *  what a member writes stays encrypted in its own row (§3.4). */
 export async function recordProgramActivity(args: {

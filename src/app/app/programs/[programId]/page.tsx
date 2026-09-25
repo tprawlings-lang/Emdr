@@ -20,10 +20,20 @@ export default async function ProgramPage({ params }: { params: Promise<{ progra
   const { programId } = await params;
   const view = await programView(user.id, programId);
   if (!view) notFound();
-  const joined = view.enrollment === "active";
+  // Joined and, where the program asks its entry questions, answered them.
+  const joined = view.enrollment === "active" && !(view.entry && !view.entry.answered);
+  const lines = view.entry?.answered ? view.entry.lines : [];
+  const joinLabel = view.enrollment === "left" ? "Join again" : "Join";
 
   return (
     <MemberPage layer="actions" title={view.program.title} lede={view.program.blurb}>
+      {joined && lines.length > 0 && (
+        // The entry screen's own words (CV10_C04), for as long as a part is
+        // left out, so the gap in the list is explained where it shows.
+        <div className="measure mb-6 rounded-3xl border border-ground/10 bg-linen p-5">
+          {lines.map((l) => <p key={l} className="text-ground/90 [&+p]:mt-2">{l}</p>)}
+        </div>
+      )}
       <ol className="space-y-3">
         {view.units.map((u, i) => {
           const reachable = joined && (u.state === "open" || u.state === "done");
@@ -31,7 +41,7 @@ export default async function ProgramPage({ params }: { params: Promise<{ progra
             <>
               <span className="text-sm text-olive">Part {i + 1}</span>
               <span className="mt-0.5 block font-semibold text-ground">{u.unit.title}</span>
-              <span className="measure mt-1 block text-sm text-olive">{u.unit.purpose}</span>
+              {u.unit.purpose && <span className="measure mt-1 block text-sm text-olive">{u.unit.purpose}</span>}
               <span className={`mt-2 inline-block rounded-full px-3 py-1 text-xs ${
                 u.state === "done" ? "bg-state-safe-bg text-state-safe"
                   : u.state === "open" ? "bg-moss text-ground"
@@ -62,11 +72,15 @@ export default async function ProgramPage({ params }: { params: Promise<{ progra
               Leave this program
             </SubmitButton>
           </form>
+        ) : view.program.entryScreen ? (
+          <Link href={`/app/programs/${view.program.id}/entry`} className="inline-flex min-h-11 items-center rounded-full bg-sage px-5 text-sm font-medium text-ground transition-colors hover:bg-sage-deep">
+            {joinLabel}
+          </Link>
         ) : (
           <form action={joinProgramAction}>
             <input type="hidden" name="programId" value={view.program.id} />
             <SubmitButton pendingLabel="Joining…" className="rounded-full bg-sage px-5 py-2.5 text-sm font-medium text-ground transition-colors hover:bg-sage-deep">
-              {view.enrollment === "left" ? "Join again" : "Join"}
+              {joinLabel}
             </SubmitButton>
           </form>
         )}

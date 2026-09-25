@@ -1076,6 +1076,22 @@ export const WORK_REGISTER: WorkEntry[] = [
       "stabilization tier) rather than an invented mapping.",
   },
   {
+    id: "clinical.steadier-sleep",
+    title: "Steadier Sleep: an entry screen that leaves out one part, and a getting-up time with no time-in-bed limit",
+    state: "reachable",
+    code: "src/lib/programs.ts#scoreEntryScreen",
+    test: "tests/sleep-entry.test.ts",
+    note:
+      "Handoff 10 1C (CV10_C01 to C04, F02), every string matched whole against the pack. The entry " +
+      "screen is asked on joining; any yes leaves out part two and only it, and the order skips it. " +
+      "The answer is kept as a code (withheld or not, and which extra line to say); the spine and " +
+      "audit log carry only whether it withheld. Leaving clears it, so joining again asks again " +
+      "(decision clinical.sleep-entry-screen-retake, with its risk). Part two stores the getting-up " +
+      "time and nothing else; no code computes a bedtime or a time-in-bed limit (C03). Gates are the " +
+      "signed night-practice levels, open for the psychologists to confirm (clinical.steadier-sleep-gates). " +
+      "No sleep measure until its licensed items are supplied (C05).",
+  },
+  {
     id: "clinical.program-text-crisis-prefilter",
     title: "What a member writes in a program is screened for crisis language before it is saved",
     state: "reachable",

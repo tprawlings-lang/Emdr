@@ -3,7 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { MemberPage } from "@/components/member/MemberPage";
 import { requireMember } from "@/lib/auth";
 import { menuFor, openUnit } from "@/lib/programs";
-import { plannedItems, REFUSAL_WORDS, type RefusalCode } from "@/lib/program-activities";
+import { plannedItems, reflectOptions, REFUSAL_WORDS, type RefusalCode } from "@/lib/program-activities";
 import { practiceGateFor } from "@/lib/practices";
 import { saveActivityAction } from "@/lib/program-actions";
 import { SubmitButton } from "@/components/experience/SubmitButton";
@@ -126,6 +126,67 @@ export default async function ActivityPage({
           noticed: copy.noticed ?? "", notThisTime: copy.notThisTime ?? "", notThisTimeChoices: copy.notThisTimeChoices ?? [],
         }}
       />
+    );
+  } else if (u.activity === "wind-down-plan") {
+    const own = (copy.options ?? []).find((o) => o.endsWith(": ____"));
+    body = (
+      <form action={saveActivityAction} className="mt-6">
+        {hidden}
+        <fieldset>
+          <legend className="font-medium text-ground">{copy.prompt}</legend>
+          <div className="mt-3 space-y-2">
+            {(copy.options ?? []).filter((o) => o !== own).map((o) => (
+              <label key={o} className={box}><input type="checkbox" name="pick" value={o} /><span className="text-ground">{o}</span></label>
+            ))}
+          </div>
+          {own && (
+            <label className="mt-3 block">
+              <span className="text-ground">{own.replace(": ____", "")}</span>
+              <input name="own" maxLength={120} className="mt-2 w-full rounded-2xl border border-ground/15 bg-app-surface px-4 py-3 text-ground" />
+            </label>
+          )}
+        </fieldset>
+        <SubmitButton pendingLabel="Saving…" className="mt-6 rounded-full bg-sage px-6 py-3 font-medium text-ground hover:bg-sage-deep">Save</SubmitButton>
+      </form>
+    );
+  } else if (u.activity === "sleep-window") {
+    // The getting-up time only. No bedtime field, and nothing is worked out
+    // from this time (CV10_C03).
+    body = (
+      <form action={saveActivityAction} className="mt-6">
+        {hidden}
+        <label className="block">
+          <span className="font-medium text-ground">{copy.prompt}</span>
+          <input
+            type="time" name="wakeTime" required
+            className="mt-3 block min-h-11 rounded-2xl border border-ground/15 bg-app-surface px-4 text-lg text-ground"
+          />
+        </label>
+        {copy.note && <p className="measure mt-3 text-sm text-olive">{copy.note}</p>}
+        <SubmitButton pendingLabel="Saving…" className="mt-6 rounded-full bg-sage px-6 py-3 font-medium text-ground hover:bg-sage-deep">Save</SubmitButton>
+      </form>
+    );
+  } else if (u.activity === "sleep-reflect") {
+    const options = await reflectOptions(user.id, programId, unitId);
+    body = (
+      <form action={saveActivityAction} className="mt-6">
+        {hidden}
+        <fieldset>
+          <legend className="font-medium text-ground">{copy.prompt}</legend>
+          <div className="mt-3 space-y-2">
+            {options.map((o) => (
+              <label key={o} className={box}><input type="checkbox" name="helped" value={o} /><span className="text-ground">{o}</span></label>
+            ))}
+          </div>
+        </fieldset>
+        {copy.keepDoing && (
+          <label className="mt-6 block">
+            <span className="font-medium text-ground">{copy.keepDoing} <span className="text-sm font-normal text-olive">Optional</span></span>
+            <textarea name="keepDoing" rows={2} maxLength={500} className="mt-2 w-full rounded-2xl border border-ground/15 bg-app-surface px-4 py-3 text-ground" />
+          </label>
+        )}
+        <SubmitButton pendingLabel="Saving…" className="mt-6 rounded-full bg-sage px-6 py-3 font-medium text-ground hover:bg-sage-deep">Save</SubmitButton>
+      </form>
     );
   } else {
     notFound();

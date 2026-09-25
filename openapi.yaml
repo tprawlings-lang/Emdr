@@ -84,11 +84,25 @@ paths:
       tags: [mobile-programs]
       operationId: enrollInProgram
       summary: Join, or join again (keeps what was done)
+      description: >
+        A program whose `entryScreen` is not null asks its questions on
+        joining, and again on joining after leaving. Send one boolean per
+        question, in order. Any true leaves out only the part it is for; the
+        program's `entryScreen.lines` then says so in the signed words.
       parameters:
         - { name: programId, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                entryAnswers: { type: array, items: { type: boolean } }
       responses:
         "200": { description: "{ ok: true }" }
         "404": { description: No such program for this member }
+        "422": { description: "{ error: entry_screen } — the entry answers are missing or do not fit the questions" }
   /api/mobile/v1/programs/{programId}/leave:
     post:
       tags: [mobile-programs]
@@ -129,7 +143,13 @@ paths:
               properties:
                 programId: { type: string }
                 unitId: { type: string }
-                payload: { type: object, description: "values-pick | activity-plan | activity-reflect" }
+                payload:
+                  type: object
+                  description: >
+                    values-pick | activity-plan | activity-reflect |
+                    wind-down-plan { picks, own? } | sleep-window { wakeTime: "HH:MM" } |
+                    sleep-reflect { helped, keepDoing? }. sleep-window stores the
+                    getting-up time only; nothing else sent is kept.
       responses:
         "201": { description: "{ id }" }
         "409": { description: "{ crisis: true } — nothing saved" }

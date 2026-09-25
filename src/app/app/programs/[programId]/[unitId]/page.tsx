@@ -6,8 +6,14 @@ import { openUnit, programView } from "@/lib/programs";
 import { memberEntries } from "@/lib/program-activities";
 import { memberLesson } from "@/lib/lessons";
 import { practiceForMember } from "@/lib/practices";
-import { deleteActivityAction, joinProgramAction } from "@/lib/program-actions";
+import { completeUnitAction, deleteActivityAction, joinProgramAction } from "@/lib/program-actions";
 import { SubmitButton } from "@/components/experience/SubmitButton";
+
+/** Where each kind of practice is done. */
+const PLACE: Record<string, string> = {
+  breathwork: "/app/activities/breathe", meditation: "/app/activities/meditate",
+  movement: "/app/activities/move", sleep: "/app/activities/sleep",
+};
 
 // One unit (Handoff 10 §3.2). Its gate is asked again here, because a link can
 // be followed on a different day from the one it was offered on.
@@ -29,7 +35,15 @@ export default async function UnitPage({
     const title = view?.units.find((u) => u.unit.id === unitId)?.unit.title ?? view?.program.title ?? "Programs";
     return (
       <MemberPage layer="actions" title={title}>
-        {opened.reason === "not_joined" && (
+        {(opened.reason === "not_joined" || opened.reason === "entry_screen") && view?.program.entryScreen && (
+          <div className="measure">
+            <p className="text-ground/90">Join the program to start this part.</p>
+            <Link href={`/app/programs/${programId}/entry`} className="mt-4 inline-flex min-h-11 items-center rounded-full bg-sage px-5 text-sm font-medium text-ground hover:bg-sage-deep">
+              Join
+            </Link>
+          </div>
+        )}
+        {opened.reason === "not_joined" && !view?.program.entryScreen && (
           <form action={joinProgramAction} className="measure">
             <p className="text-ground/90">Join the program to start this part.</p>
             <input type="hidden" name="programId" value={programId} />
@@ -75,6 +89,12 @@ export default async function UnitPage({
       )}
 
       {u.text?.map((t) => <p key={t} className="measure mt-4 text-ground/90">{t}</p>)}
+      {u.list && (
+        <ul className="measure mt-4 list-disc space-y-2 pl-5 text-ground/90">
+          {u.list.map((t) => <li key={t}>{t}</li>)}
+        </ul>
+      )}
+      {u.textAfter?.map((t) => <p key={t} className="measure mt-4 text-ground/90">{t}</p>)}
 
       {(lesson || practices.length > 0) && (
         <ul className="mt-6 space-y-3">
@@ -89,7 +109,7 @@ export default async function UnitPage({
           {practices.map((p) => (
             <li key={p.id}>
               <Link
-                href={p.type === "skill" ? `/app/activities/skills/${p.id}` : "/app/activities"}
+                href={p.type === "skill" ? `/app/activities/skills/${p.id}` : (PLACE[p.type] ?? "/app/activities")}
                 className="block rounded-3xl border border-ground/10 bg-linen p-4 hover:bg-moss"
               >
                 <span className="text-sm text-olive">Try</span>
@@ -107,6 +127,16 @@ export default async function UnitPage({
         >
           {entries.length > 0 ? "Do it again" : "Start"}
         </Link>
+      )}
+
+      {u.activity === "none" && unit.state !== "done" && (
+        <form action={completeUnitAction} className="mt-6">
+          <input type="hidden" name="programId" value={programId} />
+          <input type="hidden" name="unitId" value={u.id} />
+          <SubmitButton pendingLabel="Saving…" className="rounded-full bg-sage px-6 py-3 font-medium text-ground transition-colors hover:bg-sage-deep">
+            Done with this part
+          </SubmitButton>
+        </form>
       )}
 
       {entries.length > 0 && (

@@ -10,6 +10,12 @@
 // activity's kind and any 0–10 ratings, nothing else. Ratings are stored but
 // not shown back to the member outside Progress (CV10_B03), so a member's own
 // view of an entry carries no number.
+//
+// STEADIER SLEEP (1C). The getting-up time is the only thing stored for
+// "The bed is for sleep": HH:MM, nothing else. Nothing here or anywhere
+// computes, suggests or stores a bedtime, a time-in-bed limit or a sleep
+// window — sleep restriction is excluded from self-guided use (row CV10_C03;
+// tests/sleep-entry.test.ts holds the line).
 
 import { data } from "./data";
 import { newId } from "./db";
@@ -18,7 +24,7 @@ import { encryptField, decryptField } from "./crypto";
 import { detectRisk } from "./companion";
 import { createAlert } from "./clinical/alert-create";
 import { nowStamp, recordProgramActivity } from "./spine";
-import { completeUnit, menuFor, openUnit, ProgramRefused } from "./programs";
+import { completeUnit, menuFor, openUnit, programView, ProgramRefused } from "./programs";
 import type { ActivityKind } from "./content/h10-programs";
 
 /** Cap on any one free-text field. A sentence or two is what every prompt asks for. */
@@ -32,6 +38,9 @@ function freeTextOf(payload: ActivityPayload): string[] {
     case "values-pick": return payload.other ? [payload.other] : [];
     case "activity-plan": return [...payload.items.filter((i) => i.own).map((i) => i.text), ...(payload.remember ? [payload.remember] : [])];
     case "activity-reflect": return payload.noticed ? [payload.noticed] : [];
+    case "wind-down-plan": return payload.own ? [payload.own] : [];
+    case "sleep-window": return [];
+    case "sleep-reflect": return payload.keepDoing ? [payload.keepDoing] : [];
   }
 }
 
@@ -58,12 +67,18 @@ export type ActivityPayload =
   | {
       kind: "activity-reflect"; planItem: string; outcome: "did" | "partly" | "not";
       mastery?: number; enjoyment?: number; noticed?: string; notThisTime?: "smaller" | "keep" | "skip";
-    };
+    }
+  | { kind: "wind-down-plan"; picks: string[]; own?: string }
+  /** The getting-up time, "HH:MM", and nothing else (CV10_C03). */
+  | { kind: "sleep-window"; wakeTime: string }
+  | { kind: "sleep-reflect"; helped: string[]; keepDoing?: string };
 
 /** Why a save was refused, as a code. The screen maps each to fixed words —
  *  never echoes a message from the address bar, which would let a crafted
  *  link put any sentence on a member's screen. */
-export type RefusalCode = "wrong_activity" | "no_activity" | "pick_up_to_three" | "not_on_menu" | "one_to_three" | "not_in_plan" | "choose_outcome";
+export type RefusalCode =
+  | "wrong_activity" | "no_activity" | "pick_up_to_three" | "not_on_menu" | "one_to_three" | "not_in_plan" | "choose_outcome"
+  | "pick_two_or_three" | "choose_time" | "not_on_list";
 
 export class ActivityRefused extends Error {
   constructor(public readonly code: RefusalCode) { super(code); }
@@ -77,7 +92,14 @@ export const REFUSAL_WORDS: Record<RefusalCode, string> = {
   one_to_three: "Pick 1 to 3 things.",
   not_in_plan: "Pick something from your plan.",
   choose_outcome: "Choose how it went.",
+  pick_two_or_three: "Pick two or three.",
+  choose_time: "Choose a time.",
+  not_on_list: "One of those isn't on the list. Please pick again.",
 };
+
+/** A clock time, 00:00 to 23:59. */
+const WAKE_TIME = /^([01]\d|2[0-3]):[0-5]\d$/;
+const OWN = ": ____";
 
 const DAYS = new Set(["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]);
 const rating = (v: unknown) => (typeof v === "number" && Number.isInteger(v) && v >= 0 && v <= 10 ? v : undefined);
@@ -120,6 +142,30 @@ async function validate(
     if (items.length < 1 || items.length > 3) throw new ActivityRefused("one_to_three");
     const remember = copy.remember && raw.remember ? clip(raw.remember) : undefined;
     return { kind: raw.kind, items, ...(remember ? { remember } : {}) };
+  }
+
+  if (raw.kind === "wind-down-plan") {
+    const allowed = new Set((copy.options ?? []).filter((o) => !o.endsWith(OWN)));
+    const picks = [...new Set(raw.picks ?? [])];
+    if (picks.some((p) => !allowed.has(p))) throw new ActivityRefused("not_on_menu");
+    const own = raw.own ? clip(raw.own) : undefined;
+    const n = picks.length + (own ? 1 : 0);
+    if (n < (copy.minPicks ?? 1) || n > (copy.maxPicks ?? 3)) throw new ActivityRefused("pick_two_or_three");
+    return { kind: raw.kind, picks, ...(own ? { own } : {}) };
+  }
+
+  if (raw.kind === "sleep-window") {
+    // Rebuilt from the one field, so nothing else a client sends is kept.
+    if (typeof raw.wakeTime !== "string" || !WAKE_TIME.test(raw.wakeTime)) throw new ActivityRefused("choose_time");
+    return { kind: raw.kind, wakeTime: raw.wakeTime };
+  }
+
+  if (raw.kind === "sleep-reflect") {
+    const offered = new Set(await reflectOptions(userId, programId, unitId));
+    const helped = [...new Set(raw.helped ?? [])];
+    if (helped.some((h) => !offered.has(h))) throw new ActivityRefused("not_on_list");
+    const keepDoing = raw.keepDoing ? clip(raw.keepDoing) : undefined;
+    return { kind: raw.kind, helped, ...(keepDoing ? { keepDoing } : {}) };
   }
 
   // activity-reflect: the item must be one the member planned.
@@ -181,6 +227,9 @@ function summarise(p: ActivityPayload): string[] {
     case "values-pick": return [...p.areas, ...(p.other ? [p.other] : [])];
     case "activity-plan": return [...p.items.map((i) => (i.day ? `${i.text} (${i.day})` : i.text)), ...(p.remember ? [p.remember] : [])];
     case "activity-reflect": return [p.planItem, p.outcome === "did" ? "Did it" : p.outcome === "partly" ? "Partly" : "Not this time", ...(p.noticed ? [p.noticed] : [])];
+    case "wind-down-plan": return [...p.picks, ...(p.own ? [p.own] : [])];
+    case "sleep-window": return [p.wakeTime];
+    case "sleep-reflect": return [...p.helped, ...(p.keepDoing ? [p.keepDoing] : [])];
   }
 }
 
@@ -213,6 +262,35 @@ export async function pickedAreas(userId: string, programId: string): Promise<st
   const picks = (await liveEntries(userId, programId)).filter((e) => e.payload.kind === "values-pick");
   const last = picks[picks.length - 1]?.payload;
   return last && last.kind === "values-pick" ? [...last.areas, ...(last.other ? [last.other] : [])] : [];
+}
+
+/** What "Which parts helped most?" offers (Steadier Sleep unit 4: "from units
+ *  1 to 3 items"). For each part before this one that the member can see — a
+ *  withheld part is not offered — its items in the pack's own words: the
+ *  member's latest wind-down picks (or the list, if they saved none), the
+ *  part's habits, and the titles of its practices. Nothing is added that the
+ *  pack does not say, and a bedtime or a time limit is never an item. */
+export async function reflectOptions(userId: string, programId: string, unitId: string): Promise<string[]> {
+  const { getPractice } = await import("./practices");
+  const view = await programView(userId, programId);
+  if (!view) return [];
+  const idx = view.units.findIndex((u) => u.unit.id === unitId);
+  const before = view.units.slice(0, idx < 0 ? 0 : idx).map((u) => u.unit);
+  const entries = await liveEntries(userId, programId);
+  const out: string[] = [];
+  for (const u of before) {
+    if (u.activity === "wind-down-plan") {
+      const mine = entries.filter((e) => e.unit_id === u.id && e.payload.kind === "wind-down-plan").at(-1)?.payload;
+      if (mine && mine.kind === "wind-down-plan") out.push(...mine.picks, ...(mine.own ? [mine.own] : []));
+      else out.push(...(u.copy?.options ?? []).filter((o) => !o.endsWith(OWN)));
+    }
+    out.push(...(u.list ?? []));
+    for (const id of u.practiceIds) {
+      const p = getPractice(id);
+      if (p) out.push(p.title);
+    }
+  }
+  return [...new Set(out)];
 }
 
 /** Delete: the words are overwritten, not just hidden, and the row keeps only

@@ -838,6 +838,78 @@ export const DECISION_REGISTER: Decision[] = [
     state: "open",
     asked: "2026-09-24",
   },
+  {
+    id: "clinical.steadier-sleep-gates",
+    question:
+      "The sleep program's four parts came with no level of distress or safety at which each one " +
+      "opens. The second part asks a member to get out of bed at night when they cannot sleep. " +
+      "Which levels should the parts use?",
+    audience: "clinical",
+    blocks: [],
+    meanwhile:
+      "The levels you already signed for the two night practices (row A14), chosen by the product " +
+      "owner on 25 September: parts one, three and four open on any day, even the hardest, like " +
+      "\"After a bad dream\"; part two opens only on a steadier day with distress at 7 or below, " +
+      "like \"Back to rest\". On other days it says \"not today\" and nothing is lost.",
+    options: [
+      {
+        label: "Keep the night-practice levels",
+        plainly: "What runs now. The part that asks a member to get up at night waits for a steadier day.",
+        then: "Nothing changes.",
+        recommended: true,
+      },
+      {
+        label: "Open every part on any day",
+        plainly: "Getting up after twenty minutes awake is safe enough to suggest even on the hardest days.",
+        then: "Part two opens at the same level as the others.",
+      },
+      {
+        label: "Hold the whole program for steadier days",
+        plainly: "Treat it like the activity program, which waits for a steadier day throughout.",
+        then: "Every part needs a steadier day, with distress at 7 or below.",
+      },
+    ],
+    state: "open",
+    asked: "2026-09-25",
+  },
+  {
+    id: "clinical.sleep-entry-screen-retake",
+    question:
+      "The sleep program asks three safety questions on joining; a yes to any leaves out the part " +
+      "about getting up at night. If someone leaves the program and joins again, should the " +
+      "questions be asked again?",
+    audience: "clinical",
+    blocks: [],
+    meanwhile:
+      "Nothing had been built: the program was new, and the questions were asked only when someone " +
+      "first joined.",
+    options: [
+      {
+        label: "Yes, after leaving and rejoining",
+        plainly:
+          "Things change: a health question can stop applying. Leaving clears the answers and joining " +
+          "again asks all three again. The risk: someone could answer no the second time only to get " +
+          "the left-out part back.",
+        then:
+          "The earlier answer is kept, marked cleared, so the care team can see a change. A different " +
+          "answer the second time brings the part back.",
+      },
+      {
+        label: "No, the first answer stands",
+        plainly: "Once a part is left out it stays out, unless someone from the care team reopens it.",
+        then: "Joining again skips the questions and keeps the part left out.",
+      },
+    ],
+    state: "answered",
+    answer: {
+      decided:
+        "Yes, after leaving and rejoining — the product owner's decision on 25 September, with the " +
+        "risk that a member could answer no the second time to get the left-out part back. For the " +
+        "psychologists to confirm at the next review.",
+      on: "2026-09-25",
+    },
+    asked: "2026-09-25",
+  },
 ];
 
 export const OPEN_DECISIONS = DECISION_REGISTER.filter((d) => d.state === "open");

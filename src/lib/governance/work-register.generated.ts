@@ -760,6 +760,17 @@ export const REGISTER_FINDINGS: EntryFinding[] = [
     "problems": []
   },
   {
+    "id": "clinical.steadier-sleep",
+    "claimed": "reachable",
+    "supported": "reachable",
+    "facts": {
+      "defined": true,
+      "tested": true,
+      "wired": true
+    },
+    "problems": []
+  },
+  {
     "id": "clinical.program-text-crisis-prefilter",
     "claimed": "reachable",
     "supported": "reachable",

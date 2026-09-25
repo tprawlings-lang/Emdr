@@ -6,7 +6,7 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { requireMember } from "./auth";
-import { enrollInProgram, leaveProgram, ProgramRefused } from "./programs";
+import { completeUnit, enrollInProgram, getProgram, leaveProgram, ProgramRefused } from "./programs";
 import { ActivityRefused, deleteActivityEntry, saveActivityEntry, type ActivityPayload } from "./program-activities";
 
 const safeId = (v: FormDataEntryValue | null) => String(v ?? "").replace(/[^a-z0-9-]/g, "").slice(0, 60);
@@ -14,10 +14,22 @@ const safeId = (v: FormDataEntryValue | null) => String(v ?? "").replace(/[^a-z0
 export async function joinProgramAction(formData: FormData) {
   const user = await requireMember();
   const programId = safeId(formData.get("programId"));
+  const screen = getProgram(programId)?.entryScreen;
+  // A program with an entry screen is joined from its questions page; a Join
+  // button anywhere else goes there first.
+  if (screen && formData.get("screen") !== screen.id) redirect(`/app/programs/${programId}/entry`);
+  const answers = screen
+    ? screen.questions.map((_, i) => {
+        const v = formData.get(`q${i}`);
+        return v === "yes" ? true : v === "no" ? false : null;
+      })
+    : undefined;
   try {
-    await enrollInProgram(user.id, programId);
+    await enrollInProgram(user.id, programId, answers);
   } catch (e) {
-    if (e instanceof ProgramRefused) redirect("/app/programs");
+    if (e instanceof ProgramRefused) {
+      redirect(e.message === "entry_screen" ? `/app/programs/${programId}/entry?error=1` : "/app/programs");
+    }
     throw e;
   }
   revalidatePath("/app/programs");
@@ -62,7 +74,31 @@ function parse(formData: FormData): ActivityPayload | null {
       mastery: num("mastery"), enjoyment: num("enjoyment"), noticed: text("noticed"), notThisTime: choice,
     };
   }
+  if (kind === "wind-down-plan") {
+    return { kind, picks: formData.getAll("pick").map(String), own: text("own") };
+  }
+  if (kind === "sleep-window") {
+    return { kind, wakeTime: String(formData.get("wakeTime") ?? "") };
+  }
+  if (kind === "sleep-reflect") {
+    return { kind, helped: formData.getAll("helped").map(String), keepDoing: text("keepDoing") };
+  }
   return null;
+}
+
+/** "Done with this part", for a part with nothing to fill in. */
+export async function completeUnitAction(formData: FormData) {
+  const user = await requireMember();
+  const programId = safeId(formData.get("programId"));
+  const unitId = safeId(formData.get("unitId"));
+  try {
+    await completeUnit(user.id, programId, unitId);
+  } catch (e) {
+    if (e instanceof ProgramRefused) redirect(`/app/programs/${programId}/${unitId}`);
+    throw e;
+  }
+  revalidatePath(`/app/programs/${programId}`);
+  redirect(`/app/programs/${programId}`);
 }
 
 export async function saveActivityAction(formData: FormData) {

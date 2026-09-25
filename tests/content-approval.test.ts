@@ -93,10 +93,15 @@ function packAtoms(): Set<string> {
     // [button] labels and "·" lists, category bullets, completion copy.
     const bold = line.match(/^\*\*(?:Title|Blurb):\*\* (.*)$/);
     if (bold) atoms.add(bold[1]);
-    const unit = line.match(/^### Unit \d+: (.*)$/);
+    const unit = line.match(/^### Unit \d+: (.*?)(?: \([^)]*\))?$/);
     if (unit) atoms.add(unit[1]);
     const done = line.match(/^Completion copy: "(.*)"$/);
     if (done) atoms.add(done[1]);
+    // Steadier Sleep: the unit text, the entry screen's any-yes line (with
+    // its "(Unit 2 withheld.)" annotation outside the quotes), and the
+    // per-question line.
+    const quoted = line.match(/^(?:Text|Any Yes|If question \d+ is Yes, add): "(.*)"(?: \([^)]*\))?$/);
+    if (quoted) atoms.add(quoted[1]);
     const bullet = line.match(/^- ([^:"]+): (.*)$/);
     if (bullet) { atoms.add(bullet[1]); for (const i of bullet[2].split(" · ")) atoms.add(i); }
     const quote = line.match(/^>\s*(.*)$/);
@@ -106,6 +111,10 @@ function packAtoms(): Set<string> {
       rest = rest.replace(/\[[^\]]+\]/g, "").replace(/^If [^:]+:\s*/, "").trim();
       rest = rest.replace(/\s+0 to 10 \(optional\)$/, "").replace(/\s+\(optional(?: text)?\)$/, "").trim();
       rest = rest.replace(/^"(.*)"$/, "$1");
+      // A list bullet or a numbered question inside a quote.
+      rest = rest.replace(/^- /, "").replace(/^\d+\. /, "");
+      // A trailing build note, e.g. "(multi-select from units 1 to 3 items)".
+      rest = rest.replace(/\s+\((?:multi-select|optional)[^)]*\)$/, "").trim();
       if (rest) atoms.add(rest);
       if (rest.includes(" · ")) for (const i of rest.split(" · ")) atoms.add(i);
     }
@@ -181,13 +190,17 @@ test("every member-facing string in a program is in the pack, whole", () => {
   for (const p of H10_PROGRAMS) {
     check(`${p.id} title`, p.title);
     check(`${p.id} blurb`, p.blurb);
+    const e = p.entryScreen;
+    if (e) {
+      for (const v of [e.intro, ...e.questions, e.yes, e.no, e.anyYes, ...Object.values(e.ifYes)]) check(`${e.id}`, v);
+    }
     for (const u of p.units) {
       check(`${u.id} title`, u.title);
       check(`${u.id} purpose`, u.purpose);
-      for (const t of u.text ?? []) check(`${u.id} text`, t);
+      for (const t of [...(u.text ?? []), ...(u.list ?? []), ...(u.textAfter ?? [])]) check(`${u.id} text`, t);
       const c = u.copy;
       if (!c) continue;
-      for (const k of ["prompt", "dayPrompt", "save", "mastery", "enjoyment", "noticed", "notThisTime", "remember", "completion"] as const) {
+      for (const k of ["prompt", "dayPrompt", "save", "mastery", "enjoyment", "noticed", "notThisTime", "remember", "completion", "note", "keepDoing"] as const) {
         check(`${u.id} ${k}`, c[k]);
       }
       for (const v of [...(c.options ?? []), ...(c.outcomes ?? []), ...(c.notThisTimeChoices ?? [])]) check(`${u.id} choice`, v);

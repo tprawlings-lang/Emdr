@@ -404,6 +404,18 @@ CREATE TABLE IF NOT EXISTS activity_entries (
 );
 CREATE INDEX IF NOT EXISTS idx_activity_entries_user ON activity_entries(user_id, program_id, unit_id);
 
+CREATE TABLE IF NOT EXISTS program_entry_screens (
+  id text PRIMARY KEY,
+  user_id text NOT NULL REFERENCES users(id),
+  program_id text NOT NULL,
+  screen_id text NOT NULL,
+  withheld integer NOT NULL CHECK (withheld IN (0,1)),
+  note_keys text NOT NULL DEFAULT '',
+  created_at text NOT NULL DEFAULT steady_now(),
+  cleared_at text
+);
+CREATE INDEX IF NOT EXISTS idx_program_entry_screens_user ON program_entry_screens(user_id, program_id);
+
 CREATE TABLE IF NOT EXISTS upsell_events (
   id text PRIMARY KEY,
   user_id text NOT NULL REFERENCES users(id),
@@ -565,6 +577,7 @@ ALTER TABLE companion_proposals ADD COLUMN IF NOT EXISTS tenant_id text NOT NULL
 ALTER TABLE program_enrollments ADD COLUMN IF NOT EXISTS tenant_id text NOT NULL DEFAULT '00000000000000000000000000';
 ALTER TABLE program_unit_completions ADD COLUMN IF NOT EXISTS tenant_id text NOT NULL DEFAULT '00000000000000000000000000';
 ALTER TABLE activity_entries ADD COLUMN IF NOT EXISTS tenant_id text NOT NULL DEFAULT '00000000000000000000000000';
+ALTER TABLE program_entry_screens ADD COLUMN IF NOT EXISTS tenant_id text NOT NULL DEFAULT '00000000000000000000000000';
 ALTER TABLE review_notes ADD COLUMN IF NOT EXISTS tenant_id text NOT NULL DEFAULT '00000000000000000000000000';
 
 -- ---------------------------------------------------------------------------

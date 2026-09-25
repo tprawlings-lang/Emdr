@@ -130,7 +130,9 @@ test("the view model carries no count, total, streak or date gap", async () => {
   const m = member({ activation: 2 });
   await enrollInProgram(m, MT);
   const v = (await programView(m, MT))!;
-  assert.deepEqual(Object.keys(v).sort(), ["enrollment", "finished", "next", "program", "units", "visibility"]);
+  // `entry` is the entry screen's standing: answered or not, and the signed
+  // words to say — never a count (Steadier Sleep, 1C).
+  assert.deepEqual(Object.keys(v).sort(), ["enrollment", "entry", "finished", "next", "program", "units", "visibility"]);
   for (const u of v.units) assert.deepEqual(Object.keys(u).sort(), ["state", "unit", "visibility"]);
 });
 

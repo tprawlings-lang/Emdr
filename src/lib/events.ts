@@ -73,6 +73,8 @@ export const EVENT_TYPES = {
   "program.left": 2,
   "program.unit_completed": 2,
   "program.activity_recorded": 1,
+  // Coded: which entry screen, and whether it withheld anything (§1C).
+  "program.entry_screened": 1,
 
   // AI / memory
   "memory.recorded": 1,
