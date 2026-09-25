@@ -209,6 +209,7 @@ export interface WorkQueue {
  *  something readable rather than to an empty cell. */
 const REASON_FOR_TYPE: Record<string, string> = {
   activity_risk_language: "Risk language in something the member wrote in a program",
+  assigned_practice_distress: "Distress rose during a practice you assigned",
   autopilot_risk_watch: "Early warning: recent measures have risen",
   checkin_safety_positive: "Safety item positive on today's check-in",
   companion_risk_language: "Risk language detected in companion conversation",

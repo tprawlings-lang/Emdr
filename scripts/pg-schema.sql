@@ -426,6 +426,37 @@ CREATE TABLE IF NOT EXISTS member_thought_records (
 );
 CREATE INDEX IF NOT EXISTS idx_member_thought_records_user ON member_thought_records(user_id, created_at);
 
+CREATE TABLE IF NOT EXISTS intervention_runs (
+  id text PRIMARY KEY,
+  tenant_id text NOT NULL,
+  person_id text NOT NULL REFERENCES persons(id),
+  assignment_id text NOT NULL,
+  module_id text NOT NULL,
+  module_version text NOT NULL,
+  started_at text NOT NULL,
+  ended_at text,
+  status text NOT NULL CHECK (status IN ('started','completed','stopped_by_patient','hard_stopped_by_policy')),
+  gate_snapshot_json text NOT NULL,
+  stop_reason_code text,
+  distress_before integer NOT NULL CHECK (distress_before BETWEEN 0 AND 10),
+  distress_after integer CHECK (distress_after BETWEEN 0 AND 10),
+  created_at text NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_intervention_runs_assignment ON intervention_runs(person_id, assignment_id, started_at);
+
+CREATE TABLE IF NOT EXISTS intervention_run_responses (
+  id text PRIMARY KEY,
+  tenant_id text NOT NULL,
+  person_id text NOT NULL REFERENCES persons(id),
+  run_id text NOT NULL REFERENCES intervention_runs(id),
+  step_id text NOT NULL,
+  response_schema_version text NOT NULL,
+  structured_response_json text NOT NULL DEFAULT '{}',
+  encrypted_free_text text,
+  recorded_at text NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_intervention_run_responses_run ON intervention_run_responses(run_id);
+
 CREATE TABLE IF NOT EXISTS upsell_events (
   id text PRIMARY KEY,
   user_id text NOT NULL REFERENCES users(id),

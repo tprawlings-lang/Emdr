@@ -269,6 +269,9 @@ const SECTION: Record<string, string | null> = {
 
 export function sectionFor(slug: string): string | null {
   if (slug.startsWith("/session/")) return "/sessions";
+  // A clinician-assigned practice's runs (Handoff 10 Phase 3) belong with
+  // the assignment, in Care.
+  if (slug.startsWith("/assigned/")) return "/care";
   // An unclassified screen falls back to the overview, which is the safe
   // runtime answer and a BAD test answer: "" is a real section, so a guard
   // that only checked the return value would accept a screen nobody had
@@ -282,7 +285,7 @@ export function sectionFor(slug: string): string | null {
  *  answers: at runtime an unknown screen should still render inside the
  *  record, and in a test an unknown screen is the defect. */
 export function isClassified(slug: string): boolean {
-  return slug.startsWith("/session/") || slug in SECTION;
+  return slug.startsWith("/session/") || slug.startsWith("/assigned/") || slug in SECTION;
 }
 
 // ---------------------------------------------------------------------------

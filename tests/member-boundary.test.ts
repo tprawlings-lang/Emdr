@@ -76,6 +76,9 @@ const MEMBER_ROUTES = [
   // Handoff 10 §3.7: new member routes go under guard, never exempt. A program
   // stores ratings members enter (CV10_B03) and must not show them back here.
   "app/programs",
+  // Handoff 10 Phase 3: a clinician-assigned practice. The distress ratings
+  // go to the assigning clinician and are never shown back here.
+  "app/assigned",
 ];
 
 /** Identifiers that carry a score, a band, a track, or a criteria label.

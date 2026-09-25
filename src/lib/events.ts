@@ -75,6 +75,13 @@ export const EVENT_TYPES = {
   "program.activity_recorded": 1,
   // Coded: which entry screen, and whether it withheld anything (§1C).
   "program.entry_screened": 1,
+  // Handoff 10 Phase 3 (Handoff 03 §11): runs of a clinician-assigned
+  // practice. Coded: the run, the assignment, the module version, the two
+  // distress ratings and whether E01's flag fired. Never what was written.
+  "intervention.run_started": 1,
+  "intervention.run_completed": 1,
+  "intervention.run_stopped": 1,
+  "intervention.run_hard_stopped": 1,
 
   // AI / memory
   "memory.recorded": 1,

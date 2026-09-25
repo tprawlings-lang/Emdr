@@ -7,6 +7,7 @@ import { MODULES, type TherapyModule } from "../modules";
 import { activePolicy } from "../clinical-policy";
 import { getGoal, type Goal } from "./return-to-life";
 import { recordCareAction } from "./attention-signals";
+import { getLaneModule } from "../content/h10-assigned-lane";
 
 // Assigned support (17 September handoff, "Assigned support command").
 //
@@ -211,11 +212,26 @@ export async function assignSupport(
     throw new AssignmentRefused("a clinician cannot assign support to themselves");
   }
 
-  const mod = MODULES.find((m) => m.id === args.supportId);
-  if (!mod) throw new AssignmentRefused(`${args.supportId} is not a support definition.`);
-  if (!assignableSupport().some((m) => m.id === mod.id)) {
-    throw new AssignmentRefused(`${mod.name} cannot be assigned.`);
+  const wellness = MODULES.find((m) => m.id === args.supportId);
+  // Handoff 10 Phase 3: a clinician-assigned practice is assigned through this
+  // same form and stored in this same table (no second module platform). It
+  // is offered only while its review rows are agreed, or in the demo, and it
+  // must end: E01, "assignments expire".
+  const lane = wellness ? undefined : getLaneModule(args.supportId);
+  if (!wellness && !lane) throw new AssignmentRefused(`${args.supportId} is not a support definition.`);
+  if (wellness && !assignableSupport().some((m) => m.id === wellness.id)) {
+    throw new AssignmentRefused(`${wellness.name} cannot be assigned.`);
   }
+  if (lane) {
+    const { laneVisibility } = await import("../assigned-lane");
+    if ((await laneVisibility(lane)) === "absent") {
+      throw new AssignmentRefused(`${lane.title} cannot be assigned: its clinical review is not signed.`);
+    }
+    if (!args.expiresAt) {
+      throw new AssignmentRefused(`${lane.title} needs an end date. A clinician-assigned practice cannot be open-ended.`);
+    }
+  }
+  const mod = { id: wellness?.id ?? lane!.moduleId };
   if (!isPurpose(args.purposeCode)) {
     throw new AssignmentRefused(`"${args.purposeCode}" is not a recorded purpose for assigning support.`);
   }
@@ -254,7 +270,7 @@ export async function assignSupport(
     support_id: mod.id,
     // The version the definition had when it was assigned, so a later rewrite
     // is visible as a difference rather than applied retroactively.
-    support_version: policy.version,
+    support_version: lane ? lane.version : policy.version,
     purpose_code: args.purposeCode,
     goal_id: goal?.id ?? null,
     patient_explanation: explanation,
@@ -536,5 +552,5 @@ export async function linkAssignmentToGoal(
 
 /** The catalog name, for a ledger note a person's clinician will read later. */
 function nameOfSupport(supportId: string): string {
-  return MODULES.find((m) => m.id === supportId)?.name ?? supportId;
+  return MODULES.find((m) => m.id === supportId)?.name ?? getLaneModule(supportId)?.title ?? supportId;
 }

@@ -811,6 +811,9 @@ export async function deleteAccount(formData: FormData) {
     await byUser("activity_entries");
     await byUser("program_entry_screens");
     await byUser("member_thought_records");
+    // Phase 3 runs are keyed by person_id (= the user's id), not user_id.
+    await byUser("intervention_run_responses", "person_id");
+    await byUser("intervention_runs", "person_id");
     await byUser("program_unit_completions");
     await byUser("program_enrollments");
     await t.run(`UPDATE users SET email = ?, name = 'Deleted member', password_hash = '!', dob = NULL,

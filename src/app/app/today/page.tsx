@@ -10,6 +10,7 @@ import {
   todayWorkState, assignedPresentation, PENDING_WRITE_TRACKED,
 } from "@/lib/member/today-work";
 import { assignmentsFor, isLive } from "@/lib/clinical/assigned-support";
+import { getLaneModule, liveLaneAssignments } from "@/lib/assigned-lane";
 import { getGoal } from "@/lib/clinical/return-to-life";
 import { getModule } from "@/lib/modules";
 import { memberMinutes } from "@/lib/member/view";
@@ -99,6 +100,12 @@ export default async function DashboardPage({
           .catch(() => []))
           .filter((a) => isLive(a, now) && a.availability === "assigned")
       : [];
+    // Handoff 10 Phase 3: a clinician-assigned practice is listed only while
+    // its lane is visible (signed, or the demo) — never on a row alone.
+    const laneLive = new Set((await liveLaneAssignments(user.id, now).catch(() => [])).map((a) => a.id));
+    for (let i = live.length - 1; i >= 0; i--) {
+      if (getLaneModule(live[i].supportId) && !laneLive.has(live[i].id)) live.splice(i, 1);
+    }
     const workState = todayWorkState({
       restricted: view.dayState === "paused" || view.dayState === "crisis",
       // Nothing in this build stores an unreconciled command, so this state is
@@ -112,7 +119,15 @@ export default async function DashboardPage({
       completedToday: view.recent.length > 0,
     });
     const first = live[0];
-    const assignedModule = first ? getModule(first.supportId) : null;
+    const firstLane = first ? getLaneModule(first.supportId) : undefined;
+    const assignedModule = first
+      ? firstLane
+        ? { name: firstLane.title, href: `/app/assigned/${first.id}`, minutes: firstLane.expectedMinutes }
+        : (() => {
+            const m = getModule(first.supportId);
+            return m ? { name: m.name, href: `/app/session/${first.supportId}`, minutes: memberMinutes(first.supportId) } : null;
+          })()
+      : null;
     const assignedByName = first
       ? ((await (await data()).get("SELECT name FROM users WHERE id = ?", [first.assignedBy])) as
           { name: string } | undefined)?.name ?? null
@@ -163,13 +178,13 @@ export default async function DashboardPage({
               first && assignedModule
                 ? {
                     label: assignedModule.name,
-                    href: `/app/session/${first.supportId}`,
+                    href: assignedModule.href,
                     presentation: assignedPresentation({
                       assignedByName,
                       patientExplanation: first.patientExplanation,
                       sharePolicy: first.sharePolicy,
                       expiresAt: first.expiresAt,
-                      minutes: memberMinutes(first.supportId),
+                      minutes: assignedModule.minutes,
                       goalStatement: assignedGoal?.patientStatement ?? null,
                     }),
                   }

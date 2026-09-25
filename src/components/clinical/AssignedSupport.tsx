@@ -10,6 +10,7 @@ import {
   assignSupportAction, changeAssignmentAction, adjustPlanLinkAction,
 } from "@/lib/clinical/assignment-actions";
 import { SubmitButton } from "@/components/experience/SubmitButton";
+import { getLaneModule, type LaneModule } from "@/lib/content/h10-assigned-lane";
 
 // Assign support, inside Care (17 September handoff, P3).
 //
@@ -38,7 +39,7 @@ const STATUS_WORD: Record<AssignmentStatus, string> = {
 };
 
 function nameOf(supportId: string): string {
-  return MODULES.find((m) => m.id === supportId)?.name ?? supportId;
+  return MODULES.find((m) => m.id === supportId)?.name ?? getLaneModule(supportId)?.title ?? supportId;
 }
 
 /** The plan link, in one place, so the assign form and the change control
@@ -65,7 +66,7 @@ function PlanLinkSelect({ goals, current }: { goals: Goal[]; current: string | n
 }
 
 export function AssignedSupport({
-  personId, assignments, goals = [], now, idempotencyKey, requests = [],
+  personId, assignments, goals = [], now, idempotencyKey, requests = [], laneModules = [],
 }: {
   personId: string;
   assignments: SupportAssignment[];
@@ -79,6 +80,10 @@ export function AssignedSupport({
    *  the clinician's ask is above, theirs is below, and until now theirs lived
    *  on a screen this record never mentioned. */
   requests?: ModuleRequest[];
+  /** Handoff 10 Phase 3: the clinician-assigned practices this clinician may
+   *  assign now — live, or drafts in the demo (marked so). Empty outside the
+   *  demo until the partner's clinical lead signs rows E01 to E05. */
+  laneModules?: Array<{ module: LaneModule; draft: boolean }>;
 }) {
   const waiting = awaitingDecision(requests);
   const live = assignments.filter((a) => isLive(a, now));
@@ -137,6 +142,14 @@ export function AssignedSupport({
                     : "Linked to a goal that is not on this screen."
                   : "Not linked to a goal."}
               </p>
+              {getLaneModule(a.supportId) && (
+                <Link
+                  href={`/clinician/member/${personId}/assigned/${a.id}`}
+                  className="mt-2 inline-block text-sm text-state-info underline"
+                >
+                  Runs and what was written (you, if you assigned it)
+                </Link>
+              )}
               <p className="mt-2 text-xs text-olive">
                 Assigned {a.startsAt.slice(0, 10)}
                 {a.expiresAt ? ` · runs out ${a.expiresAt.slice(0, 10)}` : " · no end date"}
@@ -258,8 +271,30 @@ export function AssignedSupport({
               {assignableSupport().map((m) => (
                 <option key={m.id} value={m.id}>{m.name}</option>
               ))}
+              {laneModules.length > 0 && (
+                <optgroup label="Clinician-assigned practice (needs an end date)">
+                  {laneModules.map(({ module: m, draft }) => (
+                    <option key={m.moduleId} value={m.moduleId}>
+                      {m.title}{draft ? " — pending clinical review" : ""}
+                    </option>
+                  ))}
+                </optgroup>
+              )}
             </select>
           </label>
+          {laneModules.length > 0 && (
+            <p className="text-xs text-olive">
+              Preview exactly what they will see:{" "}
+              {laneModules.map(({ module: m }, i) => (
+                <span key={m.moduleId}>
+                  {i > 0 && " · "}
+                  <Link href={`/clinician/assigned-lane/${m.moduleId}`} className="underline">{m.title}</Link>
+                </span>
+              ))}
+              . A clinician-assigned practice opens only on a steady day, asks their distress before
+              and after, and flags you if it rose by 3 or more or went above 7.
+            </p>
+          )}
 
           <label className="block text-sm">
             <span className="font-medium text-ground">What for</span>

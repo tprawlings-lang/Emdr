@@ -42,8 +42,12 @@
 >   not exist yet (`tests/feeling-and-relating.test.ts`). Member thought records (2B) are at
 >   `/app/activities/thoughts`, private to the member (`tests/thought-records.test.ts`). Riding
 >   Strong Feelings (2C) ends each part by offering to add its skills to the member's SOS plan
->   (`tests/riding-strong-feelings.test.ts`). Phase 2 is done; next is the audio pipeline (package
->   11), which waits on recordings (founder action F4). P0 replaced the companion's Butterfly Hug (self-administered BLS) with a
+>   (`tests/riding-strong-feelings.test.ts`). Phase 2 is done. **Phase 3, the clinician-assigned
+>   lane, is built ahead of its gate** on the product owner's instruction (25 September), for a
+>   team to review and test: assignments reuse Assign support, the three containers carry no
+>   protocol content, and the lane is absent outside the demo until a partner's clinical lead signs
+>   rows E01 to E05 (`tests/assigned-lane.test.ts`, `tests/companion-excludes-assigned.test.ts`).
+>   The audio pipeline (package 11) waits on recordings (founder action F4). P0 replaced the companion's Butterfly Hug (self-administered BLS) with a
 >   still self-hold; `tests/kb-no-bls-shape.test.ts` guards every knowledge-base entry,
 >   practice and lesson. Content sign-off (`src/lib/content-signoff.ts`, `/review/content`)
 >   means unsigned content is absent outside demo. Practices carry optional gating and a

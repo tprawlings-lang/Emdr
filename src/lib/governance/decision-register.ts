@@ -996,6 +996,132 @@ export const DECISION_REGISTER: Decision[] = [
     state: "open",
     asked: "2026-09-25",
   },
+  // ---- Phase 3, the clinician-assigned lane: for the partner's clinical lead.
+  // Built ahead of its gate for review and testing (25 September); none of
+  // these holds up anything a member can reach, because the lane is absent
+  // outside the demo until rows E01 to E05 are signed.
+  {
+    id: "partner.crisis-check-on-exposure-writing",
+    question:
+      "For the partner's clinical lead: every piece of writing in the app is checked for crisis language " +
+      "before it is saved, and a match saves nothing and opens the crisis page. Exposure writing can " +
+      "describe past harm in words that match. Should the check run on it, and what should happen on a match?",
+    audience: "clinical",
+    blocks: [],
+    meanwhile:
+      "The check runs. A match saves none of that step's writing, ends the practice, alerts the care team " +
+      "without the words, and opens the crisis page. Earlier steps' writing stays saved.",
+    options: [
+      {
+        label: "Check it, keep the writing, flag the clinician",
+        plainly: "A match still opens the crisis page and alerts the care team, but the writing is kept for the assigning clinician.",
+        then: "Nothing written is lost; the clinician sees it with the flag.",
+        recommended: true,
+      },
+      {
+        label: "Check it and save nothing, as now",
+        plainly: "The same rule as everywhere else in the app.",
+        then: "Nothing changes.",
+      },
+      {
+        label: "Do not check exposure writing",
+        plainly: "The assigning clinician reviews it; the distress ratings and flag still apply.",
+        then: "The check is skipped for writing steps in this lane only.",
+      },
+    ],
+    state: "open",
+    asked: "2026-09-25",
+  },
+  {
+    id: "partner.who-reads-assigned-writing",
+    question:
+      "For the partner's clinical lead: what a person writes in a clinician-assigned practice is readable " +
+      "by them and by the clinician who assigned it. Should anyone else on the care team be able to read it?",
+    audience: "clinical",
+    blocks: [],
+    meanwhile:
+      "Only the person and the assigning clinician. A colleague who opens it is told whose it is and shown " +
+      "nothing; the distress flag still reaches the care team's queue, without the words.",
+    options: [
+      {
+        label: "Assigning clinician only",
+        plainly: "As the handoff says: the person and the one clinician who gave them the practice.",
+        then: "Nothing changes.", recommended: true,
+      },
+      {
+        label: "Their whole care team",
+        plainly: "Anyone caring for the person can read it, for continuity when the assigning clinician is away.",
+        then: "Every clinician on the person's care team can open the writing; each read is still recorded.",
+      },
+    ],
+    state: "open",
+    asked: "2026-09-25",
+  },
+  {
+    id: "partner.assigned-writing-retention",
+    question:
+      "For the partner's clinical lead: how long is writing from a clinician-assigned practice kept, and " +
+      "may the person delete it themselves?",
+    audience: "clinical",
+    blocks: [],
+    meanwhile:
+      "Kept until the person's account is deleted. The person cannot delete it on their own, because it may " +
+      "form part of the partner's clinical record; the handoff leaves this to the partner's record policy.",
+    options: [
+      {
+        label: "The partner's record policy",
+        plainly: "Kept for the period the partner's records must be kept, then removed.",
+        then: "A retention period is set for this lane from the partner's policy.",
+        recommended: true,
+      },
+      {
+        label: "The person can delete it",
+        plainly: "Like everything else they write in Steady, with two taps.",
+        then: "A delete control appears beside their writing; the clinician's view shows it was deleted.",
+      },
+    ],
+    state: "open",
+    asked: "2026-09-25",
+  },
+  {
+    id: "partner.distress-flag-levels",
+    question:
+      "For the partner's clinical lead: the signed lane rule flags the assigning clinician when distress " +
+      "after a practice is 3 or more above distress before, or above 7. Are those the right levels, and " +
+      "should a practice the person stopped be flagged by the same rule?",
+    audience: "clinical",
+    blocks: [],
+    meanwhile:
+      "Those levels, applied whether the practice was finished or stopped, when a rating after was given. " +
+      "A person who stops may skip the rating, and then nothing is flagged.",
+    options: [
+      { label: "Keep them, finished or stopped", plainly: "The rule as written, applied to every run with a rating.", then: "Nothing changes.", recommended: true },
+      {
+        label: "Also flag any stop",
+        plainly: "A stop is not a failure, but the clinician may want to know it happened.",
+        then: "Every stopped practice sends a gentle note to the clinician's queue.",
+      },
+      { label: "Different levels", plainly: "Name the rise, and the level after the practice, that should reach the clinician.", then: "The two levels change." },
+    ],
+    state: "open",
+    asked: "2026-09-25",
+  },
+  {
+    id: "partner.lane-titles-and-lengths",
+    question:
+      "For the partner's clinical lead: the three practices need names a person reads and a length. The " +
+      "handoff names one, \"Written exposure (clinician-assigned)\". Are \"Worksheets (clinician-assigned)\" " +
+      "and \"Nightmare rehearsal (clinician-assigned)\", at about 30, 20 and 20 minutes, right?",
+    audience: "clinical",
+    blocks: [],
+    meanwhile: "Those names and lengths, marked as drafts; no method is named to the person.",
+    options: [
+      { label: "Keep them", plainly: "Plain names that describe the activity without naming a method.", then: "Nothing changes.", recommended: true },
+      { label: "The partner's own names", plainly: "Use whatever the partner's protocols call them for patients.", then: "The names and lengths change to the partner's." },
+    ],
+    state: "open",
+    asked: "2026-09-25",
+  },
 ];
 
 export const OPEN_DECISIONS = DECISION_REGISTER.filter((d) => d.state === "open");

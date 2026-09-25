@@ -895,6 +895,42 @@ export const SCHEMA_SQL = `
   );
   CREATE INDEX IF NOT EXISTS idx_member_thought_records_user ON member_thought_records(user_id, created_at);
 
+  -- Handoff 10 Phase 3 (Handoff 03 §8): runs of a clinician-assigned practice
+  -- and what was written in them. The assignment itself is a row in
+  -- support_assignments. distress_before and distress_after are on the run
+  -- because E01's flag reads them together; what was written is encrypted and
+  -- read only by the member and the clinician who assigned it.
+  CREATE TABLE IF NOT EXISTS intervention_runs (
+    id TEXT PRIMARY KEY,
+    tenant_id TEXT NOT NULL,
+    person_id TEXT NOT NULL REFERENCES persons(id),
+    assignment_id TEXT NOT NULL,
+    module_id TEXT NOT NULL,
+    module_version TEXT NOT NULL,
+    started_at TEXT NOT NULL,
+    ended_at TEXT,
+    status TEXT NOT NULL CHECK (status IN ('started','completed','stopped_by_patient','hard_stopped_by_policy')),
+    gate_snapshot_json TEXT NOT NULL,
+    stop_reason_code TEXT,
+    distress_before INTEGER NOT NULL CHECK (distress_before BETWEEN 0 AND 10),
+    distress_after INTEGER CHECK (distress_after BETWEEN 0 AND 10),
+    created_at TEXT NOT NULL
+  );
+  CREATE INDEX IF NOT EXISTS idx_intervention_runs_assignment ON intervention_runs(person_id, assignment_id, started_at);
+
+  CREATE TABLE IF NOT EXISTS intervention_run_responses (
+    id TEXT PRIMARY KEY,
+    tenant_id TEXT NOT NULL,
+    person_id TEXT NOT NULL REFERENCES persons(id),
+    run_id TEXT NOT NULL REFERENCES intervention_runs(id),
+    step_id TEXT NOT NULL,
+    response_schema_version TEXT NOT NULL,
+    structured_response_json TEXT NOT NULL DEFAULT '{}',
+    encrypted_free_text TEXT,
+    recorded_at TEXT NOT NULL
+  );
+  CREATE INDEX IF NOT EXISTS idx_intervention_run_responses_run ON intervention_run_responses(run_id);
+
   CREATE TABLE IF NOT EXISTS lesson_reads (
     id TEXT PRIMARY KEY,
     user_id TEXT NOT NULL REFERENCES users(id),
@@ -2813,6 +2849,7 @@ export const TENANT_SCOPED_TABLES = [
   "user_triggers", "early_warning_signs", "readiness_assessments",
   "safety_plans", "ai_companion_preferences", "ai_memory_items", "companion_proposals",
   "program_enrollments", "program_unit_completions", "activity_entries", "program_entry_screens", "member_thought_records",
+  "intervention_runs", "intervention_run_responses",
   "ai_conversations", "ai_messages", "subscriptions", "payments",
   "program_plans", "care_tracks", "care_track_intake", "practice_completions",
   "upsell_events", "autopilot_plans", "autopilot_events", "lesson_reads",

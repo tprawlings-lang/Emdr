@@ -17,6 +17,7 @@ import { readingFrame } from "@/lib/clock";
 import { assignmentsFor } from "@/lib/clinical/assigned-support";
 import { moduleRequestsFor } from "@/lib/clinical/module-requests";
 import { AssignedSupport } from "@/components/clinical/AssignedSupport";
+import { LANE_MODULES, laneVisibility } from "@/lib/assigned-lane";
 import { assignmentFor, assignmentHistory } from "@/lib/clinical/caseload-assignment";
 import { assignCaseloadAction } from "@/lib/clinical/assignment-actions";
 
@@ -130,6 +131,10 @@ export default async function MemberCarePage({
   // the first. Deduplicating two distinct instructions is worse than the
   // duplicate this is here to stop.
   const assignKey = randomUUID();
+  // Handoff 10 Phase 3: clinician-assigned practices, where visible (live, or
+  // drafts in the demo).
+  const laneModules = (await Promise.all(LANE_MODULES.map(async (m) => ({ module: m, v: await laneVisibility(m) }))))
+    .filter((x) => x.v !== "absent").map((x) => ({ module: x.module, draft: x.v === "draft" }));
   const handoffs = handoffsForPerson({ personId: id, tenantId });
   const [assignment, history] = await Promise.all([
     assignmentFor(tenantId, id),
@@ -198,6 +203,7 @@ export default async function MemberCarePage({
         now={frame.now}
         idempotencyKey={assignKey}
         requests={requests}
+        laneModules={laneModules}
       />
 
       <section aria-labelledby="work" className="mt-8">

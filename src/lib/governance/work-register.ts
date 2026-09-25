@@ -1167,6 +1167,27 @@ export const WORK_REGISTER: WorkEntry[] = [
       "and no companion file names either function. Web and mobile.",
   },
   {
+    id: "clinical.assigned-lane",
+    title: "The clinician-assigned lane: built ahead of its gate, absent outside the demo, no protocol content",
+    state: "reachable",
+    code: "src/lib/assigned-lane.ts#laneGate",
+    test: "tests/assigned-lane.test.ts",
+    note:
+      "Handoff 10 \u00a76 (CV10_E01 to E05, unsigned; for a partner's clinical lead). Built on the product " +
+      "owner's instruction of 25 September, for a team to review and test, although \u00a76 parks it behind " +
+      "Handoff 03's activation gate, a signed partner, licensed protocol content and the HIPAA/BAA/Postgres " +
+      "work, none of which exist. Not a second module platform: assignments are rows in support_assignments " +
+      "through the existing Assign support form; the three containers are Handoff 03 ModuleDefinitions in " +
+      "state draft with no protocol content (the demo shows labelled placeholders). Lane rules: never " +
+      "listed without a live assignment, which must have an end date; each start asks the existing engine " +
+      "(steady tier, no crisis, no dissociation hold) and stores its decision; distress before and after, " +
+      "flagging the assigning clinician on a rise of 3 or more or above 7; stop on every step at no cost. " +
+      "Writing is encrypted, readable by the member and the assigning clinician only, with each clinician " +
+      "read audited, and unreachable from every model path (tests/companion-excludes-assigned.test.ts). " +
+      "Not built from Handoff 03: reminders (its Handoff 02 scheduler does not exist), the Response " +
+      "Fingerprint and Return-to-Life adapters, the Command Center provider and the content-library GUI.",
+  },
+  {
     id: "clinical.path-review-mark",
     title: "The care team can record that a path's clinician review is done",
     state: "proposed",

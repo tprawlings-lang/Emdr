@@ -587,6 +587,87 @@ export const ACCESS_INVENTORY: AccessInventory = {
       "exempt": []
     },
     {
+      "path": "/app/assigned/[assignmentId]",
+      "audience": "member",
+      "file": "app/app/assigned/[assignmentId]/page.tsx",
+      "owed": [
+        1,
+        2,
+        4,
+        5
+      ],
+      "found": {
+        "1": [
+          "requireUser(",
+          "requireMember("
+        ],
+        "2": [
+          "requireMember("
+        ],
+        "4": [
+          "hasConsent(",
+          "revoked_at IS NULL"
+        ],
+        "5": []
+      },
+      "missing": [],
+      "exempt": []
+    },
+    {
+      "path": "/app/assigned/[assignmentId]/run/[runId]",
+      "audience": "member",
+      "file": "app/app/assigned/[assignmentId]/run/[runId]/page.tsx",
+      "owed": [
+        1,
+        2,
+        4,
+        5
+      ],
+      "found": {
+        "1": [
+          "requireUser(",
+          "requireMember("
+        ],
+        "2": [
+          "requireMember("
+        ],
+        "4": [
+          "hasConsent(",
+          "revoked_at IS NULL"
+        ],
+        "5": []
+      },
+      "missing": [],
+      "exempt": []
+    },
+    {
+      "path": "/app/assigned/[assignmentId]/run/[runId]/end",
+      "audience": "member",
+      "file": "app/app/assigned/[assignmentId]/run/[runId]/end/page.tsx",
+      "owed": [
+        1,
+        2,
+        4,
+        5
+      ],
+      "found": {
+        "1": [
+          "requireUser(",
+          "requireMember("
+        ],
+        "2": [
+          "requireMember("
+        ],
+        "4": [
+          "hasConsent(",
+          "revoked_at IS NULL"
+        ],
+        "5": []
+      },
+      "missing": [],
+      "exempt": []
+    },
+    {
       "path": "/app/activities/thoughts",
       "audience": "member",
       "file": "app/app/activities/thoughts/page.tsx",
@@ -1690,6 +1771,65 @@ export const ACCESS_INVENTORY: AccessInventory = {
           "_viewed",
           "_opened"
         ]
+      },
+      "missing": [],
+      "exempt": []
+    },
+    {
+      "path": "/clinician/member/[id]/assigned/[assignmentId]",
+      "audience": "clinician",
+      "file": "app/clinician/member/[id]/assigned/[assignmentId]/page.tsx",
+      "owed": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        7
+      ],
+      "found": {
+        "1": [
+          "requireUser(",
+          "requireClinician("
+        ],
+        "2": [
+          "requireClinician("
+        ],
+        "3": [
+          "tenant_id = ?",
+          "loadPersonHeader("
+        ],
+        "4": [
+          "revoked_at IS NULL",
+          "consentActive"
+        ],
+        "5": [],
+        "7": [
+          "family: \"security\"",
+          "_viewed"
+        ]
+      },
+      "missing": [],
+      "exempt": []
+    },
+    {
+      "path": "/clinician/assigned-lane/[moduleId]",
+      "audience": "clinician",
+      "file": "app/clinician/assigned-lane/[moduleId]/page.tsx",
+      "owed": [
+        1,
+        2,
+        5
+      ],
+      "found": {
+        "1": [
+          "requireUser(",
+          "requireClinician("
+        ],
+        "2": [
+          "requireClinician("
+        ],
+        "5": []
       },
       "missing": [],
       "exempt": []
@@ -3618,8 +3758,8 @@ export const ACCESS_INVENTORY: AccessInventory = {
       "exempt": []
     }
   ],
-  "protectedCount": 129,
-  "complete": 129,
+  "protectedCount": 134,
+  "complete": 134,
   "gapsByStep": {
     "1": 0,
     "2": 0,
