@@ -426,36 +426,6 @@ CREATE TABLE IF NOT EXISTS member_thought_records (
 );
 CREATE INDEX IF NOT EXISTS idx_member_thought_records_user ON member_thought_records(user_id, created_at);
 
-CREATE TABLE IF NOT EXISTS intervention_runs (
-  id text PRIMARY KEY,
-  tenant_id text NOT NULL,
-  person_id text NOT NULL REFERENCES persons(id),
-  assignment_id text NOT NULL,
-  module_id text NOT NULL,
-  module_version text NOT NULL,
-  started_at text NOT NULL,
-  ended_at text,
-  status text NOT NULL CHECK (status IN ('started','completed','stopped_by_patient','hard_stopped_by_policy')),
-  gate_snapshot_json text NOT NULL,
-  stop_reason_code text,
-  distress_before integer NOT NULL CHECK (distress_before BETWEEN 0 AND 10),
-  distress_after integer CHECK (distress_after BETWEEN 0 AND 10),
-  created_at text NOT NULL
-);
-CREATE INDEX IF NOT EXISTS idx_intervention_runs_assignment ON intervention_runs(person_id, assignment_id, started_at);
-
-CREATE TABLE IF NOT EXISTS intervention_run_responses (
-  id text PRIMARY KEY,
-  tenant_id text NOT NULL,
-  person_id text NOT NULL REFERENCES persons(id),
-  run_id text NOT NULL REFERENCES intervention_runs(id),
-  step_id text NOT NULL,
-  response_schema_version text NOT NULL,
-  structured_response_json text NOT NULL DEFAULT '{}',
-  encrypted_free_text text,
-  recorded_at text NOT NULL
-);
-CREATE INDEX IF NOT EXISTS idx_intervention_run_responses_run ON intervention_run_responses(run_id);
 
 CREATE TABLE IF NOT EXISTS upsell_events (
   id text PRIMARY KEY,
@@ -497,6 +467,8 @@ CREATE TABLE IF NOT EXISTS tenants (
   status text NOT NULL DEFAULT 'active',
   created_at text NOT NULL DEFAULT steady_now()
 );
+-- Handoff 11: 'evaluation' locks PHI fields (steady_phi_lock, below).
+ALTER TABLE tenants ADD COLUMN IF NOT EXISTS mode text NOT NULL DEFAULT 'standard' CHECK (mode IN ('standard','evaluation'));
 
 CREATE TABLE IF NOT EXISTS persons (
   id text PRIMARY KEY,
@@ -546,6 +518,39 @@ CREATE TABLE IF NOT EXISTS enrollments (
   created_at text NOT NULL DEFAULT steady_now()
 );
 CREATE INDEX IF NOT EXISTS idx_enrollments_person ON enrollments(person_id, tenant_id);
+
+-- Handoff 10 Phase 3 runs. Here rather than beside the other member tables
+-- because they reference persons, created just above.
+CREATE TABLE IF NOT EXISTS intervention_runs (
+  id text PRIMARY KEY,
+  tenant_id text NOT NULL,
+  person_id text NOT NULL REFERENCES persons(id),
+  assignment_id text NOT NULL,
+  module_id text NOT NULL,
+  module_version text NOT NULL,
+  started_at text NOT NULL,
+  ended_at text,
+  status text NOT NULL CHECK (status IN ('started','completed','stopped_by_patient','hard_stopped_by_policy')),
+  gate_snapshot_json text NOT NULL,
+  stop_reason_code text,
+  distress_before integer NOT NULL CHECK (distress_before BETWEEN 0 AND 10),
+  distress_after integer CHECK (distress_after BETWEEN 0 AND 10),
+  created_at text NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_intervention_runs_assignment ON intervention_runs(person_id, assignment_id, started_at);
+
+CREATE TABLE IF NOT EXISTS intervention_run_responses (
+  id text PRIMARY KEY,
+  tenant_id text NOT NULL,
+  person_id text NOT NULL REFERENCES persons(id),
+  run_id text NOT NULL REFERENCES intervention_runs(id),
+  step_id text NOT NULL,
+  response_schema_version text NOT NULL,
+  structured_response_json text NOT NULL DEFAULT '{}',
+  encrypted_free_text text,
+  recorded_at text NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_intervention_run_responses_run ON intervention_run_responses(run_id);
 
 CREATE TABLE IF NOT EXISTS external_identifiers (
   id text PRIMARY KEY,
@@ -879,3 +884,41 @@ BEGIN
   END LOOP;
 END
 $$;
+
+-- ---------------------------------------------------------------------------
+-- Handoff 11: the PHI lock. An evaluation tenant runs on synthetic people, so
+-- the fields that exist only to hold a real identifier refuse any value there.
+-- The list is src/lib/tenants/phi.ts (PHI_FIELDS); SQLite gets the same lock
+-- from it, and tests/phi-lock.test.ts checks this file names every field.
+-- SECURITY DEFINER so the tenant lookup is not itself filtered by RLS: the
+-- lock must hold whoever writes.
+CREATE OR REPLACE FUNCTION steady_phi_lock() RETURNS trigger
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v text := to_jsonb(NEW) ->> TG_ARGV[0];
+  t text;
+BEGIN
+  IF v IS NULL OR v = '' THEN RETURN NEW; END IF;
+  IF TG_ARGV[1] = 'user_id' THEN
+    SELECT u.tenant_id INTO t FROM users u WHERE u.id = to_jsonb(NEW) ->> 'user_id';
+  ELSE
+    t := to_jsonb(NEW) ->> 'tenant_id';
+  END IF;
+  IF (SELECT mode FROM tenants WHERE id = t) = 'evaluation' THEN
+    RAISE EXCEPTION '%.% is a PHI field and is locked in an evaluation tenant', TG_TABLE_NAME, TG_ARGV[0];
+  END IF;
+  RETURN NEW;
+END $$;
+
+DROP TRIGGER IF EXISTS phi_lock_users_dob ON users;
+CREATE TRIGGER phi_lock_users_dob BEFORE INSERT OR UPDATE ON users
+  FOR EACH ROW EXECUTE FUNCTION steady_phi_lock('dob', 'tenant_id');
+DROP TRIGGER IF EXISTS phi_lock_external_identifiers_external_id ON external_identifiers;
+CREATE TRIGGER phi_lock_external_identifiers_external_id BEFORE INSERT OR UPDATE ON external_identifiers
+  FOR EACH ROW EXECUTE FUNCTION steady_phi_lock('external_id', 'tenant_id');
+DROP TRIGGER IF EXISTS phi_lock_safety_plans_support_contact_name ON safety_plans;
+CREATE TRIGGER phi_lock_safety_plans_support_contact_name BEFORE INSERT OR UPDATE ON safety_plans
+  FOR EACH ROW EXECUTE FUNCTION steady_phi_lock('support_contact_name', 'user_id');
+DROP TRIGGER IF EXISTS phi_lock_safety_plans_support_contact_method ON safety_plans;
+CREATE TRIGGER phi_lock_safety_plans_support_contact_method BEFORE INSERT OR UPDATE ON safety_plans
+  FOR EACH ROW EXECUTE FUNCTION steady_phi_lock('support_contact_method', 'user_id');

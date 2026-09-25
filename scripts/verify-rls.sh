@@ -153,6 +153,24 @@ assert "the platform-admin role sees both tenants" "2" \
   "$(q steady_admin "SELECT count(*) FROM checkins")"
 
 echo
+echo "==> the PHI lock holds in an evaluation tenant (Handoff 11)"
+q postgres "INSERT INTO tenants (id, kind, name, mode) VALUES ('T_EVAL','organization','Eval','evaluation')" >/dev/null
+q postgres "INSERT INTO users (id,email,name,role,password_hash,tenant_id) VALUES ('u-e','e@x.test','E','member','x','T_EVAL')" >/dev/null
+q postgres "INSERT INTO persons (id, tenant_id, display_name) VALUES ('u-e','T_EVAL','E')" >/dev/null
+# Controls: the same writes WITHOUT the locked value go through, so a refusal
+# below is the lock and not a foreign key or a missing column.
+assert "the same external id is accepted in an ordinary tenant" "1" \
+  "$(q postgres "INSERT INTO persons (id, tenant_id, display_name) VALUES ('u-a2','T_ALPHA','A2'); INSERT INTO external_identifiers (id,person_id,tenant_id,source_system,external_id) VALUES ('x-a','u-a2','T_ALPHA','ehr','MRN1'); SELECT count(*) FROM external_identifiers WHERE id='x-a'")"
+assert_blocked "a date of birth is refused in an evaluation tenant" \
+  "$(q postgres "UPDATE users SET dob='1990-01-01' WHERE id='u-e'")"
+assert_blocked "an external record number is refused in an evaluation tenant" \
+  "$(q postgres "INSERT INTO external_identifiers (id,person_id,tenant_id,source_system,external_id) VALUES ('x-e','u-e','T_EVAL','ehr','MRN123')")"
+assert_blocked "a safe person's contact is refused in an evaluation tenant" \
+  "$(q postgres "INSERT INTO safety_plans (user_id, support_contact_method, tenant_id) VALUES ('u-e','555-0100','T_EVAL')")"
+assert "the same date of birth is accepted in an ordinary tenant" "1990-01-01" \
+  "$(q postgres "UPDATE users SET dob='1990-01-01' WHERE id='u-a'; SELECT dob FROM users WHERE id='u-a'")"
+
+echo
 if [ "$FAILURES" -eq 0 ]; then
   echo "PASS — row-level security holds against every cross-tenant attack case."
 else
