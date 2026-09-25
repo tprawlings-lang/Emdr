@@ -25,7 +25,10 @@ import { contentWithRows } from "../src/lib/content-registry";
 import { SAFETY_CONFIG_VERSION } from "../src/lib/safety/governance";
 
 const db = getDb();
-const ROW = "CV10_D05";
+// A row the signed record does NOT approve (Lane E is unsigned), so it starts
+// withheld and only a verdict moves it.
+const ROW = "CV10_E05";
+const SIGNED = "CV10_A03";
 const agreed = new Map([[ROW, { verdict: "agree" as const }]]);
 const sentBack = new Map([[ROW, { verdict: "needs_change" as const }]]);
 const none = new Map();
@@ -50,19 +53,32 @@ test("content that predates sign-off is live without a row", () => {
 });
 
 test("a row must be agreed; unreviewed, sent back, or unknown is not live", () => {
-  assert.equal(isContentLive({ signoffRowId: ROW }, agreed), true);
-  assert.equal(isContentLive({ signoffRowId: ROW }, none), false);
-  assert.equal(isContentLive({ signoffRowId: ROW }, sentBack), false);
-  assert.equal(isContentLive({ signoffRowId: "CV10_Z99" }, new Map([["CV10_Z99", { verdict: "agree" as const }]])), false,
+  assert.equal(isContentLive({ signoffRowIds: [ROW] }, agreed), true);
+  assert.equal(isContentLive({ signoffRowIds: [ROW] }, none), false);
+  assert.equal(isContentLive({ signoffRowIds: [ROW] }, sentBack), false);
+  assert.equal(isContentLive({ signoffRowIds: ["CV10_Z99"] }, new Map([["CV10_Z99", { verdict: "agree" as const }]])), false,
     "a verdict on a row that does not exist made content live");
 });
 
 test("in demo an unsigned item is a marked draft; anywhere else it is absent", () => {
-  assert.equal(contentVisibility({ signoffRowId: ROW }, none, true), "draft");
-  assert.equal(contentVisibility({ signoffRowId: ROW }, none, false), "absent");
-  assert.equal(contentVisibility({ signoffRowId: "CV10_Z99" }, none, true), "absent", "a mistyped row is not a draft");
-  const kept = visibleContent([{ id: "a" }, { id: "b", signoffRowId: ROW }], none, false);
+  assert.equal(contentVisibility({ signoffRowIds: [ROW] }, none, true), "draft");
+  assert.equal(contentVisibility({ signoffRowIds: [ROW] }, none, false), "absent");
+  assert.equal(contentVisibility({ signoffRowIds: ["CV10_Z99"] }, none, true), "absent", "a mistyped row is not a draft");
+  const kept = visibleContent<{ id: string; signoffRowIds?: string[] }>([{ id: "a" }, { id: "b", signoffRowIds: [ROW] }], none, false);
   assert.deepEqual(kept.map((k) => k.id), ["a"]);
+});
+
+test("a row the signed record approves is live with no verdict in the table", () => {
+  assert.equal(isContentLive({ signoffRowIds: [SIGNED] }, none), true);
+});
+
+test("a later needs-change withdraws a signed row", () => {
+  assert.equal(isContentLive({ signoffRowIds: [SIGNED] }, new Map([[SIGNED, { verdict: "needs_change" as const }]])), false);
+});
+
+test("an item needing several rows is live only when every one is", () => {
+  assert.equal(isContentLive({ signoffRowIds: [SIGNED, ROW] }, none), false);
+  assert.equal(isContentLive({ signoffRowIds: [] }, none), false, "an empty list must not mean 'needs nothing'");
 });
 
 test("row ids follow the worksheet's numbering, and each says what it covers", () => {
@@ -72,17 +88,19 @@ test("row ids follow the worksheet's numbering, and each says what it covers", (
     assert.ok(r.reason.length > 40, `${r.id} does not say what a clinician is signing`);
   }
   assert.equal(new Set(CONTENT_V10_RULES.map((r) => r.id)).size, CONTENT_V10_RULES.length);
+  // The worksheet's lanes: A 17, B 5, C 5, D 5, E 5, F 5.
+  assert.equal(CONTENT_V10_RULES.length, 42);
 });
 
 // ── Every list and route ─────────────────────────────────────────────────────
 
 const draftPractice: Practice = {
   id: "fixture-unsigned-skill", type: "skill", title: "Fixture skill", intro: "x", durationSec: 60,
-  intensity: 1, tags: [], hasHold: false, steps: [{ text: "Notice your feet." }], signoffRowId: ROW,
+  intensity: 1, tags: [], hasHold: false, steps: [{ text: "Notice your feet." }], signoffRowIds: [ROW],
 };
 const draftLesson: Lesson = {
   id: "fixture-unsigned-lesson", title: "Fixture lesson", summary: "x", readMinutes: 2, tags: [],
-  relatedModuleIds: [], body: "## x", signoffRowId: ROW,
+  relatedModuleIds: [], body: "## x", signoffRowIds: [ROW],
 };
 
 test("an unsigned practice and lesson are absent from every member read, then appear once agreed", async () => {

@@ -3,7 +3,8 @@ import { Panel } from "@/components/app/surfaces";
 import { requireReviewAccess } from "@/lib/auth";
 import { recordRuleSignoff } from "@/lib/actions";
 import { getRuleSignoffs } from "@/lib/safety/signoff";
-import { CONTENT_V10_RULES, draftsVisible } from "@/lib/content-signoff";
+import { CONTENT_V10_RULES, draftsVisible, rowApproved } from "@/lib/content-signoff";
+import { CONTENT_V10_APPROVAL } from "@/lib/content-approval";
 import { contentUsingRow } from "@/lib/content-registry";
 
 export const dynamic = "force-dynamic";
@@ -35,29 +36,40 @@ export default async function ReviewContentPage() {
         }
       >
         <p className="measure text-sm text-ground">
-          Only the rows whose subject Handoff 10 states are listed. The rest arrive with the
-          sign-off worksheet and are entered from it, word for word.
+          The worksheet&apos;s rows, in its words. Lanes A to D were approved by{" "}
+          {CONTENT_V10_APPROVAL.reviewers.map((r) => `${r.name} (${r.license})`).join(" and ")} on{" "}
+          {CONTENT_V10_APPROVAL.reviewers[0].signedAt}, reference {CONTENT_V10_APPROVAL.reference}; Lane F
+          by the founder; Lane E is not signed. A verdict recorded here later takes precedence, so
+          a row can still be sent back.
         </p>
         <ul className="mt-4 space-y-3">
           {CONTENT_V10_RULES.map((r) => {
+            // The table's latest verdict wins; otherwise the signed record.
             const verdict = signoffs.get(r.id)?.verdict;
+            const live = rowApproved(r.id, signoffs);
+            const signedBy = CONTENT_V10_APPROVAL.founderRows.includes(r.id) ? "founder"
+              : CONTENT_V10_APPROVAL.approvedRows.includes(r.id) ? "reviewers" : null;
             const using = contentUsingRow(r.id);
             return (
               <li key={r.id} className="rounded-2xl border border-ground/10 bg-app-surface p-4">
                 <div className="flex flex-wrap items-center gap-2">
                   <code className="text-xs font-medium text-ground">{r.id}</code>
                   <span className={`rounded-full px-2 py-0.5 text-xs ${
-                    verdict === "agree" ? "bg-state-safe-bg text-state-safe"
+                    live ? "bg-state-safe-bg text-state-safe"
                       : verdict === "needs_change" ? "bg-state-support-bg text-state-support"
                       : "bg-state-unknown-bg text-state-unknown"}`}>
-                    {verdict === "agree" ? "Agreed" : verdict === "needs_change" ? "Needs change" : "Not reviewed"}
+                    {verdict === "needs_change" ? "Needs change"
+                      : verdict === "agree" ? "Agreed here"
+                      : signedBy === "reviewers" ? "Approved on the signed form"
+                      : signedBy === "founder" ? "Signed by the founder"
+                      : "Not signed"}
                   </span>
                 </div>
                 <p className="measure mt-2 text-sm text-ground">{r.reason}</p>
                 <p className="measure mt-2 text-xs text-olive">
                   {using.length === 0
                     ? "Nothing in the product uses this row yet."
-                    : `${verdict === "agree" ? "Live" : "Withheld"}: ${using.map((u) => u.title).join(", ")}.`}
+                    : `${live ? "Live" : "Withheld"}: ${[...new Set(using.map((u) => u.title))].join(", ")}.`}
                 </p>
                 {canSign && (
                   <form action={recordRuleSignoff} className="mt-3 flex flex-wrap items-center gap-2">

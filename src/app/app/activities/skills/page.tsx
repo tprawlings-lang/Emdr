@@ -26,9 +26,8 @@ export default async function SkillsPage({ searchParams }: { searchParams: Promi
       )}
       {skills.length === 0 ? (
         <p className="measure text-olive">
-          The skills library is not part of this environment yet — each skill is still being
-          reviewed by clinicians, and when one is ready it will appear here. In the meantime, the
-          breathing and grounding practices are open.
+          Nothing here fits today. The breathing and grounding practices are open, and the
+          skills will be back on another day.
         </p>
       ) : (
         <ul className="space-y-3">
@@ -50,7 +49,7 @@ export default async function SkillsPage({ searchParams }: { searchParams: Promi
           ))}
         </ul>
       )}
-      <Link href="/app/activities" className="mt-8 inline-block text-sm text-olive underline">← All activities</Link>
+      <Link href="/app/activities" className="mt-8 inline-flex min-h-11 items-center text-sm text-olive underline">← All activities</Link>
     </MemberPage>
   );
 }

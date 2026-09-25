@@ -21,7 +21,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 import { TECHNIQUES } from "../src/lib/therapy-kb/catalog";
-import { BREATHWORK, MEDITATIONS, SLEEP, MOVEMENT } from "../src/lib/practices";
+import { ALL_PRACTICES } from "../src/lib/practices";
 import { LESSONS } from "../src/lib/lessons";
 
 /** The handoff's pattern, verbatim. */
@@ -59,7 +59,9 @@ function withoutException(lessonId: string, body: string): string {
 function scan(): Array<{ where: string; text: string }> {
   const all: Array<{ where: string; text: string }> = [];
   for (const t of TECHNIQUES) strings(t, `kb:${t.id}`, all);
-  for (const p of [...BREATHWORK, ...MEDITATIONS, ...SLEEP, ...MOVEMENT]) strings(p, `practice:${p.id}`, all);
+  // Every practice, skills and Handoff 10's content included (src/lib/content
+  // is generated into ALL_PRACTICES and LESSONS, so scanning those scans it).
+  for (const p of ALL_PRACTICES) strings(p, `practice:${p.id}`, all);
   for (const l of LESSONS) strings({ ...l, body: withoutException(l.id, l.body) }, `lesson:${l.id}`, all);
   return all;
 }
@@ -119,7 +121,9 @@ test("the finding is listed as closed, with its test, and every listed test exis
     assert.match(r.resolvedOn, /^\d{4}-\d{2}-\d{2}$/);
   }
   const { THERAPY_KB_RULES } = await import("../src/lib/therapy-kb/signoff");
-  assert.ok(THERAPY_KB_RULES.some((r) => r.id === f.awaitingConfirmation), "the confirmation row it names is not in the review list");
+  assert.match(f.confirmedBy ?? "", /CV10_A01/, "the P0 finding should name the review row that confirmed it");
+  // The rewordings A01 did not cover stay open on their own row.
+  assert.ok(THERAPY_KB_RULES.some((r) => r.id === "KB_SELF_HOLD_REPLACES_BUTTERFLY"));
   const page = fs.readFileSync(path.join(process.cwd(), "src/app/review/status/page.tsx"), "utf8");
   assert.match(page, /RESOLVED_FINDINGS\.map\(/, "the status page does not list them");
 });

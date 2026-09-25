@@ -18,6 +18,8 @@ export interface ResolvedFinding {
   source: string;
   /** Set while a clinician still has to confirm the fix's wording. */
   awaitingConfirmation?: string;
+  /** The review that confirmed it, once one has. */
+  confirmedBy?: string;
 }
 
 export const RESOLVED_FINDINGS: ResolvedFinding[] = [
@@ -30,7 +32,7 @@ export const RESOLVED_FINDINGS: ResolvedFinding[] = [
     resolvedOn: "2026-09-24",
     test: "tests/kb-no-bls-shape.test.ts",
     source: "Handoff 10, P0",
-    awaitingConfirmation: "KB_SELF_HOLD_REPLACES_BUTTERFLY",
+    confirmedBy: "CV10_A01, signed by both reviewers on 2026-09-24 (STEADY-CLINREV-2026-09-24-10)",
   },
   {
     id: "phase0.companion-write-access",

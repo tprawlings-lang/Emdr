@@ -739,7 +739,18 @@ export const REGISTER_FINDINGS: EntryFinding[] = [
   },
   {
     "id": "experience.skills-gated-in-listing",
-    "claimed": "tested",
+    "claimed": "reachable",
+    "supported": "reachable",
+    "facts": {
+      "defined": true,
+      "tested": true,
+      "wired": true
+    },
+    "problems": []
+  },
+  {
+    "id": "clinical.h10-content-signed",
+    "claimed": "reachable",
     "supported": "reachable",
     "facts": {
       "defined": true,

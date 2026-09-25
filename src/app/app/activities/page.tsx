@@ -61,6 +61,15 @@ const PRACTICES = [
     body: "Guided wind-downs to do lying down — slow breathing, body scan, and a quiet close.",
     minutes: 12,
   },
+  // Handoff 10 1A. The card is always here; the list behind it is gated by
+  // the day (which skills show depends on today's check-in), which the
+  // library filters rather than this page.
+  {
+    href: "/app/activities/skills",
+    name: "Skills",
+    body: "Short step-by-step skills for a strong feeling, a busy mind or a hard moment. Stop whenever you like.",
+    minutes: 3,
+  },
 ];
 
 export default async function ActivitiesPage() {

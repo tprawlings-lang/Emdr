@@ -23,15 +23,15 @@
 >   "continue" at high distress, and clinical labels on member surfaces. Listed on
 >   `/review/status` under "Safety findings closed". Next is Phase 1 (tool registry, event
 >   store, consent tiers).
-> - **[Handoff 10](docs/handoffs/10-non-bls-modules.md) (non-BLS content) — packages 1–3
->   of 13 done.** P0 replaced the companion's Butterfly Hug (self-administered BLS) with a
+> - **[Handoff 10](docs/handoffs/10-non-bls-modules.md) (non-BLS content) — signed
+>   2026-09-24; packages 1–4 and 8 done.** The clinical review (Lanes A–D, two psychologists)
+>   is recorded in `src/lib/content-approval.ts`, bound to the pack and the signed PDF by hash;
+>   the eighteen skills, eight lessons and two night practices are generated from
+>   [`10-content-pack.md`](docs/handoffs/10-content-pack.md). Next: programs (packages 5–7). P0 replaced the companion's Butterfly Hug (self-administered BLS) with a
 >   still self-hold; `tests/kb-no-bls-shape.test.ts` guards every knowledge-base entry,
 >   practice and lesson. Content sign-off (`src/lib/content-signoff.ts`, `/review/content`)
 >   means unsigned content is absent outside demo. Practices carry optional gating and a
->   skill type; `listPractices` filters by sign-off, then gate, then sorts. **Blocked on two
->   files the handoff names and that have not arrived:** `10-content-pack.md` (all member
->   copy — skills, programs, lessons) and `10-clinician-signoff.docx` (the row text). No
->   member content is written without them.
+>   skill type; `listPractices` filters by sign-off, then gate, then sorts.
 >
 > Open questions for the clinical lead are in [`docs/decisions`](docs/decisions).
 

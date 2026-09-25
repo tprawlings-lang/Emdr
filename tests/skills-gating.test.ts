@@ -65,7 +65,7 @@ test("every skill declares its gate", () => {
   // content pack lands; this holds each one to it as it arrives.
   for (const s of SKILLS) {
     assert.ok(s.minTier !== undefined && s.maxActivation !== undefined && s.imagery !== undefined, `${s.id} is missing a gate`);
-    assert.ok(s.signoffRowId, `${s.id} has no sign-off row`);
+    assert.ok(s.signoffRowIds && s.signoffRowIds.length > 0, `${s.id} has no sign-off row`);
     assert.ok(s.steps && s.steps.length > 0, `${s.id} has no steps`);
   }
 });
@@ -96,7 +96,7 @@ test("through the listing and a deep link, for a member with no check-in today",
 });
 
 test("an unsigned skill cannot be recorded as completed", async () => {
-  const unsigned = skill("fx-unsigned", { signoffRowId: "CV10_D05", minTier: 1, maxActivation: 10, imagery: false });
+  const unsigned = skill("fx-unsigned", { signoffRowIds: ["CV10_E05"], minTier: 1, maxActivation: 10, imagery: false });
   ALL_PRACTICES.push(unsigned);
   try {
     assert.deepEqual(await recordPracticeCompletion(member(), "fx-unsigned", 30), { ok: false });

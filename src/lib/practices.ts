@@ -18,6 +18,7 @@ import { writeMemory } from "./companion";
 import { recordInterventionCompleted, nowStamp } from "./spine";
 import type { AccessTier } from "./safety/types";
 import { visibleContent } from "./content-signoff";
+import { H10_SKILLS, H10_SLEEP } from "./content/h10.generated";
 
 export type PracticeType = "breathwork" | "meditation" | "movement" | "sleep" | "soundscape" | "skill";
 
@@ -75,7 +76,7 @@ export interface Practice {
   /** The knowledge-base entry the skill renders, for traceability. */
   sourceTechniqueId?: string;
   /** The content sign-off row that must be agreed for this to be live. */
-  signoffRowId?: string;
+  signoffRowIds?: readonly string[];
   /** Produced audio, when recorded. On-device speech stays the fallback. */
   audioAssetId?: string;
 }
@@ -454,12 +455,11 @@ export const MOVEMENT: Practice[] = [
   },
 ];
 
-/** Handoff 10 1A. Empty until the content pack arrives: every skill is
- *  member-facing clinical copy, carries a sign-off row, and is written from
- *  the pack, not invented here. */
-export const SKILLS: Practice[] = [];
+/** Handoff 10 1A: the eighteen skills, generated word for word from the
+ *  signed content pack (content/h10.generated.ts). */
+export const SKILLS: Practice[] = H10_SKILLS;
 
-export const ALL_PRACTICES: Practice[] = [...BREATHWORK, ...MEDITATIONS, ...SLEEP, ...MOVEMENT, ...SKILLS];
+export const ALL_PRACTICES: Practice[] = [...BREATHWORK, ...MEDITATIONS, ...SLEEP, ...H10_SLEEP, ...MOVEMENT, ...SKILLS];
 
 /** Whether today's check-in indicates we should surface gentler, no-hold work
  *  first (roadmap §9 titration). Best-effort — defaults to false. */
@@ -546,7 +546,7 @@ export async function recordPracticeCompletion(
   // completion is a record that it was used. Today's gate is NOT re-asked —
   // it decides what is offered, and a skill finished after the day's reading
   // moved was still done.
-  if (practice.signoffRowId !== undefined && visibleContent([practice], await loadContentSignoffs()).length === 0) {
+  if (practice.signoffRowIds !== undefined && visibleContent([practice], await loadContentSignoffs()).length === 0) {
     return { ok: false };
   }
   const secs = Math.max(0, Math.min(3600, Math.round(durationSec)));

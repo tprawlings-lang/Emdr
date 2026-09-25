@@ -189,6 +189,7 @@ export default async function ReviewStatusPage() {
                 <p className="mt-1 text-xs text-olive">
                   Closed {f.resolvedOn} · {f.source} · <code>{f.test}</code>
                   {f.awaitingConfirmation && <> · wording awaiting clinician confirmation</>}
+                  {f.confirmedBy && <> · confirmed: {f.confirmedBy}</>}
                 </p>
               </li>
             ))}

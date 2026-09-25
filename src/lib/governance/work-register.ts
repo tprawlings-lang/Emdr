@@ -1050,15 +1050,30 @@ export const WORK_REGISTER: WorkEntry[] = [
   {
     id: "experience.skills-gated-in-listing",
     title: "Skills are gated where they are listed, with 'not today' on a deep link",
-    state: "tested",
+    state: "reachable",
     code: "src/lib/practices.ts#practiceAllowed",
     test: "tests/skills-gating.test.ts",
     note:
       "Handoff 10 \u00a73.1 and 1A. Practices gain an optional skill type and gate (tier, activation " +
       "ceiling, imagery). Unknown activation reads as 10 and an unreadable engine opens nothing " +
-      "gated; the twenty existing practices carry no gate and behave as before. The library and " +
-      "player exist but hold no skills, because every skill is clinical copy from the content pack, " +
-      "which has not arrived.",
+      "gated; the twenty existing practices carry no gate and behave as before. The library now " +
+      "holds the eighteen signed skills (clinical.h10-content-signed).",
+  },
+  {
+    id: "clinical.h10-content-signed",
+    title: "Handoff 10's skills, lessons and night practices, word for word as two psychologists signed them",
+    state: "reachable",
+    code: "src/lib/content-approval.ts#CONTENT_V10_APPROVAL",
+    test: "tests/content-approval.test.ts",
+    note:
+      "Review STEADY-CLINREV-2026-09-24-10: Rebecca Altschuler, PhD and John Allen, PhD signed " +
+      "approve-all for Lanes A to D (32 rows) with no exceptions; the founder signed Lane F; Lane E is " +
+      "not signed. The record binds the approval to the SHA-256 of the content pack, the spec and the " +
+      "signed form. The eighteen skills, eight lessons and two night practices are GENERATED from the " +
+      "pack, and a test matches every member-facing string whole against it \u2014 its first version " +
+      "matched substrings and let a truncated step through. Every skill's gate equals its " +
+      "knowledge-base source's. A later needs-change verdict in the app still withdraws a row. Three " +
+      "readings of rows answered without a choice are written into the record (B02, A04, C05).",
   },
   {
     id: "clinical.no-continue-at-high-distress",

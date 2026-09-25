@@ -57,7 +57,7 @@ const GLOBAL_RULES: CatalogRule[] = [
     id: "KB_SELF_HOLD_REPLACES_BUTTERFLY",
     category: "therapy_kb",
     reason:
-      "The companion used to be able to offer the Butterfly Hug — arms crossed, slow alternating taps — to members as activated as 8 out of 10. That is self-administered bilateral stimulation, which v1 does not do. It is replaced by a still self-hold: hands on the opposite upper arms, or one on the chest and one on the belly, steady gentle pressure, no tapping, no rhythm; same tier and ceiling. Two movement practices were reworded for the same reason: the neck roll ('roll it slowly side to side') now rests the chin for a few breaths, and the rooting stance's 'sway forward and back, side to side' now settles weight into the heels and then evenly across both feet. The calm-place lesson no longer says to pair the calm place with bilateral stimulation. Confirm the new wording, or mark needs-change.",
+      "The self-hold that replaced the Butterfly Hug is confirmed by the Handoff 10 review (CV10_A01, 2026-09-24). This row covers what that row did not: made at the same time and for the same reason, two movement practices were reworded — the neck roll ('roll it slowly side to side') now rests the chin for a few breaths, and the rooting stance's 'sway forward and back, side to side' now settles weight into the heels and then evenly across both feet — and the calm-place lesson no longer says to pair the calm place with bilateral stimulation. Confirm these wordings, or mark needs-change.",
   },
 ];
 

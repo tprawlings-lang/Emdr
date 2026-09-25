@@ -11,6 +11,7 @@ import { data } from "./data";
 import { audit } from "./audit";
 import { recordLessonRead, upsertRowId, nowStamp } from "./spine";
 import { visibleContent } from "./content-signoff";
+import { H10_LESSONS } from "./content/h10.generated";
 
 export interface Lesson {
   id: string;
@@ -24,10 +25,12 @@ export interface Lesson {
   body: string;
   /** Handoff 10 1D: the content sign-off row that must be agreed for a new
    *  lesson to be live. Lessons that predate it carry none. */
-  signoffRowId?: string;
+  signoffRowIds?: readonly string[];
+  /** Handoff 10 1D: programs this lesson belongs to. */
+  relatedProgramIds?: readonly string[];
 }
 
-export const LESSONS: Lesson[] = [
+const FOUNDATION_LESSONS: Lesson[] = [
   {
     id: "window-of-tolerance",
     title: "Your window of tolerance",
@@ -166,6 +169,10 @@ Sometimes a "safe" place doesn't feel safe to every part of you. That's informat
 /** Unfiltered lookup, for records and review surfaces. Member surfaces use
  *  memberLessons / memberLesson, which drop an unsigned lesson outside demo
  *  (Handoff 10 §0.2). */
+/** The seven foundation lessons, then Handoff 10's eight (rows A06 to A13),
+ *  generated word for word from the signed content pack. */
+export const LESSONS: Lesson[] = [...FOUNDATION_LESSONS, ...H10_LESSONS];
+
 export function getLesson(id: string): Lesson | undefined {
   return LESSONS.find((l) => l.id === id);
 }

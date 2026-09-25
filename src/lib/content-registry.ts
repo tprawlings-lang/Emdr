@@ -10,13 +10,15 @@ import { LESSONS } from "./lessons";
 
 export interface RowUse { kind: "practice" | "lesson"; id: string; title: string; signoffRowId: string }
 
+/** One entry per row an item needs. */
+
 export function contentWithRows(): RowUse[] {
   const out: RowUse[] = [];
   for (const p of ALL_PRACTICES) {
-    if (p.signoffRowId) out.push({ kind: "practice", id: p.id, title: p.title, signoffRowId: p.signoffRowId });
+    for (const r of p.signoffRowIds ?? []) out.push({ kind: "practice", id: p.id, title: p.title, signoffRowId: r });
   }
   for (const l of LESSONS) {
-    if (l.signoffRowId) out.push({ kind: "lesson", id: l.id, title: l.title, signoffRowId: l.signoffRowId });
+    for (const r of l.signoffRowIds ?? []) out.push({ kind: "lesson", id: l.id, title: l.title, signoffRowId: r });
   }
   return out;
 }
