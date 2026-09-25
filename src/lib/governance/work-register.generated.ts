@@ -749,6 +749,50 @@ export const REGISTER_FINDINGS: EntryFinding[] = [
     "problems": []
   },
   {
+    "id": "clinical.programs-self-paced",
+    "claimed": "reachable",
+    "supported": "reachable",
+    "facts": {
+      "defined": true,
+      "tested": true,
+      "wired": true
+    },
+    "problems": []
+  },
+  {
+    "id": "clinical.program-text-crisis-prefilter",
+    "claimed": "reachable",
+    "supported": "reachable",
+    "facts": {
+      "defined": true,
+      "tested": true,
+      "wired": true
+    },
+    "problems": []
+  },
+  {
+    "id": "companion.suggest-practice-read-only",
+    "claimed": "reachable",
+    "supported": "reachable",
+    "facts": {
+      "defined": true,
+      "tested": true,
+      "wired": true
+    },
+    "problems": []
+  },
+  {
+    "id": "member.account-deletion-coverage",
+    "claimed": "proposed",
+    "supported": "proposed",
+    "facts": {
+      "defined": false,
+      "tested": false,
+      "wired": false
+    },
+    "problems": []
+  },
+  {
     "id": "clinical.h10-content-signed",
     "claimed": "reachable",
     "supported": "reachable",

@@ -154,6 +154,26 @@ const KINDS: Record<ProjectedTable, StatementKind> = {
     policy: null,
     orderBy: "created_at",
   },
+  // Coded facts only: which program, joined or left, which unit done. What a
+  // member writes inside a program is never a lineage statement (Handoff 10
+  // §3.4: member text is not shown on clinician surfaces).
+  program_enrollments: {
+    columns: ["program_id", "status", "created_at", "updated_at"],
+    sentence: (r) =>
+      r.status === "left"
+        ? `The program ${r.program_id} was joined and later left.`
+        : `The program ${r.program_id} was joined on ${String(r.created_at).slice(0, 10)}.`,
+    screen: (p) => ({ label: "Clinician — person record", href: `/clinician/person/${p}` }),
+    policy: null,
+    orderBy: "created_at",
+  },
+  program_unit_completions: {
+    columns: ["program_id", "unit_id", "created_at"],
+    sentence: (r) => `Unit ${r.unit_id} of the program ${r.program_id} was completed.`,
+    screen: (p) => ({ label: "Clinician — person record", href: `/clinician/person/${p}` }),
+    policy: null,
+    orderBy: "created_at",
+  },
   consents: {
     columns: ["scope", "policy_version", "granted_at", "revoked_at"],
     sentence: (r) =>

@@ -831,6 +831,42 @@ export const SCHEMA_SQL = `
   );
   CREATE INDEX IF NOT EXISTS idx_autopilot_events_user ON autopilot_events(user_id, created_at);
 
+  -- Handoff 10 §3.2: programs. Self-paced, one tap to join or leave, and
+  -- leaving keeps what was done. A member-written entry is encrypted (enc1:)
+  -- and soft-deleted, so "delete" is honoured without losing the fact that a
+  -- row existed; the spine carries coded facts only, never the text.
+  CREATE TABLE IF NOT EXISTS program_enrollments (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL REFERENCES users(id),
+    program_id TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active','left','finished')),
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+    UNIQUE(user_id, program_id)
+  );
+
+  CREATE TABLE IF NOT EXISTS program_unit_completions (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL REFERENCES users(id),
+    program_id TEXT NOT NULL,
+    unit_id TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    UNIQUE(user_id, program_id, unit_id)
+  );
+
+  CREATE TABLE IF NOT EXISTS activity_entries (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL REFERENCES users(id),
+    program_id TEXT NOT NULL,
+    unit_id TEXT NOT NULL,
+    kind TEXT NOT NULL,
+    payload_enc TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+    deleted_at TEXT
+  );
+  CREATE INDEX IF NOT EXISTS idx_activity_entries_user ON activity_entries(user_id, program_id, unit_id);
+
   CREATE TABLE IF NOT EXISTS lesson_reads (
     id TEXT PRIMARY KEY,
     user_id TEXT NOT NULL REFERENCES users(id),
@@ -2748,6 +2784,7 @@ export const TENANT_SCOPED_TABLES = [
   "post_session_checks", "module_unlocks", "alerts", "user_profiles",
   "user_triggers", "early_warning_signs", "readiness_assessments",
   "safety_plans", "ai_companion_preferences", "ai_memory_items", "companion_proposals",
+  "program_enrollments", "program_unit_completions", "activity_entries",
   "ai_conversations", "ai_messages", "subscriptions", "payments",
   "program_plans", "care_tracks", "care_track_intake", "practice_completions",
   "upsell_events", "autopilot_plans", "autopilot_events", "lesson_reads",

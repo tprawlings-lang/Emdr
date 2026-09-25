@@ -228,10 +228,14 @@ test("no manifest is padded to reach a count", () => {
     const hrefs = new Set(nav.core.map((d) => d.href));
     assert.equal(hrefs.size, nav.core.length, `${ctx.audience} promotes the same route twice`);
   }
-  // The member's core is three after filtering, which is §4.1's own schematic.
+  // The member's core after filtering. It was §4.1's schematic plus Care team;
+  // Handoff 10 §3.7 then specified Programs as "one new entry in the member
+  // shell", so it moved because a signed handoff named a destination — not to
+  // fill a row. Five is the top of §1.2's target; Messages stays declared and
+  // off, and turning it on is where the count question comes back.
   assert.deepEqual(
     navigationFor(member).core.map((d) => d.label),
-    ["Today", "Tools", "Progress", "Care team"]
+    ["Today", "Tools", "Programs", "Progress", "Care team"]
   );
   // And the clinician's is four. §5's schematic reads "Three primary
   // destinations; Messages and Schedule omitted until they exist" — three was

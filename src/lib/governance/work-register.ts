@@ -1060,6 +1060,63 @@ export const WORK_REGISTER: WorkEntry[] = [
       "holds the eighteen signed skills (clinical.h10-content-signed).",
   },
   {
+    id: "clinical.programs-self-paced",
+    title: "Programs open in order, re-ask the gate each part, and keep what was done",
+    state: "reachable",
+    code: "src/lib/programs.ts#programView",
+    test: "tests/programs.test.ts",
+    note:
+      "Handoff 10 \u00a73.2, with Moving Toward (CV10_B01, B02 as the proposal, F02). Unit N+1 opens " +
+      "when unit N is done; each part re-asks today's gate and says 'not today' below its floor; " +
+      "joining and leaving are one tap, and joining again returns to the same row with what was done. " +
+      "The view carries words, not counts. Enrolments and completions are dual-written to the spine " +
+      "and a rebuild reproduces them; member-written entries are not projected, since the spine never " +
+      "holds the words. One departure: the pack says the menu shows items 'tagged to the member's " +
+      "chosen areas' but tags none, so the menu shows its categories as written (Gentle only at the " +
+      "stabilization tier) rather than an invented mapping.",
+  },
+  {
+    id: "clinical.program-text-crisis-prefilter",
+    title: "What a member writes in a program is screened for crisis language before it is saved",
+    state: "reachable",
+    code: "src/lib/program-activities.ts#saveActivityEntry",
+    test: "tests/activity-free-text.test.ts",
+    note:
+      "Handoff 10 \u00a73.4 (CV10_A15). The companion's own check runs over every free-text field; a " +
+      "match saves nothing, raises an urgent alert and a coded safety event with none of the words, and " +
+      "routes to the crisis page. Saved entries are enc1: at rest; the spine carries the kind and any " +
+      "0\u201310 ratings only; ratings are not shown back outside Progress (B03); 'not this time' keeps no " +
+      "reason; delete overwrites the words. Error messages are fixed codes, not text from the address " +
+      "bar, so a crafted link cannot put a sentence on a member's screen.",
+  },
+  {
+    id: "companion.suggest-practice-read-only",
+    title: "The companion can suggest a practice it is allowed to, and write nothing",
+    state: "reachable",
+    code: "src/lib/companion-tools.ts#companionTools",
+    test: "tests/companion-program-readonly.test.ts",
+    note:
+      "Handoff 10 \u00a73.5 (CV10_A16). suggest_practice is a read-tier tool that answers through the " +
+      "member's own gated view of the practice, so it cannot surface something the member could not " +
+      "open. No companion file names a program table, writer or reader. The suggestion reaches the " +
+      "model as text; a tappable card in the chat waits for model-backed replies, which are off by " +
+      "decision.",
+  },
+  {
+    id: "member.account-deletion-coverage",
+    title: "Deleting an account removes every member table",
+    state: "proposed",
+    code: null,
+    test: null,
+    note:
+      "Found while adding the program tables. deleteAccount removes sessions, messages, memory, " +
+      "triggers, check-ins, questionnaires, unlocks and alerts \u2014 and now program records and the " +
+      "companion's suggestions \u2014 but not practice completions, lesson reads, screening progress, " +
+      "program plans, care tracks and their intake, autopilot records or upsell events. The spine is " +
+      "append-only, so a rebuild would also bring projected rows back. Closing it needs a decision on " +
+      "erasure against the ledger, not another line in the list.",
+  },
+  {
     id: "clinical.h10-content-signed",
     title: "Handoff 10's skills, lessons and night practices, word for word as two psychologists signed them",
     state: "reachable",

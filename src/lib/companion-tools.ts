@@ -1,6 +1,7 @@
 import { type MemoryType, memoryEnabled } from "./companion";
 import { proposeToMember, writeModelMemory } from "./companion-proposals";
 import type { GatewayTool } from "./ai-gateway";
+import { practiceForMember } from "./practices";
 
 // The companion's tool runtime: what a model may ask to have done, and what
 // happens when it asks.
@@ -100,6 +101,22 @@ export function companionTools(memoryOn: boolean): GatewayTool[] {
       },
     });
   }
+  // Handoff 10 §3.5 (row CV10_A16): the companion may SUGGEST a practice or a
+  // skill. It cannot enrol, complete or write anything — this tool reads, and
+  // what it reads goes through the same sign-off and gate as the member's own
+  // list, so it cannot surface something the member could not open.
+  list.push({
+    name: "suggest_practice",
+    tier: "read",
+    capability: "suggest_practice",
+    description:
+      "Suggest one practice or skill the member can open now, by its id. Returns its name and link if it is open to them today, or says it is not — in which case do not mention it. It does not start anything and records nothing.",
+    inputSchema: {
+      type: "object",
+      properties: { practice_id: { type: "string", description: "The practice or skill id, e.g. 'skill-orient-room'" } },
+      required: ["practice_id"],
+    },
+  });
   list.push({
     name: "escalate_risk",
     // Its own tier. This only ever RAISES protection — it opens an alert to the
@@ -127,6 +144,13 @@ export async function executeCompanionTool(
   input: Record<string, unknown>,
   state: { riskFlag: boolean }
 ): Promise<string> {
+  if (name === "suggest_practice") {
+    const id = String(input.practice_id ?? "").trim().slice(0, 80);
+    const found = await practiceForMember(userId, id);
+    if (found.state !== "open") return "Not available to this member today. Do not suggest it.";
+    const href = found.practice.type === "skill" ? `/app/activities/skills/${found.practice.id}` : `/app/activities`;
+    return `Open to them: "${found.practice.title}" (${href}). Offer it as a suggestion they can take or leave.`;
+  }
   if (name === "record_trigger") {
     const triggerName = String(input.trigger_name ?? "").trim().slice(0, 100);
     if (!triggerName) return "Ignored: trigger_name is required.";

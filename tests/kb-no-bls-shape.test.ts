@@ -23,6 +23,7 @@ import path from "node:path";
 import { TECHNIQUES } from "../src/lib/therapy-kb/catalog";
 import { ALL_PRACTICES } from "../src/lib/practices";
 import { LESSONS } from "../src/lib/lessons";
+import { PROGRAMS } from "../src/lib/programs";
 
 /** The handoff's pattern, verbatim. */
 export const BLS_SHAPE =
@@ -63,6 +64,8 @@ function scan(): Array<{ where: string; text: string }> {
   // is generated into ALL_PRACTICES and LESSONS, so scanning those scans it).
   for (const p of ALL_PRACTICES) strings(p, `practice:${p.id}`, all);
   for (const l of LESSONS) strings({ ...l, body: withoutException(l.id, l.body) }, `lesson:${l.id}`, all);
+  // Every program's copy (src/lib/programs.ts, from src/lib/content).
+  for (const p of PROGRAMS) strings(p, `program:${p.id}`, all);
   return all;
 }
 

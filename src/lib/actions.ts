@@ -804,6 +804,13 @@ export async function deleteAccount(formData: FormData) {
     await byUser("screenings");
     await byUser("module_unlocks");
     await byUser("alerts");
+    // Handoff 10's program records, and the companion's suggestions. Other
+    // member tables this list does not reach are recorded as a gap in the
+    // work register (member.account-deletion-coverage), not fixed in passing.
+    await byUser("companion_proposals");
+    await byUser("activity_entries");
+    await byUser("program_unit_completions");
+    await byUser("program_enrollments");
     await t.run(`UPDATE users SET email = ?, name = 'Deleted member', password_hash = '!', dob = NULL,
          status = 'deleted' WHERE id = ?`, [`deleted-${user.id}@deleted.invalid`, user.id]);
     await t.run("UPDATE subscriptions SET status = 'canceled', cancel_at_period_end = 0, updated_at = CURRENT_TIMESTAMP WHERE user_id = ?", [user.id]);

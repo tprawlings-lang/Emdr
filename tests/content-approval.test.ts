@@ -25,6 +25,7 @@ import { H10_SKILLS, H10_SLEEP, H10_LESSONS } from "../src/lib/content/h10.gener
 import { TECHNIQUES } from "../src/lib/therapy-kb/catalog";
 import { SKILLS, ALL_PRACTICES } from "../src/lib/practices";
 import { LESSONS } from "../src/lib/lessons";
+import { H10_PROGRAMS } from "../src/lib/content/h10-programs";
 
 const ROOT = process.cwd();
 const sha = (rel: string) => crypto.createHash("sha256").update(fs.readFileSync(path.join(ROOT, rel))).digest("hex");
@@ -80,7 +81,7 @@ const TITLED_BY_WORKSHEET = new Set(["After a bad dream", "Back to rest"]);
 function packAtoms(): Set<string> {
   const atoms = new Set<string>();
   for (const line of PACK.split("\n")) {
-    const labelled = line.match(/^(?:Title|Intro|When to use|Skip if|Note|Summary): (.*)$/);
+    const labelled = line.match(/^(?:Title|Intro|When to use|Skip if|Note|Summary|Purpose): (.*)$/);
     if (labelled) atoms.add(labelled[1]);
     const step = line.match(/^\d+\. (.*)$/);
     if (step) atoms.add(step[1]);
@@ -88,6 +89,26 @@ function packAtoms(): Set<string> {
     if (seg) atoms.add(seg[1]);
     const lesson = line.match(/^### L\d `[\w-]+` · (.+?) · \d+ min$/);
     if (lesson) atoms.add(lesson[1]);
+    // Program sections: bold fields, unit headings, quoted screen copy with
+    // [button] labels and "·" lists, category bullets, completion copy.
+    const bold = line.match(/^\*\*(?:Title|Blurb):\*\* (.*)$/);
+    if (bold) atoms.add(bold[1]);
+    const unit = line.match(/^### Unit \d+: (.*)$/);
+    if (unit) atoms.add(unit[1]);
+    const done = line.match(/^Completion copy: "(.*)"$/);
+    if (done) atoms.add(done[1]);
+    const bullet = line.match(/^- ([^:"]+): (.*)$/);
+    if (bullet) { atoms.add(bullet[1]); for (const i of bullet[2].split(" · ")) atoms.add(i); }
+    const quote = line.match(/^>\s*(.*)$/);
+    if (quote && !quote[1].startsWith("(")) {
+      let rest = quote[1];
+      for (const b of rest.matchAll(/\[([^\]]+)\]/g)) atoms.add(b[1]);
+      rest = rest.replace(/\[[^\]]+\]/g, "").replace(/^If [^:]+:\s*/, "").trim();
+      rest = rest.replace(/\s+0 to 10 \(optional\)$/, "").replace(/\s+\(optional(?: text)?\)$/, "").trim();
+      rest = rest.replace(/^"(.*)"$/, "$1");
+      if (rest) atoms.add(rest);
+      if (rest.includes(" · ")) for (const i of rest.split(" · ")) atoms.add(i);
+    }
   }
   return atoms;
 }
@@ -151,4 +172,38 @@ test("no modality name reaches member copy (F02)", () => {
   }
   for (const l of H10_LESSONS) for (const s of [l.title, l.summary, l.body]) if (MODALITY.test(s)) hits.push(`${l.id}`);
   assert.deepEqual(hits, []);
+});
+
+test("every member-facing string in a program is in the pack, whole", () => {
+  const atoms = packAtoms();
+  const missing: string[] = [];
+  const check = (where: string, v: string | undefined) => { if (v !== undefined && !atoms.has(v)) missing.push(`${where}: ${v}`); };
+  for (const p of H10_PROGRAMS) {
+    check(`${p.id} title`, p.title);
+    check(`${p.id} blurb`, p.blurb);
+    for (const u of p.units) {
+      check(`${u.id} title`, u.title);
+      check(`${u.id} purpose`, u.purpose);
+      for (const t of u.text ?? []) check(`${u.id} text`, t);
+      const c = u.copy;
+      if (!c) continue;
+      for (const k of ["prompt", "dayPrompt", "save", "mastery", "enjoyment", "noticed", "notThisTime", "remember", "completion"] as const) {
+        check(`${u.id} ${k}`, c[k]);
+      }
+      for (const v of [...(c.options ?? []), ...(c.outcomes ?? []), ...(c.notThisTimeChoices ?? [])]) check(`${u.id} choice`, v);
+      for (const cat of c.categories ?? []) {
+        check(`${u.id} category`, cat.name);
+        for (const i of cat.items) check(`${u.id} menu`, i);
+      }
+    }
+  }
+  assert.deepEqual(missing, [], "program strings not in the signed pack:\n  " + missing.join("\n  "));
+});
+
+test("Moving Toward's gate is the approved proposal (CV10_B02)", () => {
+  const mt = H10_PROGRAMS.find((p) => p.id === "moving-toward")!;
+  assert.deepEqual(mt.units.map((u) => [u.minTier, u.maxActivation]), [[2, 6], [2, 6], [3, 6], [3, 6]]);
+  assert.ok(mt.signoffRowIds.includes("CV10_F02"), "the program name rides on the founder's F02");
+  const gentle = mt.units[1].copy!.categories!.filter((c) => c.gentle).map((c) => c.name);
+  assert.deepEqual(gentle, ["Gentle"]);
 });

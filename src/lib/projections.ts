@@ -44,6 +44,8 @@ export const PROJECTED_TABLES = [
   "therapy_sessions",
   "practice_completions",
   "lesson_reads",
+  "program_enrollments",
+  "program_unit_completions",
   "consents",
   "module_unlocks",
 ] as const;
@@ -208,6 +210,39 @@ const PROJECTORS: Partial<Record<string, Projector>> = {
       user_id: ev.person_id,
       tenant_id: ev.tenant_id,
       lesson_id: str(ev.payload.lessonId),
+      created_at: ev.occurred_at,
+    });
+  },
+
+  // Joining a program, or joining again after leaving: one row per member and
+  // program, whose created_at is the FIRST join. The live write updates only
+  // status and updated_at on a re-join, so the projection does the same.
+  "program.enrolled": async (c, ev, pid, at) => {
+    const existing = await c.get(`SELECT 1 AS x FROM ${at("program_enrollments")} WHERE id = ?`, [pid]);
+    if (existing) {
+      await patch(c, at("program_enrollments"), pid, { status: "active", updated_at: ev.occurred_at });
+      return;
+    }
+    await insertIfAbsent(c, at("program_enrollments"), pid, {
+      user_id: ev.person_id,
+      tenant_id: ev.tenant_id,
+      program_id: str(ev.payload.programId),
+      status: "active",
+      created_at: ev.occurred_at,
+      updated_at: ev.occurred_at,
+    });
+  },
+
+  "program.left": async (c, ev, pid, at) => {
+    await patch(c, at("program_enrollments"), pid, { status: "left", updated_at: ev.occurred_at });
+  },
+
+  "program.unit_completed": async (c, ev, pid, at) => {
+    await insertIfAbsent(c, at("program_unit_completions"), pid, {
+      user_id: ev.person_id,
+      tenant_id: ev.tenant_id,
+      program_id: str(ev.payload.programId),
+      unit_id: str(ev.payload.unitId),
       created_at: ev.occurred_at,
     });
   },

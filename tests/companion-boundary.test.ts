@@ -97,6 +97,9 @@ const RUNTIME_MAY_IMPORT: Record<string, readonly string[]> = {
   "./companion": ["MemoryType", "memoryEnabled"],
   "./companion-proposals": ["proposeToMember", "writeModelMemory"],
   "./ai-gateway": ["GatewayTool"],
+  // Read-only, and gated: the member's own view of one practice (Handoff 10
+  // §3.5). Listed here by name so a writer from the same module cannot follow.
+  "./practices": ["practiceForMember"],
 };
 
 function importsOf(src: string): Array<{ from: string; names: string[] }> {

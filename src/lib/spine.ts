@@ -312,6 +312,48 @@ export async function recordLessonRead(args: {
   });
 }
 
+// ---------- Programs (Handoff 10 §3.2) ----------
+
+export async function recordProgramEnrolled(args: {
+  userId: string; enrollmentId: string; programId: string; occurredAt?: string;
+}): Promise<void> {
+  await appendEventSafe({
+    personId: args.userId, type: "program.enrolled", occurredAt: args.occurredAt,
+    payload: { projectionId: args.enrollmentId, programId: args.programId }, actorType: "patient",
+  });
+}
+
+export async function recordProgramLeft(args: {
+  userId: string; enrollmentId: string; programId: string; occurredAt?: string;
+}): Promise<void> {
+  await appendEventSafe({
+    personId: args.userId, type: "program.left", occurredAt: args.occurredAt,
+    payload: { projectionId: args.enrollmentId, programId: args.programId }, actorType: "patient",
+  });
+}
+
+export async function recordProgramUnitCompleted(args: {
+  userId: string; completionId: string; programId: string; unitId: string; occurredAt?: string;
+}): Promise<void> {
+  await appendEventSafe({
+    personId: args.userId, type: "program.unit_completed", occurredAt: args.occurredAt,
+    payload: { projectionId: args.completionId, programId: args.programId, unitId: args.unitId }, actorType: "patient",
+  });
+}
+
+/** Coded facts only: the activity kind and any 0–10 ratings. Never text —
+ *  what a member writes stays encrypted in its own row (§3.4). */
+export async function recordProgramActivity(args: {
+  userId: string; programId: string; unitId: string; kind: string;
+  ratings?: Record<string, number>; occurredAt?: string;
+}): Promise<void> {
+  await appendEventSafe({
+    personId: args.userId, type: "program.activity_recorded", occurredAt: args.occurredAt,
+    payload: { programId: args.programId, unitId: args.unitId, kind: args.kind, ratings: args.ratings ?? {} },
+    actorType: "patient",
+  });
+}
+
 // ---------- AI and memory ----------
 
 export async function recordMemoryWritten(args: {

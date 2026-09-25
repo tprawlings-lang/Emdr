@@ -7,9 +7,10 @@ info:
     delivered through **React Server Actions** (RPC-style, invoked from forms and
     client components — see docs/api.md for the full action inventory and their
     authorization rules), not through a conventional REST surface. Only a small
-    number of **read-only JSON HTTP endpoints** exist, all for operational
-    visibility, and they are documented here. These endpoints expose no secrets
-    and no member data.
+    number of **read-only JSON HTTP endpoints** exist for operational
+    visibility, and they are documented here; they expose no secrets and no
+    member data. The member program endpoints Handoff 10 added to the mobile
+    API are documented here as well, under their own tag.
 servers:
   - url: https://steady-emdr-demo.onrender.com
     description: Demo deployment
@@ -18,6 +19,12 @@ servers:
 tags:
   - name: ops
     description: Operational health/status endpoints (no auth, no member data)
+  - name: mobile-programs
+    description: >
+      Member programs over the mobile API (Handoff 10 §3.7). Bearer-token
+      authenticated; a member reads and writes only their own records. These
+      are the only mobile endpoints documented here so far — the rest of
+      /api/mobile/v1 predates this file's scope and is described in README.md.
 paths:
   /api/companion-status:
     get:
@@ -50,6 +57,93 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/BackupStatus"
+  /api/mobile/v1/programs:
+    get:
+      tags: [mobile-programs]
+      operationId: listPrograms
+      summary: Programs the member may see, with their standing in each
+      description: >
+        Unsigned programs are absent outside the demonstration. A unit's
+        standing is a word (done, open, after_previous, not_today) — no counts,
+        no dates, no outcome measure.
+      responses:
+        "200": { description: "{ programs: Program[] }" }
+        "401": { description: Not signed in }
+  /api/mobile/v1/programs/{programId}:
+    get:
+      tags: [mobile-programs]
+      operationId: getProgram
+      summary: One program and the member's own entries in it (without ratings)
+      parameters:
+        - { name: programId, in: path, required: true, schema: { type: string } }
+      responses:
+        "200": { description: "{ program: Program, entries: Entry[] }" }
+        "404": { description: No such program for this member }
+  /api/mobile/v1/programs/{programId}/enroll:
+    post:
+      tags: [mobile-programs]
+      operationId: enrollInProgram
+      summary: Join, or join again (keeps what was done)
+      parameters:
+        - { name: programId, in: path, required: true, schema: { type: string } }
+      responses:
+        "200": { description: "{ ok: true }" }
+        "404": { description: No such program for this member }
+  /api/mobile/v1/programs/{programId}/leave:
+    post:
+      tags: [mobile-programs]
+      operationId: leaveProgram
+      summary: Leave (what was done stays)
+      parameters:
+        - { name: programId, in: path, required: true, schema: { type: string } }
+      responses:
+        "200": { description: "{ ok: true }" }
+  /api/mobile/v1/programs/{programId}/units/{unitId}/complete:
+    post:
+      tags: [mobile-programs]
+      operationId: completeProgramUnit
+      summary: Mark a unit done
+      parameters:
+        - { name: programId, in: path, required: true, schema: { type: string } }
+        - { name: unitId, in: path, required: true, schema: { type: string } }
+      responses:
+        "200": { description: "{ ok: true }" }
+        "409": { description: "Out of order, not joined, or not open today: { error: reason }" }
+  /api/mobile/v1/activity-entries:
+    post:
+      tags: [mobile-programs]
+      operationId: saveActivityEntry
+      summary: Save a unit's activity
+      description: >
+        Every free-text field runs the crisis pre-filter before anything is
+        saved. On a match nothing is saved, the care team is alerted without
+        the words, and the response is 409 { crisis: true } — the client must
+        open its crisis screen. Saved entries are encrypted at rest.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [programId, unitId, payload]
+              properties:
+                programId: { type: string }
+                unitId: { type: string }
+                payload: { type: object, description: "values-pick | activity-plan | activity-reflect" }
+      responses:
+        "201": { description: "{ id }" }
+        "409": { description: "{ crisis: true } — nothing saved" }
+        "422": { description: "{ error: code } — not what the unit offers today" }
+  /api/mobile/v1/activity-entries/{entryId}:
+    delete:
+      tags: [mobile-programs]
+      operationId: deleteActivityEntry
+      summary: Delete an entry (the words are overwritten, not hidden)
+      parameters:
+        - { name: entryId, in: path, required: true, schema: { type: string } }
+      responses:
+        "200": { description: "{ ok: true }" }
+        "404": { description: Not this member's, or already deleted }
 components:
   schemas:
     CompanionStatus:

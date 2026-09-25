@@ -73,6 +73,9 @@ const MEMBER_ROUTES = [
   // or a band would feel like useful supporting detail and would be the
   // boundary eroding by one reasonable-looking screen.
   "app/terms",
+  // Handoff 10 §3.7: new member routes go under guard, never exempt. A program
+  // stores ratings members enter (CV10_B03) and must not show them back here.
+  "app/programs",
 ];
 
 /** Identifiers that carry a score, a band, a track, or a criteria label.

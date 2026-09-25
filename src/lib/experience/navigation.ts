@@ -73,6 +73,10 @@ export interface NavigationManifest {
 const MEMBER_CORE: NavDestination[] = [
   { href: "/app/today", label: "Today", workspace: "member_day", capability: "recordADayShape" },
   { href: "/app/activities", label: "Tools", workspace: "member_activity", capability: "doAnActivity" },
+  // Handoff 10 §3.7: "Programs is one new entry in the member shell." Five
+  // shown, the top of §1.2's three-to-five; Messages is declared below and off,
+  // and turning it on would make six — a decision to take then, not now.
+  { href: "/app/programs", label: "Programs", workspace: "member_activity", capability: "doAnActivity" },
   { href: "/app/progress", label: "Progress", workspace: "member_day", capability: "readOwnProgress" },
   // Messaging is declared and will be filtered out while its capability is
   // off. Declaring it rather than omitting it is deliberate: the day a message

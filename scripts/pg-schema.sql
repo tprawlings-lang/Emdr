@@ -359,6 +359,51 @@ CREATE TABLE IF NOT EXISTS lesson_reads (
   UNIQUE(user_id, lesson_id)
 );
 
+CREATE TABLE IF NOT EXISTS companion_proposals (
+  id text PRIMARY KEY,
+  user_id text NOT NULL REFERENCES users(id),
+  kind text NOT NULL CHECK (kind IN ('trigger','focus_area')),
+  title text NOT NULL,
+  detail text,
+  category text,
+  source_conversation_id text,
+  status text NOT NULL DEFAULT 'proposed' CHECK (status IN ('proposed','accepted','dismissed')),
+  created_at text NOT NULL DEFAULT steady_now(),
+  decided_at text
+);
+
+CREATE TABLE IF NOT EXISTS program_enrollments (
+  id text PRIMARY KEY,
+  user_id text NOT NULL REFERENCES users(id),
+  program_id text NOT NULL,
+  status text NOT NULL DEFAULT 'active' CHECK (status IN ('active','left','finished')),
+  created_at text NOT NULL DEFAULT steady_now(),
+  updated_at text NOT NULL DEFAULT steady_now(),
+  UNIQUE(user_id, program_id)
+);
+
+CREATE TABLE IF NOT EXISTS program_unit_completions (
+  id text PRIMARY KEY,
+  user_id text NOT NULL REFERENCES users(id),
+  program_id text NOT NULL,
+  unit_id text NOT NULL,
+  created_at text NOT NULL DEFAULT steady_now(),
+  UNIQUE(user_id, program_id, unit_id)
+);
+
+CREATE TABLE IF NOT EXISTS activity_entries (
+  id text PRIMARY KEY,
+  user_id text NOT NULL REFERENCES users(id),
+  program_id text NOT NULL,
+  unit_id text NOT NULL,
+  kind text NOT NULL,
+  payload_enc text NOT NULL,
+  created_at text NOT NULL DEFAULT steady_now(),
+  updated_at text NOT NULL DEFAULT steady_now(),
+  deleted_at text
+);
+CREATE INDEX IF NOT EXISTS idx_activity_entries_user ON activity_entries(user_id, program_id, unit_id);
+
 CREATE TABLE IF NOT EXISTS upsell_events (
   id text PRIMARY KEY,
   user_id text NOT NULL REFERENCES users(id),
@@ -516,6 +561,10 @@ ALTER TABLE upsell_events ADD COLUMN IF NOT EXISTS tenant_id text NOT NULL DEFAU
 ALTER TABLE autopilot_plans ADD COLUMN IF NOT EXISTS tenant_id text NOT NULL DEFAULT '00000000000000000000000000';
 ALTER TABLE autopilot_events ADD COLUMN IF NOT EXISTS tenant_id text NOT NULL DEFAULT '00000000000000000000000000';
 ALTER TABLE lesson_reads ADD COLUMN IF NOT EXISTS tenant_id text NOT NULL DEFAULT '00000000000000000000000000';
+ALTER TABLE companion_proposals ADD COLUMN IF NOT EXISTS tenant_id text NOT NULL DEFAULT '00000000000000000000000000';
+ALTER TABLE program_enrollments ADD COLUMN IF NOT EXISTS tenant_id text NOT NULL DEFAULT '00000000000000000000000000';
+ALTER TABLE program_unit_completions ADD COLUMN IF NOT EXISTS tenant_id text NOT NULL DEFAULT '00000000000000000000000000';
+ALTER TABLE activity_entries ADD COLUMN IF NOT EXISTS tenant_id text NOT NULL DEFAULT '00000000000000000000000000';
 ALTER TABLE review_notes ADD COLUMN IF NOT EXISTS tenant_id text NOT NULL DEFAULT '00000000000000000000000000';
 
 -- ---------------------------------------------------------------------------

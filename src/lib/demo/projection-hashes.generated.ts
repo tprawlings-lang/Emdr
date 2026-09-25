@@ -17,6 +17,8 @@ export const EXPECTED_PROJECTION_HASHES: Record<string, Record<string, string | 
     "therapy_sessions": "4fa924d0255c79e2a386a6b97340a5d7d80add479fdb51b878810c28977f76a6",
     "practice_completions": "e77308dc294cd8067f5a6ba817d8c685fc6e432e2ef99511075733db53e8c2cb",
     "lesson_reads": null,
+    "program_enrollments": null,
+    "program_unit_completions": null,
     "consents": "944142252aa46d456c797f38495caea29ba9945a927441339fc7dd72e1bfeead",
     "module_unlocks": "08f6c233ba07117428e377d611bd9bae8cb8f8bc7feeb8cb889d651e063b06af"
   }

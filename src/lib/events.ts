@@ -64,6 +64,15 @@ export const EVENT_TYPES = {
   "session.completed": 2,
   "session.hard_stopped": 2,
   "lesson.read": 2,
+  // Handoff 10 §3.2: programs. A family of its own because a program is not an
+  // intervention anybody assigned — a member joins it themselves, one tap in
+  // and one tap out — and folding it into `intervention.assigned` would project
+  // it into the table of support a clinician gave. The activity event carries
+  // the kind and coded ratings only, never what the member wrote.
+  "program.enrolled": 2,
+  "program.left": 2,
+  "program.unit_completed": 2,
+  "program.activity_recorded": 1,
 
   // AI / memory
   "memory.recorded": 1,

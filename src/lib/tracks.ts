@@ -47,6 +47,9 @@ export interface CareTrack {
   contraindications: string[];
   /** When clinicianReview is "required", why, and where to point the member. */
   referralNote?: string;
+  /** Handoff 10 1B (CV10_B04): programs that support this path. Shown only
+   *  when the program itself is live. */
+  supportingProgramIds?: string[];
 }
 
 export const EVIDENCE_LABELS: Record<EvidenceGrade, string> = {
@@ -107,6 +110,8 @@ export const TRACKS: CareTrack[] = [
       "future-template",
       "maintenance",
     ],
+    // Secondary for anxiety (Handoff 10 1B); primary for low mood.
+    supportingProgramIds: ["moving-toward"],
     contraindications: ["active_crisis", "panic_without_stabilization"],
   },
   {
@@ -199,6 +204,7 @@ export const TRACKS: CareTrack[] = [
       "Evidence for the method in depression is mixed and strongest when low mood is memory-linked; we treat this as an adjunct, not a stand-alone path.",
     clinicianReview: "recommended",
     moduleIds: ["calm-place", "containment", "resourcing", "relational", "trigger-map", "maintenance"],
+    supportingProgramIds: ["moving-toward"],
     contraindications: ["active_crisis", "severe_depression_without_care"],
     referralNote:
       "If low mood is heavy or persistent, please keep a prescriber or counselor in the loop — this pathway is a companion to that care.",

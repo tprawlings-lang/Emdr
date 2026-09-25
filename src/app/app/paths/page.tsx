@@ -16,6 +16,7 @@ import {
   nextModuleId,
 } from "@/lib/tracks";
 import { recommendTracks } from "@/lib/track-recommender";
+import { memberPrograms } from "@/lib/programs";
 import { removeCareTrack, saveTrackIntakeAction, selectCareTrack } from "@/lib/actions";
 
 const GRADE_TONE: Record<EvidenceGrade, string> = {
@@ -46,6 +47,10 @@ export default async function PathsPage() {
   const day = await buildMemberDay(user.id);
   const myTracks = await getMemberTracks(user.id);
   const myTrackIds = new Set(myTracks.map((t) => t.id));
+  // Only programs this member can see: an unsigned one is not linked.
+  const livePrograms = (await memberPrograms(user.id)).map((v) => v.program);
+  const liveProgramsFor = (track: { supportingProgramIds?: string[] }) =>
+    livePrograms.filter((p) => track.supportingProgramIds?.includes(p.id));
   const completed = await completedModuleIds(user.id);
 
   return (
@@ -228,6 +233,14 @@ export default async function PathsPage() {
                 <p className="mt-1 text-sm text-ground/80">
                   {track.moduleIds.map(moduleName).join(" → ")}
                 </p>
+                {liveProgramsFor(track).length > 0 && (
+                  <p className="mt-3 text-sm text-ground/80">
+                    <span className="text-xs uppercase tracking-wide text-olive">Program that goes with it</span>{" "}
+                    {liveProgramsFor(track).map((p) => (
+                      <Link key={p.id} href={`/app/programs/${p.id}`} className="ml-1 inline-flex min-h-6 items-center underline">{p.title}</Link>
+                    ))}
+                  </p>
+                )}
                 {track.referralNote && (
                   <p className="mt-3 rounded-2xl bg-state-caution-bg px-4 py-2 text-sm text-ground/90">
                     {track.referralNote}
