@@ -115,7 +115,8 @@ function packAtoms(): Set<string> {
     const opening = line.match(/^Unit opening line for units [\d to]+: "(.*)"$/);
     if (opening) atoms.add(opening[1]);
     // "If the feeling is 8 or higher at step 2: "…" [Find the room] [Keep going]"
-    const conditional = line.match(/^If [^"]+: "(.*)"((?: \[[^\]]+\])*)$/);
+    // "Each unit ends: "…" [Add] [Not now] (writes to …)"
+    const conditional = line.match(/^(?:If [^"]+|Each unit ends): "(.*?)"((?: \[[^\]]+\])*)(?: \(.*\)\.?)?$/);
     if (conditional) {
       atoms.add(conditional[1]);
       for (const b of conditional[2].matchAll(/\[([^\]]+)\]/g)) atoms.add(b[1]);
@@ -228,7 +229,7 @@ test("every member-facing string in a program is in the pack, whole", () => {
       for (const t of [...(u.text ?? []), ...(u.list ?? []), ...(u.textAfter ?? [])]) check(`${u.id} text`, t);
       const c = u.copy;
       if (!c) continue;
-      for (const k of ["prompt", "dayPrompt", "save", "mastery", "enjoyment", "noticed", "notThisTime", "remember", "completion", "note", "keepDoing"] as const) {
+      for (const k of ["prompt", "dayPrompt", "save", "mastery", "enjoyment", "noticed", "notThisTime", "remember", "completion", "note", "keepDoing", "skip"] as const) {
         check(`${u.id} ${k}`, c[k]);
       }
       for (const v of [...(c.options ?? []), ...(c.outcomes ?? []), ...(c.notThisTimeChoices ?? [])]) check(`${u.id} choice`, v);

@@ -8,6 +8,7 @@ One sheet per question. Each says what the product does in the meantime, so a qu
 | Clinical lead | After the first eight questions stop someone because of thoughts of self-harm in the past month, or an unsafe situation now, how long before they may answer again? | [`clinical.program-fit-pause-length`](./clinical.program-fit-pause-length.md) |
 | Clinical lead | The sleep program's four parts came with no level of distress or safety at which each one opens. The second part asks a member to get out of bed at night when they cannot sleep. Which levels should the parts use? | [`clinical.steadier-sleep-gates`](./clinical.steadier-sleep-gates.md) |
 | Clinical lead | Two signed screens ask a member to pick from a feelings word list — Feeling and Relating's "Pick two words for how you feel right now", and the thought record's "What did you feel? | [`product.feelings-word-list`](./product.feelings-word-list.md) |
+| Clinical lead | The signed row says Riding Strong Feelings is gated "per underlying skills" without giving levels. Each part holds skills with different levels. When should a part open? | [`clinical.riding-strong-feelings-gates`](./clinical.riding-strong-feelings-gates.md) |
 
 ## Answered, and still waiting on something
 

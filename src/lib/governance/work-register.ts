@@ -1152,6 +1152,21 @@ export const WORK_REGISTER: WorkEntry[] = [
       "(product.feelings-word-list). Web and mobile.",
   },
   {
+    id: "clinical.riding-strong-feelings",
+    title: "Riding Strong Feelings: four parts from live skills, each ending with the member's own SOS-plan choice",
+    state: "reachable",
+    code: "src/lib/program-activities.ts#answerSosQuestion",
+    test: "tests/riding-strong-feelings.test.ts",
+    note:
+      "Handoff 10 2C (CV10_D05, F02), every string matched whole against the pack. Each part opens at the " +
+      "loosest gate among its skills, derived and tested from the skills themselves, and each skill keeps " +
+      "its own gate inside it (clinical.riding-strong-feelings-gates, open for the psychologists). 'Add' " +
+      "writes the chosen skills' names to the member's own SOS plan through sos.ts#addSosGroundingTools, " +
+      "which appends and never replaces, skips duplicates and keeps onboarding's cap of fifteen; 'Not now' " +
+      "adds nothing; either completes the part. Only the part's practices can be added, never its lesson, " +
+      "and no companion file names either function. Web and mobile.",
+  },
+  {
     id: "clinical.path-review-mark",
     title: "The care team can record that a path's clinician review is done",
     state: "proposed",

@@ -304,6 +304,31 @@ export async function pickedAreas(userId: string, programId: string): Promise<st
   return last && last.kind === "values-pick" ? [...last.areas, ...(last.other ? [last.other] : [])] : [];
 }
 
+/** "Which of these do you want in your SOS plan?" (Riding Strong Feelings,
+ *  CV10_D05). "Add" puts the chosen skills — the unit's own practices, by
+ *  title — into the member's SOS plan; "Not now" adds nothing. Either answer
+ *  completes the unit. Nothing written by the member is involved, so nothing
+ *  is screened or stored as an entry; the spine gets the coded kind only. */
+export async function answerSosQuestion(
+  userId: string, programId: string, unitId: string, answer: { add: boolean; practiceIds: readonly string[] }
+): Promise<{ added: string[] }> {
+  const opened = await openUnit(userId, programId, unitId);
+  if (!opened.ok) throw new ProgramRefused(opened.reason);
+  const unit = opened.unit.unit;
+  if (unit.activity !== "sos-add") throw new ActivityRefused("wrong_activity");
+  let added: string[] = [];
+  if (answer.add) {
+    const chosen = [...new Set(answer.practiceIds)];
+    if (chosen.length === 0) throw new ActivityRefused("pick_one");
+    if (chosen.some((id) => !unit.practiceIds.includes(id) || !getPractice(id))) throw new ActivityRefused("not_on_list");
+    const { addSosGroundingTools } = await import("./sos");
+    added = await addSosGroundingTools(userId, chosen.map(practiceTitle));
+    await recordProgramActivity({ userId, programId, unitId, kind: "sos-add", occurredAt: nowStamp() });
+  }
+  await completeUnit(userId, programId, unitId);
+  return { added };
+}
+
 /** What "Which parts helped most?" offers (Steadier Sleep unit 4: "from units
  *  1 to 3 items"). For each part before this one that the member can see — a
  *  withheld part is not offered — its items in the pack's own words: the

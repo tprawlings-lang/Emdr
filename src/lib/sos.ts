@@ -7,6 +7,7 @@
 // without storing any of what they were feeling.
 
 import { audit } from "./audit";
+import { data } from "./data";
 import { noteSignal } from "./telemetry/store";
 import { getSafetyPlan } from "./profile";
 import { getSavedCalmPlace } from "./session-focus";
@@ -68,4 +69,33 @@ export async function recordSosOpened(userId: string): Promise<{ ok: true }> {
   // safety that this catalog can answer, and it answers it with a single code.
   noteSignal("gate_support_selected", { supportOption: "sos_panel" }, { actorRole: "member" });
   return { ok: true };
+}
+
+/** Most tools a plan holds, as onboarding's own form allows. */
+export const SOS_TOOLS_MAX = 15;
+
+/** Add grounding tools to the member's own SOS plan, keeping what is there.
+ *  The member's action, from a program's "Which of these do you want in your
+ *  SOS plan?" (Handoff 10 2C, CV10_D05) — never the companion's. Names only;
+ *  duplicates are skipped; the plan's other fields are untouched, and a
+ *  member with no plan yet gets one holding just these. Returns what was new. */
+export async function addSosGroundingTools(userId: string, tools: readonly string[]): Promise<string[]> {
+  const c = await data();
+  const plan = (await c.get("SELECT grounding_tools_json FROM safety_plans WHERE user_id = ?", [userId])) as
+    | { grounding_tools_json: string } | undefined;
+  let current: string[] = [];
+  try {
+    const parsed = plan ? JSON.parse(plan.grounding_tools_json) : [];
+    if (Array.isArray(parsed)) current = parsed.filter((t): t is string => typeof t === "string");
+  } catch { current = []; }
+  const added = [...new Set(tools)].filter((t) => t && !current.includes(t)).slice(0, Math.max(0, SOS_TOOLS_MAX - current.length));
+  if (added.length === 0) return [];
+  const next = JSON.stringify([...current, ...added]);
+  if (plan) {
+    await c.run("UPDATE safety_plans SET grounding_tools_json = ?, updated_at = CURRENT_TIMESTAMP WHERE user_id = ?", [next, userId]);
+  } else {
+    await c.run("INSERT INTO safety_plans (user_id, grounding_tools_json) VALUES (?, ?)", [userId, next]);
+  }
+  await audit({ actorId: userId, actorRole: "member", family: "clinical", type: "safety_plan_tools_added", detail: { count: added.length } });
+  return added;
 }

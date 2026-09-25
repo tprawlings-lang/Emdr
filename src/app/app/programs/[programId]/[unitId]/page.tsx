@@ -6,7 +6,9 @@ import { openUnit, programView } from "@/lib/programs";
 import { memberEntries } from "@/lib/program-activities";
 import { memberLesson } from "@/lib/lessons";
 import { practiceForMember } from "@/lib/practices";
-import { completeUnitAction, deleteActivityAction, joinProgramAction } from "@/lib/program-actions";
+import { answerSosAction, completeUnitAction, deleteActivityAction, joinProgramAction } from "@/lib/program-actions";
+import { REFUSAL_WORDS, type RefusalCode } from "@/lib/program-activities";
+import { getPractice as practiceById } from "@/lib/practices";
 import { SubmitButton } from "@/components/experience/SubmitButton";
 
 /** Where each kind of practice is done. */
@@ -21,11 +23,11 @@ export default async function UnitPage({
   params, searchParams,
 }: {
   params: Promise<{ programId: string; unitId: string }>;
-  searchParams: Promise<{ saved?: string }>;
+  searchParams: Promise<{ saved?: string; error?: string }>;
 }) {
   const user = await requireMember();
   const { programId, unitId } = await params;
-  const { saved } = await searchParams;
+  const { saved, error } = await searchParams;
   const opened = await openUnit(user.id, programId, unitId);
   const back = <Link href={`/app/programs/${programId}`} className="mt-8 inline-flex min-h-11 items-center text-sm text-olive underline">← Back to the program</Link>;
 
@@ -120,7 +122,44 @@ export default async function UnitPage({
         </ul>
       )}
 
-      {u.activity !== "none" && (
+      {u.activity === "sos-add" && unit.state !== "done" && u.copy && (
+        // The unit's last question (CV10_D05). Its skills by name, whether or
+        // not today opens them: the SOS plan lists what has helped, it does
+        // not launch anything.
+        <form action={answerSosAction} className="mt-8 rounded-3xl border border-ground/10 bg-linen p-5">
+          <input type="hidden" name="programId" value={programId} />
+          <input type="hidden" name="unitId" value={u.id} />
+          {error && (
+            <p role="alert" className="mb-3 rounded-2xl border border-state-caution/40 bg-state-caution-bg px-4 py-3 text-sm text-ground">
+              {REFUSAL_WORDS[error as RefusalCode] ?? "That didn't come through. Please try again."}
+            </p>
+          )}
+          <fieldset>
+            <legend className="font-medium text-ground">{u.copy.prompt}</legend>
+            <div className="mt-3 space-y-2">
+              {u.practiceIds.flatMap((id) => {
+                const p = practiceById(id);
+                return p ? [(
+                  <label key={id} className="flex min-h-11 cursor-pointer items-center gap-3 rounded-2xl border border-ground/10 bg-app-surface px-4 py-2 has-checked:border-clay has-checked:bg-clay/40">
+                    <input type="checkbox" name="practiceId" value={id} />
+                    <span className="text-ground">{p.title}</span>
+                  </label>
+                )] : [];
+              })}
+            </div>
+          </fieldset>
+          <div className="mt-4 flex flex-wrap gap-3">
+            <SubmitButton name="answer" value="add" pendingLabel="Adding…" className="rounded-full bg-sage px-6 py-3 font-medium text-ground hover:bg-sage-deep">
+              {u.copy.save}
+            </SubmitButton>
+            <button type="submit" name="answer" value="not_now" formNoValidate className="min-h-11 rounded-full border border-ground/20 px-6 text-ground hover:bg-moss">
+              {u.copy.skip}
+            </button>
+          </div>
+        </form>
+      )}
+
+      {u.activity !== "none" && u.activity !== "sos-add" && (
         <Link
           href={`/app/programs/${programId}/${u.id}/activity`}
           className="mt-6 inline-block rounded-full bg-sage px-6 py-3 font-medium text-ground transition-colors hover:bg-sage-deep"

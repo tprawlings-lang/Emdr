@@ -19,7 +19,7 @@ import { companionTools, executeCompanionTool } from "../src/lib/companion-tools
 const SRC = path.join(process.cwd(), "src/lib");
 const code = (s: string) => s.replace(/\/\*[\s\S]*?\*\//g, " ").replace(/^\s*\/\/.*$/gm, " ");
 const PROGRAM_TABLES = /\b(program_enrollments|program_unit_completions|activity_entries|program_entry_screens|member_thought_records)\b/;
-const PROGRAM_WRITERS = /\b(enrollInProgram|leaveProgram|completeUnit|saveActivityEntry|deleteActivityEntry|memberEntries|plannedItems|pickedAreas|reflectOptions|saveThoughtRecord|memberThoughtRecords|deleteThoughtRecord)\b/;
+const PROGRAM_WRITERS = /\b(enrollInProgram|leaveProgram|completeUnit|saveActivityEntry|deleteActivityEntry|memberEntries|plannedItems|pickedAreas|reflectOptions|saveThoughtRecord|memberThoughtRecords|deleteThoughtRecord|answerSosQuestion|addSosGroundingTools)\b/;
 
 /** Every file the companion's model path is built from. */
 const COMPANION_FILES = ["companion-tools.ts", "companion-ai.ts", "companion.ts", "companion-proposals.ts", "session-companion.ts"];

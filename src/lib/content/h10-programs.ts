@@ -27,6 +27,9 @@ export type ActivityKind =
   | "feeling-words"
   /** Feeling and Relating unit 4: pick one of the unit's own skills. */
   | "skill-pick"
+  /** Riding Strong Feelings: "Which of these do you want in your SOS plan?"
+   *  Add some of the unit's skills to the member's SOS plan, or not now. */
+  | "sos-add"
   | "none";
 
 export interface MenuCategory {
@@ -48,6 +51,8 @@ export interface ActivityCopy {
   categories?: readonly MenuCategory[];
   dayPrompt?: string;
   save?: string;
+  /** The decline button, where a screen has one (sos-add: "Not now"). */
+  skip?: string;
   /** activity-reflect */
   outcomes?: readonly string[];
   mastery?: string;
@@ -425,4 +430,65 @@ export const FEELING_AND_RELATING: Program = {
   ],
 };
 
-export const H10_PROGRAMS: readonly Program[] = [MOVING_TOWARD, STEADIER_SLEEP, FEELING_AND_RELATING];
+const SOS_QUESTION: ActivityCopy = { prompt: "Which of these do you want in your SOS plan?", save: "Add", skip: "Not now" };
+
+/** 2C. Rows: D05, F02 the name. Built from live skills plus the pack's
+ *  opening line for each unit; the pack names the method it draws on only to
+ *  clinicians, and it never reaches a member.
+ *
+ *  GATES, "per underlying skills" (D05; the handoff gives no numbers): each
+ *  unit opens at the loosest gate among its skills, and each skill in it still
+ *  shows only when its own gate allows. So on a very hard day the first two
+ *  units still offer "Move it out" and "Find the room" — the skills made for
+ *  that — rather than the program closing when it is most needed. The test
+ *  derives these numbers from the skills themselves. Open for the
+ *  psychologists to confirm (clinical.riding-strong-feelings-gates).
+ *
+ *  Each unit ends with the SOS question; "Add" writes the chosen skills to the
+ *  member's own SOS plan (sos.ts#addSosGroundingTools), never via the
+ *  companion. A lesson cannot be added: only a unit's practices are offered. */
+export const RIDING_STRONG_FEELINGS: Program = {
+  id: "riding-strong-feelings",
+  title: "Riding Strong Feelings",
+  blurb: "A few reliable skills for the moments when feelings run high.",
+  phase: 2,
+  outcomeMeasureIds: [],
+  signoffRowIds: ["CV10_D05", "CV10_F02"],
+  units: [
+    {
+      id: "pause-first", title: "Pause first",
+      text: ["Most of what we regret happens in the first few seconds. This unit is about getting a pause into those seconds."],
+      practiceIds: ["skill-stop", "skill-move-it-out"],
+      activity: "sos-add", copy: SOS_QUESTION,
+      minTier: AccessTier.GROUNDING_ONLY, maxActivation: 9,
+      signoffRowIds: ["CV10_D05"],
+    },
+    {
+      id: "soothe-and-wait", title: "Soothe and wait",
+      text: ["Strong feelings peak and pass. Soothing yourself while you wait makes the wait easier."],
+      practiceIds: ["skill-soothe-senses", "skill-orient-room"],
+      activity: "sos-add", copy: SOS_QUESTION,
+      minTier: AccessTier.GROUNDING_ONLY, maxActivation: 10,
+      signoffRowIds: ["CV10_D05"],
+    },
+    {
+      id: "ride-the-urge", title: "Ride the urge",
+      text: ["An urge is not an order. You can notice it, watch it change, and choose."],
+      lessonId: "coping-that-costs",
+      practiceIds: ["skill-ride-the-urge"],
+      activity: "sos-add", copy: SOS_QUESTION,
+      minTier: AccessTier.STABILIZATION, maxActivation: 6,
+      signoffRowIds: ["CV10_D05"],
+    },
+    {
+      id: "make-room", title: "Make room",
+      text: ["Some feelings don't need fixing. They need space, and time."],
+      practiceIds: ["skill-make-room", "skill-self-kindness"],
+      activity: "sos-add", copy: SOS_QUESTION,
+      minTier: AccessTier.STABILIZATION, maxActivation: 6,
+      signoffRowIds: ["CV10_D05"],
+    },
+  ],
+};
+
+export const H10_PROGRAMS: readonly Program[] = [MOVING_TOWARD, STEADIER_SLEEP, FEELING_AND_RELATING, RIDING_STRONG_FEELINGS];

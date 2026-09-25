@@ -7,7 +7,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { requireMember } from "./auth";
 import { completeUnit, enrollInProgram, getProgram, leaveProgram, ProgramRefused } from "./programs";
-import { ActivityRefused, deleteActivityEntry, saveActivityEntry, type ActivityPayload } from "./program-activities";
+import { ActivityRefused, answerSosQuestion, deleteActivityEntry, saveActivityEntry, type ActivityPayload } from "./program-activities";
 
 const safeId = (v: FormDataEntryValue | null) => String(v ?? "").replace(/[^a-z0-9-]/g, "").slice(0, 60);
 
@@ -93,6 +93,26 @@ function parse(formData: FormData): ActivityPayload | null {
     return { kind, practiceId: String(formData.get("practiceId") ?? "") };
   }
   return null;
+}
+
+/** The SOS question at the end of a Riding Strong Feelings unit. */
+export async function answerSosAction(formData: FormData) {
+  const user = await requireMember();
+  const programId = safeId(formData.get("programId"));
+  const unitId = safeId(formData.get("unitId"));
+  const here = `/app/programs/${programId}/${unitId}`;
+  try {
+    await answerSosQuestion(user.id, programId, unitId, {
+      add: formData.get("answer") === "add",
+      practiceIds: formData.getAll("practiceId").map((v) => safeId(v)),
+    });
+  } catch (e) {
+    if (e instanceof ActivityRefused) redirect(`${here}?error=${e.code}`);
+    if (e instanceof ProgramRefused) redirect(here);
+    throw e;
+  }
+  revalidatePath(`/app/programs/${programId}`);
+  redirect(`/app/programs/${programId}`);
 }
 
 /** "Done with this part", for a part with nothing to fill in. */

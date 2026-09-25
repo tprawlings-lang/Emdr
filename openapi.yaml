@@ -123,6 +123,32 @@ paths:
       responses:
         "200": { description: "{ ok: true }" }
         "409": { description: "Out of order, not joined, or not open today: { error: reason }" }
+  /api/mobile/v1/programs/{programId}/units/{unitId}/sos:
+    post:
+      tags: [mobile-programs]
+      operationId: answerSosQuestion
+      summary: Answer a unit's "Which of these do you want in your SOS plan?"
+      description: >
+        Riding Strong Feelings (Handoff 10 2C). add true puts the chosen unit
+        skills in the member's own SOS plan, by name; add false is "Not now".
+        Either completes the unit.
+      parameters:
+        - { name: programId, in: path, required: true, schema: { type: string } }
+        - { name: unitId, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [add]
+              properties:
+                add: { type: boolean }
+                practiceIds: { type: array, items: { type: string } }
+      responses:
+        "200": { description: "{ added: string[] }" }
+        "409": { description: "The unit is not open to this member now" }
+        "422": { description: "{ error: pick_one | not_on_list | wrong_activity }" }
   /api/mobile/v1/activity-entries:
     post:
       tags: [mobile-programs]

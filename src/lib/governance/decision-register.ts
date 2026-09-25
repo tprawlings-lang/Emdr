@@ -969,6 +969,33 @@ export const DECISION_REGISTER: Decision[] = [
     },
     asked: "2026-09-25",
   },
+  {
+    id: "clinical.riding-strong-feelings-gates",
+    question:
+      "The signed row says Riding Strong Feelings is gated \"per underlying skills\" without giving " +
+      "levels. Each part holds skills with different levels. When should a part open?",
+    audience: "clinical",
+    blocks: [],
+    meanwhile:
+      "A part opens when any of its skills would, and inside it each skill still shows only when its own " +
+      "level allows. So on a very hard day, parts one and two open with \"Move it out\" and \"Find the " +
+      "room\" — the skills made for that — and parts three and four wait for a steadier day.",
+    options: [
+      {
+        label: "When any of its skills would",
+        plainly: "What runs now. The program is there when feelings run high, showing only what fits the day.",
+        then: "Nothing changes.",
+        recommended: true,
+      },
+      {
+        label: "Only when all of its skills would",
+        plainly: "A part opens only when every skill in it is open, so the part is whole or not there.",
+        then: "Parts one and two wait for a steadier day, with distress at 7 or below.",
+      },
+    ],
+    state: "open",
+    asked: "2026-09-25",
+  },
 ];
 
 export const OPEN_DECISIONS = DECISION_REGISTER.filter((d) => d.state === "open");
