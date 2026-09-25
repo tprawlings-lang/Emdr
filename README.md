@@ -24,7 +24,7 @@
 >   `/review/status` under "Safety findings closed". Next is Phase 1 (tool registry, event
 >   store, consent tiers).
 > - **[Handoff 10](docs/handoffs/10-non-bls-modules.md) (non-BLS content) — signed
->   2026-09-24; packages 1–9 done.** The clinical review (Lanes A–D, two psychologists)
+>   2026-09-24; packages 1–10 done.** The clinical review (Lanes A–D, two psychologists)
 >   is recorded in `src/lib/content-approval.ts`, bound to the pack and the signed PDF by hash;
 >   the eighteen skills, eight lessons and two night practices are generated from
 >   [`10-content-pack.md`](docs/handoffs/10-content-pack.md). Packages 5–7 are done too:
@@ -33,7 +33,11 @@
 >   Moving Toward at `/app/programs`. Package 9, Steadier Sleep, asks its three safety
 >   questions on joining (again after leaving); any yes leaves out the get-up-at-night part
 >   and only it. It stores a getting-up time and never a time-in-bed limit
->   (`tests/sleep-entry.test.ts`). Next: the CI vocabulary checks (package 10). P0 replaced the companion's Butterfly Hug (self-administered BLS) with a
+>   (`tests/sleep-entry.test.ts`). Package 10: CI's banned-vocabulary grep now reads the
+>   content in `src/lib`, modality names are kept out of member copy
+>   (`src/lib/governance/member-copy.ts`), and produced audio must be mono or identical stereo
+>   (`src/lib/governance/audio-mono.ts`, over `assets/audio`). Next: the audio pipeline (package
+>   11), which waits on the recordings (founder action F4). P0 replaced the companion's Butterfly Hug (self-administered BLS) with a
 >   still self-hold; `tests/kb-no-bls-shape.test.ts` guards every knowledge-base entry,
 >   practice and lesson. Content sign-off (`src/lib/content-signoff.ts`, `/review/content`)
 >   means unsigned content is absent outside demo. Practices carry optional gating and a

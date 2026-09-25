@@ -47,11 +47,25 @@ jobs:
           # Disclaimers ("does not diagnose") are explicitly allowed.
           # \bcure matches the banned claim "cure"/"cures"/"cured" at a word
           # boundary without false-positiving on "secure"/"unsecured".
+          #
+          # Handoff 10 §8.1 (row CV10_F03): member content lives in src/lib
+          # too — practices, lessons, programs and everything under
+          # src/lib/content — so those are scanned as well. It reads comments
+          # as well as copy, so a comment says "outcome" rather than the word.
           ! grep -rniE "\bcure|heal your|treats? (ptsd|anxiety|depression|addiction)|AI therapist|clinically proven" \
             src/app src/components --include="*.tsx" \
+            src/lib/practices.ts src/lib/lessons.ts src/lib/programs.ts src/lib/content --include="*.ts" \
             | grep -v "does not diagnose" \
             | grep -v "diagnosis remains" \
             | grep .
+      - name: Modality names stay out of member copy (Handoff 10 §8.2)
+        # Structural, not a grep: it walks the loaded practices, lessons and
+        # programs and reads only what a member can be shown, so the review
+        # rows that name the rule (and comments) are not hits.
+        run: npx tsx scripts/check-member-copy.ts
+      - name: Audio is mono or identical stereo (Handoff 10 §8.3)
+        # Fails closed on anything it cannot read. See assets/audio/README.md.
+        run: npx tsx scripts/check-audio-mono.ts
 
   tenant-isolation:
     # Cross-tenant isolation gate (ADR 0011 §4, Handoff C1; Step 5 gate G4).

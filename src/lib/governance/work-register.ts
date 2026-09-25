@@ -304,6 +304,35 @@ export const WORK_REGISTER: WorkEntry[] = [
     note: "The consoles were not wrong; they were unasked. The organization overview already carried a denominator on every figure and a funnel with its largest drop marked, and a reader wanting to know where access is delayed still had to open three charts on three tabs and do the joining. Each answer is a record now — the sentence, the figure with its denominator, and the four things that must be traceable from it — and `assertTraceable` refuses one missing any of them, so a console cannot ship a confident sentence over a number nobody can take apart. A question nobody can answer keeps its place in the same shape, because a console that drops one looks like a console that was never asked it. And the reason comes from the projection: my first version told the reader that no site had enough waiting people to report without identifying them, which is a plausible sentence about small-cell suppression and was wrong — the projection returns partial with demand for four sites and no supply at all, because the scheduling system has no slot record. A console that invents why it cannot answer is worse than one that does not answer, because the invented reason is what somebody acts on. The payer's four are ordered as they depend on each other — eligibility fixes the denominator, participation is counted against it, measurement says which contract terms could be computed at all, and maturity says whether any of it should be quoted yet. Two more things the rendered page showed: a fall reported AT the stage it had just counted (\"68% started care, and the largest fall is at started care\"), which names a transition now; and a contract row id printed at a plan executive, which is the buyer-side version of the policy version the member's Today was showing. The reviewer console had the handoff's order exactly backwards — thirteen screens to go and look at, with the queue of things waiting on a decision underneath — and could not answer its third question at all. Its landing declined to resolve the gates, on a note saying that needed an identity scan and a scenario replay; measured, the whole resolution is about 170ms, because the expensive check (projection parity) is the one `resolveEvidence` deliberately does not run. One loader now serves the landing and the release screen, so they cannot disagree about which gates are standing. And counting \"pass AND approved\" undercounted: three of the eight gates are attestations by nature, their evidence comes back unavailable because there is nothing for a machine to check, and a console reporting \"1 of 8 passed\" while more stood on a signature was describing its own evidence plumbing rather than the release.",
   },
   {
+    id: "governance.member-copy-modality-names",
+    title: "Modality names stay out of member copy, and the banned-vocabulary check reads src/lib content",
+    // `tested`, not `reachable`: CI runs it (scripts/check-member-copy.ts) and
+    // the @safety suite runs it; nothing in the app calls it, and nothing should.
+    state: "tested",
+    code: "src/lib/governance/member-copy.ts#modalityHits",
+    test: "tests/member-copy-names.test.ts",
+    note:
+      "Handoff 10 \u00a78.1\u20138.2 (CV10_F03 and F02). The banned-vocabulary grep in the safety workflow " +
+      "now covers practices.ts, lessons.ts, programs.ts and src/lib/content, and the test reads the grep " +
+      "command out of the workflow so dropping a path fails. The modality check walks the loaded practices, " +
+      "lessons and programs and reads only member-facing strings, so the review rows that name the rule are " +
+      "not hits. It adds CBT and IPT to the handoff's list, under the pack's 'no modality names' rule. One " +
+      "comment in lessons.ts was reworded so the grep, which reads comments, had nothing to excuse.",
+  },
+  {
+    id: "governance.audio-mono-check",
+    title: "Produced audio is mono or identical stereo before it can reach a member",
+    state: "tested",
+    code: "src/lib/governance/audio-mono.ts#checkAudioFile",
+    test: "tests/audio-mono-check.test.ts",
+    note:
+      "Handoff 10 \u00a78.3 (CV10_F03), ahead of the recordings themselves (package 11, founder action F4). " +
+      "The handoff's rule, left/right correlation of at least 0.99, plus two it cannot see: every one-second " +
+      "stretch with sound must clear 0.99 too (a short panned passage averages away over a long file), and " +
+      "the channels' levels must match within 1 dB (a steady pan correlates perfectly). Fails closed: only " +
+      "WAV masters can be read, so anything else under assets/audio fails. The directory is empty today.",
+  },
+  {
     id: "governance.evidence-registry",
     title: "Every public claim comes from one governed registry, and an expired one stops rendering",
     // 17 September handoff, P5: "Generate every public claim and count from one

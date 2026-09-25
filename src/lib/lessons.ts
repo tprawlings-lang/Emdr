@@ -3,8 +3,9 @@
 // code-defined content (reviewable in one place), only READ progress touches the
 // DB, served identically to web + iOS.
 //
-// Content is educational, non-graphic, invitational, and makes no diagnostic or
-// cure claims (roadmap §9 / COMPLIANCE). Drafts pending EMDR-advisor review
+// Content is educational, non-graphic, invitational, and makes no diagnostic
+// claim and promises no outcome (roadmap §9 / COMPLIANCE). (Worded so the
+// banned-vocabulary check, which reads comments too, has nothing to excuse.) Drafts pending EMDR-advisor review
 // before launch, consistent with Steady's content posture.
 
 import { data } from "./data";

@@ -97,6 +97,10 @@ function reachable(): Set<string> {
  * somebody has to defend.
  */
 const OFF_SURFACE: Record<string, string> = {
+  "src/lib/governance/audio-mono.ts":
+    "A CI check (scripts/check-audio-mono.ts, Handoff 10 §8.3): produced audio is mono or identical stereo. It reads files at build time; no screen should import a WAV decoder.",
+  "src/lib/governance/member-copy.ts":
+    "A CI check (scripts/check-member-copy.ts, Handoff 10 §8.2): no modality name in member copy. It inspects content; the screens are what it inspects, not its callers.",
   "src/lib/governance/clinical-labels.ts":
     "The list of clinical labels that stay off member surfaces. Read by the guards that enforce it (tests/member-boundary.test.ts and the rendered member walk), not by any screen — a screen that imported it would be one using the list to decide what to show, which is the opposite of its job.",
   "src/lib/analysis/power.ts":

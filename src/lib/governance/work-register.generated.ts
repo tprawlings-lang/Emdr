@@ -232,6 +232,28 @@ export const REGISTER_FINDINGS: EntryFinding[] = [
     "problems": []
   },
   {
+    "id": "governance.member-copy-modality-names",
+    "claimed": "tested",
+    "supported": "reachable",
+    "facts": {
+      "defined": true,
+      "tested": true,
+      "wired": true
+    },
+    "problems": []
+  },
+  {
+    "id": "governance.audio-mono-check",
+    "claimed": "tested",
+    "supported": "reachable",
+    "facts": {
+      "defined": true,
+      "tested": true,
+      "wired": true
+    },
+    "problems": []
+  },
+  {
     "id": "governance.evidence-registry",
     "claimed": "reachable",
     "supported": "reachable",
