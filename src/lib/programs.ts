@@ -13,6 +13,10 @@
 //     reference to how long it has been.
 //   - The companion never calls anything here: it may suggest, it may not
 //     enrol, complete or write (§3.5; tests/companion-program-readonly).
+//   - A program named for particular care paths (Feeling and Relating) is
+//     offered only on them; on a path that needs a clinician's review first,
+//     only once that review is recorded. None can be recorded yet, so that
+//     path does not see it (programAllowedOnPaths; tests/feeling-and-relating).
 //   - A program with an entry screen (Steadier Sleep's sleep-entry-v1, row
 //     CV10_C04) asks it on joining, and nothing opens until it is answered.
 //     Any yes withholds the units marked for it and only those; the rest of
@@ -30,6 +34,7 @@ import {
 import { contentVisibility, type ContentVisibility } from "./content-signoff";
 import { practiceGateFor, type PracticeGate } from "./practices";
 import { AccessTier } from "./safety/types";
+import { getMemberTracks } from "./tracks";
 import { H10_PROGRAMS, type EntryScreen, type Program, type ProgramUnit, type MenuCategory } from "./content/h10-programs";
 
 export type { EntryScreen, Program, ProgramId, ProgramUnit } from "./content/h10-programs";
@@ -47,6 +52,26 @@ async function signoffs() {
   } catch {
     return new Map();
   }
+}
+
+/** Pure. Whether a program is offered to a member on these paths. A path
+ *  that needs a clinician's review closes the program until the review is
+ *  recorded, even beside a path that would open it. */
+export function programAllowedOnPaths(
+  program: Pick<Program, "paths">, activePaths: readonly string[], reviewedPaths: ReadonlySet<string>
+): boolean {
+  const gate = program.paths;
+  if (!gate) return true;
+  if (activePaths.some((p) => gate.reviewRequired.includes(p) && !reviewedPaths.has(p))) return false;
+  return activePaths.some((p) => gate.open.includes(p) || (gate.reviewRequired.includes(p) && reviewedPaths.has(p)));
+}
+
+/** The paths whose clinician review is recorded for this member. NOTHING
+ *  RECORDS ONE YET: there is no care-team action for it, so this is empty and
+ *  a program that waits on a review stays closed on that path (the product
+ *  owner's choice, 25 September; work register clinical.path-review-mark). */
+async function reviewedPathsFor(): Promise<ReadonlySet<string>> {
+  return new Set();
 }
 
 /** Pure. Whether today's gate opens a unit. Unknown activation reads as 10
@@ -181,6 +206,10 @@ export async function programView(userId: string, programId: string): Promise<Pr
   const s = await signoffs();
   const pv = contentVisibility(program, s);
   if (pv === "absent") return null;
+  if (program.paths) {
+    const [tracks, reviewed] = await Promise.all([getMemberTracks(userId), reviewedPathsFor()]);
+    if (!programAllowedOnPaths(program, tracks.map((t) => t.id), reviewed)) return null;
+  }
   const [enrollment, done, gate, entry] = await Promise.all([
     enrollmentOf(userId, program.id), completedUnits(userId, program.id), practiceGateFor(userId),
     entryStanding(userId, program),

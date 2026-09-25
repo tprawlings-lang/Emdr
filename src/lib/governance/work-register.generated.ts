@@ -793,6 +793,28 @@ export const REGISTER_FINDINGS: EntryFinding[] = [
     "problems": []
   },
   {
+    "id": "clinical.feeling-and-relating",
+    "claimed": "reachable",
+    "supported": "reachable",
+    "facts": {
+      "defined": true,
+      "tested": true,
+      "wired": true
+    },
+    "problems": []
+  },
+  {
+    "id": "clinical.path-review-mark",
+    "claimed": "proposed",
+    "supported": "proposed",
+    "facts": {
+      "defined": false,
+      "tested": false,
+      "wired": false
+    },
+    "problems": []
+  },
+  {
     "id": "clinical.program-text-crisis-prefilter",
     "claimed": "reachable",
     "supported": "reachable",

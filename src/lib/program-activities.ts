@@ -25,6 +25,7 @@ import { detectRisk } from "./companion";
 import { createAlert } from "./clinical/alert-create";
 import { nowStamp, recordProgramActivity } from "./spine";
 import { completeUnit, menuFor, openUnit, programView, ProgramRefused } from "./programs";
+import { getPractice } from "./practices";
 import type { ActivityKind } from "./content/h10-programs";
 
 /** Cap on any one free-text field. A sentence or two is what every prompt asks for. */
@@ -41,6 +42,9 @@ function freeTextOf(payload: ActivityPayload): string[] {
     case "wind-down-plan": return payload.own ? [payload.own] : [];
     case "sleep-window": return [];
     case "sleep-reflect": return payload.keepDoing ? [payload.keepDoing] : [];
+    case "reflect-text": return [payload.text];
+    case "feeling-words": return payload.words;
+    case "skill-pick": return [];
   }
 }
 
@@ -71,14 +75,20 @@ export type ActivityPayload =
   | { kind: "wind-down-plan"; picks: string[]; own?: string }
   /** The getting-up time, "HH:MM", and nothing else (CV10_C03). */
   | { kind: "sleep-window"; wakeTime: string }
-  | { kind: "sleep-reflect"; helped: string[]; keepDoing?: string };
+  | { kind: "sleep-reflect"; helped: string[]; keepDoing?: string }
+  | { kind: "reflect-text"; text: string }
+  /** One or two words, typed: no signed word list exists yet. */
+  | { kind: "feeling-words"; words: string[] }
+  /** One of the unit's own practices. */
+  | { kind: "skill-pick"; practiceId: string };
 
 /** Why a save was refused, as a code. The screen maps each to fixed words —
  *  never echoes a message from the address bar, which would let a crafted
  *  link put any sentence on a member's screen. */
 export type RefusalCode =
   | "wrong_activity" | "no_activity" | "pick_up_to_three" | "not_on_menu" | "one_to_three" | "not_in_plan" | "choose_outcome"
-  | "pick_two_or_three" | "choose_time" | "not_on_list";
+  | "pick_two_or_three" | "choose_time" | "not_on_list"
+  | "write_something" | "one_or_two_words" | "pick_one";
 
 export class ActivityRefused extends Error {
   constructor(public readonly code: RefusalCode) { super(code); }
@@ -95,7 +105,13 @@ export const REFUSAL_WORDS: Record<RefusalCode, string> = {
   pick_two_or_three: "Pick two or three.",
   choose_time: "Choose a time.",
   not_on_list: "One of those isn't on the list. Please pick again.",
+  write_something: "Write a few words, or go back — this part can wait.",
+  one_or_two_words: "Write one or two words.",
+  pick_one: "Pick one.",
 };
+
+/** A feeling word: short, one line. */
+const WORD_MAX = 40;
 
 /** A clock time, 00:00 to 23:59. */
 const WAKE_TIME = /^([01]\d|2[0-3]):[0-5]\d$/;
@@ -168,6 +184,25 @@ async function validate(
     return { kind: raw.kind, helped, ...(keepDoing ? { keepDoing } : {}) };
   }
 
+  if (raw.kind === "reflect-text") {
+    const text = typeof raw.text === "string" ? clip(raw.text) : "";
+    if (!text) throw new ActivityRefused("write_something");
+    return { kind: raw.kind, text };
+  }
+
+  if (raw.kind === "feeling-words") {
+    const words = (Array.isArray(raw.words) ? raw.words : [])
+      .map((w) => (typeof w === "string" ? w.trim().slice(0, WORD_MAX) : ""))
+      .filter(Boolean);
+    if (words.length < 1 || words.length > 2) throw new ActivityRefused("one_or_two_words");
+    return { kind: raw.kind, words };
+  }
+
+  if (raw.kind === "skill-pick") {
+    if (!unit.practiceIds.includes(raw.practiceId)) throw new ActivityRefused("pick_one");
+    return { kind: raw.kind, practiceId: raw.practiceId };
+  }
+
   // activity-reflect: the item must be one the member planned.
   const planned = await plannedItems(userId, programId);
   if (!planned.includes(raw.planItem)) throw new ActivityRefused("not_in_plan");
@@ -222,6 +257,8 @@ export interface MemberEntry {
   createdAt: string;
 }
 
+const practiceTitle = (id: string) => getPractice(id)?.title ?? id;
+
 function summarise(p: ActivityPayload): string[] {
   switch (p.kind) {
     case "values-pick": return [...p.areas, ...(p.other ? [p.other] : [])];
@@ -230,6 +267,9 @@ function summarise(p: ActivityPayload): string[] {
     case "wind-down-plan": return [...p.picks, ...(p.own ? [p.own] : [])];
     case "sleep-window": return [p.wakeTime];
     case "sleep-reflect": return [...p.helped, ...(p.keepDoing ? [p.keepDoing] : [])];
+    case "reflect-text": return [p.text];
+    case "feeling-words": return p.words;
+    case "skill-pick": return [practiceTitle(p.practiceId)];
   }
 }
 

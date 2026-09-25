@@ -4,7 +4,7 @@ import { MemberPage } from "@/components/member/MemberPage";
 import { requireMember } from "@/lib/auth";
 import { menuFor, openUnit } from "@/lib/programs";
 import { plannedItems, reflectOptions, REFUSAL_WORDS, type RefusalCode } from "@/lib/program-activities";
-import { practiceGateFor } from "@/lib/practices";
+import { getPractice, practiceGateFor } from "@/lib/practices";
 import { saveActivityAction } from "@/lib/program-actions";
 import { SubmitButton } from "@/components/experience/SubmitButton";
 import ReflectForm from "@/components/ReflectForm";
@@ -185,6 +185,63 @@ export default async function ActivityPage({
             <textarea name="keepDoing" rows={2} maxLength={500} className="mt-2 w-full rounded-2xl border border-ground/15 bg-app-surface px-4 py-3 text-ground" />
           </label>
         )}
+        <SubmitButton pendingLabel="Saving…" className="mt-6 rounded-full bg-sage px-6 py-3 font-medium text-ground hover:bg-sage-deep">Save</SubmitButton>
+      </form>
+    );
+  } else if (u.activity === "reflect-text") {
+    body = (
+      <form action={saveActivityAction} className="mt-6">
+        {hidden}
+        <label className="block">
+          <span className="font-medium text-ground">{copy.prompt}</span>
+          <textarea name="text" rows={4} maxLength={500} required className="mt-3 w-full rounded-2xl border border-ground/15 bg-app-surface px-4 py-3 text-ground" />
+        </label>
+        {/* The pack's own words for what a member writes (thought records,
+            CV10_D04), true here too: entries are never shown to the care team
+            or the companion. */}
+        <p className="mt-2 text-sm text-olive">Only you can see this. You can delete it any time.</p>
+        <SubmitButton pendingLabel="Saving…" className="mt-6 rounded-full bg-sage px-6 py-3 font-medium text-ground hover:bg-sage-deep">Save</SubmitButton>
+      </form>
+    );
+  } else if (u.activity === "feeling-words") {
+    // Typed, not picked: the signed pack names a word list but gives none,
+    // and one is not written without review (decision product.feelings-word-list).
+    body = (
+      <form action={saveActivityAction} className="mt-6">
+        {hidden}
+        <fieldset>
+          <legend className="font-medium text-ground">{copy.prompt}</legend>
+          <div className="mt-3 flex flex-wrap gap-3">
+            {[0, 1].map((i) => (
+              <input
+                key={i} name="word" maxLength={40} aria-label={i === 0 ? "First word" : "Second word"} required={i === 0}
+                className="min-h-11 w-40 rounded-2xl border border-ground/15 bg-app-surface px-4 text-ground"
+              />
+            ))}
+          </div>
+        </fieldset>
+        <SubmitButton pendingLabel="Saving…" className="mt-6 rounded-full bg-sage px-6 py-3 font-medium text-ground hover:bg-sage-deep">Save</SubmitButton>
+      </form>
+    );
+  } else if (u.activity === "skill-pick") {
+    const skills = u.practiceIds.flatMap((id) => {
+      const p = getPractice(id);
+      return p ? [p] : [];
+    });
+    body = (
+      <form action={saveActivityAction} className="mt-6">
+        {hidden}
+        <fieldset>
+          <legend className="font-medium text-ground">{copy.prompt}</legend>
+          <div className="mt-3 space-y-2">
+            {skills.map((p, i) => (
+              <label key={p.id} className={box}>
+                <input type="radio" name="practiceId" value={p.id} required defaultChecked={i === 0} />
+                <span className="text-ground">{p.title}</span>
+              </label>
+            ))}
+          </div>
+        </fieldset>
         <SubmitButton pendingLabel="Saving…" className="mt-6 rounded-full bg-sage px-6 py-3 font-medium text-ground hover:bg-sage-deep">Save</SubmitButton>
       </form>
     );

@@ -88,6 +88,8 @@ export const TRACKS: CareTrack[] = [
       "future-template",
       "maintenance",
     ],
+    // Handoff 10 2A: offered on this path (CV10_D02).
+    supportingProgramIds: ["feeling-and-relating"],
     contraindications: ["active_crisis", "high_dissociation", "current_danger"],
   },
   {

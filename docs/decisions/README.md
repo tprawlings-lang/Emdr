@@ -7,6 +7,7 @@ One sheet per question. Each says what the product does in the meantime, so a qu
 | Clinical lead | The second trauma questionnaire (the International Trauma Questionnaire) has no published past-week version that we know of. How often should members take it between visits? | [`clinical.itq-between-visits`](./clinical.itq-between-visits.md) |
 | Clinical lead | After the first eight questions stop someone because of thoughts of self-harm in the past month, or an unsafe situation now, how long before they may answer again? | [`clinical.program-fit-pause-length`](./clinical.program-fit-pause-length.md) |
 | Clinical lead | The sleep program's four parts came with no level of distress or safety at which each one opens. The second part asks a member to get out of bed at night when they cannot sleep. Which levels should the parts use? | [`clinical.steadier-sleep-gates`](./clinical.steadier-sleep-gates.md) |
+| Clinical lead | Two signed screens ask a member to pick from a feelings word list — Feeling and Relating's "Pick two words for how you feel right now", and the thought record's "What did you feel? | [`product.feelings-word-list`](./product.feelings-word-list.md) |
 
 ## Answered, and still waiting on something
 
@@ -39,6 +40,7 @@ Kept, with the answer and its date, so the code is not left carrying a rationale
 | The two trauma questionnaires were given every week, but each asks about the past month, so every answer mostly repeated weeks the last one had already covered. Keep them weekly and ask about the past week instead, or give them monthly as written? | Weekly, asking about the past week — the product owner's decision on 24 September. The past-week wording is built and switched off until the psychologists sign it. | 2026-09-24 |
 | Members have a page showing what would go with them if they were referred to another clinician. It listed each questionnaire by its clinical name with the member's score, and the name of their internal care path. Show exactly what is sent, or describe it in plain words without the numbers? | Plain words, no numbers — the product owner's decision on 24 September. | 2026-09-24 |
 | The sleep program asks three safety questions on joining; a yes to any leaves out the part about getting up at night. If someone leaves the program and joins again, should the questions be asked again? | Yes, after leaving and rejoining — the product owner's decision on 25 September, with the risk that a member could answer no the second time to get the left-out part back. For the psychologists to confirm at the next review. | 2026-09-25 |
+| Feeling and Relating is signed for the complex trauma readiness path only once that path's clinician review is done, but the app cannot record that review yet. What should members on that path see meanwhile? | Hide it until reviews exist — the product owner's decision on 25 September. | 2026-09-25 |
 
 ---
 

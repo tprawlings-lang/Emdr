@@ -910,6 +910,65 @@ export const DECISION_REGISTER: Decision[] = [
     },
     asked: "2026-09-25",
   },
+  {
+    id: "product.feelings-word-list",
+    question:
+      "Two signed screens ask a member to pick from a feelings word list — Feeling and Relating's " +
+      "\"Pick two words for how you feel right now\", and the thought record's \"What did you feel?\" — " +
+      "but the signed content does not include a list. Should there be one, and which words?",
+    audience: "clinical",
+    blocks: [],
+    meanwhile:
+      "Members type one or two words of their own. Nothing is suggested, so nobody is steered toward a " +
+      "word that does not fit; the cost is that a member who cannot find a word gets no help finding one.",
+    options: [
+      {
+        label: "Add a short list the psychologists write",
+        plainly: "A plain list, including mixed and body-based words, reviewed like the rest of the pack.",
+        then: "The list appears once its review row is signed, with typing still allowed.",
+        recommended: true,
+      },
+      {
+        label: "Keep typing only",
+        plainly: "The member's own words, always. No list to steer them.",
+        then: "Nothing changes.",
+      },
+    ],
+    state: "open",
+    asked: "2026-09-25",
+  },
+  {
+    id: "clinical.complex-path-program-before-review",
+    question:
+      "Feeling and Relating is signed for the complex trauma readiness path only once that path's " +
+      "clinician review is done, but the app cannot record that review yet. What should members on " +
+      "that path see meanwhile?",
+    audience: "clinical",
+    blocks: [],
+    meanwhile:
+      "Nothing was built yet: the program was new, and nothing records a path's clinician review.",
+    options: [
+      {
+        label: "Hide it until reviews exist",
+        plainly:
+          "Members on the complex trauma path do not see it, even if they are on the trauma path as well. " +
+          "Recording a review becomes its own piece of work.",
+        then: "Members on the trauma path alone see it; the complex path waits.",
+        recommended: true,
+      },
+      {
+        label: "Build the review mark now",
+        plainly: "A care-team action on the person record that opens the program for that member.",
+        then: "The complex path sees it once someone from the care team records the review.",
+      },
+    ],
+    state: "answered",
+    answer: {
+      decided: "Hide it until reviews exist — the product owner's decision on 25 September.",
+      on: "2026-09-25",
+    },
+    asked: "2026-09-25",
+  },
 ];
 
 export const OPEN_DECISIONS = DECISION_REGISTER.filter((d) => d.state === "open");

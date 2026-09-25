@@ -102,6 +102,17 @@ function packAtoms(): Set<string> {
     // per-question line.
     const quoted = line.match(/^(?:Text|Any Yes|If question \d+ is Yes, add): "(.*)"(?: \([^)]*\))?$/);
     if (quoted) atoms.add(quoted[1]);
+    // Phase 2 programs: table rows (unit, purpose, and any quoted prompt or
+    // opening text in any cell), and the shared opening line.
+    const row = line.match(/^\| \d+ \| (.*) \|$/);
+    if (row) {
+      const cells = row[1].split(" | ");
+      atoms.add(cells[0]);
+      if (cells.length === 4) atoms.add(cells[1]); // 2A: # | Unit | Purpose | Practices | Activity
+      for (const cell of cells) for (const q of cell.matchAll(/"([^"]+)"/g)) atoms.add(q[1]);
+    }
+    const opening = line.match(/^Unit opening line for units [\d to]+: "(.*)"$/);
+    if (opening) atoms.add(opening[1]);
     const bullet = line.match(/^- ([^:"]+): (.*)$/);
     if (bullet) { atoms.add(bullet[1]); for (const i of bullet[2].split(" · ")) atoms.add(i); }
     const quote = line.match(/^>\s*(.*)$/);

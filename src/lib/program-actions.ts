@@ -83,6 +83,15 @@ function parse(formData: FormData): ActivityPayload | null {
   if (kind === "sleep-reflect") {
     return { kind, helped: formData.getAll("helped").map(String), keepDoing: text("keepDoing") };
   }
+  if (kind === "reflect-text") {
+    return { kind, text: String(formData.get("text") ?? "") };
+  }
+  if (kind === "feeling-words") {
+    return { kind, words: formData.getAll("word").map(String) };
+  }
+  if (kind === "skill-pick") {
+    return { kind, practiceId: String(formData.get("practiceId") ?? "") };
+  }
   return null;
 }
 

@@ -1121,6 +1121,35 @@ export const WORK_REGISTER: WorkEntry[] = [
       "No sleep measure until its licensed items are supplied (C05).",
   },
   {
+    id: "clinical.feeling-and-relating",
+    title: "Feeling and Relating: eight units on the trauma path, relationships now, never named for its source",
+    state: "reachable",
+    code: "src/lib/programs.ts#programAllowedOnPaths",
+    test: "tests/feeling-and-relating.test.ts",
+    note:
+      "Handoff 10 2A (CV10_D01 to D03, F02), every string matched whole against the pack. Offered on the " +
+      "trauma path. On the complex trauma readiness path it waits for that path's clinician review, which " +
+      "nothing records yet, so it is not offered there, and a member on both paths is held by the one that " +
+      "needs review (clinical.path-review-mark). Units 1 to 4 at the stabilization tier, ceiling 6; 5 to 8 " +
+      "cautious, ceiling 5; no imagery. Units 5 to 7 open with the signed line about relationships now. " +
+      "Unit 2's words are typed: the pack names a word list and gives none (product.feelings-word-list). " +
+      "The written-reflection screen reuses the pack's signed line for member entries (D04), 'Only you can " +
+      "see this. You can delete it any time.', which is true here too.",
+  },
+  {
+    id: "clinical.path-review-mark",
+    title: "The care team can record that a path's clinician review is done",
+    state: "proposed",
+    code: null,
+    test: null,
+    note:
+      "Handoff 10 2A (CV10_D02) opens Feeling and Relating on the complex trauma readiness path 'only " +
+      "when that path's clinician review is satisfied', and nothing in the app records such a review. " +
+      "Until it does, the program is not offered on that path (the product owner's choice, 25 September). " +
+      "Needs: a care-team action on the person record, audited and on the spine, naming the path and the " +
+      "reviewer; programs.ts reads it where reviewedPathsFor returns an empty set today.",
+  },
+  {
     id: "clinical.program-text-crisis-prefilter",
     title: "What a member writes in a program is screened for crisis language before it is saved",
     state: "reachable",

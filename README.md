@@ -37,7 +37,9 @@
 >   content in `src/lib`, modality names are kept out of member copy
 >   (`src/lib/governance/member-copy.ts`), and produced audio must be mono or identical stereo
 >   (`src/lib/governance/audio-mono.ts`, over `assets/audio`). Next: the audio pipeline (package
->   11), which waits on the recordings (founder action F4). P0 replaced the companion's Butterfly Hug (self-administered BLS) with a
+>   11), which waits on the recordings (founder action F4). Phase 2A, Feeling and Relating, is
+>   live on the trauma path; the complex trauma path waits for a care-team review mark that does
+>   not exist yet (`tests/feeling-and-relating.test.ts`). Next: member thought records (2B). P0 replaced the companion's Butterfly Hug (self-administered BLS) with a
 >   still self-hold; `tests/kb-no-bls-shape.test.ts` guards every knowledge-base entry,
 >   practice and lesson. Content sign-off (`src/lib/content-signoff.ts`, `/review/content`)
 >   means unsigned content is absent outside demo. Practices carry optional gating and a

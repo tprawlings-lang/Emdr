@@ -81,7 +81,9 @@ test("at the stabilization tier the menu is Gentle only (CV10_B02)", () => {
 
 test("the signed program is listed", async () => {
   const views = await memberPrograms(member({ activation: 2 }));
-  assert.deepEqual(views.map((v) => v.program.id), PROGRAMS.map((p) => p.id));
+  // A member on no care path sees every program that is not offered by path
+  // (Feeling and Relating is: tests/feeling-and-relating.test.ts).
+  assert.deepEqual(views.map((v) => v.program.id), PROGRAMS.filter((p) => !p.paths).map((p) => p.id));
   assert.equal(views[0].visibility, "live");
 });
 

@@ -20,6 +20,13 @@ export type ActivityKind =
   | "values-pick" | "activity-plan" | "activity-reflect"
   | "sleep-window" | "wind-down-plan" | "sleep-reflect"
   | "thought-record"
+  /** Feeling and Relating: one written answer to the unit's prompt. */
+  | "reflect-text"
+  /** Feeling and Relating unit 2: one or two feeling words, typed (no signed
+   *  word list exists yet — decision product.feelings-word-list). */
+  | "feeling-words"
+  /** Feeling and Relating unit 4: pick one of the unit's own skills. */
+  | "skill-pick"
   | "none";
 
 export interface MenuCategory {
@@ -104,6 +111,11 @@ export interface Program {
   phase: 1 | 2;
   units: readonly ProgramUnit[];
   entryScreen?: EntryScreen;
+  /** Which care paths the program is offered on. Absent: every member. A
+   *  member on a `reviewRequired` path sees it only once that path's clinician
+   *  review is recorded — and that holds even if they are on an `open` path
+   *  too, because the review is about them, not the path they came in by. */
+  paths?: { open: readonly string[]; reviewRequired: readonly string[] };
   /** Never shown to a member inside a program (§3.6). */
   outcomeMeasureIds: readonly string[];
   signoffRowIds: readonly string[];
@@ -316,4 +328,101 @@ export const STEADIER_SLEEP: Program = {
   ],
 };
 
-export const H10_PROGRAMS: readonly Program[] = [MOVING_TOWARD, STEADIER_SLEEP];
+/** Opening line for units 5 to 7 (CV10_D03). */
+const RIGHT_NOW = "This unit is about relationships in your life right now. There's no need to go back over past events.";
+
+const FR_EARLY = { minTier: AccessTier.STABILIZATION, maxActivation: 6 } as const;
+const FR_LATE = { minTier: AccessTier.CAUTIOUS, maxActivation: 5 } as const;
+const FR_ROWS = ["CV10_D02", "CV10_D03"] as const;
+
+/** 2A. Rows: D01 structure and naming, D02 gating, D03 unit copy, F02 the
+ *  name. Clinician-facing only, and never in member copy: informed by the
+ *  skills phase of STAIR (Cloitre and colleagues); original content, not a
+ *  STAIR implementation.
+ *
+ *  Offered on the trauma path, and on the complex trauma readiness path only
+ *  once that path's clinician review is recorded. Nothing records one yet, so
+ *  on that path it is not offered (the product owner's choice, 25 September;
+ *  work register clinical.path-review-mark). Units 5 to 7 ask about
+ *  relationships now, and open by saying so. */
+export const FEELING_AND_RELATING: Program = {
+  id: "feeling-and-relating",
+  title: "Feeling and Relating",
+  blurb: "Skills for understanding feelings and handling relationships, one step at a time.",
+  phase: 2,
+  paths: { open: ["ptsd_trauma"], reviewRequired: ["complex_readiness"] },
+  // The handoff names no outcome measure for this program.
+  outcomeMeasureIds: [],
+  signoffRowIds: ["CV10_D01", "CV10_D02", "CV10_F02"],
+  units: [
+    {
+      id: "noticing-feelings", title: "Noticing feelings",
+      purpose: "Getting familiar with what you feel, when you feel it",
+      practiceIds: ["skill-make-room", "skill-what-i-need"],
+      activity: "reflect-text",
+      copy: { prompt: "Three times today I noticed a feeling. What were they?" },
+      ...FR_EARLY, signoffRowIds: FR_ROWS,
+    },
+    {
+      id: "naming-feelings", title: "Naming feelings",
+      purpose: "Finding words for feelings, including mixed ones",
+      practiceIds: ["skill-not-all-of-you"],
+      activity: "feeling-words",
+      copy: { prompt: "Pick two words for how you feel right now." },
+      ...FR_EARLY, signoffRowIds: FR_ROWS,
+    },
+    {
+      id: "feelings-in-the-body", title: "Feelings in the body",
+      purpose: "Where feelings show up physically",
+      practiceIds: ["skill-contact-points", "gentle-body-scan"],
+      activity: "reflect-text",
+      copy: { prompt: "Where do you usually feel stress? Where do you feel calm?" },
+      ...FR_EARLY, signoffRowIds: FR_ROWS,
+    },
+    {
+      id: "riding-intensity", title: "Riding intensity",
+      purpose: "Handling feelings when they get big",
+      practiceIds: ["skill-stop", "skill-ride-the-urge", "skill-move-it-out"],
+      activity: "skill-pick",
+      copy: { prompt: "Which skill do you want to try first next time?" },
+      ...FR_EARLY, signoffRowIds: FR_ROWS,
+    },
+    {
+      id: "the-rules-we-learned", title: "The rules we learned",
+      purpose: "Noticing expectations about people that came from the past",
+      practiceIds: ["skill-catch-thought"],
+      activity: "reflect-text",
+      text: [RIGHT_NOW],
+      copy: { prompt: "Finish the sentence: When I need something from someone, I expect ___. Does that fit the people in your life now?" },
+      ...FR_LATE, signoffRowIds: FR_ROWS,
+    },
+    {
+      id: "saying-what-you-need", title: "Saying what you need",
+      purpose: "Asking for things clearly and kindly",
+      practiceIds: ["skill-what-i-need"],
+      activity: "reflect-text",
+      text: [RIGHT_NOW],
+      copy: { prompt: "Draft one small request you could make this week. Keep it low-stakes." },
+      ...FR_LATE, signoffRowIds: FR_ROWS,
+    },
+    {
+      id: "flexibility", title: "Flexibility",
+      purpose: "Different relationships, different approaches",
+      practiceIds: ["skill-who-is-there"],
+      activity: "reflect-text",
+      text: [RIGHT_NOW],
+      copy: { prompt: "Think of two people. What works with each of them?" },
+      ...FR_LATE, signoffRowIds: FR_ROWS,
+    },
+    {
+      id: "kindness-toward-yourself", title: "Kindness toward yourself",
+      purpose: "Bringing it together with self-compassion",
+      practiceIds: ["skill-self-kindness"],
+      activity: "reflect-text",
+      copy: { prompt: "What's one thing you want to remember from this program?" },
+      ...FR_LATE, signoffRowIds: FR_ROWS,
+    },
+  ],
+};
+
+export const H10_PROGRAMS: readonly Program[] = [MOVING_TOWARD, STEADIER_SLEEP, FEELING_AND_RELATING];
