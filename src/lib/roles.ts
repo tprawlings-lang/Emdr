@@ -30,10 +30,14 @@ export type Role =
   | "reviewer"
   | "organization"
   | "payer"
-  | "demo_admin";
+  | "demo_admin"
+  /** Handoff 11: a primary care provider in a partner's evaluation tenant.
+   *  Read-only, own patients only, a monthly structured status and nothing
+   *  else: never free text, never an alert, never content details. */
+  | "pcp_viewer";
 
 export const ROLES: readonly Role[] = [
-  "member", "clinician", "reviewer", "organization", "payer", "demo_admin",
+  "member", "clinician", "reviewer", "organization", "payer", "demo_admin", "pcp_viewer",
 ] as const;
 
 export function isRole(v: unknown): v is Role {
@@ -107,12 +111,32 @@ export const DEMO_ROLES: readonly DemoRole[] = [
   },
 ] as const;
 
+/**
+ * Roles that exist for a partner's tenant rather than as a handoff-07 demo
+ * persona (Handoff 11 §1). Kept apart from DEMO_ROLES, which is public config
+ * holding only what handoff 07 printed; seeded by the partner tenant's own
+ * seed, not by the demo accounts.
+ */
+export const PARTNER_ROLES: readonly DemoRole[] = [
+  {
+    // Handoff 11 §1. Not a handoff-07 persona: it exists for a partner's
+    // evaluation tenant, and reaches nothing but the monthly summary.
+    role: "pcp_viewer",
+    label: "Primary care provider",
+    landing: "/pcp",
+    sees: "A monthly structured status for their own patients: engaged or not, measure direction, open recommendation",
+    cannotSee: "Free text, alerts, content details, or anyone who is not their patient",
+  },
+] as const;
+
+const ALL_ROLE_CARDS: readonly DemoRole[] = [...DEMO_ROLES, ...PARTNER_ROLES];
+
 export function landingFor(role: Role): string {
-  return DEMO_ROLES.find((r) => r.role === role)?.landing ?? "/app/today";
+  return ALL_ROLE_CARDS.find((r) => r.role === role)?.landing ?? "/app/today";
 }
 
 export function labelFor(role: Role): string {
-  return DEMO_ROLES.find((r) => r.role === role)?.label ?? role;
+  return ALL_ROLE_CARDS.find((r) => r.role === role)?.label ?? role;
 }
 
 // ---------------------------------------------------------------------------
@@ -144,16 +168,19 @@ export function isAggregateRole(role: Role): boolean {
 export type Grant = "no" | "own" | "assigned" | "subset" | "aggregate" | "yes";
 
 export const PERMISSIONS: Record<string, Record<Role, Grant>> = {
-  own_person_view:  { member: "own", clinician: "assigned", reviewer: "subset",    organization: "no",        payer: "no",        demo_admin: "yes" },
-  clinician_queue:  { member: "no",  clinician: "assigned", reviewer: "subset",    organization: "no",        payer: "no",        demo_admin: "yes" },
-  safety_replay:    { member: "own", clinician: "assigned", reviewer: "yes",       organization: "no",        payer: "no",        demo_admin: "yes" },
-  aggregate_metrics:{ member: "own", clinician: "assigned", reviewer: "subset",    organization: "aggregate", payer: "aggregate", demo_admin: "yes" },
-  cost_model:       { member: "no",  clinician: "no",       reviewer: "no",        organization: "aggregate", payer: "aggregate", demo_admin: "yes" },
-  fairness_audit:   { member: "no",  clinician: "subset",   reviewer: "yes",       organization: "aggregate", payer: "aggregate", demo_admin: "yes" },
-  planning_review:  { member: "no",  clinician: "subset",   reviewer: "yes",       organization: "subset",    payer: "subset",    demo_admin: "yes" },
-  seed_manifest:    { member: "no",  clinician: "no",       reviewer: "subset",    organization: "no",        payer: "no",        demo_admin: "yes" },
-  reset_data:       { member: "no",  clinician: "no",       reviewer: "no",        organization: "no",        payer: "no",        demo_admin: "yes" },
-  credential_config:{ member: "no",  clinician: "no",       reviewer: "no",        organization: "no",        payer: "no",        demo_admin: "subset" },
+  own_person_view:  { member: "own", clinician: "assigned", reviewer: "subset",    organization: "no",        payer: "no",        demo_admin: "yes", pcp_viewer: "no" },
+  clinician_queue:  { member: "no",  clinician: "assigned", reviewer: "subset",    organization: "no",        payer: "no",        demo_admin: "yes", pcp_viewer: "no" },
+  safety_replay:    { member: "own", clinician: "assigned", reviewer: "yes",       organization: "no",        payer: "no",        demo_admin: "yes", pcp_viewer: "no" },
+  aggregate_metrics:{ member: "own", clinician: "assigned", reviewer: "subset",    organization: "aggregate", payer: "aggregate", demo_admin: "yes", pcp_viewer: "no" },
+  cost_model:       { member: "no",  clinician: "no",       reviewer: "no",        organization: "aggregate", payer: "aggregate", demo_admin: "yes", pcp_viewer: "no" },
+  fairness_audit:   { member: "no",  clinician: "subset",   reviewer: "yes",       organization: "aggregate", payer: "aggregate", demo_admin: "yes", pcp_viewer: "no" },
+  planning_review:  { member: "no",  clinician: "subset",   reviewer: "yes",       organization: "subset",    payer: "subset",    demo_admin: "yes", pcp_viewer: "no" },
+  seed_manifest:    { member: "no",  clinician: "no",       reviewer: "subset",    organization: "no",        payer: "no",        demo_admin: "yes", pcp_viewer: "no" },
+  reset_data:       { member: "no",  clinician: "no",       reviewer: "no",        organization: "no",        payer: "no",        demo_admin: "yes", pcp_viewer: "no" },
+  credential_config:{ member: "no",  clinician: "no",       reviewer: "no",        organization: "no",        payer: "no",        demo_admin: "subset", pcp_viewer: "no" },
+  // Handoff 11 W7: the primary-care monthly status. Own patients only; the
+  // projection that serves it carries no free text, no alert, no content.
+  pcp_summary:      { member: "no",  clinician: "no",       reviewer: "no",        organization: "no",        payer: "no",        demo_admin: "yes", pcp_viewer: "assigned" },
 };
 
 /** Whether a role has any grant at all on a capability. The SHAPE of the grant

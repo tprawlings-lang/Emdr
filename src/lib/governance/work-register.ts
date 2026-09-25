@@ -1167,6 +1167,35 @@ export const WORK_REGISTER: WorkEntry[] = [
       "and no companion file names either function. Web and mobile.",
   },
   {
+    id: "platform.evaluation-tenant",
+    title: "An evaluation tenant: one config file, a banner on every screen, and PHI fields locked by the database",
+    state: "reachable",
+    code: "src/lib/tenants/phi.ts#phiLockTriggersSqlite",
+    test: "tests/evaluation-tenant.test.ts",
+    note:
+      "Handoff 11 package 1. The partner's settings are one file under src/lib/tenants, and a test refuses " +
+      "the partner's name anywhere else in src. tenants.mode mirrors the config so the database can read it. " +
+      "The PHI lock is a trigger per field (date of birth, external record number, the safe person's name " +
+      "and contact), generated from one list for SQLite and written for Postgres, created after the table " +
+      "rebuilds that would drop it; test:rls proves it on a real Postgres cluster. The onboarding form and " +
+      "the mobile API do not send those fields in an evaluation tenant. pcp_viewer is a partner role, kept " +
+      "out of the public handoff-07 personas, with no grant but its own summary; its page says the summary " +
+      "is not built yet. Care managers sign in as clinicians and hold care_manager on their patients: the " +
+      "handoff maps them to care_manager, which in this codebase is a care relationship, not a login.",
+  },
+  {
+    id: "platform.pg-role-constraints-stale",
+    title: "The Postgres schema's role constraints predate the demo roles",
+    state: "proposed",
+    code: null,
+    test: null,
+    note:
+      "Found in Handoff 11 package 1, not fixed in passing. scripts/pg-schema.sql still allows users.role " +
+      "'member', 'clinician' and the retired 'admin', and role_assignments the same plus care_manager; SQLite " +
+      "has organization, payer, reviewer, demo_admin and now pcp_viewer. Part of the Postgres cutover: until " +
+      "then every account but a member or clinician would be refused there.",
+  },
+  {
     id: "clinical.assigned-lane",
     title: "The clinician-assigned lane: built ahead of its gate, absent outside the demo, no protocol content",
     state: "reachable",

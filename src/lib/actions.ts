@@ -610,6 +610,8 @@ export async function saveReadinessAssessment(formData: FormData) {
 
 export async function saveSafetyPlan(formData: FormData) {
   const user = await requireMember();
+  const { isEvaluationTenant } = await import("./tenants");
+  const phiLocked = isEvaluationTenant(user.tenantId);
   const tools = formData.getAll("tool").map(String).slice(0, 15);
   const custom = String(formData.get("custom_tool") ?? "").trim();
   if (custom) tools.push(custom.slice(0, 100));
@@ -626,8 +628,9 @@ export async function saveSafetyPlan(formData: FormData) {
        careful_topics=excluded.careful_topics,
        updated_at=CURRENT_TIMESTAMP`, [user.id,
     JSON.stringify(tools),
-    String(formData.get("contact_name") ?? "").slice(0, 100) || null,
-    String(formData.get("contact_method") ?? "").slice(0, 100) || null,
+    // Handoff 11: never sent in an evaluation tenant, whose database refuses them.
+    phiLocked ? null : String(formData.get("contact_name") ?? "").slice(0, 100) || null,
+    phiLocked ? null : String(formData.get("contact_method") ?? "").slice(0, 100) || null,
     encryptField(String(formData.get("reminder") ?? "").slice(0, 300) || null),
     encryptField(String(formData.get("stop_signs") ?? "").slice(0, 500) || null),
     encryptField(String(formData.get("careful_topics") ?? "").slice(0, 500) || null)]);
@@ -1483,8 +1486,8 @@ export async function recordRuleSignoff(formData: FormData) {
   // content live, so a verdict on a mistyped id must not land anywhere.
   const { RULES, SESSION_RULES, EXPERIENCE_RULES } = await import("./safety");
   const { THERAPY_KB_RULES } = await import("./therapy-kb");
-  const { CONTENT_V10_RULES } = await import("./content-signoff");
-  const known = [...RULES, ...SESSION_RULES, ...EXPERIENCE_RULES, ...THERAPY_KB_RULES, ...CONTENT_V10_RULES];
+  const { CONTENT_RULES } = await import("./content-signoff");
+  const known = [...RULES, ...SESSION_RULES, ...EXPERIENCE_RULES, ...THERAPY_KB_RULES, ...CONTENT_RULES];
   if (!known.some((r) => r.id === ruleId)) redirect(back);
 
   const { SAFETY_CONFIG_VERSION } = await import("./safety/governance");

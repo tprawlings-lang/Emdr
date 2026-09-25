@@ -3,7 +3,7 @@ import { Panel } from "@/components/app/surfaces";
 import { requireReviewAccess } from "@/lib/auth";
 import { recordRuleSignoff } from "@/lib/actions";
 import { getRuleSignoffs } from "@/lib/safety/signoff";
-import { CONTENT_V10_RULES, draftsVisible, rowApproved } from "@/lib/content-signoff";
+import { CONTENT_RULES, draftsVisible, rowApproved } from "@/lib/content-signoff";
 import { CONTENT_V10_APPROVAL } from "@/lib/content-approval";
 import { contentUsingRow } from "@/lib/content-registry";
 
@@ -43,7 +43,7 @@ export default async function ReviewContentPage() {
           a row can still be sent back.
         </p>
         <ul className="mt-4 space-y-3">
-          {CONTENT_V10_RULES.map((r) => {
+          {CONTENT_RULES.map((r) => {
             // The table's latest verdict wins; otherwise the signed record.
             const verdict = signoffs.get(r.id)?.verdict;
             const live = rowApproved(r.id, signoffs);

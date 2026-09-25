@@ -1627,6 +1627,27 @@ export const ACCESS_INVENTORY: AccessInventory = {
       "exempt": []
     },
     {
+      "path": "/pcp",
+      "audience": "pcp_viewer",
+      "file": "app/pcp/page.tsx",
+      "owed": [
+        1,
+        2,
+        5
+      ],
+      "found": {
+        "1": [
+          "requireUser("
+        ],
+        "2": [],
+        "5": []
+      },
+      "missing": [
+        2
+      ],
+      "exempt": []
+    },
+    {
       "path": "/clinician/referrals",
       "audience": "clinician",
       "file": "app/clinician/referrals/page.tsx",
@@ -3758,11 +3779,11 @@ export const ACCESS_INVENTORY: AccessInventory = {
       "exempt": []
     }
   ],
-  "protectedCount": 134,
+  "protectedCount": 135,
   "complete": 134,
   "gapsByStep": {
     "1": 0,
-    "2": 0,
+    "2": 1,
     "3": 0,
     "4": 0,
     "5": 0,

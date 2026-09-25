@@ -1149,6 +1149,162 @@ export const DECISION_REGISTER: Decision[] = [
     state: "open",
     asked: "2026-09-25",
   },
+  // ---- Handoff 11 §6: questions for evolvedMD. They set the evaluation
+  // tenant's settings (src/lib/tenants); asked of the partner, not the clinicians.
+  {
+    id: "partner.registry-and-export",
+    question: "For the partner: which registry and EHR systems do your teams use, and which columns should the PHQ-9 and GAD-7 export have?",
+    audience: "product",
+    blocks: [],
+    meanwhile: "The export is a file in the evaluation (CSV, and FHIR Observations coded with LOINC 44261-6 and 70274-6), in a generic column layout until the partner's is known.",
+    options: [
+      {
+        label: "Send your column layout",
+        plainly: "The CSV matches what your registry imports, column for column.",
+        then: "The export's columns change to yours.",
+        recommended: true,
+      },
+      {
+        label: "Use the generic layout",
+        plainly: "One row per measure: patient reference, instrument, date, total score, change from baseline.",
+        then: "Nothing changes.",
+      },
+    ],
+    state: "open",
+    asked: "2026-09-25",
+  },
+  {
+    id: "partner.measure-cadence",
+    question: "For the partner: how often should members complete the PHQ-9 and GAD-7 between visits?",
+    audience: "product",
+    blocks: [],
+    meanwhile: "Every 14 days, and before each visit, as the handoff proposes.",
+    options: [
+      {
+        label: "Every 14 days and before visits",
+        plainly: "The handoff's proposal: often enough to see a trend, not so often it becomes a chore.",
+        then: "Nothing changes.",
+        recommended: true,
+      },
+      {
+        label: "Another cadence",
+        plainly: "Name the number of days, and whether to add one before each visit.",
+        then: "The cadence in the tenant's settings changes.",
+      },
+    ],
+    state: "open",
+    asked: "2026-09-25",
+  },
+  {
+    id: "partner.treat-to-target",
+    question: "For the partner: which treat-to-target thresholds do your consultants use?",
+    audience: "product",
+    blocks: [],
+    meanwhile: "Response is a 50% drop in PHQ-9; remission is PHQ-9 below 5; a patient not responding by week 10 goes to consultant review.",
+    options: [
+      {
+        label: "Keep those thresholds",
+        plainly: "The collaborative care defaults the handoff proposes.",
+        then: "Nothing changes.",
+        recommended: true,
+      },
+      {
+        label: "Your own thresholds",
+        plainly: "Name the response drop, the remission score and the review week you use.",
+        then: "The thresholds in the tenant's settings change.",
+      },
+    ],
+    state: "open",
+    asked: "2026-09-25",
+  },
+  {
+    id: "partner.care-team-contact",
+    question: "For the partner: what care-team contact and hours should members see, and who should receive alerts?",
+    audience: "product",
+    blocks: [],
+    meanwhile: "Members see 988 and SOS only; no care-team contact is shown until you supply one. In the evaluation, alerts go to a test inbox, never to a real phone.",
+    options: [
+      {
+        label: "Supply a contact and hours",
+        plainly: "A number and the hours it is answered, shown beside 988, never with a promised response time.",
+        then: "Members see your contact; alerts route to the people you name, once live.",
+        recommended: true,
+      },
+      {
+        label: "Show 988 and SOS only",
+        plainly: "No care-team contact is shown to members.",
+        then: "Nothing changes.",
+      },
+    ],
+    state: "open",
+    asked: "2026-09-25",
+  },
+  {
+    id: "partner.most-used-interventions",
+    question: "For the partner: which interventions do your behavioral health managers use most, and do you have worksheets to load?",
+    audience: "product",
+    blocks: [],
+    meanwhile: "Assignable today: Steady's signed skills, programs and lessons, and member thought records; a problem-solving module is drafted for your review, and your own worksheets can be loaded into protocol slots.",
+    options: [
+      {
+        label: "Tell us your top interventions",
+        plainly: "Behavioral activation, problem solving, CBT skills or others, in the order your teams use them.",
+        then: "The assign menu is ordered to match, and your worksheets are loaded into slots.",
+        recommended: true,
+      },
+      {
+        label: "Use Steady's catalog as it is",
+        plainly: "The signed content, in its current order.",
+        then: "Nothing changes.",
+      },
+    ],
+    state: "open",
+    asked: "2026-09-25",
+  },
+  {
+    id: "partner.pcp-view",
+    question: "For the partner: do you want primary care providers to have a view of their own patients in Steady at all?",
+    audience: "product",
+    blocks: [],
+    meanwhile: "The primary care role exists and sees nothing yet; the monthly summary is built later in this build.",
+    options: [
+      {
+        label: "Yes, the monthly summary",
+        plainly: "Each patient's engagement, measure direction and any open consultant recommendation, and nothing else.",
+        then: "The summary is built as the handoff describes.",
+        recommended: true,
+      },
+      {
+        label: "No primary care view",
+        plainly: "Primary care providers do not get accounts.",
+        then: "The role and its page are removed from the evaluation tenant.",
+      },
+    ],
+    state: "open",
+    asked: "2026-09-25",
+  },
+  {
+    id: "partner.pilot-sites",
+    question: "For the partner: which sites or states would the eventual pilot use, and are the virtual Northeast sites the better first fit?",
+    audience: "product",
+    blocks: [],
+    meanwhile: "The evaluation seeds generic site names across AZ, MA, NH and ME; nothing depends on the answer until a pilot is planned.",
+    options: [
+      {
+        label: "Virtual Northeast sites first",
+        plainly: "Largely virtual care, which fits a between-visit app most naturally.",
+        then: "Pilot planning starts with MA, NH and ME virtual sites.",
+        recommended: true,
+      },
+      {
+        label: "Name the sites",
+        plainly: "Tell us which sites and states you would start with.",
+        then: "Pilot planning starts there.",
+      },
+    ],
+    state: "open",
+    asked: "2026-09-25",
+  },
 ];
 
 export const OPEN_DECISIONS = DECISION_REGISTER.filter((d) => d.state === "open");

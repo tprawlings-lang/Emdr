@@ -15,13 +15,15 @@ import path from "node:path";
 import { chromium } from "playwright";
 
 import { DECISION_REGISTER, type Decision } from "../src/lib/governance/decision-register";
-import { CONTENT_V10_RULES } from "../src/lib/content-signoff";
+import { CONTENT_RULES } from "../src/lib/content-signoff";
 import { CONTENT_V10_APPROVAL } from "../src/lib/content-approval";
 import { THERAPY_KB_RULES } from "../src/lib/therapy-kb/signoff";
 import { LANE_MODULES, DISTRESS_CEILING_FLAG, DISTRESS_RISE_FLAG } from "../src/lib/content/h10-assigned-lane";
 
 const DATE = "2026-09-25";
-const REF = "STEADY-CLINREV-2026-09-25-10F";
+// Version 2 adds Handoff 11 (the evolvedMD evaluation build): rows CV11_01 to
+// CV11_05 and its questions for evolvedMD. It supersedes version 1 of the same day.
+const REF = "STEADY-CLINREV-2026-09-25-10F-v2";
 const OUT = path.join(process.cwd(), `docs/approvals/handoff-10-followup-worksheet-${DATE}.pdf`);
 
 const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
@@ -84,7 +86,7 @@ function signature(who: string, lines: string[]): string {
 }
 
 const rule = (id: string) => {
-  const r = CONTENT_V10_RULES.find((x) => x.id === id);
+  const r = CONTENT_RULES.find((x) => x.id === id);
   if (!r) throw new Error(`row ${id} is missing`);
   return r.reason;
 };
@@ -115,6 +117,11 @@ const partA = [
   ...CONTENT_V10_APPROVAL.interpretations.map((t, i) =>
     confirmItem(`How the 24 September sheet was read (${i + 1} of ${CONTENT_V10_APPROVAL.interpretations.length})`, t, ["That is what we meant", "We meant something else (say what)"])
   ),
+  `<h3>A4. Handoff 11 (the evolvedMD evaluation build): rows for you</h3>
+   <p class="lede">Handoff 11 names you as reviewers of these three. None is built yet; each says what will be.</p>`,
+  rowItem("CV11_02", rule("CV11_02"), "Not built yet (Handoff 11 package 3). Until this row is approved, nothing a member writes reaches the care team, which is today's rule."),
+  rowItem("CV11_03", rule("CV11_03"), "Not written yet (package 11). Steady will draft it for this row; it stays in the demo and evaluation tenant, marked pending review, until approved."),
+  rowItem("CV11_05", rule("CV11_05"), "Not built yet (package 6). The prompt's wording will be added to this row before it is shown to anyone."),
   signature("Part A sign-off", ["Rebecca Altschuler, PhD (AZ PSY-005804)", "John Allen, PhD (AZ PSY-002055)"]),
 ].join("\n");
 
@@ -133,11 +140,14 @@ const BUILT: Record<string, string> = {
 const PARTNER_QUESTIONS = DECISION_REGISTER.filter((d) => d.id.startsWith("partner.") && d.state === "open");
 
 const partB = [
-  `<h2 class="break">Part B — For the partner's clinical lead (Lane E, Phase 3)</h2>
+  `<h2 class="break">Part B — For evolvedMD's clinical lead (Lane E, and Handoff 11)</h2>
    <p class="lede">The clinician-assigned lane was built ahead of its gate on the product owner's instruction (25 September) so a team can review and test it. It is not live: outside the demo it does not exist until these rows are approved. This part is for the clinical lead of the provider partner who will assign and review, not for Part A's reviewers.</p>
    <h3>B1. Rows</h3>`,
   ...["CV10_E01", "CV10_E02", "CV10_E03", "CV10_E04", "CV10_E05"].map((id) => rowItem(id, rule(id), BUILT[id])),
-  `<h3>B2. Questions</h3>`,
+  `<h3>B2. Handoff 11 rows</h3>`,
+  rowItem("CV11_01", rule("CV11_01"), "Not built yet (Handoff 11 package 4). The rules are written into this row as the handoff gives them; confirm or change them before they sort anyone's queue."),
+  rowItem("CV11_04", rule("CV11_04"), "Not built yet (package 8). Today the member's crisis path is 988 and SOS; no care-team contact is shown until you supply one (question below)."),
+  `<h3>B3. Questions</h3>`,
   ...PARTNER_QUESTIONS.map((d) => decisionItem(d, false, 1)),
   signature("Part B sign-off", ["Partner clinical lead (name, credentials, licence)"]),
 ].join("\n");
@@ -179,9 +189,9 @@ const html = `<!doctype html><html><head><meta charset="utf-8"><title>Handoff 10
   .sig { margin-top: 14pt; page-break-inside: avoid; } .sigrow { display: flex; gap: 8pt; align-items: flex-end; margin: 14pt 0; }
   .sl { flex: 1; border-bottom: 1px solid #1F2933; } .sd { width: 90pt; border-bottom: 1px solid #1F2933; }
 </style></head><body>
-<h1>Steady — Handoff 10 follow-up: clinical questions and sign-off</h1>
+<h1>Steady — Handoff 10 and 11: clinical questions and sign-off</h1>
 <p class="meta">Reference ${REF} · Prepared ${DATE} · Follows ${CONTENT_V10_APPROVAL.reference} · Generated from the app's registers by scripts/gen-h10-followup-worksheet.ts</p>
-<p class="lede">Three parts, for three different people. Part A is for the two psychologists who signed the 24 September review. Part B is for a provider partner's clinical lead, when there is one. Part C is the founder's. Mark one option per item, add notes, initial, and sign at the end of your part.</p>
+<p class="lede">Three parts, for three different people. Part A is for the two psychologists who signed the 24 September review. Part B is for evolvedMD's clinical lead (Handoff 11 names evolvedMD as the partner). Part C is the founder's. Mark one option per item, add notes, initial, and sign at the end of your part.</p>
 ${partA}
 ${partB}
 ${partC}

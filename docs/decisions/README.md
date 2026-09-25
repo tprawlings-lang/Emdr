@@ -15,6 +15,13 @@ One sheet per question. Each says what the product does in the meantime, so a qu
 | Clinical lead | For the partner's clinical lead: how long is writing from a clinician-assigned practice kept, and may the person delete it themselves? | [`partner.assigned-writing-retention`](./partner.assigned-writing-retention.md) |
 | Clinical lead | For the partner's clinical lead: the signed lane rule flags the assigning clinician when distress after a practice is 3 or more above distress before, or above 7. Are those the right levels, and should a practice the person stopped be flagged by the same rule? | [`partner.distress-flag-levels`](./partner.distress-flag-levels.md) |
 | Clinical lead | For the partner's clinical lead: the three practices need names a person reads and a length. The handoff names one, "Written exposure (clinician-assigned)". Are "Worksheets (clinician-assigned)" and "Nightmare rehearsal (clinician-assigned)", at about 30, 20 and 20 minutes, right? | [`partner.lane-titles-and-lengths`](./partner.lane-titles-and-lengths.md) |
+| Product owner | For the partner: which registry and EHR systems do your teams use, and which columns should the PHQ-9 and GAD-7 export have? | [`partner.registry-and-export`](./partner.registry-and-export.md) |
+| Product owner | For the partner: how often should members complete the PHQ-9 and GAD-7 between visits? | [`partner.measure-cadence`](./partner.measure-cadence.md) |
+| Product owner | For the partner: which treat-to-target thresholds do your consultants use? | [`partner.treat-to-target`](./partner.treat-to-target.md) |
+| Product owner | For the partner: what care-team contact and hours should members see, and who should receive alerts? | [`partner.care-team-contact`](./partner.care-team-contact.md) |
+| Product owner | For the partner: which interventions do your behavioral health managers use most, and do you have worksheets to load? | [`partner.most-used-interventions`](./partner.most-used-interventions.md) |
+| Product owner | For the partner: do you want primary care providers to have a view of their own patients in Steady at all? | [`partner.pcp-view`](./partner.pcp-view.md) |
+| Product owner | For the partner: which sites or states would the eventual pilot use, and are the virtual Northeast sites the better first fit? | [`partner.pilot-sites`](./partner.pilot-sites.md) |
 
 ## Answered, and still waiting on something
 

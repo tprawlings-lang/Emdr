@@ -6,6 +6,7 @@ import "./globals.css";
 import SosMount from "@/components/SosMount";
 import { ReviewGuide } from "@/components/ReviewGuide";
 import { SkipLink } from "@/components/experience/SkipLink";
+import { evaluationBannerFor } from "@/lib/tenants";
 
 // ONE FAMILY, TWO WEIGHTS (Expansion Handoff §8.3, approved 24 September).
 // Atkinson Hyperlegible Next was drawn by the Braille Institute so that the
@@ -45,6 +46,18 @@ export const metadata: Metadata = {
  *  So it asks. Fabricated stays the default when the lookup finds nothing:
  *  every seeded person has a row, so an absent one is a failed query rather
  *  than evidence about a human being. */
+async function EvaluationBanner() {
+  const user = await getCurrentUser().catch(() => null);
+  const text = evaluationBannerFor(user?.tenantId);
+  if (!text) return null;
+  return (
+    <div role="note" aria-label="Evaluation environment notice" data-testid="evaluation-banner"
+      className="bg-state-caution-bg px-4 py-2 text-center text-sm font-semibold text-ground">
+      {text}
+    </div>
+  );
+}
+
 async function PersonaIndicator() {
   const user = await getCurrentUser().catch(() => null);
   if (!user) return null;
@@ -168,6 +181,12 @@ export default function RootLayout({
             </details>
           </div>
         )}
+        {/* Handoff 11: every screen in an evaluation tenant says so, in the
+            handoff's words, and it cannot be dismissed. Tenant-scoped, so it
+            shows after sign-in, for the evaluation tenant's accounts only. */}
+        <Suspense fallback={null}>
+          <EvaluationBanner />
+        </Suspense>
         {/* The guided review strip. Renders only for someone holding a review
             grant, so it is scaffolding for reviewing the product rather than
             part of it. */}

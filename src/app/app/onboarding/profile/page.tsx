@@ -2,6 +2,7 @@ import Link from "next/link";
 import { MemberPage } from "@/components/member/MemberPage";
 import { redirect } from "next/navigation";
 import { requireMember } from "@/lib/auth";
+import { isEvaluationTenant } from "@/lib/tenants";
 import { buildMemberDay, DAY_MESSAGE } from "@/lib/member/view";
 import { hasConsent, screeningComplete } from "@/lib/gating";
 import { subscriptionActive } from "@/lib/billing";
@@ -146,6 +147,9 @@ export default async function ProfileOnboardingPage({
   searchParams: Promise<{ step?: string }>;
 }) {
   const user = await requireMember();
+  // Handoff 11: in an evaluation tenant the safe person's name and contact are
+  // PHI fields, locked at the database. Said here, before anyone types one.
+  const phiLocked = isEvaluationTenant(user.tenantId);
   if (!(await subscriptionActive(user.id))) redirect("/subscribe");
   if (!(await hasConsent(user.id))) redirect("/app/onboarding");
   if (!(await screeningComplete(user.id))) redirect("/app/screening");
@@ -486,15 +490,23 @@ export default async function ProfileOnboardingPage({
           </fieldset>
           <fieldset className="mt-7 rounded-3xl border border-ground/10 bg-linen p-5 shadow-soft">
             <legend className="px-1 font-medium">Who can you contact if you need support?</legend>
+            {phiLocked && (
+              <p className="mt-2 text-sm text-olive">
+                Not collected in the evaluation environment: this is where a real person&apos;s
+                name and number would go, and there are no real people here.
+              </p>
+            )}
             <div className="mt-2 grid gap-3 sm:grid-cols-2">
               <input
                 type="text"
+                disabled={phiLocked}
                 name="contact_name"
                 placeholder="Name and relationship"
                 className="rounded-2xl border border-ground/15 bg-ivory px-4 py-2.5 text-sm focus:border-sage focus:outline-none"
               />
               <input
                 type="text"
+                disabled={phiLocked}
                 name="contact_method"
                 placeholder="Phone number or contact method"
                 className="rounded-2xl border border-ground/15 bg-ivory px-4 py-2.5 text-sm focus:border-sage focus:outline-none"

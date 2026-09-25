@@ -369,6 +369,11 @@ export async function saveSafetyPlanMobile(userId: string, b: {
   reminder?: string; stopSigns?: string; carefulTopics?: string;
 }) {
   const c = await data();
+  // Handoff 11: the safe person's name and contact are PHI fields, refused by
+  // the database in an evaluation tenant, so they are not sent there.
+  const tenant = (await c.get("SELECT tenant_id FROM users WHERE id = ?", [userId])) as { tenant_id: string } | undefined;
+  const { isEvaluationTenant } = await import("../tenants");
+  const phiLocked = isEvaluationTenant(tenant?.tenant_id);
   await c.run(
     `INSERT INTO safety_plans
        (user_id, grounding_tools_json, support_contact_name, support_contact_method, reminder_phrase, stop_signs, careful_topics)
@@ -380,7 +385,8 @@ export async function saveSafetyPlanMobile(userId: string, b: {
        reminder_phrase=excluded.reminder_phrase, stop_signs=excluded.stop_signs,
        careful_topics=excluded.careful_topics, updated_at=CURRENT_TIMESTAMP`,
     [userId, JSON.stringify((b.tools ?? []).slice(0, 15)),
-     (b.contactName ?? "").slice(0, 100) || null, (b.contactMethod ?? "").slice(0, 100) || null,
+     phiLocked ? null : (b.contactName ?? "").slice(0, 100) || null,
+     phiLocked ? null : (b.contactMethod ?? "").slice(0, 100) || null,
      encryptField((b.reminder ?? "").slice(0, 300) || null),
      encryptField((b.stopSigns ?? "").slice(0, 500) || null),
      encryptField((b.carefulTopics ?? "").slice(0, 500) || null)]

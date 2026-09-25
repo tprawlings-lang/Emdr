@@ -116,6 +116,8 @@ const PROJECTIONS: Record<Role, string[]> = {
   organization: ["org_metrics.v2", "org_locations.v1"],
   payer: ["payer_metrics.v2", "cost_model.v1", "contract_report.v1"],
   demo_admin: ["*"],
+  // Handoff 11 W7. Nothing else, ever.
+  pcp_viewer: ["pcp_summary.v1"],
 };
 
 async function currentEpochAndTenant(userId: string): Promise<{ epoch: number; tenantId: string; role: Role }> {
@@ -316,6 +318,14 @@ export async function requireOrganization(): Promise<SessionUser> {
 export async function requirePayer(): Promise<SessionUser> {
   const user = await requireUser();
   if (user.role !== "payer" && user.role !== "demo_admin") denyScope(user.role, "payer_scope");
+  return user;
+}
+
+/** A primary care provider in a partner's evaluation tenant (Handoff 11 §1).
+ *  Only this role, and demo admin for support: the PCP summary is theirs. */
+export async function requirePcpViewer(): Promise<SessionUser> {
+  const user = await requireUser();
+  if (user.role !== "pcp_viewer" && user.role !== "demo_admin") denyScope(user.role, "pcp_scope");
   return user;
 }
 

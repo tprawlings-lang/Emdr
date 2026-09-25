@@ -105,7 +105,9 @@ export type Audience =
   | "payer"
   | "reviewer"
   | "demo_admin"
-  | "investor";
+  | "investor"
+  /** Handoff 11: a primary care provider in a partner's evaluation tenant. */
+  | "pcp_viewer";
 
 /**
  * The workspace that owns the route.
@@ -129,7 +131,9 @@ export type Workspace =
   | "org_console"
   | "payer_console"
   | "review_console"
-  | "demo_ops";
+  | "demo_ops"
+  /** Handoff 11 W7: the primary-care monthly summary. */
+  | "pcp_console";
 
 /**
  * Who is accountable for a workspace, in the vocabulary the release gates
@@ -157,6 +161,7 @@ export const WORKSPACE_OWNER: Record<Workspace, string> = {
   payer_console: "Data and product",
   review_console: "Product and QA",
   demo_ops: "Product and QA",
+  pcp_console: "Clinical",
 };
 
 export interface RouteEntry {
@@ -279,6 +284,7 @@ export const ROUTE_REGISTER: RouteEntry[] = [
   { path: "/clinician/reports", audience: "clinician", job: "Read an aggregate report about their own work.", workspace: "clinician_reports", state: "working" },
   { path: "/clinician/unlocks", audience: "clinician", job: "Answer a member's request to open a gated module.", workspace: "command_center", state: "working", evidence: "The decision half of a workflow that had a table, events and a pending count on the caseload and no screen at either end. Tenant-scoped; a reason is required and the member reads it on their own modules screen. An unlock relaxes this gate only — the daily check-in, cooldown, per-day cap and kill switch still hold." },
   { path: "/clinician/handoffs", audience: "clinician", job: "Hand a person over to another clinician.", workspace: "command_center", state: "working", evidence: "A transfer is proposed, then accepted, declined or withdrawn — and accountability moves only on acceptance, so an unanswered proposal leaves the sender holding the person. Nobody is notified: there is no delivery path in this build, and every state says so." },
+  { path: "/pcp", audience: "pcp_viewer", job: "See each of my patients' monthly status: engaged, measure direction, open recommendation.", workspace: "pcp_console", state: "unavailable", evidence: "Handoff 11: the role, its guard and this landing exist (package 1); the monthly summary is W7 (package 7) and needs the evaluation caseload (package 2) to have anything to show." },
   { path: "/clinician/referrals", audience: "clinician", job: "Refer a person out.", workspace: "command_center", state: "unavailable", evidence: "STALE UNTIL NOW: this said no referral capability existed at all, after the packet compiler had shipped. What is missing is narrower — the packet is assembled and the member can read it, but there is no eligibility check, no wait clock and no destination, and no consent scope in this product authorises sending a record outside it. A referral queue with no wait clock reports movement it cannot measure, which is the one figure the screen exists to make visible." },
   { path: "/clinician/messages", audience: "clinician", job: "Message a member.", workspace: "command_center", state: "unavailable", evidence: "No message store, thread or delivery path. Confirmed by source reading in the Astra review. §1.1: omitted from primary navigation." },
   { path: "/clinician/schedule", audience: "clinician", job: "See and change appointments.", workspace: "command_center", state: "unavailable", evidence: "No scheduling model exists. Confirmed by source reading in the Astra review. §1.1: omitted from primary navigation." },

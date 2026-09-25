@@ -98,7 +98,9 @@ test("the seeded database holds exactly one account per role, and no `admin`", a
   const byRole = Object.fromEntries(rows.map((r) => [r.role, Number(r.n)]));
 
   assert.equal(byRole.admin, undefined, "an `admin` account survived the migration");
-  for (const r of ROLES) {
+  // The handoff-07 personas. A partner tenant's roles (Handoff 11's
+  // pcp_viewer) are seeded by that tenant's own seed and tested there.
+  for (const r of DEMO_ROLES.map((d) => d.role)) {
     assert.ok((byRole[r] ?? 0) >= 1, `no seeded account holds the ${r} role`);
   }
   // p7: "do not use one account with a mutable role claim." The two aggregate

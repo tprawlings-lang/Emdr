@@ -9,6 +9,7 @@ import { seedPayerData, PAYER_TENANT_ID } from "./demo-payer-seed";
 import { seedPopulationData, seedOperationalFeeds, orgTenantId } from "./demo-population-seed";
 import { seedReviewConsole } from "./demo-review-seed";
 import { seedClinicianThoughts } from "./demo-thoughts-seed";
+import { phiLockTriggersSqlite } from "./tenants/phi";
 import {
   generatePopulationHistory, backfillPlanVersions, backfillFunctionMeasure,
 } from "./demo-population-generator";
@@ -237,7 +238,7 @@ export const SCHEMA_SQL = `
     id TEXT PRIMARY KEY,
     email TEXT UNIQUE NOT NULL,
     name TEXT NOT NULL,
-    role TEXT NOT NULL CHECK (role IN ('member','clinician','reviewer','organization','payer','demo_admin')),
+    role TEXT NOT NULL CHECK (role IN ('member','clinician','reviewer','organization','payer','demo_admin','pcp_viewer')),
     password_hash TEXT NOT NULL,
     status TEXT NOT NULL DEFAULT 'active',
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
@@ -955,6 +956,9 @@ export const SCHEMA_SQL = `
     name TEXT NOT NULL,
     parent_tenant_id TEXT REFERENCES tenants(id),
     status TEXT NOT NULL DEFAULT 'active',
+    -- Handoff 11: 'evaluation' locks PHI fields at the database (the triggers
+    -- below). Mirrors src/lib/tenants, which is the source of truth.
+    mode TEXT NOT NULL DEFAULT 'standard' CHECK (mode IN ('standard','evaluation')),
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
   );
 
@@ -1011,7 +1015,7 @@ export const SCHEMA_SQL = `
     id TEXT PRIMARY KEY,
     person_id TEXT NOT NULL REFERENCES persons(id),
     tenant_id TEXT NOT NULL REFERENCES tenants(id),
-    role TEXT NOT NULL CHECK (role IN ('member','clinician','care_manager','reviewer','organization','payer','demo_admin')),
+    role TEXT NOT NULL CHECK (role IN ('member','clinician','care_manager','reviewer','organization','payer','demo_admin','pcp_viewer')),
     scope TEXT,
     effective_from TEXT NOT NULL DEFAULT (datetime('now')),
     effective_to TEXT,
@@ -2574,6 +2578,8 @@ function migrate(db: Database.Database) {
   ensureColumn(db, "checkins", "triggers_json", "TEXT NOT NULL DEFAULT '[]'");
   // Date of birth for the 18+ gate at account creation (compliance 4A.7).
   ensureColumn(db, "users", "dob", "TEXT");
+  ensureColumn(db, "tenants", "mode", "TEXT NOT NULL DEFAULT 'standard'");
+
   // Clinician override: a specialist may open a gated module ahead of the
   // program's pacing (prerequisites + readiness). Daily safety gates still hold.
   ensureColumn(db, "module_unlocks", "override", "INTEGER NOT NULL DEFAULT 0");
@@ -2641,6 +2647,10 @@ function migrate(db: Database.Database) {
   widenRoleCheck(db);
   widenThoughtStatusCheck(db);
   addFingerprintEvidenceTenant(db);
+  // Handoff 11: the PHI lock, generated from src/lib/tenants/phi.ts. After the
+  // columns it names exist AND after the rebuilds above, which drop a rebuilt
+  // table's triggers — so an older database gets the lock too.
+  db.exec(phiLockTriggersSqlite());
 
   // The care-time correction columns (expansion handoff 03 §13, Phase 6). The
   // table shipped in Phase 1 without them, and CREATE TABLE IF NOT EXISTS
@@ -3034,10 +3044,11 @@ function widenRoleCheck(db: Database.Database) {
       | { sql: string } | undefined;
     return row?.sql ?? "";
   };
-  // "demo_admin" appears only in the widened constraint. Its presence is the
-  // migration's own idempotence check.
-  const usersStale = sqlOf("users") !== "" && !sqlOf("users").includes("demo_admin");
-  const rolesStale = sqlOf("role_assignments") !== "" && !sqlOf("role_assignments").includes("demo_admin");
+  // The newest role appears only in the widened constraint. Its presence is
+  // the migration's own idempotence check. It was "demo_admin" (handoff 07);
+  // it is "pcp_viewer" since Handoff 11, which added the primary-care role.
+  const usersStale = sqlOf("users") !== "" && !sqlOf("users").includes("pcp_viewer");
+  const rolesStale = sqlOf("role_assignments") !== "" && !sqlOf("role_assignments").includes("pcp_viewer");
   if (!usersStale && !rolesStale) return;
 
   db.pragma("foreign_keys = OFF");
@@ -3051,7 +3062,7 @@ function widenRoleCheck(db: Database.Database) {
             id TEXT PRIMARY KEY,
             email TEXT UNIQUE NOT NULL,
             name TEXT NOT NULL,
-            role TEXT NOT NULL CHECK (role IN ('member','clinician','reviewer','organization','payer','demo_admin')),
+            role TEXT NOT NULL CHECK (role IN ('member','clinician','reviewer','organization','payer','demo_admin','pcp_viewer')),
             password_hash TEXT NOT NULL,
             status TEXT NOT NULL DEFAULT 'active',
             created_at TEXT NOT NULL DEFAULT (datetime('now')),
@@ -3062,9 +3073,13 @@ function widenRoleCheck(db: Database.Database) {
         `);
         // Copy only the columns that exist on both sides, so a database from
         // before any given ensureColumn still migrates.
-        const shared = ["id", "email", "name", "role", "password_hash", "status",
-                        "created_at", "dob", "token_epoch", "tenant_id"]
-          .filter((c) => cols.includes(c));
+        const known = ["id", "email", "name", "role", "password_hash", "status",
+                       "created_at", "dob", "token_epoch", "tenant_id"];
+        // A column this rebuild does not know would be dropped by it, silently
+        // and for good. Refuse instead: whoever added it adds it here too.
+        const unknown = cols.filter((c) => !known.includes(c));
+        if (unknown.length > 0) throw new Error(`users rebuild would drop column(s) ${unknown.join(", ")}; add them to widenRoleCheck`);
+        const shared = known.filter((c) => cols.includes(c));
         // The role rewrite happens here, in the copy, rather than as a later
         // UPDATE — an UPDATE would have to run against the NEW constraint,
         // which no longer admits the value it is trying to read.
@@ -3082,7 +3097,7 @@ function widenRoleCheck(db: Database.Database) {
             id TEXT PRIMARY KEY,
             person_id TEXT NOT NULL REFERENCES persons(id),
             tenant_id TEXT NOT NULL REFERENCES tenants(id),
-            role TEXT NOT NULL CHECK (role IN ('member','clinician','care_manager','reviewer','organization','payer','demo_admin')),
+            role TEXT NOT NULL CHECK (role IN ('member','clinician','care_manager','reviewer','organization','payer','demo_admin','pcp_viewer')),
             scope TEXT,
             effective_from TEXT NOT NULL DEFAULT (datetime('now')),
             effective_to TEXT,

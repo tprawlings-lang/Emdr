@@ -143,6 +143,7 @@ test("every item naming a row names one that exists", () => {
 test("a verdict is refused for a row that does not exist", () => {
   const actions = fs.readFileSync(path.join(process.cwd(), "src/lib/actions.ts"), "utf8");
   const body = actions.slice(actions.indexOf("export async function recordRuleSignoff"));
-  assert.match(body.slice(0, 2000), /CONTENT_V10_RULES/);
+  // Handoff 10's rows and Handoff 11's, together (CONTENT_RULES).
+  assert.match(body.slice(0, 2000), /CONTENT_RULES/);
   assert.match(body.slice(0, 2000), /if \(!known\.some\(\(r\) => r\.id === ruleId\)\) redirect\(back\)/);
 });

@@ -75,7 +75,22 @@ export const CONTENT_V10_RULES: CatalogRule[] = [
   { id: "CV10_F05", category: "content_v10", reason: "Regulatory framing: confirm the new content keeps Steady within its general-wellness positioning." },
 ];
 
-const ROW_IDS = new Set(CONTENT_V10_RULES.map((r) => r.id));
+/** Handoff 11 (evolvedMD evaluation build) §7. Worded from the handoff's
+ *  table: the item, and what is being asked. Reviewers: CV11_01 the evolvedMD
+ *  clinical lead with one Steady reviewer; CV11_02, 03 and 05 Altschuler and
+ *  Allen; CV11_04 the evolvedMD clinical lead. None is signed. */
+export const CONTENT_V11_RULES: CatalogRule[] = [
+  { id: "CV11_01", category: "content_v11", reason: "Triage rules and thresholds (W2): the care manager's queue sorts by needs-attention in this order: PHQ-9 item 9 positive since last review; crisis script shown since last review; distress after an assigned activity above threshold; not at target (less than 50% PHQ-9 reduction at or after week 10); measure overdue beyond cadence plus 7 days; no app activity in 14 days after being active; visit in the next 2 days. Confirm the rules, order and thresholds." },
+  { id: "CV11_02", category: "content_v11", reason: "Member-controlled sharing of entries (W4): on any entry (activity reflection, thought record) a member can tap \"Share with my care team\". Only shared entries are visible to the care manager; sharing is per entry and revocable; the default is private. Confirm, noting it changes CV10_D04's \"entries private to the member\" into private unless the member shares." },
+  { id: "CV11_03", category: "content_v11", reason: "Problem-solving module content (W11): a short structured program Steady drafts (define the problem, set a realistic goal, list options, weigh them, choose one, plan steps, review), assignable by care managers and self-startable at the stabilization tier. Approve the text, or the partner loads its own worksheets instead." },
+  { id: "CV11_04", category: "content_v11", reason: "Escalation mapping and member crisis copy (W9): the member crisis path is unchanged (scripted interrupt, 988, SOS) with the partner's care-team contact and hours added; item-9 positives and crisis events become a top-priority queue item for the assigned care manager and appear on the leadership safety view; no response time is ever promised to members." },
+  { id: "CV11_05", category: "content_v11", reason: "Visit prep member prompt (W5): an optional \"what I want to talk about\" prompt sent to the member 2 days before a visit, shown to the care manager on the visit prep summary. Approve the prompt and its timing." },
+];
+
+/** Every content row the app knows, Handoff 10's and Handoff 11's. */
+export const CONTENT_RULES: CatalogRule[] = [...CONTENT_V10_RULES, ...CONTENT_V11_RULES];
+
+const ROW_IDS = new Set(CONTENT_RULES.map((r) => r.id));
 
 export function isContentRow(id: string): boolean {
   return ROW_IDS.has(id);

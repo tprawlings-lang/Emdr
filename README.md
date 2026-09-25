@@ -47,7 +47,15 @@
 >   team to review and test: assignments reuse Assign support, the three containers carry no
 >   protocol content, and the lane is absent outside the demo until a partner's clinical lead signs
 >   rows E01 to E05 (`tests/assigned-lane.test.ts`, `tests/companion-excludes-assigned.test.ts`).
->   The audio pipeline (package 11) waits on recordings (founder action F4). P0 replaced the companion's Butterfly Hug (self-administered BLS) with a
+>   The audio pipeline (package 11) waits on recordings (founder action F4).
+> - **[Handoff 11](docs/handoffs/11-evolvedmd-evaluation-build.md) (evolvedMD evaluation build) —
+>   package 1 of 11 done.** The evaluation tenant is one config file (`src/lib/tenants`), every
+>   screen in it carries "Evaluation environment. No patient data.", and PHI fields are refused by
+>   the database itself in SQLite and Postgres (`tests/evaluation-tenant.test.ts`, `npm run
+>   test:rls`). `pcp_viewer` exists with its own door and nothing else. Next: package 2, the
+>   synthetic caseload (about 280 patients over 16 weeks) and its reset. Clinician and partner
+>   questions for Handoffs 10 and 11 are in
+>   `docs/approvals/handoff-10-followup-worksheet-2026-09-25.pdf`. P0 replaced the companion's Butterfly Hug (self-administered BLS) with a
 >   still self-hold; `tests/kb-no-bls-shape.test.ts` guards every knowledge-base entry,
 >   practice and lesson. Content sign-off (`src/lib/content-signoff.ts`, `/review/content`)
 >   means unsigned content is absent outside demo. Practices carry optional gating and a
