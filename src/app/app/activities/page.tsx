@@ -3,6 +3,8 @@ import { requireMember } from "@/lib/auth";
 import { MemberPage } from "@/components/member/MemberPage";
 import { MODULES } from "@/lib/modules";
 import { checkModuleAccess } from "@/lib/gating";
+import { thoughtRecordStanding } from "@/lib/thought-records";
+import { THOUGHT_RECORD } from "@/lib/content/h10-thought-record";
 
 export const dynamic = "force-dynamic";
 
@@ -36,7 +38,7 @@ export const dynamic = "force-dynamic";
 // floor, and putting them behind anything would make a bad day the day they
 // disappear.
 
-const PRACTICES = [
+const PRACTICES: Array<{ href: string; name: string; body: string; minutes?: number }> = [
   {
     href: "/app/activities/breathe",
     name: "Breathe",
@@ -75,6 +77,13 @@ const PRACTICES = [
 export default async function ActivitiesPage() {
   const user = await requireMember();
 
+  // Handoff 10 2B. Like Skills, the card is here whenever the thought record
+  // is signed; whether today opens it is the page's to say. The card's words
+  // are the pack's (CV10_D04), and the pack gives no length, so none is shown.
+  const cards = (await thoughtRecordStanding(user.id)).state === "absent"
+    ? PRACTICES
+    : [...PRACTICES, { href: "/app/activities/thoughts", name: THOUGHT_RECORD.title, body: THOUGHT_RECORD.intro }];
+
   const moduleList = await Promise.all(
     MODULES.map(async (mod) => ({
       mod,
@@ -90,7 +99,7 @@ export default async function ActivitiesPage() {
       >
 
         <ul className="mt-8 grid gap-4 sm:grid-cols-2">
-          {PRACTICES.map((p) => (
+          {cards.map((p) => (
             <li key={p.href}>
               <Link
                 href={p.href}
@@ -99,7 +108,7 @@ export default async function ActivitiesPage() {
               >
                 <p className="type-display text-xl">{p.name}</p>
                 <p className="measure mt-1 text-sm text-olive">{p.body}</p>
-                <p className="mt-2 text-sm text-olive">About {p.minutes} minutes</p>
+                {p.minutes && <p className="mt-2 text-sm text-olive">About {p.minutes} minutes</p>}
               </Link>
             </li>
           ))}

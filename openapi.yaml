@@ -164,6 +164,56 @@ paths:
       responses:
         "200": { description: "{ ok: true }" }
         "404": { description: Not this member's, or already deleted }
+  /api/mobile/v1/thought-records:
+    get:
+      tags: [mobile-programs]
+      operationId: listThoughtRecords
+      summary: The member's own thought records, with the signed screen copy
+      description: >
+        Private to the member (Handoff 10 2B). `state` is "open" or "not_today"
+        (the cautious tier, ceiling 6). Records carry the member's words by
+        question, never a 0 to 10 strength. 404 while the content is not signed.
+      responses:
+        "200": { description: "{ state, pendingClinicalReview, copy, records }" }
+        "404": { description: Not available }
+    post:
+      tags: [mobile-programs]
+      operationId: saveThoughtRecord
+      summary: Save a thought record
+      description: >
+        Every field runs the crisis pre-filter before anything is saved. When
+        strengthBefore is 8 or more, the client offers the grounding skill
+        first (copy.strong), as the web does.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [situation]
+              properties:
+                situation: { type: string }
+                feeling: { type: string }
+                strengthBefore: { type: integer, minimum: 0, maximum: 10 }
+                thought: { type: string }
+                supports: { type: string }
+                against: { type: string }
+                balanced: { type: string }
+                strengthAfter: { type: integer, minimum: 0, maximum: 10 }
+      responses:
+        "201": { description: "{ id }" }
+        "409": { description: "{ crisis: true } — nothing saved" }
+        "422": { description: "{ error: not_today | write_something }" }
+  /api/mobile/v1/thought-records/{recordId}:
+    delete:
+      tags: [mobile-programs]
+      operationId: deleteThoughtRecord
+      summary: Delete a thought record (the words are overwritten, not hidden)
+      parameters:
+        - { name: recordId, in: path, required: true, schema: { type: string } }
+      responses:
+        "200": { description: "{ ok: true }" }
+        "404": { description: Not this member's, or already deleted }
 components:
   schemas:
     CompanionStatus:

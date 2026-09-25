@@ -1137,6 +1137,21 @@ export const WORK_REGISTER: WorkEntry[] = [
       "see this. You can delete it any time.', which is true here too.",
   },
   {
+    id: "clinical.member-thought-records",
+    title: "A member's own thought records: gated, screened, private, and never shown back as numbers",
+    state: "reachable",
+    code: "src/lib/thought-records.ts#saveThoughtRecord",
+    test: "tests/thought-records.test.ts",
+    note:
+      "Handoff 10 2B (CV10_D04), every string matched whole against the pack. A tool under Activities " +
+      "rather than a program part, because no signed program has one. The cautious tier, ceiling 6, asked " +
+      "on open and on save. A strength of 8 or more at step 2 offers 'Find the room' first. Every field " +
+      "runs the crisis pre-filter. Private: its own encrypted table that no clinician screen, review screen " +
+      "or companion file reads, and no spine event at all, not even the ratings, since the row says the " +
+      "entries are the member's own. The feeling is typed until a word list is signed " +
+      "(product.feelings-word-list). Web and mobile.",
+  },
+  {
     id: "clinical.path-review-mark",
     title: "The care team can record that a path's clinician review is done",
     state: "proposed",

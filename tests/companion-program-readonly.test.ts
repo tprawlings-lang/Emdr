@@ -18,8 +18,8 @@ import { companionTools, executeCompanionTool } from "../src/lib/companion-tools
 
 const SRC = path.join(process.cwd(), "src/lib");
 const code = (s: string) => s.replace(/\/\*[\s\S]*?\*\//g, " ").replace(/^\s*\/\/.*$/gm, " ");
-const PROGRAM_TABLES = /\b(program_enrollments|program_unit_completions|activity_entries|program_entry_screens)\b/;
-const PROGRAM_WRITERS = /\b(enrollInProgram|leaveProgram|completeUnit|saveActivityEntry|deleteActivityEntry|memberEntries|plannedItems|pickedAreas|reflectOptions)\b/;
+const PROGRAM_TABLES = /\b(program_enrollments|program_unit_completions|activity_entries|program_entry_screens|member_thought_records)\b/;
+const PROGRAM_WRITERS = /\b(enrollInProgram|leaveProgram|completeUnit|saveActivityEntry|deleteActivityEntry|memberEntries|plannedItems|pickedAreas|reflectOptions|saveThoughtRecord|memberThoughtRecords|deleteThoughtRecord)\b/;
 
 /** Every file the companion's model path is built from. */
 const COMPANION_FILES = ["companion-tools.ts", "companion-ai.ts", "companion.ts", "companion-proposals.ts", "session-companion.ts"];
@@ -33,6 +33,7 @@ test("no companion file names a program table or a program writer or reader", ()
     if (PROGRAM_TABLES.test(src)) hits.push(`${f}: ${src.match(PROGRAM_TABLES)![0]}`);
     if (PROGRAM_WRITERS.test(src)) hits.push(`${f}: ${src.match(PROGRAM_WRITERS)![0]}`);
     if (/from "\.\/program(s|-activities|-actions)"/.test(src)) hits.push(`${f}: imports the programs modules`);
+    if (/from "\.\/thought-records"/.test(src)) hits.push(`${f}: imports the member's thought records`);
   }
   assert.deepEqual(hits, []);
 });

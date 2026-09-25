@@ -810,6 +810,7 @@ export async function deleteAccount(formData: FormData) {
     await byUser("companion_proposals");
     await byUser("activity_entries");
     await byUser("program_entry_screens");
+    await byUser("member_thought_records");
     await byUser("program_unit_completions");
     await byUser("program_enrollments");
     await t.run(`UPDATE users SET email = ?, name = 'Deleted member', password_hash = '!', dob = NULL,

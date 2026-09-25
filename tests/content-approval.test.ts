@@ -26,6 +26,7 @@ import { TECHNIQUES } from "../src/lib/therapy-kb/catalog";
 import { SKILLS, ALL_PRACTICES } from "../src/lib/practices";
 import { LESSONS } from "../src/lib/lessons";
 import { H10_PROGRAMS } from "../src/lib/content/h10-programs";
+import { THOUGHT_RECORD } from "../src/lib/content/h10-thought-record";
 
 const ROOT = process.cwd();
 const sha = (rel: string) => crypto.createHash("sha256").update(fs.readFileSync(path.join(ROOT, rel))).digest("hex");
@@ -113,6 +114,12 @@ function packAtoms(): Set<string> {
     }
     const opening = line.match(/^Unit opening line for units [\d to]+: "(.*)"$/);
     if (opening) atoms.add(opening[1]);
+    // "If the feeling is 8 or higher at step 2: "…" [Find the room] [Keep going]"
+    const conditional = line.match(/^If [^"]+: "(.*)"((?: \[[^\]]+\])*)$/);
+    if (conditional) {
+      atoms.add(conditional[1]);
+      for (const b of conditional[2].matchAll(/\[([^\]]+)\]/g)) atoms.add(b[1]);
+    }
     const bullet = line.match(/^- ([^:"]+): (.*)$/);
     if (bullet) { atoms.add(bullet[1]); for (const i of bullet[2].split(" · ")) atoms.add(i); }
     const quote = line.match(/^>\s*(.*)$/);
@@ -122,8 +129,18 @@ function packAtoms(): Set<string> {
       rest = rest.replace(/\[[^\]]+\]/g, "").replace(/^If [^:]+:\s*/, "").trim();
       rest = rest.replace(/\s+0 to 10 \(optional\)$/, "").replace(/\s+\(optional(?: text)?\)$/, "").trim();
       rest = rest.replace(/^"(.*)"$/, "$1");
-      // A list bullet or a numbered question inside a quote.
-      rest = rest.replace(/^- /, "").replace(/^\d+\. /, "");
+      // A list bullet or a numbered question inside a quote, or a bold title.
+      rest = rest.replace(/^- /, "").replace(/^\d+\. /, "").replace(/^\*\*(.*)\*\*$/, "$1");
+      // The thought record's lines carry two things each: split, never reworded.
+      //   "What happened? (a sentence or two)" -> question, hint
+      //   "What did you feel? [feeling words] How strong? 0 to 10" -> each side of the field
+      for (const seg of quote[1].replace(/^\d+\. /, "").split(/\[[^\]]+\]/)) {
+        const t = seg.trim().replace(/\s+0 to 10$/, "");
+        if (!t) continue;
+        atoms.add(t);
+        const hinted = t.match(/^(.*?) \((.*)\)$/);
+        if (hinted) { atoms.add(hinted[1]); atoms.add(hinted[2]); }
+      }
       // A trailing build note, e.g. "(multi-select from units 1 to 3 items)".
       rest = rest.replace(/\s+\((?:multi-select|optional)[^)]*\)$/, "").trim();
       if (rest) atoms.add(rest);
@@ -230,4 +247,19 @@ test("Moving Toward's gate is the approved proposal (CV10_B02)", () => {
   assert.ok(mt.signoffRowIds.includes("CV10_F02"), "the program name rides on the founder's F02");
   const gentle = mt.units[1].copy!.categories!.filter((c) => c.gentle).map((c) => c.name);
   assert.deepEqual(gentle, ["Gentle"]);
+});
+
+test("every member-facing string in the thought record is in the pack, whole (CV10_D04)", () => {
+  const atoms = packAtoms();
+  const t = THOUGHT_RECORD;
+  const strings = [
+    t.title, t.intro, t.strengthQuestion, t.feelingWordsLabel, t.save, t.stop, t.privacy, t.strong, t.strongGround, t.strongContinue,
+    ...t.steps.flatMap((s) => ("hint" in s && s.hint ? [s.question, s.hint] : [s.question])),
+  ];
+  const missing = strings.filter((x) => !atoms.has(x));
+  assert.deepEqual(missing, [], "thought record strings not in the signed pack:\n  " + missing.join("\n  "));
+  // The grounding offer's threshold and target are the pack's.
+  assert.equal(t.strongAt, 8);
+  assert.ok(PACK.includes("If the feeling is 8 or higher at step 2:"));
+  assert.ok(PACK.includes(`[${t.strongGround}] [${t.strongContinue}]`));
 });

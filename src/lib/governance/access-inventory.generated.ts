@@ -587,6 +587,60 @@ export const ACCESS_INVENTORY: AccessInventory = {
       "exempt": []
     },
     {
+      "path": "/app/activities/thoughts",
+      "audience": "member",
+      "file": "app/app/activities/thoughts/page.tsx",
+      "owed": [
+        1,
+        2,
+        4,
+        5
+      ],
+      "found": {
+        "1": [
+          "requireUser(",
+          "requireMember("
+        ],
+        "2": [
+          "requireMember("
+        ],
+        "4": [
+          "hasConsent(",
+          "revoked_at IS NULL"
+        ],
+        "5": []
+      },
+      "missing": [],
+      "exempt": []
+    },
+    {
+      "path": "/app/activities/thoughts/new",
+      "audience": "member",
+      "file": "app/app/activities/thoughts/new/page.tsx",
+      "owed": [
+        1,
+        2,
+        4,
+        5
+      ],
+      "found": {
+        "1": [
+          "requireUser(",
+          "requireMember("
+        ],
+        "2": [
+          "requireMember("
+        ],
+        "4": [
+          "hasConsent(",
+          "revoked_at IS NULL"
+        ],
+        "5": []
+      },
+      "missing": [],
+      "exempt": []
+    },
+    {
       "path": "/app/activities/skills",
       "audience": "member",
       "file": "app/app/activities/skills/page.tsx",
@@ -3564,8 +3618,8 @@ export const ACCESS_INVENTORY: AccessInventory = {
       "exempt": []
     }
   ],
-  "protectedCount": 127,
-  "complete": 127,
+  "protectedCount": 129,
+  "complete": 129,
   "gapsByStep": {
     "1": 0,
     "2": 0,

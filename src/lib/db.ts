@@ -882,6 +882,19 @@ export const SCHEMA_SQL = `
   );
   CREATE INDEX IF NOT EXISTS idx_program_entry_screens_user ON program_entry_screens(user_id, program_id);
 
+  -- Handoff 10 2B: a member's own thought records. Encrypted (enc1:), soft-
+  -- deleted with the words overwritten, and read by nothing but the member:
+  -- no clinician surface, no companion, no spine event.
+  CREATE TABLE IF NOT EXISTS member_thought_records (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL REFERENCES users(id),
+    payload_enc TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+    deleted_at TEXT
+  );
+  CREATE INDEX IF NOT EXISTS idx_member_thought_records_user ON member_thought_records(user_id, created_at);
+
   CREATE TABLE IF NOT EXISTS lesson_reads (
     id TEXT PRIMARY KEY,
     user_id TEXT NOT NULL REFERENCES users(id),
@@ -2799,7 +2812,7 @@ export const TENANT_SCOPED_TABLES = [
   "post_session_checks", "module_unlocks", "alerts", "user_profiles",
   "user_triggers", "early_warning_signs", "readiness_assessments",
   "safety_plans", "ai_companion_preferences", "ai_memory_items", "companion_proposals",
-  "program_enrollments", "program_unit_completions", "activity_entries", "program_entry_screens",
+  "program_enrollments", "program_unit_completions", "activity_entries", "program_entry_screens", "member_thought_records",
   "ai_conversations", "ai_messages", "subscriptions", "payments",
   "program_plans", "care_tracks", "care_track_intake", "practice_completions",
   "upsell_events", "autopilot_plans", "autopilot_events", "lesson_reads",

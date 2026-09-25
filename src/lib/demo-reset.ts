@@ -226,6 +226,7 @@ export const DEMO_DATA_TABLES = [
   "companion_proposals",
   "activity_entries",
   "program_entry_screens",
+  "member_thought_records",
   "program_unit_completions",
   "program_enrollments",
   "ai_companion_preferences",

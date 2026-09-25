@@ -416,6 +416,16 @@ CREATE TABLE IF NOT EXISTS program_entry_screens (
 );
 CREATE INDEX IF NOT EXISTS idx_program_entry_screens_user ON program_entry_screens(user_id, program_id);
 
+CREATE TABLE IF NOT EXISTS member_thought_records (
+  id text PRIMARY KEY,
+  user_id text NOT NULL REFERENCES users(id),
+  payload_enc text NOT NULL,
+  created_at text NOT NULL DEFAULT steady_now(),
+  updated_at text NOT NULL DEFAULT steady_now(),
+  deleted_at text
+);
+CREATE INDEX IF NOT EXISTS idx_member_thought_records_user ON member_thought_records(user_id, created_at);
+
 CREATE TABLE IF NOT EXISTS upsell_events (
   id text PRIMARY KEY,
   user_id text NOT NULL REFERENCES users(id),
@@ -578,6 +588,7 @@ ALTER TABLE program_enrollments ADD COLUMN IF NOT EXISTS tenant_id text NOT NULL
 ALTER TABLE program_unit_completions ADD COLUMN IF NOT EXISTS tenant_id text NOT NULL DEFAULT '00000000000000000000000000';
 ALTER TABLE activity_entries ADD COLUMN IF NOT EXISTS tenant_id text NOT NULL DEFAULT '00000000000000000000000000';
 ALTER TABLE program_entry_screens ADD COLUMN IF NOT EXISTS tenant_id text NOT NULL DEFAULT '00000000000000000000000000';
+ALTER TABLE member_thought_records ADD COLUMN IF NOT EXISTS tenant_id text NOT NULL DEFAULT '00000000000000000000000000';
 ALTER TABLE review_notes ADD COLUMN IF NOT EXISTS tenant_id text NOT NULL DEFAULT '00000000000000000000000000';
 
 -- ---------------------------------------------------------------------------
