@@ -30,6 +30,9 @@ import { environmentStatus } from "@/lib/demo/preflight";
 import { resetScope } from "@/lib/demo/environment-lock";
 import { EnvironmentHealth } from "@/components/demo/EnvironmentHealth";
 import Link from "next/link";
+import { TENANT_CONFIGS } from "@/lib/tenants";
+import { evaluationLogins, evaluationPasswordHint, evaluationStatus } from "@/lib/tenants/evaluation-admin";
+import { rebuildEvaluationTenantAction } from "@/lib/tenants/evaluation-actions";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Demo administration — Steady" };
@@ -453,6 +456,60 @@ export default async function AdminDemoPage() {
             </button>
           </form>
         </Panel>
+
+        {/* Handoff 11 W1: an evaluation tenant is rebuilt on its own, from its
+            own plan, and a dataset reset above removes it with everything
+            else. The names come from the tenant config, never this page. */}
+        {TENANT_CONFIGS.filter((t) => t.mode === "evaluation").map((t) => {
+          const status = evaluationStatus(t.id);
+          const logins = evaluationLogins(t.id);
+          return (
+            <Panel
+              key={t.id}
+              title={`Evaluation tenant: ${t.displayName}`}
+              footnote="Synthetic caseload only. The tenant refuses PHI at the database, and a rebuild is refused if a real person is ever found in it."
+            >
+              <dl className="divide-y divide-ground/5">
+                <Row
+                  label="Caseload"
+                  value={status.seeded ? `${status.patients} synthetic patients, ${status.staff} staff` : "Not seeded"}
+                  detail={status.seeded ? `History runs to ${status.historyTo ?? "no activity"}. A rebuild moves it to today; same plan, same caseload.` : `Rebuild below, or run npx tsx scripts/seed-evaluation.ts ${t.id} on the server.`}
+                  bad={!status.seeded}
+                />
+              </dl>
+              {logins.length > 0 && (
+                <div className="mt-4">
+                  <h3 className="text-sm font-medium text-app-ink">Sign-ins</h3>
+                  <p className="mt-1 text-xs text-olive">Password: {evaluationPasswordHint()}</p>
+                  <ul className="mt-2 grid gap-1 text-sm sm:grid-cols-2">
+                    {logins.map((l) => (
+                      <li key={l.email} className="text-ground">
+                        <span className="font-mono text-xs">{l.email}</span>{" "}
+                        <span className="text-xs text-olive">{l.name} · {l.role}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              <form action={rebuildEvaluationTenantAction} className="mt-4 space-y-4">
+                <input type="hidden" name="tenantId" value={t.id} />
+                <label className="block text-sm">
+                  <span className="font-medium text-app-ink">Reason</span>
+                  <input
+                    name="reason"
+                    required
+                    minLength={4}
+                    placeholder="Fresh caseload before the Tuesday walkthrough"
+                    className="mt-1 w-full rounded-xl border border-ground/20 bg-app-surface px-3 py-2 text-sm"
+                  />
+                </label>
+                <button className="rounded-full bg-app-ink px-4 py-2 text-sm font-medium text-app-surface hover:opacity-90">
+                  Rebuild the evaluation tenant
+                </button>
+              </form>
+            </Panel>
+          );
+        })}
 
         <Panel
           title="Validate projections"

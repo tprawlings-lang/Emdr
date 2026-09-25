@@ -552,6 +552,30 @@ CREATE TABLE IF NOT EXISTS intervention_run_responses (
 );
 CREATE INDEX IF NOT EXISTS idx_intervention_run_responses_run ON intervention_run_responses(run_id);
 
+-- Handoff 11: visits and primary-care links (they reference persons).
+CREATE TABLE IF NOT EXISTS care_visits (
+  id text PRIMARY KEY,
+  tenant_id text NOT NULL,
+  person_id text NOT NULL REFERENCES persons(id),
+  clinician_person_id text NOT NULL,
+  kind text NOT NULL CHECK (kind IN ('visit','checkup')),
+  minutes integer NOT NULL,
+  scheduled_at text NOT NULL,
+  status text NOT NULL CHECK (status IN ('scheduled','completed','missed','canceled')),
+  created_at text NOT NULL DEFAULT steady_now()
+);
+CREATE INDEX IF NOT EXISTS idx_care_visits_person ON care_visits(tenant_id, person_id, scheduled_at);
+
+CREATE TABLE IF NOT EXISTS primary_care_links (
+  id text PRIMARY KEY,
+  tenant_id text NOT NULL,
+  pcp_person_id text NOT NULL REFERENCES persons(id),
+  person_id text NOT NULL REFERENCES persons(id),
+  started_at text NOT NULL,
+  ended_at text
+);
+CREATE INDEX IF NOT EXISTS idx_primary_care_links_pcp ON primary_care_links(tenant_id, pcp_person_id);
+
 CREATE TABLE IF NOT EXISTS external_identifiers (
   id text PRIMARY KEY,
   person_id text NOT NULL REFERENCES persons(id),
@@ -922,3 +946,105 @@ CREATE TRIGGER phi_lock_safety_plans_support_contact_name BEFORE INSERT OR UPDAT
 DROP TRIGGER IF EXISTS phi_lock_safety_plans_support_contact_method ON safety_plans;
 CREATE TRIGGER phi_lock_safety_plans_support_contact_method BEFORE INSERT OR UPDATE ON safety_plans
   FOR EACH ROW EXECUTE FUNCTION steady_phi_lock('support_contact_method', 'user_id');
+
+-- ---------------------------------------------------------------------------
+-- Handoff 11 package 2: a row about a person belongs to that person's tenant.
+-- The live writers never name a tenant, so the column default files every row
+-- in the platform tenant — and the tenant_isolation policy above then refuses
+-- the insert from a session in any other tenant. The row takes its person's
+-- tenant when the writer left the platform default; a named tenant is kept.
+-- The list is src/lib/tenants/inherit.ts over TENANT_SCOPED_TABLES; a test
+-- holds this array to it. BEFORE INSERT, so the policy's WITH CHECK sees the
+-- filled tenant. SECURITY DEFINER for the same reason as the PHI lock.
+CREATE OR REPLACE FUNCTION steady_tenant_inherit() RETURNS trigger
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  owner text := to_jsonb(NEW) ->> TG_ARGV[0];
+  t text;
+BEGIN
+  IF NEW.tenant_id <> '00000000000000000000000000' OR owner IS NULL THEN RETURN NEW; END IF;
+  SELECT COALESCE((SELECT tenant_id FROM users WHERE id = owner), (SELECT tenant_id FROM persons WHERE id = owner)) INTO t;
+  IF t IS NOT NULL THEN NEW.tenant_id := t; END IF;
+  RETURN NEW;
+END $$;
+
+DO $$
+DECLARE
+  pair text;
+  tbl text;
+  col text;
+BEGIN
+  FOREACH pair IN ARRAY ARRAY[
+    'caseload_assignments:person_id',
+    'consents:user_id',
+    'screenings:user_id',
+    'checkins:user_id',
+    'therapy_sessions:user_id',
+    'clinical_notes:person_id',
+    'post_session_checks:user_id',
+    'module_unlocks:user_id',
+    'alerts:user_id',
+    'user_profiles:user_id',
+    'user_triggers:user_id',
+    'early_warning_signs:user_id',
+    'readiness_assessments:user_id',
+    'safety_plans:user_id',
+    'ai_companion_preferences:user_id',
+    'ai_memory_items:user_id',
+    'companion_proposals:user_id',
+    'program_enrollments:user_id',
+    'program_unit_completions:user_id',
+    'activity_entries:user_id',
+    'program_entry_screens:user_id',
+    'member_thought_records:user_id',
+    'intervention_runs:person_id',
+    'intervention_run_responses:person_id',
+    'care_visits:person_id',
+    'primary_care_links:person_id',
+    'ai_conversations:user_id',
+    'ai_messages:user_id',
+    'subscriptions:user_id',
+    'payments:user_id',
+    'program_plans:user_id',
+    'care_tracks:user_id',
+    'care_track_intake:user_id',
+    'practice_completions:user_id',
+    'upsell_events:user_id',
+    'autopilot_plans:user_id',
+    'autopilot_events:user_id',
+    'lesson_reads:user_id',
+    'screening_progress:user_id',
+    'support_assignments:person_id',
+    'care_handoffs:person_id',
+    'person_attributes:person_id',
+    'claims:person_id',
+    'clinician_thoughts:person_id',
+    'clinician_thought_transcripts:person_id',
+    'intervention_instances:person_id',
+    'intervention_response_observations:person_id',
+    'response_fingerprint_snapshots:person_id',
+    'clinical_attention_signals:person_id',
+    'between_visit_care_actions:person_id',
+    'recovery_trajectory_snapshots:person_id',
+    'recovery_trajectory_reviews:person_id',
+    'therapeutic_load_snapshots:person_id',
+    'therapeutic_load_reviews:person_id',
+    'return_to_life_goals:person_id',
+    'return_to_life_goal_levels:person_id',
+    'return_to_life_observations:person_id',
+    'clinical_memory_items:person_id',
+    'clinical_threads:person_id',
+    'clinical_thread_memberships:person_id',
+    'clinical_inferences:person_id',
+    'clinical_retrieval_documents:person_id'
+  ] LOOP
+    tbl := split_part(pair, ':', 1);
+    col := split_part(pair, ':', 2);
+    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = current_schema() AND table_name = tbl AND column_name = col)
+       AND EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = current_schema() AND table_name = tbl AND column_name = 'tenant_id') THEN
+      EXECUTE format('DROP TRIGGER IF EXISTS tenant_inherit ON %I', tbl);
+      EXECUTE format('CREATE TRIGGER tenant_inherit BEFORE INSERT ON %I FOR EACH ROW EXECUTE FUNCTION steady_tenant_inherit(%L)', tbl, col);
+    END IF;
+  END LOOP;
+END
+$$;

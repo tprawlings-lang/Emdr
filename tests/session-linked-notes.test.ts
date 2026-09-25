@@ -55,7 +55,14 @@ import { assemble, type PrepInputs } from "../src/lib/clinical/session-prep";
 import type { TimelineEntry } from "../src/lib/clinical/timeline";
 
 const db = getDb();
-const ctx: TenantContext = { tenantId: PLATFORM_TENANT_ID, personId: demoId(2) };
+// The demo clinician's own tenant, as every clinician page resolves it. This
+// was the platform tenant until Handoff 11 package 2: the sessions below are
+// inserted without a tenant, and the column default used to file them there
+// rather than in their member's tenant (src/lib/tenants/inherit.ts).
+const ctx: TenantContext = {
+  tenantId: (db.prepare("SELECT tenant_id FROM users WHERE id = ?").get(demoId(2)) as { tenant_id: string } | undefined)?.tenant_id ?? PLATFORM_TENANT_ID,
+  personId: demoId(2),
+};
 const MEMBER = demoId(0);
 const OTHER = demoId(1);
 const NOW = new Date("2026-09-04T10:00:00.000Z");

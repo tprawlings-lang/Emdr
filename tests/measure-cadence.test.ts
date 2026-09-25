@@ -145,6 +145,8 @@ test("only the one writer saves questionnaire answers", () => {
   const ALLOWED = new Set([
     "lib/measures/cadence.ts", "lib/fitness-screener.ts",
     "lib/demo-seed.ts", "lib/demo-population-generator.ts", "lib/agents/runner.ts", "lib/demo/new-patient-store.ts",
+    // The evaluation tenant's synthetic caseload (Handoff 11 W1): a seeder too.
+    "lib/tenants/evaluation-seed.ts",
   ]);
   const offenders: string[] = [];
   const walk = (d: string) => {

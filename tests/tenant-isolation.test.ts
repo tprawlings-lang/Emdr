@@ -213,10 +213,14 @@ test("ATTACK: the event log is tenant-scoped on read", async () => {
 test("the platform (consumer) tenant is isolated from enterprise tenants", async () => {
   const c = await data();
   const id = newId();
+  // A consumer: a person in the platform tenant. (A row written without a
+  // tenant follows its person — src/lib/tenants/inherit.ts — so a check-in for
+  // orgA's person would land in orgA; that is asserted in tenant-inherit.test.)
+  await c.run("INSERT INTO users (id, email, name, role, password_hash) VALUES ('iso-user-P', 'iso-P@test.local', 'Iso P', 'member', 'x')");
   await c.run(
     `INSERT INTO checkins (id, user_id, checkin_date, activation, shutdown, harm_urge,
        feels_safe, dissociation, sleep_quality, substance_flag, recommended_action)
-     VALUES (?, 'iso-user-A', '2026-06-01', 4, 2, 0, 1, 2, 7, 0, 'processing_ok')`,
+     VALUES (?, 'iso-user-P', '2026-06-01', 4, 2, 0, 1, 2, 7, 0, 'processing_ok')`,
     [id]
   );
   // Written with the default tenant → the platform tenant, not orgA.

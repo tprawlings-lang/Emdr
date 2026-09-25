@@ -49,11 +49,17 @@
 >   rows E01 to E05 (`tests/assigned-lane.test.ts`, `tests/companion-excludes-assigned.test.ts`).
 >   The audio pipeline (package 11) waits on recordings (founder action F4).
 > - **[Handoff 11](docs/handoffs/11-evolvedmd-evaluation-build.md) (evolvedMD evaluation build) —
->   package 1 of 11 done.** The evaluation tenant is one config file (`src/lib/tenants`), every
+>   packages 1 and 2 of 11 done.** The evaluation tenant is one config file (`src/lib/tenants`), every
 >   screen in it carries "Evaluation environment. No patient data.", and PHI fields are refused by
 >   the database itself in SQLite and Postgres (`tests/evaluation-tenant.test.ts`, `npm run
->   test:rls`). `pcp_viewer` exists with its own door and nothing else. Next: package 2, the
->   synthetic caseload (about 280 patients over 16 weeks) and its reset. Clinician and partner
+>   test:rls`). `pcp_viewer` exists with its own door and nothing else. Package 2: `npm run
+>   seed:evolvedmd` (or the panel on `/admin/demo`) builds the synthetic caseload — 3 care
+>   managers with 95/93/92 patients, a consultant, 2 primary care providers, leadership, 3 member
+>   testers, 16 weeks of history, every W1 trajectory — deterministically, and rebuilds only that
+>   tenant (`tests/evaluation-seed.test.ts`; sign-ins in `docs/demo/evaluation-logins.md`). A demo
+>   reset removes it; rebuild it afterwards. Found on the way and fixed at the database: rows the
+>   live writers file without a tenant now take their person's tenant (`tests/tenant-inherit.test.ts`).
+>   Next: package 3, assign and track. Clinician and partner
 >   questions for Handoffs 10 and 11 are in
 >   `docs/approvals/handoff-10-followup-worksheet-2026-09-25.pdf`. P0 replaced the companion's Butterfly Hug (self-administered BLS) with a
 >   still self-hold; `tests/kb-no-bls-shape.test.ts` guards every knowledge-base entry,

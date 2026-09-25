@@ -16,6 +16,7 @@
     "backup": "tsx scripts/backup.ts",
     "restore": "tsx scripts/restore.ts",
     "demo": "tsx scripts/demo.ts",
+    "seed:evolvedmd": "tsx scripts/seed-evaluation.ts evolvedmd-eval",
     "gen:projection-hashes": "tsx scripts/gen-projection-hashes.ts",
     "perfcheck": "tsx scripts/perfcheck.ts"
   },

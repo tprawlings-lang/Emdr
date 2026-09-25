@@ -848,6 +848,28 @@ export const REGISTER_FINDINGS: EntryFinding[] = [
     "problems": []
   },
   {
+    "id": "platform.evaluation-caseload",
+    "claimed": "reachable",
+    "supported": "reachable",
+    "facts": {
+      "defined": true,
+      "tested": true,
+      "wired": true
+    },
+    "problems": []
+  },
+  {
+    "id": "platform.tenant-inherit",
+    "claimed": "reachable",
+    "supported": "reachable",
+    "facts": {
+      "defined": true,
+      "tested": true,
+      "wired": true
+    },
+    "problems": []
+  },
+  {
     "id": "clinical.assigned-lane",
     "claimed": "reachable",
     "supported": "reachable",

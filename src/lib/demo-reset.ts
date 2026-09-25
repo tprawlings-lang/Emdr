@@ -204,6 +204,9 @@ export const DEMO_DATA_TABLES = [
   // reference their contract. Ordered for, not disabled — a mistake in this
   // list fails loudly instead of leaving orphans.
   "export_jobs",
+  // Before persons: Handoff 11's visits and primary-care links reference them.
+  "care_visits",
+  "primary_care_links",
   // Before persons: the Phase 3 lane's runs reference them (responses first,
   // since they reference the runs).
   "intervention_run_responses",

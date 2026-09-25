@@ -1196,6 +1196,40 @@ export const WORK_REGISTER: WorkEntry[] = [
       "then every account but a member or clinician would be refused there.",
   },
   {
+    id: "platform.evaluation-caseload",
+    title: "The evaluation tenant's synthetic caseload, a script and a one-click rebuild",
+    state: "reachable",
+    code: "src/lib/tenants/evaluation-admin.ts#rebuildEvaluationTenant",
+    test: "tests/evaluation-seed.test.ts",
+    note:
+      "Handoff 11 package 2 (W1). A generic generator driven by the tenant's plan: three care managers " +
+      "carrying 95, 93 and 92 patients, a consultant, two primary care providers, leadership and three " +
+      "member testers, with 16 weeks of PHQ-9 and GAD-7 on the tenant cadence, check-ins, visits and " +
+      "primary care links. Every trajectory W1 names is present and checked in the rows, not the " +
+      "generator's counts; exactly one item 9 positive and one crisis check-in, each with its alert. Same " +
+      "plan and day give the same rows (tested across a second boundary). The reset removes only the " +
+      "tenant's rows; the rebuild refuses a standard tenant or one holding a real person. Seeded members " +
+      "have a zero-price membership, so testers meet the app rather than the paywall. The global demo " +
+      "reset does not seed it, so the 240-person demo is unchanged; the tenant's seed script or the panel " +
+      "on /admin/demo does.",
+  },
+  {
+    id: "platform.tenant-inherit",
+    title: "A row written without a tenant takes its person's tenant",
+    state: "reachable",
+    code: "src/lib/tenants/inherit.ts#tenantInheritTriggersSqlite",
+    test: "tests/tenant-inherit.test.ts",
+    note:
+      "Found building the evaluation caseload. The live writers (web and mobile check-in, alerts, " +
+      "measures, program entries) never name a tenant, so the column default filed every row in the " +
+      "platform tenant, while the seeded rows and every clinician reader use the person's own tenant. " +
+      "In Postgres the RLS check refused such an insert outright (test:rls shows it, with the trigger " +
+      "removed and restored). Now a trigger per tenant-scoped table fills the tenant from the person when " +
+      "the writer left the platform default; a named tenant is kept, and platform people are untouched. " +
+      "Rows already written are not moved: the demo has 26 alerts filed in the platform tenant for " +
+      "people in organisations, and a deployed database may hold more; a demo reset rewrites them.",
+  },
+  {
     id: "clinical.assigned-lane",
     title: "The clinician-assigned lane: built ahead of its gate, absent outside the demo, no protocol content",
     state: "reachable",

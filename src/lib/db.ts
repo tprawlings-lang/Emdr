@@ -10,6 +10,7 @@ import { seedPopulationData, seedOperationalFeeds, orgTenantId } from "./demo-po
 import { seedReviewConsole } from "./demo-review-seed";
 import { seedClinicianThoughts } from "./demo-thoughts-seed";
 import { phiLockTriggersSqlite } from "./tenants/phi";
+import { inheritingTables, tenantInheritTriggersSqlite } from "./tenants/inherit";
 import {
   generatePopulationHistory, backfillPlanVersions, backfillFunctionMeasure,
 } from "./demo-population-generator";
@@ -895,6 +896,35 @@ export const SCHEMA_SQL = `
     deleted_at TEXT
   );
   CREATE INDEX IF NOT EXISTS idx_member_thought_records_user ON member_thought_records(user_id, created_at);
+
+  -- Handoff 11: visits. The first scheduling model in the product — until
+  -- now "there is no calendar in this environment". A monthly visit and a
+  -- check-up, as a partner's care managers run them; the triage queue's
+  -- "visit in the next 2 days" and visit prep read it.
+  CREATE TABLE IF NOT EXISTS care_visits (
+    id TEXT PRIMARY KEY,
+    tenant_id TEXT NOT NULL,
+    person_id TEXT NOT NULL REFERENCES persons(id),
+    clinician_person_id TEXT NOT NULL,
+    kind TEXT NOT NULL CHECK (kind IN ('visit','checkup')),
+    minutes INTEGER NOT NULL,
+    scheduled_at TEXT NOT NULL,
+    status TEXT NOT NULL CHECK (status IN ('scheduled','completed','missed','canceled')),
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+  CREATE INDEX IF NOT EXISTS idx_care_visits_person ON care_visits(tenant_id, person_id, scheduled_at);
+
+  -- Handoff 11 §1: which patients a primary care provider may see a summary
+  -- of. The pcp_viewer role reads nothing without a row here.
+  CREATE TABLE IF NOT EXISTS primary_care_links (
+    id TEXT PRIMARY KEY,
+    tenant_id TEXT NOT NULL,
+    pcp_person_id TEXT NOT NULL REFERENCES persons(id),
+    person_id TEXT NOT NULL REFERENCES persons(id),
+    started_at TEXT NOT NULL,
+    ended_at TEXT
+  );
+  CREATE INDEX IF NOT EXISTS idx_primary_care_links_pcp ON primary_care_links(tenant_id, pcp_person_id);
 
   -- Handoff 10 Phase 3 (Handoff 03 §8): runs of a clinician-assigned practice
   -- and what was written in them. The assignment itself is a row in
@@ -2682,6 +2712,10 @@ function migrate(db: Database.Database) {
   for (const table of TENANT_SCOPED_TABLES) {
     ensureColumn(db, table, "tenant_id", `TEXT NOT NULL DEFAULT '${PLATFORM_TENANT_ID}'`);
   }
+  // Handoff 11 package 2: a row a writer left at the platform default takes
+  // its person's tenant (src/lib/tenants/inherit.ts). After the loop above,
+  // which is what gives most of these tables the column at all.
+  db.exec(tenantInheritTriggersSqlite(inheritingTables(db, TENANT_SCOPED_TABLES), PLATFORM_TENANT_ID));
 
   // ── The columns nobody remembered to migrate ─────────────────────────────
   //
@@ -2859,7 +2893,7 @@ export const TENANT_SCOPED_TABLES = [
   "user_triggers", "early_warning_signs", "readiness_assessments",
   "safety_plans", "ai_companion_preferences", "ai_memory_items", "companion_proposals",
   "program_enrollments", "program_unit_completions", "activity_entries", "program_entry_screens", "member_thought_records",
-  "intervention_runs", "intervention_run_responses",
+  "intervention_runs", "intervention_run_responses", "care_visits", "primary_care_links",
   "ai_conversations", "ai_messages", "subscriptions", "payments",
   "program_plans", "care_tracks", "care_track_intake", "practice_completions",
   "upsell_events", "autopilot_plans", "autopilot_events", "lesson_reads",

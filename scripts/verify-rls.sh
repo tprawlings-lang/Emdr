@@ -171,6 +171,18 @@ assert "the same date of birth is accepted in an ordinary tenant" "1990-01-01" \
   "$(q postgres "UPDATE users SET dob='1990-01-01' WHERE id='u-a'; SELECT dob FROM users WHERE id='u-a'")"
 
 echo
+echo "==> a row takes its person's tenant when the writer names none (Handoff 11)"
+# The live writers omit tenant_id. Without the inherit trigger the default
+# files the row in the platform tenant, and the policy refuses the insert from
+# a session in the person's own tenant.
+assert "a check-in written without a tenant lands in its member's tenant" "T_EVAL" \
+  "$(q steady_app "SET app.tenant_id='T_EVAL'; INSERT INTO checkins (id,user_id,checkin_date,activation,shutdown,harm_urge,feels_safe,dissociation,sleep_quality,substance_flag,recommended_action) VALUES ('ck-e','u-e','2026-09-25',3,3,0,1,1,6,0,'continue'); SELECT tenant_id FROM checkins WHERE id='ck-e'")"
+assert "a writer that names a tenant keeps it" "T_ALPHA" \
+  "$(q postgres "INSERT INTO checkins (id,user_id,tenant_id,checkin_date,activation,shutdown,harm_urge,feels_safe,dissociation,sleep_quality,substance_flag,recommended_action) VALUES ('ck-n','u-e','T_ALPHA','2026-09-24',3,3,0,1,1,6,0,'continue'); SELECT tenant_id FROM checkins WHERE id='ck-n'")"
+assert_blocked "the inherited tenant still cannot be written from another tenant's session" \
+  "$(q steady_app "SET app.tenant_id='T_ALPHA'; INSERT INTO checkins (id,user_id,checkin_date,activation,shutdown,harm_urge,feels_safe,dissociation,sleep_quality,substance_flag,recommended_action) VALUES ('ck-x','u-e','2026-09-23',3,3,0,1,1,6,0,'continue')")"
+
+echo
 if [ "$FAILURES" -eq 0 ]; then
   echo "PASS — row-level security holds against every cross-tenant attack case."
 else
